@@ -44,4 +44,20 @@ if (typeof window !== 'undefined') {
     configurable: true,
     value: makeMemoryStorage(),
   })
+  if (!window.matchMedia) {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: (query: string): MediaQueryList =>
+        ({
+          matches: false,
+          media: query,
+          onchange: null,
+          addListener: () => {},
+          removeListener: () => {},
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          dispatchEvent: () => false,
+        }) as unknown as MediaQueryList,
+    })
+  }
 }

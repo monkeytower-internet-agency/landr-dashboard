@@ -31,4 +31,30 @@ export const t = {
     switchTo: 'Switch operator',
     loading: 'Loading operators…',
   },
+  nav: {
+    sectionMain: 'Workspace',
+    dashboard: 'Dashboard',
+    bookings: 'Bookings',
+  },
+  theme: {
+    switchToDark: 'Switch to dark theme',
+    switchToLight: 'Switch to light theme',
+  },
+  userMenu: {
+    label: 'User menu',
+  },
+  bookings: {
+    title: 'Bookings',
+    empty: 'No bookings yet.',
+    loading: 'Loading bookings…',
+    error: 'Failed to load bookings.',
+    columnDate: 'Date',
+    columnCustomer: 'Customer',
+    columnProduct: 'Product',
+    columnStatus: 'Status',
+    columnPrice: 'Price',
+    filterPlaceholder: 'Search bookings…',
+    detailsTitle: 'Booking',
+    detailsClose: 'Close',
+  },
 } as const

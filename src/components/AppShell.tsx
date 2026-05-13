@@ -1,12 +1,75 @@
 import { useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
+import { LogOutIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Separator } from '@/components/ui/separator'
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from '@/components/ui/sidebar'
+import { AppSidebar } from '@/components/AppSidebar'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { useAuth } from '@/lib/auth'
 import { t } from '@/lib/strings'
 
+function UserMenu({ onSignOut }: { onSignOut: () => void }) {
+  const { user } = useAuth()
+  const email = user?.email ?? ''
+  const initial = (email[0] ?? '?').toUpperCase()
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={t.userMenu.label}
+          className="rounded-full"
+        >
+          <span
+            aria-hidden
+            className="bg-muted text-muted-foreground flex size-7 items-center justify-center rounded-full text-xs font-medium"
+          >
+            {initial}
+          </span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[14rem]">
+        {email ? (
+          <DropdownMenuLabel className="truncate text-xs font-normal">
+            <span
+              className="text-muted-foreground"
+              aria-label="signed-in-user"
+            >
+              {email}
+            </span>
+          </DropdownMenuLabel>
+        ) : (
+          <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+            {t.userMenu.label}
+          </DropdownMenuLabel>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={onSignOut}>
+          <LogOutIcon className="size-4" />
+          <span>{t.auth.signOut}</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, signOut } = useAuth()
+  const { signOut } = useAuth()
   const navigate = useNavigate()
 
   async function onSignOut() {
@@ -15,31 +78,28 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="border-b">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
-          <div className="flex items-center gap-3">
-            <span className="font-semibold">{t.app.name}</span>
-            <OperatorSwitcher />
-          </div>
-          <div className="flex items-center gap-3">
-            {user?.email ? (
-              <span
-                className="text-muted-foreground hidden text-sm sm:inline"
-                aria-label="signed-in-user"
-              >
-                {user.email}
-              </span>
-            ) : null}
-            <Button variant="outline" size="sm" onClick={onSignOut}>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="bg-background sticky top-0 z-10 flex h-14 items-center gap-2 border-b px-4">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="h-6" />
+          <OperatorSwitcher />
+          <div className="ml-auto flex items-center gap-1">
+            <ThemeToggle />
+            <UserMenu onSignOut={onSignOut} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onSignOut}
+              className="hidden sm:inline-flex"
+            >
               {t.auth.signOut}
             </Button>
           </div>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-6">
-        {children}
-      </main>
-    </div>
+        </header>
+        <main className="flex-1 px-4 py-6 sm:px-6">{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
