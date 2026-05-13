@@ -12,6 +12,14 @@ export function getSupabase(): SupabaseClient {
       'Supabase env vars missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUB_KEY in .env',
     )
   }
-  client = createClient(url, publishableKey)
+  client = createClient(url, publishableKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  })
   return client
 }
+
+export const supabase = getSupabase()
