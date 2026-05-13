@@ -1,8 +1,27 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import {
+  render as rtlRender,
+  screen,
+  waitFor,
+  type RenderOptions,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ReactElement } from 'react'
 import type { Session } from '@supabase/supabase-js'
+
+function render(ui: ReactElement, options?: RenderOptions) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return rtlRender(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+    ...options,
+  })
+}
 
 type FakeRow = {
   operator_id: string
