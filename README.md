@@ -44,7 +44,7 @@ Dev Supabase runs on Magrathea at `http://100.64.0.7:54321` over Tailscale (see 
 | :----------------------- | :--------------------------------------------------- |
 | `VITE_SUPABASE_URL`      | Supabase base URL (Tailscale in dev; cloud in prod)  |
 | `VITE_SUPABASE_PUB_KEY`  | Supabase **publishable** key (anon, RLS-enforced)    |
-| `VITE_API_BASE_URL`      | FastAPI base URL (`100.64.0.5:8080` dev / `api.landr.app` prod) |
+| `VITE_API_BASE_URL`      | FastAPI base URL (`100.64.0.5:8080` dev / `api.landr.de` prod) |
 
 `.env` is gitignored — only `.env.example` is committed.
 

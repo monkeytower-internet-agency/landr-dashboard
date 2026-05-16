@@ -31,12 +31,12 @@ The workflow has sensible defaults; override per environment via repo variables:
 
 ```bash
 gh variable set VITE_SUPABASE_URL --repo monkeytower-internet-agency/landr-dashboard --body "https://supabase.magrathea.dalm.de"
-gh variable set VITE_API_BASE_URL --repo monkeytower-internet-agency/landr-dashboard --body "https://api.landr.app"
+gh variable set VITE_API_BASE_URL --repo monkeytower-internet-agency/landr-dashboard --body "https://api.landr.de"
 ```
 
-### Custom domain `dashboard.landr.app`
+### Custom domain `dashboard.landr.de`
 
-DNS is managed in DALM (Ansible/Tofu). The CNAME from `dashboard.landr.app` → `landr-dashboard.pages.dev` is filed as a separate DALM ticket (mirrors the `book.landr.app` shape from the widget). Until that's deployed, the project is reachable at `https://landr-dashboard.pages.dev/`.
+DNS is managed in DALM (Ansible/Tofu). The CNAME from `dashboard.landr.de` → `landr-dashboard.pages.dev` is filed as a separate DALM ticket (mirrors the `book.landr.de` shape from the widget). Until that's deployed, the project is reachable at `https://landr-dashboard.pages.dev/`.
 
 ## Manual trigger
 

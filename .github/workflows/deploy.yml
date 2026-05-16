@@ -34,7 +34,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://supabase.magrathea.dalm.de' }}
           VITE_SUPABASE_PUB_KEY: ${{ secrets.VITE_SUPABASE_PUB_KEY }}
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://api.landr.app' }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://api.landr.de' }}
         run: npm run build
 
       - name: Ensure Cloudflare Pages project exists (idempotent)
