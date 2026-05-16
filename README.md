@@ -23,7 +23,7 @@ npm install
 npm run dev           # http://localhost:5173
 ```
 
-Dev Supabase runs on Magrathea at `http://100.64.0.7:54321` over Tailscale (see project root `CLAUDE.md`).
+Dev Supabase: Studio at `https://supabase.dev.landr.de` · Kong API at `https://kong.dev.landr.de` · FastAPI at `https://api.dev.landr.de` (all Trillian via Caddy — see project root `CLAUDE.md`).
 
 ## Scripts
 
@@ -44,7 +44,7 @@ Dev Supabase runs on Magrathea at `http://100.64.0.7:54321` over Tailscale (see 
 | :----------------------- | :--------------------------------------------------- |
 | `VITE_SUPABASE_URL`      | Supabase base URL (Tailscale in dev; cloud in prod)  |
 | `VITE_SUPABASE_PUB_KEY`  | Supabase **publishable** key (anon, RLS-enforced)    |
-| `VITE_API_BASE_URL`      | FastAPI base URL (`100.64.0.5:8080` dev / `api.landr.de` prod) |
+| `VITE_API_BASE_URL`      | FastAPI base URL (`https://api.dev.landr.de` dev / `https://api.landr.de` prod) |
 
 `.env` is gitignored — only `.env.example` is committed.
 

@@ -30,7 +30,7 @@ Both Cloudflare values are stored in the DALM vault at `~/Projects/dalm/group_va
 The workflow has sensible defaults; override per environment via repo variables:
 
 ```bash
-gh variable set VITE_SUPABASE_URL --repo monkeytower-internet-agency/landr-dashboard --body "https://supabase.magrathea.dalm.de"
+gh variable set VITE_SUPABASE_URL --repo monkeytower-internet-agency/landr-dashboard --body "https://<project>.supabase.co"
 gh variable set VITE_API_BASE_URL --repo monkeytower-internet-agency/landr-dashboard --body "https://api.landr.de"
 ```
 
