@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -29,6 +30,7 @@ export function Login() {
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   if (!authLoading && session) {
     const from = (location.state as LocationState | null)?.from?.pathname ?? '/'
@@ -99,18 +101,30 @@ export function Login() {
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="password">{t.auth.passwordLabel}</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder={t.auth.passwordPlaceholder}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                aria-invalid={passwordError ? true : undefined}
-                aria-describedby={passwordError ? 'password-error' : undefined}
-                disabled={submitting}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  placeholder={t.auth.passwordPlaceholder}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  aria-invalid={passwordError ? true : undefined}
+                  aria-describedby={passwordError ? 'password-error' : undefined}
+                  disabled={submitting}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  onClick={() => setShowPassword((v) => !v)}
+                  disabled={submitting}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
               {passwordError ? (
                 <p
                   id="password-error"
