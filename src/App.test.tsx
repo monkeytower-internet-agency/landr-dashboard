@@ -183,7 +183,7 @@ describe('Login form', () => {
 
     await screen.findByRole('heading', { name: /sign in/i })
     await user.type(screen.getByLabelText(/email/i), 'not-an-email')
-    await user.type(screen.getByLabelText(/password/i), 'secret123')
+    await user.type(screen.getByLabelText(/password/i, { selector: 'input' }), 'secret123')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     expect(await screen.findByText(/enter a valid email/i)).toBeInTheDocument()
@@ -203,7 +203,7 @@ describe('Login form', () => {
     )
 
     await user.type(screen.getByLabelText(/email/i), 'staff@operator.example')
-    await user.type(screen.getByLabelText(/password/i), 'correcthorse')
+    await user.type(screen.getByLabelText(/password/i, { selector: 'input' }), 'correcthorse')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => {
@@ -228,7 +228,7 @@ describe('Login form', () => {
     )
 
     await user.type(screen.getByLabelText(/email/i), 'staff@operator.example')
-    await user.type(screen.getByLabelText(/password/i), 'wrong')
+    await user.type(screen.getByLabelText(/password/i, { selector: 'input' }), 'wrong')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     expect(
