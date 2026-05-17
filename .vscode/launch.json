@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Dashboard",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "console": "integratedTerminal",
+      "serverReadyAction": {
+        "pattern": "Local:.*:(\\d+)",
+        "uriFormat": "http://localhost:%s",
+        "action": "openExternally"
+      }
+    }
+  ]
+}
