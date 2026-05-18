@@ -22,6 +22,7 @@ export type BookingRow = {
   id: string
   created_at: string
   current_semantic_state: BookingSemanticState
+  current_stage: { code: string } | null
   gross_total: number | string
   currency: string
   customer: {
@@ -29,6 +30,7 @@ export type BookingRow = {
     first_name: string | null
     last_name: string | null
     email: string | null
+    phone: string | null
   } | null
   items: BookingItem[]
 }
@@ -37,11 +39,17 @@ const SELECT = `
   id,
   created_at,
   current_semantic_state,
+  current_stage:booking_lifecycle_stages!current_stage_id ( code ),
   gross_total,
   currency,
-  customer:contacts!inner ( id, first_name, last_name, email ),
+  customer:contacts!inner ( id, first_name, last_name, email, phone ),
   items:booking_products ( id, date_range_start, date_range_end, selected_days, products ( id, name ) )
 `
+
+/** Convenience helper — falls back to null safely. */
+export function stageCode(row: BookingRow): string | null {
+  return row.current_stage?.code ?? null
+}
 
 export async function fetchBookings(operatorId: string): Promise<BookingRow[]> {
   const { data, error } = await supabase
@@ -238,33 +246,149 @@ export async function postGeneralApprovalDecision(args: {
   decision: ApprovalDecision
   notes?: string
 }): Promise<void> {
+  await postApprovalDecision({ ...args, branch: 'general' })
+}
+
+/** POST /api/staff/bookings/{id}/approval with branch=secondary
+ *  (covers awaiting_hotel_approval — the "hotel confirmed → unblock" flow). */
+export async function postHotelApprovalDecision(args: {
+  bookingId: string
+  decision: ApprovalDecision
+  notes?: string
+}): Promise<void> {
+  await postApprovalDecision({ ...args, branch: 'secondary' })
+}
+
+async function postApprovalDecision(args: {
+  bookingId: string
+  branch: 'general' | 'secondary'
+  decision: ApprovalDecision
+  notes?: string
+}): Promise<void> {
+  const token = await getAuthToken()
+  const res = await fetch(
+    `${apiBaseUrl()}/api/staff/bookings/${args.bookingId}/approval`,
+    {
+      method: 'POST',
+      headers: jsonAuthHeaders(token),
+      body: JSON.stringify({
+        branch: args.branch,
+        decision: args.decision,
+        notes: args.notes ?? null,
+      }),
+    },
+  )
+  if (!res.ok) throw await parseError(res)
+}
+
+// ----- Edit / cancel mutations --------------------------------------------
+
+export type BookingPatch = {
+  customer_contact_id?: string
+}
+
+export type BookingProductPatch = {
+  date_range_start?: string | null
+  date_range_end?: string | null
+  selected_days?: string[]
+  quantity?: number
+}
+
+/** PATCH /api/staff/bookings/{id} — booking-level fields. */
+export async function patchBooking(
+  bookingId: string,
+  patch: BookingPatch,
+): Promise<void> {
+  const token = await getAuthToken()
+  const res = await fetch(
+    `${apiBaseUrl()}/api/staff/bookings/${bookingId}`,
+    {
+      method: 'PATCH',
+      headers: jsonAuthHeaders(token),
+      body: JSON.stringify(patch),
+    },
+  )
+  if (!res.ok) throw await parseError(res)
+}
+
+/** PATCH /api/staff/bookings/{id}/products/{lineId} — re-runs pricing. */
+export async function patchBookingProduct(
+  bookingId: string,
+  bookingProductId: string,
+  patch: BookingProductPatch,
+): Promise<void> {
+  const token = await getAuthToken()
+  const res = await fetch(
+    `${apiBaseUrl()}/api/staff/bookings/${bookingId}/products/${bookingProductId}`,
+    {
+      method: 'PATCH',
+      headers: jsonAuthHeaders(token),
+      body: JSON.stringify(patch),
+    },
+  )
+  if (!res.ok) throw await parseError(res)
+}
+
+/** DELETE /api/staff/bookings/{id} — soft-cancel with required reason. */
+export async function cancelBooking(
+  bookingId: string,
+  reason: string,
+): Promise<void> {
+  const token = await getAuthToken()
+  const res = await fetch(`${apiBaseUrl()}/api/staff/bookings/${bookingId}`, {
+    method: 'DELETE',
+    headers: jsonAuthHeaders(token),
+    body: JSON.stringify({ reason }),
+  })
+  if (!res.ok) throw await parseError(res)
+}
+
+/** Patch a customer contact directly (RLS-gated; supabase write).
+ *  Used by the Bookings detail Sheet to keep payer info in sync. */
+export async function patchCustomerContact(
+  contactId: string,
+  patch: {
+    first_name?: string | null
+    last_name?: string | null
+    email?: string | null
+    phone?: string | null
+  },
+): Promise<void> {
+  const { error } = await supabase
+    .from('contacts')
+    .update(patch)
+    .eq('id', contactId)
+  if (error) throw new Error(error.message)
+}
+
+// ----- internal helpers ---------------------------------------------------
+
+async function getAuthToken(): Promise<string> {
   const {
     data: { session },
   } = await supabase.auth.getSession()
   const token = session?.access_token
   if (!token) throw new Error('Not authenticated')
+  return token
+}
 
-  const apiBase =
-    (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
+function apiBaseUrl(): string {
+  return (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
+}
 
-  const res = await fetch(`${apiBase}/api/staff/bookings/${args.bookingId}/approval`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      branch: 'general',
-      decision: args.decision,
-      notes: args.notes ?? null,
-    }),
-  })
-
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: { error?: string } }).detail?.error ??
-        `HTTP ${res.status}`,
-    )
+function jsonAuthHeaders(token: string): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
   }
+}
+
+async function parseError(res: Response): Promise<Error> {
+  const detail = await res.json().catch(() => ({}))
+  const d = (detail as { detail?: unknown }).detail
+  if (typeof d === 'string') return new Error(d)
+  if (d && typeof d === 'object' && 'error' in d) {
+    return new Error(String((d as { error: unknown }).error))
+  }
+  return new Error(`HTTP ${res.status}`)
 }

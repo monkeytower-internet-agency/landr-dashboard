@@ -281,7 +281,8 @@ describe('Calendar route', () => {
     await user.click(alice)
 
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByText(/Alice Anderson/i)).toBeInTheDocument()
+    expect(within(dialog).getByLabelText(/first name/i)).toHaveValue('Alice')
+    expect(within(dialog).getByLabelText(/last name/i)).toHaveValue('Anderson')
     expect(within(dialog).getByText(/Tandem Flight/i)).toBeInTheDocument()
   })
 
