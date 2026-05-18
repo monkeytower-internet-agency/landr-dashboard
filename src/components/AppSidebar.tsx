@@ -66,6 +66,9 @@ const items: NavItem[] = [
     to: '/approvals/general',
     label: t.nav.generalApprovals,
     icon: CheckCircleIcon,
+    exact: false,
+  },
+  {
     to: '/staff',
     label: t.nav.staff,
     icon: ShieldUserIcon,
