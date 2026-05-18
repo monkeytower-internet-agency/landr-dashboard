@@ -38,6 +38,7 @@ export const t = {
     calendar: 'Calendar',
     contacts: 'Contacts',
     products: 'Products',
+    reporting: 'Reporting',
   },
   theme: {
     switchToDark: 'Switch to dark theme',
@@ -167,5 +168,50 @@ export const t = {
     errorSlugFormat: 'Slug may only contain letters, numbers and hyphens.',
     errorDurationRequired: 'Time-slot products must specify a duration.',
     errorDateRangePaired: 'Set both the start and end date, or neither.',
+  },
+  reporting: {
+    title: 'Reporting',
+    loading: 'Loading bookings…',
+    error: 'Failed to load reporting data.',
+    empty: 'No bookings in the selected range.',
+
+    kpiBookingsLabel: 'Bookings',
+    kpiBookingsHint: 'Total bookings (incl. cancelled)',
+    kpiRevenueLabel: 'Revenue',
+    kpiRevenueHint: 'Excludes cancelled bookings',
+    kpiAvgTicketLabel: 'Average ticket',
+    kpiAvgTicketHint: 'Revenue ÷ non-cancelled bookings',
+
+    rangeLabel: 'Date range',
+    rangeFromLabel: 'From',
+    rangeToLabel: 'To',
+    rangeReset: 'Reset',
+    rangeAllTime: 'All time',
+    rangeLast30: 'Last 30 days',
+    rangeLast90: 'Last 90 days',
+    rangeThisYear: 'This year',
+
+    chartRevenueTitle: 'Revenue over time',
+    chartRevenueDescription:
+      'Daily gross revenue, cancelled bookings excluded.',
+    chartBookingsTitle: 'Bookings per week',
+    chartBookingsDescription:
+      'ISO-8601 weeks, bucketed by earliest scheduled date.',
+
+    exportCsv: 'Export CSV',
+    exportRowsLabel: (n: number) => `${n} row${n === 1 ? '' : 's'}`,
+
+    cancelledNote: (n: number) =>
+      n === 0
+        ? ''
+        : `${n} cancelled booking${n === 1 ? '' : 's'} excluded from revenue.`,
+    mixedCurrencyWarning:
+      'Multiple currencies detected — totals shown in the first currency seen.',
+
+    holdedSyncTitle: 'Holded sync',
+    holdedSyncBody:
+      'Holded sync runs automatically after the Para42 cancellation period. ' +
+      'A manual “sync now” trigger from this screen is deferred until the ' +
+      'matching FastAPI endpoint ships (landr-m05.9 carry-over).',
   },
 } as const

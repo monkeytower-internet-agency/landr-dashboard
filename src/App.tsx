@@ -6,6 +6,7 @@ import { Dashboard } from '@/routes/Dashboard'
 import { NotFound } from '@/routes/NotFound'
 import { Login } from '@/routes/Login'
 import { Products } from '@/routes/Products'
+import { Reporting } from '@/routes/Reporting'
 import { AuthProvider } from '@/lib/auth'
 import { OperatorProvider } from '@/lib/operator'
 import { ProtectedRoute } from '@/lib/ProtectedRoute'
@@ -34,6 +35,7 @@ function App() {
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/contacts" element={<Contacts />} />
               <Route path="/products" element={<Products />} />
+              <Route path="/reporting" element={<Reporting />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
