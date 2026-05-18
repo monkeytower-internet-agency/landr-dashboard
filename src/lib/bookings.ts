@@ -6,9 +6,16 @@ export type BookingSemanticState =
   | 'finalised'
   | 'cancelled'
   | 'no_show'
+
+// free-text in booking_lifecycle_stages.code; operator-customizable.
+// These three are the seeded defaults for Para42; other operators
+// may have different codes.
+export type BookingStageCode =
   | 'awaiting_general_approval'
   | 'awaiting_secondary_approval'
   | 'awaiting_hotel_approval'
+  | 'awaiting_payment'
+  | (string & {})
 
 export type BookingItem = {
   id: string
@@ -230,7 +237,7 @@ export async function fetchPendingGeneralApprovals(
     .from('bookings')
     .select(SELECT)
     .eq('operator_id', operatorId)
-    .eq('current_semantic_state', 'awaiting_general_approval')
+    .filter('current_stage.code', 'eq', 'awaiting_general_approval')
     .is('deleted_at', null)
     .order('created_at', { ascending: true })
 

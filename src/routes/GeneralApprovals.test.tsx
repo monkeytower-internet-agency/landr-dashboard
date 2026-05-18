@@ -18,6 +18,7 @@ const { mock } = vi.hoisted(() => {
     id: string
     created_at: string
     current_semantic_state: string
+    current_stage: { code: string } | null
     gross_total: number
     currency: string
     customer: {
@@ -46,6 +47,7 @@ const { mock } = vi.hoisted(() => {
     Object.assign(builder, {
       select: vi.fn(() => builder),
       eq: vi.fn(() => builder),
+      filter: vi.fn(() => builder),
       is: vi.fn(() => builder),
       order: vi.fn(async () => ({ data: state.rows, error: state.error })),
     })
@@ -102,7 +104,8 @@ function render(ui: ReactElement) {
 const sampleRow = {
   id: 'b-abc123',
   created_at: '2026-05-17T10:00:00.000Z',
-  current_semantic_state: 'awaiting_general_approval',
+  current_semantic_state: 'pending',
+  current_stage: { code: 'awaiting_general_approval' },
   gross_total: 300,
   currency: 'EUR',
   customer: {

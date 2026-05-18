@@ -151,7 +151,7 @@ describe('BookingDetailSheet', () => {
       new Response(JSON.stringify({ booking_id: 'b' }), { status: 200 }),
     )
     const row = makeRow({
-      current_semantic_state: 'awaiting_hotel_approval',
+      current_semantic_state: 'pending',
       current_stage: { code: 'awaiting_hotel_approval' },
     })
     render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
