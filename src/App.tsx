@@ -11,6 +11,7 @@ import { Reporting } from '@/routes/Reporting'
 import { Settings } from '@/routes/Settings'
 import { Staff } from '@/routes/Staff'
 import { EmailTemplates } from '@/routes/EmailTemplates'
+import { PickupLocations } from '@/routes/PickupLocations'
 import { AuthProvider } from '@/lib/auth'
 import { OperatorProvider } from '@/lib/operator'
 import { ProtectedRoute } from '@/lib/ProtectedRoute'
@@ -44,6 +45,7 @@ function App() {
               <Route path="/staff" element={<Staff />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/email-templates" element={<EmailTemplates />} />
+              <Route path="/pickup-locations" element={<PickupLocations />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
