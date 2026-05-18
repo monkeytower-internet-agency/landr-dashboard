@@ -7,6 +7,14 @@ export type BookingSemanticState =
   | 'cancelled'
   | 'no_show'
 
+export type BookingItem = {
+  id: string
+  date_range_start: string | null
+  date_range_end: string | null
+  selected_days: string[] | null
+  products: { id: string; name: string } | null
+}
+
 export type BookingRow = {
   id: string
   created_at: string
@@ -19,10 +27,7 @@ export type BookingRow = {
     last_name: string | null
     email: string | null
   } | null
-  items: Array<{
-    id: string
-    products: { id: string; name: string } | null
-  }>
+  items: BookingItem[]
 }
 
 const SELECT = `
@@ -32,7 +37,7 @@ const SELECT = `
   gross_total,
   currency,
   customer:contacts!inner ( id, first_name, last_name, email ),
-  items:booking_products ( id, products ( id, name ) )
+  items:booking_products ( id, date_range_start, date_range_end, selected_days, products ( id, name ) )
 `
 
 export async function fetchBookings(operatorId: string): Promise<BookingRow[]> {
@@ -95,4 +100,111 @@ export function dateDisplay(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   return dateFormatter.format(d)
+}
+
+// ----- Calendar helpers --------------------------------------------------
+// The bookings table itself stores no scheduled timestamp; the schedule
+// lives on booking_products (date_range_start / date_range_end /
+// selected_days). For the calendar we surface ONE event per booking using
+// the earliest item with a date_range_start. If no item has scheduling
+// info we fall back to created_at (so the booking still appears).
+
+export type BookingCalendarEvent = {
+  id: string
+  bookingId: string
+  itemId: string | null
+  title: string
+  start: string
+  end: string | null
+  allDay: boolean
+  state: BookingSemanticState
+  productName: string | null
+  customerName: string
+  raw: BookingRow
+}
+
+function earliestScheduledItem(row: BookingRow): BookingItem | null {
+  let best: BookingItem | null = null
+  for (const item of row.items) {
+    if (!item.date_range_start) continue
+    if (!best || item.date_range_start < best.date_range_start!) {
+      best = item
+    }
+  }
+  return best
+}
+
+export function bookingsToCalendarEvents(
+  rows: BookingRow[],
+): BookingCalendarEvent[] {
+  const out: BookingCalendarEvent[] = []
+  for (const row of rows) {
+    const item = earliestScheduledItem(row)
+    if (item && item.date_range_start) {
+      out.push({
+        id: row.id,
+        bookingId: row.id,
+        itemId: item.id,
+        title: `${customerDisplay(row)} — ${item.products?.name ?? productDisplay(row)}`,
+        start: item.date_range_start,
+        end: item.date_range_end,
+        allDay: true,
+        state: row.current_semantic_state,
+        productName: item.products?.name ?? null,
+        customerName: customerDisplay(row),
+        raw: row,
+      })
+    } else {
+      // No scheduling info — show on created_at so the booking is still
+      // visible but flagged. allDay=false keeps it as a time-pinned event.
+      out.push({
+        id: row.id,
+        bookingId: row.id,
+        itemId: null,
+        title: `${customerDisplay(row)} — ${productDisplay(row)}`,
+        start: row.created_at,
+        end: null,
+        allDay: false,
+        state: row.current_semantic_state,
+        productName: null,
+        customerName: customerDisplay(row),
+        raw: row,
+      })
+    }
+  }
+  return out
+}
+
+// Color tokens (mapped to shadcn/ui theme tokens via CSS classes in
+// BookingsCalendar.tsx). Returned as a string key the component maps to a
+// className. Kept here so tests can assert against the mapping directly.
+export function colorKeyForBooking(row: BookingRow): BookingSemanticState {
+  return row.current_semantic_state
+}
+
+// Persist a calendar drag-to-reschedule. Writes the new start/end date
+// to the booking_products row that we used to render the event. If the
+// booking had no scheduled item, this is a no-op (callers should guard).
+export async function rescheduleBookingItem(args: {
+  itemId: string
+  startDate: string // ISO date YYYY-MM-DD
+  endDate: string | null // ISO date YYYY-MM-DD or null
+}): Promise<void> {
+  const payload: { date_range_start: string; date_range_end: string | null } = {
+    date_range_start: args.startDate,
+    date_range_end: args.endDate,
+  }
+  const { error } = await supabase
+    .from('booking_products')
+    .update(payload)
+    .eq('id', args.itemId)
+  if (error) throw new Error(error.message)
+}
+
+// Helper: format a Date back to YYYY-MM-DD for postgres `date` columns.
+export function toDateOnlyIso(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }

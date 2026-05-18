@@ -1,5 +1,6 @@
 import { Outlet, Route, Routes } from 'react-router-dom'
 import { Bookings } from '@/routes/Bookings'
+import { Calendar } from '@/routes/Calendar'
 import { Dashboard } from '@/routes/Dashboard'
 import { NotFound } from '@/routes/NotFound'
 import { Login } from '@/routes/Login'
@@ -27,6 +28,7 @@ function App() {
             >
               <Route path="/" element={<Dashboard />} />
               <Route path="/bookings" element={<Bookings />} />
+              <Route path="/calendar" element={<Calendar />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
