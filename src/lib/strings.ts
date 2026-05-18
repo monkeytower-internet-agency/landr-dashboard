@@ -42,6 +42,7 @@ export const t = {
     generalApprovals: 'Approvals',
     staff: 'Staff',
     settings: 'Settings',
+    emailTemplates: 'Email templates',
   },
   theme: {
     switchToDark: 'Switch to dark theme',
@@ -362,5 +363,56 @@ export const t = {
       'Holded sync runs automatically after the Para42 cancellation period. ' +
       'A manual “sync now” trigger from this screen is deferred until the ' +
       'matching FastAPI endpoint ships (landr-m05.9 carry-over).',
+  },
+  emailTemplates: {
+    title: 'Email templates',
+    subtitle: 'Customise the transactional emails sent to customers for each booking event.',
+    loading: 'Loading email templates…',
+    error: 'Failed to load email templates.',
+    selectHint: 'Select a template kind and locale on the left to edit.',
+    statusCustom: 'Custom',
+    statusDefault: 'Default',
+
+    kindLabels: {
+      booking_received: 'Booking received',
+      hotel_request: 'Hotel request',
+      booking_confirmation: 'Booking confirmation',
+    } as Record<string, string>,
+
+    localeLabels: {
+      de: 'German (de)',
+      en: 'English (en)',
+    } as Record<string, string>,
+
+    fieldSubject: 'Subject',
+    fieldSubjectPlaceholder: 'e.g. Your booking is confirmed',
+    fieldBodyHtml: 'HTML body',
+    fieldBodyHtmlPlaceholder: '<p>Hello {{customer_name}},</p>',
+    fieldBodyText: 'Plain-text body',
+    fieldBodyTextPlaceholder: 'Hello {{customer_name}},\n\nYour booking is confirmed.',
+    optional: 'optional',
+
+    formAriaLabel: 'Email template editor',
+
+    save: 'Save',
+    saving: 'Saving…',
+    resetToDefault: 'Reset to default',
+    resetting: 'Resetting…',
+
+    toastSaved: 'Template saved.',
+    toastSaveError: 'Failed to save template',
+    toastReset: 'Template reset to built-in default.',
+    toastResetError: 'Failed to reset template',
+
+    previewTitle: 'Preview',
+    previewLoading: 'Loading preview…',
+    previewError: 'Preview failed',
+    previewSelectTemplate: 'Save a template to see the preview.',
+    previewStubBanner:
+      'Live preview lands when the email sender ships (landr-m05.16). Showing raw template.',
+    previewSubject: 'Subject',
+    previewHtml: 'HTML',
+    previewHtmlTitle: 'Email HTML preview',
+    previewText: 'Plain text',
   },
 } as const
