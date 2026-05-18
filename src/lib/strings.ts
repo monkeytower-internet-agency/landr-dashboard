@@ -40,6 +40,7 @@ export const t = {
     products: 'Products',
     reporting: 'Reporting',
     generalApprovals: 'Approvals',
+    staff: 'Staff',
   },
   theme: {
     switchToDark: 'Switch to dark theme',
@@ -198,6 +199,76 @@ export const t = {
     toastApproved: 'Booking approved.',
     toastRejected: 'Booking rejected.',
     toastError: 'Action failed.',
+  staff: {
+    title: 'Staff',
+    subtitle:
+      'Manage operator memberships, roles and per-user permissions.',
+    loading: 'Loading staff…',
+    error: 'Failed to load staff.',
+    empty: 'No staff yet. Use “Invite by email” to add a member.',
+    listAriaLabel: 'Staff memberships',
+    filterPlaceholder: 'Search staff…',
+    matches: (n: number, total: number) => `${n} / ${total}`,
+
+    columnEmail: 'Email',
+    columnRole: 'Role',
+    columnPermissions: 'Permissions',
+    columnJoined: 'Joined',
+    columnActions: 'Actions',
+
+    actionInvite: 'Invite by email',
+    actionEdit: 'Edit',
+    actionRevoke: 'Revoke',
+
+    // Invite sheet
+    inviteTitle: 'Invite by email',
+    inviteDescription:
+      'Add a user to this operator. The user must already exist in LANDR (signed-in once via the mobile app or dashboard).',
+    inviteEmailLabel: 'Email',
+    inviteEmailPlaceholder: 'staff@example.com',
+    inviteRoleLabel: 'Role',
+    invitePermissionsLabel: 'Permissions (JSON)',
+    invitePermissionsHint:
+      'Optional JSON object. Example: { "manage_bookings": true, "view_revenue": false }',
+    inviteSubmit: 'Add membership',
+    inviteSubmitting: 'Adding…',
+    inviteCancel: 'Cancel',
+    inviteToastSuccess: 'Staff member added.',
+    inviteToastError: 'Failed to add staff member.',
+    inviteUserNotFound:
+      'No user found with that email. They must sign in to LANDR at least once first.',
+    inviteEmailRequired: 'Enter a valid email address.',
+    inviteRoleRequired: 'Role is required.',
+
+    inviteDeferralNotice:
+      'Email-invite send is deferred (landr-m05.15 Gmail OAuth). For now, the user must already be signed in to LANDR — this just links them to this operator.',
+
+    // Edit sheet
+    editTitle: 'Edit membership',
+    editDescription:
+      'Update the role and permissions for this staff member.',
+    editRoleLabel: 'Role',
+    editPermissionsLabel: 'Permissions (JSON)',
+    editPermissionsHint:
+      'Leave empty for no overrides. Must be a JSON object if set.',
+    editSubmit: 'Save changes',
+    editSubmitting: 'Saving…',
+    editCancel: 'Cancel',
+    editToastSuccess: 'Membership updated.',
+    editToastError: 'Failed to update membership.',
+
+    // Revoke confirm dialog
+    revokeTitle: 'Revoke staff access?',
+    revokeDescription:
+      'This removes the membership for this user. They will no longer see this operator. Their global LANDR account is not affected. This action cannot be undone.',
+    revokeConfirm: 'Type REVOKE to confirm',
+    revokeCancel: 'Cancel',
+    revokeSubmit: 'Revoke access',
+    revokeSubmitting: 'Revoking…',
+    revokeToastSuccess: 'Staff access revoked.',
+    revokeToastError: 'Failed to revoke staff access.',
+
+    permissionsParseError: 'Permissions JSON is invalid.',
   },
   reporting: {
     title: 'Reporting',
