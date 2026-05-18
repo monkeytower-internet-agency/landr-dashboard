@@ -6,6 +6,7 @@ import {
   LayoutDashboardIcon,
   UsersIcon,
   PackageIcon,
+  ShieldUserIcon,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
@@ -65,6 +66,9 @@ const items: NavItem[] = [
     to: '/approvals/general',
     label: t.nav.generalApprovals,
     icon: CheckCircleIcon,
+    to: '/staff',
+    label: t.nav.staff,
+    icon: ShieldUserIcon,
     exact: false,
   },
 ]
