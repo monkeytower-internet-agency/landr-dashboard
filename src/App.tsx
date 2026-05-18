@@ -5,6 +5,7 @@ import { Contacts } from '@/routes/Contacts'
 import { Dashboard } from '@/routes/Dashboard'
 import { NotFound } from '@/routes/NotFound'
 import { Login } from '@/routes/Login'
+import { Products } from '@/routes/Products'
 import { AuthProvider } from '@/lib/auth'
 import { OperatorProvider } from '@/lib/operator'
 import { ProtectedRoute } from '@/lib/ProtectedRoute'
@@ -32,6 +33,7 @@ function App() {
               <Route path="/bookings" element={<Bookings />} />
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/contacts" element={<Contacts />} />
+              <Route path="/products" element={<Products />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

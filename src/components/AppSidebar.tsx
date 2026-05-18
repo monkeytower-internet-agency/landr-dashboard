@@ -3,6 +3,7 @@ import {
   CalendarRangeIcon,
   LayoutDashboardIcon,
   UsersIcon,
+  PackageIcon,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
@@ -44,6 +45,9 @@ const items: NavItem[] = [
     to: '/contacts',
     label: t.nav.contacts,
     icon: UsersIcon,
+    to: '/products',
+    label: t.nav.products,
+    icon: PackageIcon,
     exact: false,
   },
 ]
