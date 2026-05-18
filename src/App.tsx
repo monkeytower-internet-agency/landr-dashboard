@@ -6,6 +6,7 @@ import { Dashboard } from '@/routes/Dashboard'
 import { GeneralApprovals } from '@/routes/GeneralApprovals'
 import { NotFound } from '@/routes/NotFound'
 import { Login } from '@/routes/Login'
+import { Onboarding } from '@/routes/Onboarding'
 import { Products } from '@/routes/Products'
 import { Reporting } from '@/routes/Reporting'
 import { Settings } from '@/routes/Settings'
@@ -17,6 +18,7 @@ import { OperatorProvider } from '@/lib/operator'
 import { ProtectedRoute } from '@/lib/ProtectedRoute'
 import { ThemeProvider } from '@/lib/theme'
 import { AppShell } from '@/components/AppShell'
+import { OnboardingGuard } from '@/components/OnboardingGuard'
 import { Toaster } from '@/components/ui/sonner'
 
 function App() {
@@ -27,11 +29,21 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route
+              path="/onboarding/start"
               element={
                 <ProtectedRoute>
-                  <AppShell>
-                    <Outlet />
-                  </AppShell>
+                  <Onboarding />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              element={
+                <ProtectedRoute>
+                  <OnboardingGuard>
+                    <AppShell>
+                      <Outlet />
+                    </AppShell>
+                  </OnboardingGuard>
                 </ProtectedRoute>
               }
             >

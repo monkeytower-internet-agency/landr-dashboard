@@ -531,4 +531,119 @@ export const t = {
     previewHtmlTitle: 'Email HTML preview',
     previewText: 'Plain text',
   },
+  onboarding: {
+    title: 'Welcome to LANDR',
+    progress: (current: number, total: number) => `Step ${current} of ${total}`,
+    next: 'Next',
+    back: 'Back',
+    skip: 'Skip for now',
+    skipConfirm: "Are you sure? You can come back later from Settings.",
+    finish: 'Finish setup',
+    saving: 'Saving…',
+    saveError: 'Could not save your changes. Try again.',
+    rerunLink: 'Re-run onboarding',
+
+    step1: {
+      heading: 'Welcome to LANDR',
+      body:
+        'LANDR is the booking platform you use to take, confirm and run reservations for your activities. ' +
+        'This short setup walks you through the essentials so you can start taking bookings today.',
+      cta: "Let's get started",
+    },
+    step2: {
+      heading: 'Your company',
+      body: 'How your business shows up to customers and on invoices.',
+    },
+    step3: {
+      heading: 'Address & contact',
+      body: 'Used on invoices, customer emails, and the booking widget.',
+    },
+    step4: {
+      heading: 'Pickup locations',
+      body:
+        'Where do you pick customers up? Add at least one site so the booking widget can offer it ' +
+        '(hotels, meeting points, harbour, etc.). You can add more later.',
+      count: (n: number) =>
+        n === 0
+          ? 'No pickup locations yet.'
+          : `${n} pickup location${n === 1 ? '' : 's'} configured.`,
+      manage: 'Open pickup locations',
+      skipWarning:
+        'You have no pickup locations yet — customers will not see any pickup options. Skip anyway?',
+    },
+    step5: {
+      heading: 'Your first products',
+      body:
+        'Products are the activities customers can book. Start with a template — you can tune ' +
+        'prices, durations and details later from the Products page.',
+      templateGuided: 'Guided day',
+      templateGuidedDesc: 'Single-day guided activity. Time-slot bookable, needs a guide.',
+      templateCourse: 'Course (multi-day)',
+      templateCourseDesc: 'Multi-day course over a fixed date range.',
+      templateHotel: 'Hotel package',
+      templateHotelDesc: 'Day activity bundled with hotel pickup. Needs hotel coordination.',
+      create: 'Create',
+      creating: 'Creating…',
+      created: (name: string) => `Created “${name}”.`,
+      createError: 'Could not create product. Open Products to add manually.',
+      manage: 'Open products',
+      count: (n: number) =>
+        n === 0 ? 'No products yet.' : `${n} product${n === 1 ? '' : 's'} configured.`,
+    },
+    step6: {
+      heading: 'Connect your Gmail',
+      body:
+        'Send booking emails from YOUR Gmail address — not a generic no-reply. Customers see ' +
+        'emails coming from a real person at your company, which dramatically improves deliverability ' +
+        'and replies. Free to set up; takes about a minute.',
+      connect: 'Connect Gmail',
+      connecting: 'Connecting…',
+      connectedAs: (email: string) => `Connected as ${email}`,
+      reconnect: 'Reconnect',
+      connectError: 'Could not start Gmail connect.',
+      loading: 'Checking Gmail status…',
+    },
+    step7: {
+      heading: 'Email templates',
+      body:
+        'LANDR ships with sensible default templates for the three customer-facing emails. ' +
+        'Open the Email templates page if you want to tweak the wording, otherwise the defaults are fine to ship with.',
+      defaultKinds: 'Booking received · Hotel request · Booking confirmation',
+      manage: 'Open email templates',
+    },
+    step8: {
+      heading: 'Embed the booking widget',
+      body:
+        'Paste this WordPress shortcode anywhere on your website to show the booking widget. ' +
+        'The widget reads your products, pickup locations and prices automatically.',
+      copy: 'Copy',
+      copied: 'Copied!',
+      variantsTitle: 'Filter by product type (optional)',
+      variantCourses: 'Courses only',
+      variantSpecialty: 'Specialty experiences only',
+      variantGuided: 'Guided days only',
+      done: "I've embedded it",
+    },
+    step9: {
+      heading: "You're ready to take bookings",
+      body:
+        'Setup complete. The dashboard is now your home base for managing reservations, ' +
+        'the calendar, and customer contacts.',
+      ctaDashboard: 'Open dashboard',
+      ctaBookings: 'See bookings',
+      ctaCalendar: 'Open calendar',
+    },
+
+    steps: {
+      welcome: 'Welcome',
+      company: 'Company',
+      address: 'Address',
+      pickup: 'Pickup',
+      products: 'Products',
+      gmail: 'Gmail',
+      emails: 'Emails',
+      embed: 'Embed',
+      done: 'Done',
+    },
+  },
 } as const

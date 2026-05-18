@@ -19,6 +19,7 @@ export const OperatorSettingsSchema = z.object({
   country: z.string().length(2, 'Must be ISO-3166 alpha-2 (e.g. DE).').nullable().optional(),
   timezone: z.string().nullable().optional(),
   default_locale: z.string().nullable().optional(),
+  onboarded_at: z.string().nullable().optional(),
 })
 
 export type OperatorSettings = z.infer<typeof OperatorSettingsSchema>
@@ -110,6 +111,12 @@ export async function fetchGmailInstallUrl(
     )
   }
   return res.json() as Promise<{ install_url: string; state: string }>
+}
+
+export async function markOnboarded(
+  operatorId: string,
+): Promise<OperatorSettings> {
+  return patchOperator(operatorId, { onboarded_at: new Date().toISOString() })
 }
 
 export async function disconnectGmail(operatorId: string): Promise<void> {

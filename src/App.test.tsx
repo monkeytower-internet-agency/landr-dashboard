@@ -25,7 +25,12 @@ function render(ui: ReactElement, options?: RenderOptions) {
 
 type FakeRow = {
   operator_id: string
-  operators: { id: string; slug: string; name: string | null }
+  operators: {
+    id: string
+    slug: string
+    name: string | null
+    onboarded_at: string | null
+  }
 }
 
 const { mock } = vi.hoisted(() => {
@@ -142,7 +147,7 @@ describe('App routing', () => {
   it('renders the protected dashboard for authenticated users', async () => {
     mock.state.session = mock.makeSession()
     mock.state.operatorRows = [
-      { operator_id: 'op-1', operators: { id: 'op-1', slug: 'para42', name: 'Para42' } },
+      { operator_id: 'op-1', operators: { id: 'op-1', slug: 'para42', name: 'Para42', onboarded_at: '2026-05-01T00:00:00Z' } },
     ]
 
     render(
@@ -192,7 +197,7 @@ describe('Login form', () => {
 
   it('signs in and lands on the dashboard on success', async () => {
     mock.state.operatorRows = [
-      { operator_id: 'op-1', operators: { id: 'op-1', slug: 'para42', name: 'Para42' } },
+      { operator_id: 'op-1', operators: { id: 'op-1', slug: 'para42', name: 'Para42', onboarded_at: '2026-05-01T00:00:00Z' } },
     ]
     const user = userEvent.setup()
 
@@ -241,8 +246,8 @@ describe('Operator switcher', () => {
   it('lists the operators returned by the membership query', async () => {
     mock.state.session = mock.makeSession()
     mock.state.operatorRows = [
-      { operator_id: 'op-1', operators: { id: 'op-1', slug: 'para42', name: 'Para42' } },
-      { operator_id: 'op-2', operators: { id: 'op-2', slug: 'kayak-co', name: 'Kayak Co' } },
+      { operator_id: 'op-1', operators: { id: 'op-1', slug: 'para42', name: 'Para42', onboarded_at: '2026-05-01T00:00:00Z' } },
+      { operator_id: 'op-2', operators: { id: 'op-2', slug: 'kayak-co', name: 'Kayak Co', onboarded_at: '2026-05-01T00:00:00Z' } },
     ]
     const user = userEvent.setup()
 
@@ -266,8 +271,8 @@ describe('Operator switcher', () => {
   it('persists the chosen operator id to localStorage', async () => {
     mock.state.session = mock.makeSession()
     mock.state.operatorRows = [
-      { operator_id: 'op-1', operators: { id: 'op-1', slug: 'para42', name: 'Para42' } },
-      { operator_id: 'op-2', operators: { id: 'op-2', slug: 'kayak-co', name: 'Kayak Co' } },
+      { operator_id: 'op-1', operators: { id: 'op-1', slug: 'para42', name: 'Para42', onboarded_at: '2026-05-01T00:00:00Z' } },
+      { operator_id: 'op-2', operators: { id: 'op-2', slug: 'kayak-co', name: 'Kayak Co', onboarded_at: '2026-05-01T00:00:00Z' } },
     ]
     const user = userEvent.setup()
 
@@ -293,7 +298,7 @@ describe('Sign out', () => {
   it('calls supabase signOut and returns the user to /login', async () => {
     mock.state.session = mock.makeSession()
     mock.state.operatorRows = [
-      { operator_id: 'op-1', operators: { id: 'op-1', slug: 'para42', name: 'Para42' } },
+      { operator_id: 'op-1', operators: { id: 'op-1', slug: 'para42', name: 'Para42', onboarded_at: '2026-05-01T00:00:00Z' } },
     ]
     const user = userEvent.setup()
 

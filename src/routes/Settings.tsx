@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -238,6 +239,20 @@ function SettingsForm({ operator, operatorId, onSaved }: FormProps) {
 
       {/* Integrations — separate from form because no PATCH submit needed */}
       <GmailCard operatorId={operatorId} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Onboarding</CardTitle>
+          <CardDescription>
+            Walk through the first-login wizard again. Your existing data is not reset.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/onboarding/start">{t.onboarding.rerunLink}</Link>
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   )
 }
