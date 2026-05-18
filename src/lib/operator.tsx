@@ -14,6 +14,7 @@ export type Operator = {
   id: string
   slug: string
   name: string | null
+  onboarded_at: string | null
 }
 
 type OperatorContextValue = {
@@ -22,6 +23,7 @@ type OperatorContextValue = {
   currentOperatorId: string | null
   loading: boolean
   switchOperator: (operatorId: string) => void
+  refreshOperators: () => void
 }
 
 const STORAGE_KEY = 'landr.dashboard.currentOperatorId'
@@ -56,6 +58,7 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
   const { session, loading: authLoading } = useAuth()
   const [fetched, setFetched] = useState<FetchedOperators | null>(null)
   const [storedId, setStoredId] = useState<string | null>(() => readStored())
+  const [reloadTick, setReloadTick] = useState(0)
 
   useEffect(() => {
     if (authLoading || !session) return
@@ -63,7 +66,7 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     supabase
       .from('operator_memberships')
-      .select('operator_id, operators!inner ( id, slug, name )')
+      .select('operator_id, operators!inner ( id, slug, name, onboarded_at )')
       .then(({ data, error }) => {
         if (cancelled) return
         if (error || !data) {
@@ -84,7 +87,11 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [session, authLoading])
+  }, [session, authLoading, reloadTick])
+
+  const refreshOperators = useCallback(() => {
+    setReloadTick((t) => t + 1)
+  }, [])
 
   const operators = useMemo<Operator[]>(() => {
     if (!session) return []
@@ -117,8 +124,9 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
       currentOperatorId,
       loading,
       switchOperator,
+      refreshOperators,
     }
-  }, [operators, currentOperatorId, loading, switchOperator])
+  }, [operators, currentOperatorId, loading, switchOperator, refreshOperators])
 
   return (
     <OperatorContext.Provider value={value}>{children}</OperatorContext.Provider>

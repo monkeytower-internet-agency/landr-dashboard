@@ -1,0 +1,87 @@
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  OperatorPatchSchema,
+  patchOperator,
+  type OperatorPatch,
+  type OperatorSettings,
+} from '@/lib/operatorSettings'
+import { t } from '@/lib/strings'
+import { StepShell } from './StepShell'
+
+type Props = {
+  operator: OperatorSettings
+  operatorId: string
+  onAdvance: () => void
+  onBack: () => void
+}
+
+export function Step3Address({ operator, operatorId, onAdvance, onBack }: Props) {
+  const qc = useQueryClient()
+  const { register, handleSubmit, formState: { isSubmitting } } = useForm<OperatorPatch>({
+    resolver: zodResolver(OperatorPatchSchema),
+    defaultValues: {
+      phone: operator.phone ?? '',
+      street: operator.street ?? '',
+      city: operator.city ?? '',
+      postal_code: operator.postal_code ?? '',
+      region: operator.region ?? '',
+    },
+  })
+
+  const mutation = useMutation({
+    mutationFn: (patch: OperatorPatch) => patchOperator(operatorId, patch),
+    onSuccess: (next) => {
+      qc.setQueryData(['operator-settings', operatorId], next)
+      onAdvance()
+    },
+    onError: (err: Error) =>
+      toast.error(t.onboarding.saveError, { description: err.message }),
+  })
+
+  return (
+    <StepShell heading={t.onboarding.step3.heading} body={t.onboarding.step3.body}>
+      <form
+        onSubmit={handleSubmit((v) => mutation.mutate(v))}
+        className="space-y-4"
+        aria-label={t.onboarding.step3.heading}
+      >
+        <div className="grid gap-1.5">
+          <Label htmlFor="onb-phone">{t.settings.fieldPhone}</Label>
+          <Input id="onb-phone" type="tel" {...register('phone')} disabled={isSubmitting} />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="onb-street">{t.settings.fieldStreet}</Label>
+          <Input id="onb-street" {...register('street')} disabled={isSubmitting} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="onb-city">{t.settings.fieldCity}</Label>
+            <Input id="onb-city" {...register('city')} disabled={isSubmitting} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="onb-postal-code">{t.settings.fieldPostalCode}</Label>
+            <Input id="onb-postal-code" {...register('postal_code')} disabled={isSubmitting} />
+          </div>
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="onb-region">{t.settings.fieldRegion}</Label>
+          <Input id="onb-region" {...register('region')} disabled={isSubmitting} />
+        </div>
+        <div className="flex justify-between gap-3 pt-2">
+          <Button type="button" variant="outline" onClick={onBack}>
+            {t.onboarding.back}
+          </Button>
+          <Button type="submit" disabled={mutation.isPending}>
+            {mutation.isPending ? t.onboarding.saving : t.onboarding.next}
+          </Button>
+        </div>
+      </form>
+    </StepShell>
+  )
+}
