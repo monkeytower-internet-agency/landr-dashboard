@@ -2,6 +2,7 @@ import {
   CalendarIcon,
   CalendarRangeIcon,
   ChartAreaIcon,
+  CheckCircleIcon,
   LayoutDashboardIcon,
   UsersIcon,
   PackageIcon,
@@ -58,6 +59,12 @@ const items: NavItem[] = [
     to: '/reporting',
     label: t.nav.reporting,
     icon: ChartAreaIcon,
+    exact: false,
+  },
+  {
+    to: '/approvals/general',
+    label: t.nav.generalApprovals,
+    icon: CheckCircleIcon,
     exact: false,
   },
 ]

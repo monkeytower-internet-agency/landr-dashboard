@@ -3,6 +3,7 @@ import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
 import { Contacts } from '@/routes/Contacts'
 import { Dashboard } from '@/routes/Dashboard'
+import { GeneralApprovals } from '@/routes/GeneralApprovals'
 import { NotFound } from '@/routes/NotFound'
 import { Login } from '@/routes/Login'
 import { Products } from '@/routes/Products'
@@ -36,6 +37,7 @@ function App() {
               <Route path="/contacts" element={<Contacts />} />
               <Route path="/products" element={<Products />} />
               <Route path="/reporting" element={<Reporting />} />
+              <Route path="/approvals/general" element={<GeneralApprovals />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
