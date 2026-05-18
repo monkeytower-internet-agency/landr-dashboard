@@ -5,6 +5,7 @@ import {
   CheckCircleIcon,
   LayoutDashboardIcon,
   MailIcon,
+  MapPinIcon,
   UsersIcon,
   PackageIcon,
   SettingsIcon,
@@ -86,6 +87,12 @@ const items: NavItem[] = [
     to: '/email-templates',
     label: t.nav.emailTemplates,
     icon: MailIcon,
+    exact: false,
+  },
+  {
+    to: '/pickup-locations',
+    label: t.nav.pickupLocations,
+    icon: MapPinIcon,
     exact: false,
   },
 ]
