@@ -1,0 +1,107 @@
+import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { BookingDetailSheet } from '@/components/BookingDetailSheet'
+import { BookingsCalendar } from '@/components/BookingsCalendar'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  fetchBookings,
+  rescheduleBookingItem,
+  type BookingRow,
+} from '@/lib/bookings'
+import { useOperator } from '@/lib/operator'
+import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
+import { t } from '@/lib/strings'
+
+export function Calendar() {
+  const { currentOperatorId } = useOperator()
+  const [active, setActive] = useState<BookingRow | null>(null)
+  const [rescheduleError, setRescheduleError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+
+  const query = useRealtimeQuery<BookingRow[]>({
+    queryKey: ['bookings', currentOperatorId ?? 'none'],
+    queryFn: () => fetchBookings(currentOperatorId as string),
+    enabled: !!currentOperatorId,
+    realtime: currentOperatorId
+      ? [
+          {
+            table: 'bookings',
+            filter: `operator_id=eq.${currentOperatorId}`,
+          },
+          {
+            table: 'booking_products',
+            filter: `operator_id=eq.${currentOperatorId}`,
+          },
+        ]
+      : null,
+  })
+
+  const reschedule = useMutation({
+    mutationFn: rescheduleBookingItem,
+    onSuccess: () => {
+      setRescheduleError(null)
+      queryClient.invalidateQueries({
+        queryKey: ['bookings', currentOperatorId ?? 'none'],
+      })
+    },
+    onError: (err: Error) => {
+      setRescheduleError(err.message || t.calendar.rescheduleError)
+      queryClient.invalidateQueries({
+        queryKey: ['bookings', currentOperatorId ?? 'none'],
+      })
+    },
+  })
+
+  const rows = query.data ?? []
+
+  return (
+    <div className="flex flex-col gap-6">
+      <header className="flex items-center justify-between gap-4">
+        <h1 className="text-xl font-semibold">{t.calendar.title}</h1>
+      </header>
+      {query.isError ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t.calendar.error}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground text-sm">
+              {query.error?.message ?? ''}
+            </p>
+          </CardContent>
+        </Card>
+      ) : query.isPending && currentOperatorId ? (
+        <p className="text-muted-foreground text-sm">{t.calendar.loading}</p>
+      ) : (
+        <>
+          {rescheduleError ? (
+            <p
+              role="alert"
+              className="text-destructive border-destructive/30 bg-destructive/10 rounded-md border px-3 py-2 text-sm"
+            >
+              {rescheduleError}
+            </p>
+          ) : null}
+          <BookingsCalendar
+            rows={rows}
+            onEventClick={(row) => setActive(row)}
+            onReschedule={({ event, newStart, newEnd }) => {
+              if (!event.itemId) return
+              reschedule.mutate({
+                itemId: event.itemId,
+                startDate: newStart,
+                endDate: newEnd,
+              })
+            }}
+          />
+        </>
+      )}
+      <BookingDetailSheet
+        row={active}
+        onOpenChange={(open) => {
+          if (!open) setActive(null)
+        }}
+      />
+    </div>
+  )
+}

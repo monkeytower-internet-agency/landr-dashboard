@@ -35,6 +35,7 @@ export const t = {
     sectionMain: 'Workspace',
     dashboard: 'Dashboard',
     bookings: 'Bookings',
+    calendar: 'Calendar',
   },
   theme: {
     switchToDark: 'Switch to dark theme',
@@ -56,5 +57,15 @@ export const t = {
     filterPlaceholder: 'Search bookings…',
     detailsTitle: 'Booking',
     detailsClose: 'Close',
+  },
+  calendar: {
+    title: 'Calendar',
+    loading: 'Loading calendar…',
+    error: 'Failed to load calendar.',
+    empty: 'No bookings scheduled.',
+    viewMonth: 'Month',
+    viewWeek: 'Week',
+    viewDay: 'Day',
+    rescheduleError: 'Could not reschedule booking.',
   },
 } as const

@@ -1,4 +1,8 @@
-import { CalendarRangeIcon, LayoutDashboardIcon } from 'lucide-react'
+import {
+  CalendarIcon,
+  CalendarRangeIcon,
+  LayoutDashboardIcon,
+} from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -27,6 +31,12 @@ const items: NavItem[] = [
     to: '/bookings',
     label: t.nav.bookings,
     icon: CalendarRangeIcon,
+    exact: false,
+  },
+  {
+    to: '/calendar',
+    label: t.nav.calendar,
+    icon: CalendarIcon,
     exact: false,
   },
 ]

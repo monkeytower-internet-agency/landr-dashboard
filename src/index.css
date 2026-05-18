@@ -106,3 +106,62 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* FullCalendar theming — scope all overrides under .landr-fc so the
+   library only inherits shadcn tokens where we render it. */
+.landr-fc {
+  --fc-border-color: var(--border);
+  --fc-page-bg-color: var(--background);
+  --fc-neutral-bg-color: var(--muted);
+  --fc-neutral-text-color: var(--muted-foreground);
+  --fc-today-bg-color: color-mix(in oklab, var(--accent) 60%, transparent);
+  --fc-now-indicator-color: var(--destructive);
+  --fc-button-bg-color: var(--secondary);
+  --fc-button-text-color: var(--secondary-foreground);
+  --fc-button-border-color: var(--border);
+  --fc-button-hover-bg-color: var(--accent);
+  --fc-button-hover-border-color: var(--border);
+  --fc-button-active-bg-color: var(--primary);
+  --fc-button-active-border-color: var(--primary);
+  --fc-event-bg-color: transparent;
+  --fc-event-border-color: transparent;
+  --fc-event-text-color: var(--foreground);
+  --fc-list-event-hover-bg-color: var(--accent);
+  color: var(--foreground);
+  font-family: inherit;
+}
+.landr-fc .fc-toolbar-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.landr-fc .fc-button {
+  font-size: 0.8125rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  text-transform: capitalize;
+}
+.landr-fc .fc-button:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+.landr-fc .fc-col-header-cell-cushion,
+.landr-fc .fc-daygrid-day-number,
+.landr-fc .fc-timegrid-slot-label-cushion {
+  color: var(--foreground);
+  text-decoration: none;
+}
+.landr-fc .fc-day-today {
+  background-color: var(--fc-today-bg-color) !important;
+}
+.landr-fc .fc-event {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.landr-fc .fc-h-event,
+.landr-fc .fc-v-event {
+  background: transparent;
+  border: none;
+}
