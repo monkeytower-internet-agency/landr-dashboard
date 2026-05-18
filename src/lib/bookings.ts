@@ -6,6 +6,9 @@ export type BookingSemanticState =
   | 'finalised'
   | 'cancelled'
   | 'no_show'
+  | 'awaiting_general_approval'
+  | 'awaiting_secondary_approval'
+  | 'awaiting_hotel_approval'
 
 export type BookingItem = {
   id: string
@@ -207,4 +210,61 @@ export function toDateOnlyIso(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+// ----- General approval queue ---------------------------------------------
+
+/** Fetch all bookings awaiting_general_approval for an operator. */
+export async function fetchPendingGeneralApprovals(
+  operatorId: string,
+): Promise<BookingRow[]> {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select(SELECT)
+    .eq('operator_id', operatorId)
+    .eq('current_semantic_state', 'awaiting_general_approval')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as BookingRow[]
+}
+
+export type ApprovalDecision = 'approve' | 'reject'
+
+/** POST /api/staff/bookings/{id}/approval with branch=general. */
+export async function postGeneralApprovalDecision(args: {
+  bookingId: string
+  decision: ApprovalDecision
+  notes?: string
+}): Promise<void> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const token = session?.access_token
+  if (!token) throw new Error('Not authenticated')
+
+  const apiBase =
+    (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
+
+  const res = await fetch(`${apiBase}/api/staff/bookings/${args.bookingId}/approval`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      branch: 'general',
+      decision: args.decision,
+      notes: args.notes ?? null,
+    }),
+  })
+
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(
+      (detail as { detail?: { error?: string } }).detail?.error ??
+        `HTTP ${res.status}`,
+    )
+  }
 }

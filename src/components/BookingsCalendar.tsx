@@ -33,6 +33,12 @@ const STATE_CLASS: Record<BookingSemanticState, string> = {
     'bg-destructive/10 text-destructive border-destructive/30 line-through hover:bg-destructive/20',
   no_show:
     'bg-destructive text-destructive-foreground border-destructive hover:bg-destructive/90',
+  awaiting_general_approval:
+    'bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700',
+  awaiting_secondary_approval:
+    'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700',
+  awaiting_hotel_approval:
+    'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700',
 }
 
 const VIEW_LABEL: Record<CalendarView, string> = {
