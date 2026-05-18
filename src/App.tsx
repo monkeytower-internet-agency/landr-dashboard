@@ -8,6 +8,7 @@ import { NotFound } from '@/routes/NotFound'
 import { Login } from '@/routes/Login'
 import { Products } from '@/routes/Products'
 import { Reporting } from '@/routes/Reporting'
+import { Settings } from '@/routes/Settings'
 import { Staff } from '@/routes/Staff'
 import { AuthProvider } from '@/lib/auth'
 import { OperatorProvider } from '@/lib/operator'
@@ -40,6 +41,7 @@ function App() {
               <Route path="/reporting" element={<Reporting />} />
               <Route path="/approvals/general" element={<GeneralApprovals />} />
               <Route path="/staff" element={<Staff />} />
+              <Route path="/settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
