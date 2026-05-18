@@ -1,4 +1,5 @@
 import {
+  CalendarDaysIcon,
   CalendarIcon,
   CalendarRangeIcon,
   ChartAreaIcon,
@@ -45,6 +46,12 @@ const items: NavItem[] = [
     to: '/calendar',
     label: t.nav.calendar,
     icon: CalendarIcon,
+    exact: false,
+  },
+  {
+    to: '/schedule',
+    label: t.nav.schedule,
+    icon: CalendarDaysIcon,
     exact: false,
   },
   {

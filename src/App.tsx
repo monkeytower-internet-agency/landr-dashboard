@@ -9,6 +9,7 @@ import { Login } from '@/routes/Login'
 import { Onboarding } from '@/routes/Onboarding'
 import { Products } from '@/routes/Products'
 import { Reporting } from '@/routes/Reporting'
+import { Schedule } from '@/routes/Schedule'
 import { Settings } from '@/routes/Settings'
 import { Staff } from '@/routes/Staff'
 import { EmailTemplates } from '@/routes/EmailTemplates'
@@ -50,6 +51,7 @@ function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/bookings" element={<Bookings />} />
               <Route path="/calendar" element={<Calendar />} />
+              <Route path="/schedule" element={<Schedule />} />
               <Route path="/contacts" element={<Contacts />} />
               <Route path="/products" element={<Products />} />
               <Route path="/reporting" element={<Reporting />} />

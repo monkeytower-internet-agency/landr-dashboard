@@ -44,6 +44,7 @@ export const t = {
     settings: 'Settings',
     emailTemplates: 'Email templates',
     pickupLocations: 'Pickup locations',
+    schedule: 'Schedule',
   },
   theme: {
     switchToDark: 'Switch to dark theme',
@@ -645,5 +646,58 @@ export const t = {
       embed: 'Embed',
       done: 'Done',
     },
+  },
+  schedule: {
+    title: 'Schedule',
+    description:
+      'Manage bookable days for each product. Operators extend the seeded availability beyond the template window, block holidays, or adjust capacity per day.',
+    productLabel: 'Product',
+    productPlaceholder: 'Select a product…',
+    noProducts: 'No products yet — create one in Products first.',
+    loading: 'Loading availability…',
+    error: 'Failed to load availability.',
+    rangeHint:
+      'Showing the visible month. Drag-select a range or click a single day.',
+    addButton: 'Add availability',
+
+    dayClosed: 'Closed',
+    dayUnscheduled: 'Not scheduled',
+
+    formTitle: 'Add availability',
+    formNoProduct: 'Pick a product first.',
+    formFromLabel: 'From',
+    formToLabel: 'To (inclusive)',
+    formCapacityLabel: 'Capacity',
+    formCapacityHint: 'Set 0 to mark the days as Closed.',
+    formNotesLabel: 'Notes (optional)',
+    formSlotsLabel: 'Time slots',
+    formSlotAdd: 'Add slot',
+    formSlotRemove: 'Remove',
+    formSlotStartLabel: 'Start',
+    formSlotEndLabel: 'End',
+    formCancel: 'Cancel',
+    formSubmit: 'Save',
+    formSaving: 'Saving…',
+    formDatesRequired: 'From and To dates are required.',
+    formRangeInverted: 'To must be on or after From.',
+    formCapacityInvalid: 'Capacity must be a non-negative integer.',
+    formSlotInvalid: 'Slot times must be HH:MM.',
+    formSlotInverted: 'Slot end time must be after start time.',
+
+    popoverTitle: 'Edit day',
+    popoverDelete: 'Delete',
+    popoverBlock: 'Block (capacity 0)',
+    popoverSave: 'Save',
+    popoverReservedHint: (reserved: number, capacity: number) =>
+      `${reserved} of ${capacity} reserved.`,
+    popoverMultiSlotsHint: (count: number) =>
+      `${count} time slots on this day. Editing the first; manage others via bulk add.`,
+
+    toastBulkSuccess: (n: number) => `Added ${n} availability rows.`,
+    toastBulkError: 'Failed to add availability.',
+    toastSaveSuccess: 'Availability updated.',
+    toastSaveError: 'Failed to update availability.',
+    toastDeleteSuccess: 'Availability removed.',
+    toastDeleteError: 'Failed to remove availability.',
   },
 } as const
