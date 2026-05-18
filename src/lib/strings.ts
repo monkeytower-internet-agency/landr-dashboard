@@ -199,6 +199,7 @@ export const t = {
     toastApproved: 'Booking approved.',
     toastRejected: 'Booking rejected.',
     toastError: 'Action failed.',
+  },
   staff: {
     title: 'Staff',
     subtitle:
