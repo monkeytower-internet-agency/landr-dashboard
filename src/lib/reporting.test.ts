@@ -15,6 +15,7 @@ function makeRow(over: Partial<BookingRow> & { id: string }): BookingRow {
     id: over.id,
     created_at: over.created_at ?? '2026-05-01T10:00:00.000Z',
     current_semantic_state: over.current_semantic_state ?? 'confirmed',
+    current_stage: over.current_stage ?? null,
     gross_total: over.gross_total ?? 100,
     currency: over.currency ?? 'EUR',
     customer:
@@ -23,6 +24,7 @@ function makeRow(over: Partial<BookingRow> & { id: string }): BookingRow {
         first_name: 'Test',
         last_name: 'Person',
         email: `t-${over.id}@example.com`,
+        phone: null,
       },
     items: over.items ?? [],
   }
@@ -281,6 +283,7 @@ describe('buildBookingsCsv', () => {
           first_name: 'Alice, Jr.',
           last_name: 'Anderson',
           email: 'alice@example.com',
+          phone: null,
         },
         items: [
           {

@@ -25,8 +25,11 @@ import {
   dateDisplay,
   priceDisplay,
   productDisplay,
+  stageCode,
   type BookingRow,
 } from '@/lib/bookings'
+import { DayChips } from '@/components/booking/DayChips'
+import { StageBadge } from '@/components/booking/StageBadge'
 import { t } from '@/lib/strings'
 
 type Props = {
@@ -66,13 +69,28 @@ export function BookingsTable({ rows, onRowClick }: Props) {
         ),
       },
       {
+        id: 'days',
+        header: t.bookings.columnDays,
+        enableSorting: false,
+        cell: ({ row }) => {
+          const days = row.original.items.flatMap(
+            (it) => it.selected_days ?? [],
+          )
+          if (days.length === 0) {
+            return <span className="text-muted-foreground text-xs">—</span>
+          }
+          return <DayChips days={days} />
+        },
+      },
+      {
         id: 'status',
         accessorKey: 'current_semantic_state',
         header: t.bookings.columnStatus,
         cell: ({ row }) => (
-          <span className="bg-muted text-muted-foreground inline-flex rounded-full px-2 py-0.5 text-xs">
-            {row.original.current_semantic_state}
-          </span>
+          <StageBadge
+            state={row.original.current_semantic_state}
+            stageCode={stageCode(row.original)}
+          />
         ),
       },
       {

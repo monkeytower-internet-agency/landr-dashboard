@@ -168,10 +168,13 @@ describe('Bookings route', () => {
     await user.click(cell)
 
     const dialog = await screen.findByRole('dialog')
+    // Product appears as the line-item heading inside the dialog
     expect(
       within(dialog).getByText(/Tandem Flight/i),
     ).toBeInTheDocument()
-    expect(within(dialog).getByText(/Alice Anderson/i)).toBeInTheDocument()
+    // Customer first/last name appear as editable input values
+    expect(within(dialog).getByLabelText(/first name/i)).toHaveValue('Alice')
+    expect(within(dialog).getByLabelText(/last name/i)).toHaveValue('Anderson')
   })
 
   it('subscribes to realtime updates on the bookings table', async () => {
