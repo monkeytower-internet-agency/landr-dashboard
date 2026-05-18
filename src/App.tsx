@@ -1,6 +1,7 @@
 import { Outlet, Route, Routes } from 'react-router-dom'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
+import { Contacts } from '@/routes/Contacts'
 import { Dashboard } from '@/routes/Dashboard'
 import { NotFound } from '@/routes/NotFound'
 import { Login } from '@/routes/Login'
@@ -9,6 +10,7 @@ import { OperatorProvider } from '@/lib/operator'
 import { ProtectedRoute } from '@/lib/ProtectedRoute'
 import { ThemeProvider } from '@/lib/theme'
 import { AppShell } from '@/components/AppShell'
+import { Toaster } from '@/components/ui/sonner'
 
 function App() {
   return (
@@ -29,9 +31,11 @@ function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/bookings" element={<Bookings />} />
               <Route path="/calendar" element={<Calendar />} />
+              <Route path="/contacts" element={<Contacts />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <Toaster />
         </OperatorProvider>
       </AuthProvider>
     </ThemeProvider>
