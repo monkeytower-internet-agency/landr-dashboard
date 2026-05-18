@@ -11,7 +11,7 @@ describe('StageBadge', () => {
   it('puts the raw stage code in a tooltip so multi-stage groups stay legible', () => {
     render(
       <StageBadge
-        state="awaiting_hotel_approval"
+        state="pending"
         stageCode="awaiting_hotel_approval"
       />,
     )
