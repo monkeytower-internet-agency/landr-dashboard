@@ -448,6 +448,7 @@ export function ProductForm({
                     }}
                   />
                 </FormControl>
+                <FormDescription>{t.products.fieldNameHelp}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -477,6 +478,9 @@ export function ProductForm({
               <FormControl>
                 <Input {...field} />
               </FormControl>
+              <FormDescription>
+                {t.products.fieldShortDescriptionHelp}
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -497,7 +501,10 @@ export function ProductForm({
                   height={240}
                 />
               </FormControl>
-              <FormDescription>{t.products.fieldDescriptionHint}</FormDescription>
+              <FormDescription>
+                {t.products.fieldDescriptionHelp}{' '}
+                {t.products.fieldDescriptionHint}
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
