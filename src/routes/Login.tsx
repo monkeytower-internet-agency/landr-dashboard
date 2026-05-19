@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import {
+  Navigate,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,6 +17,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ContinueWithProvider } from '@/components/ContinueWithProvider'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { t } from '@/lib/strings'
@@ -24,6 +30,7 @@ export function Login() {
   const { session, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [emailError, setEmailError] = useState<string | null>(null)
@@ -31,6 +38,9 @@ export function Login() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [oauthError, setOauthError] = useState<string | null>(null)
+
+  const queryError = searchParams.get('error')
 
   if (!authLoading && session) {
     const from = (location.state as LocationState | null)?.from?.pathname ?? '/'
@@ -73,7 +83,46 @@ export function Login() {
           <CardDescription>{t.auth.signInDescription}</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+          {queryError === 'email_in_use' ? (
+            <div
+              role="alert"
+              className="mb-4 rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-amber-700 text-sm dark:text-amber-300"
+            >
+              <p className="font-medium">{t.auth.emailInUseTitle}</p>
+              <p className="mt-0.5 text-xs">{t.auth.emailInUseBody}</p>
+            </div>
+          ) : null}
+          {queryError === 'unknown' ? (
+            <div
+              role="alert"
+              className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-destructive text-sm"
+            >
+              {t.auth.oauthUnknownError}
+            </div>
+          ) : null}
+          {oauthError ? (
+            <div
+              role="alert"
+              className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-destructive text-sm"
+            >
+              {oauthError}
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-3">
+            <ContinueWithProvider
+              providerId="google"
+              onError={setOauthError}
+              className="w-full"
+            />
+            <div className="flex items-center gap-3 text-muted-foreground text-xs">
+              <span className="h-px flex-1 bg-border" />
+              <span>{t.auth.continueDivider}</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          </div>
+
+          <form onSubmit={onSubmit} noValidate className="mt-4 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">{t.auth.emailLabel}</Label>
               <Input
