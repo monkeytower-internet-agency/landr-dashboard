@@ -157,22 +157,34 @@ describe('ProductForm — premium-tease UX (landr-c3t)', () => {
     const options = within(select).getAllByRole(
       'option',
     ) as HTMLOptionElement[]
-    // All 5 kinds present.
+    // landr-ssrx widened the kind list with 'hotel_room' — all 6 kinds
+    // present now.
     expect(options.map((o) => o.value).sort()).toEqual(
-      ['digital_good', 'gift_card', 'physical_good', 'service', 'subscription'].sort(),
+      [
+        'digital_good',
+        'gift_card',
+        'hotel_room',
+        'physical_good',
+        'service',
+        'subscription',
+      ].sort(),
     )
-    // service + subscription enabled; the other 3 disabled.
+    // service + subscription enabled; the other 4 disabled (hotel_room is
+    // a pro-tier feature but this test's allow-list omits it on purpose so
+    // we can verify the teaser branch).
     const enabled = options.filter((o) => !o.disabled).map((o) => o.value)
     const disabled = options.filter((o) => o.disabled).map((o) => o.value)
     expect(enabled.sort()).toEqual(['service', 'subscription'].sort())
     expect(disabled.sort()).toEqual(
-      ['digital_good', 'gift_card', 'physical_good'].sort(),
+      ['digital_good', 'gift_card', 'hotel_room', 'physical_good'].sort(),
     )
     // Tooltip names the lowest unlocking tier.
     const physical = options.find((o) => o.value === 'physical_good')
     expect(physical?.title).toMatch(/business/i)
     const gift = options.find((o) => o.value === 'gift_card')
     expect(gift?.title).toMatch(/enterprise/i)
+    const hotel = options.find((o) => o.value === 'hotel_room')
+    expect(hotel?.title).toMatch(/pro/i)
   })
 
   it('free operator always shows teasers regardless of stored value', () => {
@@ -191,13 +203,22 @@ describe('ProductForm — premium-tease UX (landr-c3t)', () => {
     const options = within(select).getAllByRole(
       'option',
     ) as HTMLOptionElement[]
-    expect(options.length).toBe(5)
+    // 6 kinds after landr-ssrx added 'hotel_room'.
+    expect(options.length).toBe(6)
     const disabled = options.filter((o) => o.disabled).map((o) => o.value)
     expect(disabled.sort()).toEqual(
-      ['digital_good', 'gift_card', 'physical_good', 'subscription'].sort(),
+      [
+        'digital_good',
+        'gift_card',
+        'hotel_room',
+        'physical_good',
+        'subscription',
+      ].sort(),
     )
     const sub = options.find((o) => o.value === 'subscription')
     expect(sub?.title).toMatch(/pro/i)
+    const hotel = options.find((o) => o.value === 'hotel_room')
+    expect(hotel?.title).toMatch(/pro/i)
   })
 })
 
@@ -280,6 +301,214 @@ describe('ProductForm — kind/shape/contiguous progression', () => {
     // verify the cleared shape via re-selecting service.
     await user.selectOptions(kind, 'service')
     expect(screen.getByLabelText(/time model/i)).toBeInTheDocument()
+  })
+})
+
+// landr-ssrx — hotel_room kind + hotel_offering control on services.
+describe('ProductForm — hotel_room kind (landr-ssrx)', () => {
+  const hotelLocations = [
+    { id: 'hotel-1', name: 'Hotel Sol' },
+    { id: 'hotel-2', name: 'Hotel Luna' },
+  ]
+
+  it('shows the hotel picker only when kind=hotel_room', async () => {
+    const user = userEvent.setup()
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={() => {}}
+      />,
+    )
+    // Default is service — no hotel picker yet.
+    expect(screen.queryByLabelText(/^hotel$/i)).not.toBeInTheDocument()
+
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'hotel_room')
+
+    // Hotel picker appears with both hotels as options.
+    const picker = screen.getByLabelText(/^hotel$/i) as HTMLSelectElement
+    const options = within(picker).getAllByRole('option') as HTMLOptionElement[]
+    expect(options.map((o) => o.value)).toContain('hotel-1')
+    expect(options.map((o) => o.value)).toContain('hotel-2')
+
+    // Service-only fields drop out.
+    expect(screen.queryByLabelText(/time model/i)).not.toBeInTheDocument()
+    // Helper card naming the per-night/RFTO=false semantics is present.
+    expect(
+      screen.getByText(/hotel room prices are displayed per night/i),
+    ).toBeInTheDocument()
+  })
+
+  it('defaults revenue_flows_through_operator to false for fresh hotel_room', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'hotel_room')
+
+    await user.type(screen.getByLabelText(/^name$/i), 'Single Room')
+    await user.selectOptions(
+      screen.getByLabelText(/^hotel$/i),
+      'hotel-1',
+    )
+
+    await user.click(screen.getByRole('button', { name: /create product/i }))
+
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      product_kind: 'hotel_room',
+      hotel_location_id: 'hotel-1',
+      // landr-ssrx: hotel rooms ship RFTO=false by default — guests pay
+      // the hotel directly.
+      revenue_flows_through_operator: false,
+      // service-only fields collapse to safe defaults so the DB CHECK holds.
+      service_time_shape: null,
+      hotel_offering: 'none',
+    })
+  })
+
+  it('blocks submit until a hotel is picked for kind=hotel_room', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'hotel_room')
+
+    await user.type(screen.getByLabelText(/^name$/i), 'Single Room')
+    // Intentionally skip the hotel picker.
+    await user.click(screen.getByRole('button', { name: /create product/i }))
+
+    expect(submitted).toHaveLength(0)
+    // The validation message renders inside the FormMessage <p
+    // data-slot="form-message">; the helper-text copy below the picker
+    // also mentions "Pick the hotel…", so we anchor on the form-message
+    // slot to avoid the duplicate.
+    const messages = await screen.findAllByText(
+      /pick the hotel this room belongs to/i,
+    )
+    const messageNode = messages.find(
+      (n) => n.getAttribute('data-slot') === 'form-message',
+    )
+    expect(messageNode).toBeDefined()
+  })
+
+  it('warns when the operator has no hotel-role locations yet', async () => {
+    const user = userEvent.setup()
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={[]}
+        onSubmit={() => {}}
+      />,
+    )
+
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'hotel_room')
+
+    const picker = screen.getByLabelText(/^hotel$/i) as HTMLSelectElement
+    expect(picker).toBeDisabled()
+    expect(
+      screen.getByText(/no hotel-role locations yet/i),
+    ).toBeInTheDocument()
+  })
+})
+
+describe('ProductForm — hotel_offering on services (landr-ssrx)', () => {
+  it('renders the hotel_offering select only for kind=service', async () => {
+    const user = userEvent.setup()
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={[{ id: 'hotel-1', name: 'Hotel Sol' }]}
+        onSubmit={() => {}}
+      />,
+    )
+
+    // Default kind=service → the field is present.
+    const offering = screen.getByLabelText(
+      /includes accommodation/i,
+    ) as HTMLSelectElement
+    expect(offering).toBeInTheDocument()
+    const options = within(offering).getAllByRole(
+      'option',
+    ) as HTMLOptionElement[]
+    expect(options.map((o) => o.value)).toEqual([
+      'none',
+      'optional',
+      'mandatory',
+    ])
+
+    // Switch to hotel_room → the field disappears.
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'hotel_room')
+    expect(
+      screen.queryByLabelText(/includes accommodation/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('submits the chosen hotel_offering on a service product', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service']}
+        hotelLocations={[]}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+
+    await user.type(screen.getByLabelText(/^name$/i), 'Guided Dive')
+    await user.selectOptions(
+      screen.getByLabelText(/includes accommodation/i),
+      'optional',
+    )
+
+    await user.click(screen.getByRole('button', { name: /create product/i }))
+
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      product_kind: 'service',
+      hotel_offering: 'optional',
+    })
   })
 })
 

@@ -368,6 +368,25 @@ export const t = {
     kindDigitalGood: 'Digital good',
     kindPhysicalGood: 'Physical good',
     kindGiftCard: 'Gift card',
+    kindHotelRoom: 'Hotel room',
+
+    // landr-ssrx — hotel_room fields + hotel_offering control on services.
+    fieldHotelLocation: 'Hotel',
+    fieldHotelLocationHint:
+      'Pick the hotel this room belongs to. Only locations tagged with the "hotel" role appear here — add the hotel under Pickup locations first if it is missing.',
+    fieldHotelLocationEmpty: '— Select a hotel —',
+    fieldHotelLocationNoneAvailable:
+      'No hotel-role locations yet. Add one under Pickup locations first.',
+    hotelRoomHelperBody:
+      'Hotel room prices are displayed per night to guests but paid directly to the hotel. Revenue does not flow through your operator account.',
+    fieldHotelOffering: 'Includes accommodation',
+    fieldHotelOfferingHint:
+      'When the booking widget should add a hotel step on top of this service.',
+    optionHotelOfferingNone: 'No — no hotel step',
+    optionHotelOfferingOptional: 'Optional — show with a skip',
+    optionHotelOfferingMandatory: 'Mandatory — require a hotel pick',
+    listGroupHotelPrefix: 'Hotel: ',
+    listGroupHotelUnassigned: 'Unassigned hotel rooms',
 
     shapeSingleDate: 'Single date',
     shapeDaysRange: 'Day picker (days range)',

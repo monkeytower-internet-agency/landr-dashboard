@@ -195,11 +195,14 @@ beforeEach(() => {
     is_publicly_listed: payload.is_publicly_listed,
     active: payload.active,
     sort_order: payload.sort_order,
+    hotel_location_id: payload.hotel_location_id,
+    hotel_offering: payload.hotel_offering,
     deleted_at: null,
     created_at: '2026-05-19T10:00:00.000Z',
     updated_at: '2026-05-19T10:00:00.000Z',
     pricing_scheme: null,
     product_group: null,
+    hotel_location: null,
   }))
   mocks.refreshOperators.mockReset()
   toastCalls.success.length = 0
@@ -281,7 +284,8 @@ describe('Onboarding wizard', () => {
         revenue_flows_through_operator: true, is_publicly_listed: true,
         active: true, sort_order: 1, deleted_at: null,
         created_at: '2026-05-19T10:00:00Z', updated_at: '2026-05-19T10:00:00Z',
-        pricing_scheme: null, product_group: null,
+        hotel_location_id: null, hotel_offering: 'none',
+        pricing_scheme: null, product_group: null, hotel_location: null,
       },
       {
         id: 'p-2', operator_id: 'op-1', product_group_id: null, slug: 'b',
@@ -293,7 +297,8 @@ describe('Onboarding wizard', () => {
         revenue_flows_through_operator: true, is_publicly_listed: true,
         active: true, sort_order: 2, deleted_at: null,
         created_at: '2026-05-19T10:00:00Z', updated_at: '2026-05-19T10:00:00Z',
-        pricing_scheme: null, product_group: null,
+        hotel_location_id: null, hotel_offering: 'none',
+        pricing_scheme: null, product_group: null, hotel_location: null,
       },
       {
         id: 'p-3', operator_id: 'op-1', product_group_id: null, slug: 'c',
@@ -305,7 +310,8 @@ describe('Onboarding wizard', () => {
         revenue_flows_through_operator: true, is_publicly_listed: true,
         active: true, sort_order: 3, deleted_at: null,
         created_at: '2026-05-19T10:00:00Z', updated_at: '2026-05-19T10:00:00Z',
-        pricing_scheme: null, product_group: null,
+        hotel_location_id: null, hotel_offering: 'none',
+        pricing_scheme: null, product_group: null, hotel_location: null,
       },
     ])
     renderRoute('/onboarding/start?step=5')

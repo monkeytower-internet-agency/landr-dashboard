@@ -14,18 +14,31 @@ import { t } from '@/lib/strings'
 //                         (whole-week vs pick-individual-days semantics).
 //
 // DB CHECK: (product_kind='service') = (service_time_shape IS NOT NULL).
+//
+// landr-ssrx — hotel_room is a kind that represents a bookable hotel room
+// product tied to a specific hotel-role location. Two further constraints
+// from migration 20260520100100_products_hotel_room_columns.sql:
+//   (product_kind='hotel_room') = (hotel_location_id IS NOT NULL)
+//   product_kind='service' OR hotel_offering='none'
 export type ProductKind =
   | 'service'
   | 'subscription'
   | 'digital_good'
   | 'physical_good'
   | 'gift_card'
+  | 'hotel_room'
 
 export type ServiceTimeShape =
   | 'single_date'
   | 'days_range'
   | 'fixed_window'
   | 'time_slot'
+
+// landr-ssrx — drives whether the booking widget renders the accommodation
+// step for a (service) product: none = hide, optional = show with skip,
+// mandatory = show and require. Only meaningful on kind=service products
+// (non-service rows are forced to 'none' by a DB CHECK).
+export type HotelOffering = 'none' | 'optional' | 'mandatory'
 
 export type PricingSchemeRef = {
   id: string
@@ -63,11 +76,20 @@ export type ProductRow = {
   is_publicly_listed: boolean
   active: boolean
   sort_order: number
+  // landr-ssrx — hotel-room columns. hotel_location_id is non-null iff
+  // product_kind='hotel_room'. hotel_offering is 'none' for any non-service
+  // kind (forced by DB CHECK); only kind='service' rows can carry
+  // 'optional' or 'mandatory'.
+  hotel_location_id: string | null
+  hotel_offering: HotelOffering
   deleted_at: string | null
   created_at: string
   updated_at: string
   pricing_scheme: { id: string; name: string; currency: string } | null
   product_group: { id: string; name: string; slug: string } | null
+  // landr-ssrx — joined hotel name for the list-grouping header on
+  // kind='hotel_room' rows. Null for any non-hotel_room product.
+  hotel_location: { id: string; name: string } | null
 }
 
 const SELECT = `
@@ -91,11 +113,14 @@ const SELECT = `
   is_publicly_listed,
   active,
   sort_order,
+  hotel_location_id,
+  hotel_offering,
   deleted_at,
   created_at,
   updated_at,
   pricing_scheme:pricing_schemes ( id, name, currency ),
-  product_group:product_groups ( id, name, slug )
+  product_group:product_groups ( id, name, slug ),
+  hotel_location:locations!hotel_location_id ( id, name )
 `
 
 export async function fetchProducts(operatorId: string): Promise<ProductRow[]> {
@@ -164,6 +189,11 @@ export type ProductWritePayload = {
   is_publicly_listed: boolean
   active: boolean
   sort_order: number
+  // landr-ssrx — see ProductRow comment. hotel_location_id is NOT NULL
+  // when kind='hotel_room' and NULL otherwise; hotel_offering carries
+  // 'optional' / 'mandatory' only on kind='service' rows.
+  hotel_location_id: string | null
+  hotel_offering: HotelOffering
 }
 
 // Recognise both the FastAPI api()-wrapper error code and the raw Postgres
@@ -254,6 +284,8 @@ export function productKindLabel(kind: ProductKind): string {
       return 'Physical good'
     case 'gift_card':
       return 'Gift card'
+    case 'hotel_room':
+      return 'Hotel room'
   }
 }
 
@@ -277,6 +309,11 @@ export function productSummaryLine(row: ProductRow): string {
   }
   if (row.service_time_shape === 'time_slot' && row.duration_minutes) {
     parts.push(`${row.duration_minutes} min`)
+  }
+  // landr-ssrx — surface the offering flag on service products so operators
+  // can see at a glance which services trigger the accommodation step.
+  if (row.product_kind === 'service' && row.hotel_offering !== 'none') {
+    parts.push(`hotel ${row.hotel_offering}`)
   }
   if (row.product_group?.name) parts.push(row.product_group.name)
   if (row.pricing_scheme?.name) parts.push(row.pricing_scheme.name)

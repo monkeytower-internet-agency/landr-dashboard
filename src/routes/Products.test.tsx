@@ -23,7 +23,14 @@ type ProductFixture = {
   name: string
   short_description: string | null
   description: string | null
-  product_kind: 'service' | 'digital_good' | 'physical_good' | 'gift_card'
+  // landr-ssrx added 'hotel_room'; tests don't use it yet but the literal
+  // union must include it for assignability against the lib ProductRow.
+  product_kind:
+    | 'service'
+    | 'digital_good'
+    | 'physical_good'
+    | 'gift_card'
+    | 'hotel_room'
   service_time_shape:
     | 'single_date'
     | 'days_range'
@@ -41,11 +48,14 @@ type ProductFixture = {
   is_publicly_listed: boolean
   active: boolean
   sort_order: number
+  hotel_location_id: string | null
+  hotel_offering: 'none' | 'optional' | 'mandatory'
   deleted_at: string | null
   created_at: string
   updated_at: string
   pricing_scheme: { id: string; name: string; currency: string } | null
   product_group: { id: string; name: string; slug: string } | null
+  hotel_location: { id: string; name: string } | null
 }
 
 const { mock } = vi.hoisted(() => {
@@ -129,7 +139,8 @@ const { mock } = vi.hoisted(() => {
               | 'service'
               | 'digital_good'
               | 'physical_good'
-              | 'gift_card',
+              | 'gift_card'
+              | 'hotel_room',
             service_time_shape:
               (payload.service_time_shape as
                 | 'single_date'
@@ -152,11 +163,17 @@ const { mock } = vi.hoisted(() => {
             is_publicly_listed: payload.is_publicly_listed as boolean,
             active: payload.active as boolean,
             sort_order: (payload.sort_order as number) ?? 0,
+            hotel_location_id:
+              (payload.hotel_location_id as string | null) ?? null,
+            hotel_offering:
+              (payload.hotel_offering as 'none' | 'optional' | 'mandatory') ??
+              'none',
             deleted_at: null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             pricing_scheme: null,
             product_group: null,
+            hotel_location: null,
           }
           state.products = [created, ...state.products]
           return { data: created, error: null }
@@ -280,11 +297,14 @@ function makeProduct(over: Partial<ProductFixture> = {}): ProductFixture {
     is_publicly_listed: false,
     active: true,
     sort_order: 0,
+    hotel_location_id: null,
+    hotel_offering: 'none',
     deleted_at: null,
     created_at: '2026-05-01T00:00:00.000Z',
     updated_at: '2026-05-01T00:00:00.000Z',
     pricing_scheme: null,
     product_group: null,
+    hotel_location: null,
     ...over,
   }
 }
