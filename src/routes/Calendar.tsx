@@ -9,12 +9,13 @@ import {
   rescheduleBookingItem,
   type BookingRow,
 } from '@/lib/bookings'
-import { useOperator } from '@/lib/operator'
+import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { t } from '@/lib/strings'
 
 export function Calendar() {
   const { currentOperatorId } = useOperator()
+  const { workHoursStart, workHoursEnd, hour12 } = useOperatorCalendarPrefs()
   const [active, setActive] = useState<BookingRow | null>(null)
   const [openCustomerId, setOpenCustomerId] = useState<string | null>(null)
   const [rescheduleError, setRescheduleError] = useState<string | null>(null)
@@ -86,6 +87,9 @@ export function Calendar() {
           ) : null}
           <BookingsCalendar
             rows={rows}
+            workHoursStart={workHoursStart}
+            workHoursEnd={workHoursEnd}
+            hour12={hour12}
             onEventClick={(row) => setActive(row)}
             onCustomerClick={(id) => setOpenCustomerId(id)}
             onReschedule={({ event, newStart, newEnd }) => {

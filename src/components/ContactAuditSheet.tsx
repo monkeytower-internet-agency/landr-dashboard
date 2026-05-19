@@ -12,6 +12,7 @@ import {
   fetchContactAuditLog,
   type ContactRow,
 } from '@/lib/contacts'
+import { useOperatorCalendarPrefs } from '@/lib/operator'
 import { t } from '@/lib/strings'
 
 type Props = {
@@ -21,6 +22,8 @@ type Props = {
 
 export function ContactAuditSheet({ contact, onOpenChange }: Props) {
   const open = contact !== null
+  // landr-f1s — respect time_format_24h for audit-log timestamps.
+  const { hour12 } = useOperatorCalendarPrefs()
   const query = useQuery({
     queryKey: ['contact-audit-log', contact?.id ?? 'none'],
     queryFn: () => fetchContactAuditLog(contact!.id),
@@ -67,7 +70,7 @@ export function ContactAuditSheet({ contact, onOpenChange }: Props) {
                       {row.operation}
                     </span>
                     <span className="text-muted-foreground">
-                      {contactDateTime(row.occurred_at)}
+                      {contactDateTime(row.occurred_at, { hour12 })}
                     </span>
                   </div>
                   <div className="text-muted-foreground mt-1">

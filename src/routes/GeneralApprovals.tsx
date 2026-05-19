@@ -32,7 +32,7 @@ import {
   type ApprovalDecision,
   type BookingRow,
 } from '@/lib/bookings'
-import { useOperator } from '@/lib/operator'
+import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { t } from '@/lib/strings'
 
 type DialogState = {
@@ -42,6 +42,9 @@ type DialogState = {
 
 export function GeneralApprovals() {
   const { currentOperatorId } = useOperator()
+  // landr-f1s — respect time_format_24h for the request timestamps shown
+  // in the approvals table.
+  const { hour12 } = useOperatorCalendarPrefs()
   const queryClient = useQueryClient()
   const [dialog, setDialog] = useState<DialogState>(null)
   const [note, setNote] = useState('')
@@ -131,7 +134,7 @@ export function GeneralApprovals() {
               {rows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="whitespace-nowrap">
-                    {dateDisplay(row.created_at)}
+                    {dateDisplay(row.created_at, { hour12 })}
                   </TableCell>
                   <TableCell>{customerDisplay(row)}</TableCell>
                   <TableCell>{productDisplay(row)}</TableCell>

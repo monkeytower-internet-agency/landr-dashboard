@@ -13,6 +13,12 @@ export const TAX_ID_KIND_LABELS: Record<TaxIdKind, string> = {
   other: 'Other',
 }
 
+// landr-f1s — accept 'HH:mm' or 'HH:mm:ss' (Postgres time returns the latter
+// via PostgREST). Normalization isn't needed — formatTime() accepts both.
+const TimeOfDaySchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/, 'Must be HH:mm.')
+
 export const OperatorSettingsSchema = z.object({
   id: z.string(),
   name: z.string().min(1, 'Company name is required.'),
@@ -29,11 +35,33 @@ export const OperatorSettingsSchema = z.object({
   timezone: z.string().nullable().optional(),
   default_locale: z.string().nullable().optional(),
   onboarded_at: z.string().nullable().optional(),
+  // landr-f1s — calendar display prefs.
+  work_hours_start: TimeOfDaySchema.nullable().optional(),
+  work_hours_end: TimeOfDaySchema.nullable().optional(),
+  time_format_24h: z.boolean().nullable().optional(),
 })
 
 export type OperatorSettings = z.infer<typeof OperatorSettingsSchema>
 
-export const OperatorPatchSchema = OperatorSettingsSchema.omit({ id: true, slug: true }).partial()
+const OperatorPatchBaseSchema = OperatorSettingsSchema.omit({
+  id: true,
+  slug: true,
+}).partial()
+
+// landr-f1s — mirrors the API model_validator and the DB CHECK constraint
+// operators_work_hours_chk. When BOTH endpoints are present in the same
+// patch, end must be strictly greater than start. Single-sided patches
+// defer to the DB constraint.
+export const OperatorPatchSchema = OperatorPatchBaseSchema.refine(
+  (data) => {
+    if (!data.work_hours_start || !data.work_hours_end) return true
+    return data.work_hours_end > data.work_hours_start
+  },
+  {
+    message: 'Work hours end must be later than start.',
+    path: ['work_hours_end'],
+  },
+)
 export type OperatorPatch = z.infer<typeof OperatorPatchSchema>
 
 export const GmailStatusSchema = z.object({
