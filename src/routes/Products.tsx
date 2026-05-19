@@ -13,6 +13,7 @@ import { ProductsList } from '@/components/ProductsList'
 import { useOperator } from '@/lib/operator'
 import {
   createProduct,
+  duplicateProduct,
   fetchPricingSchemes,
   fetchProductGroups,
   fetchProducts,
@@ -146,6 +147,21 @@ export function Products() {
     },
   })
 
+  const duplicateMutation = useMutation({
+    mutationFn: (id: string) => {
+      if (!currentOperatorId) throw new Error('No operator selected')
+      return duplicateProduct(currentOperatorId, id)
+    },
+    onSuccess: (copy) => {
+      queryClient.setQueryData<ProductRow[]>(
+        ['products', currentOperatorId ?? 'none'],
+        (prev) => (prev ? [copy, ...prev] : [copy]),
+      )
+      setSelection(copy.id)
+      setFeedback(t.products.toastDuplicated)
+    },
+  })
+
   async function handleSubmit(values: ProductFormSubmitValue) {
     setFeedback(null)
     if (resolvedSelection === NEW_PRODUCT || selectedProduct === null) {
@@ -169,10 +185,11 @@ export function Products() {
   const isLoading = productsQuery.isPending && !!currentOperatorId
 
   const mutationError =
-    createMutation.error ?? updateMutation.error ?? deleteMutation.error
+    createMutation.error ?? updateMutation.error ?? deleteMutation.error ?? duplicateMutation.error
   const submitting =
     createMutation.isPending || updateMutation.isPending
   const deleting = deleteMutation.isPending
+  const duplicatingId = duplicateMutation.isPending ? (duplicateMutation.variables ?? null) : null
 
   return (
     <div className="flex flex-col gap-6">
@@ -210,6 +227,11 @@ export function Products() {
               setSelection(NEW_PRODUCT)
               setFeedback(null)
             }}
+            onDuplicate={(row) => {
+              setFeedback(null)
+              duplicateMutation.mutate(row.id)
+            }}
+            duplicatingId={duplicatingId}
           />
           <Card>
             <CardHeader>

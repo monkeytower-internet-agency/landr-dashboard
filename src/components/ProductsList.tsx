@@ -1,7 +1,13 @@
 import { useMemo, useState } from 'react'
-import { PlusIcon, SearchIcon } from 'lucide-react'
+import { CopyIcon, MoreHorizontalIcon, PlusIcon, SearchIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { productSummaryLine, type ProductRow } from '@/lib/products'
@@ -12,9 +18,11 @@ type Props = {
   selectedId: string | null
   onSelect: (row: ProductRow) => void
   onCreate: () => void
+  onDuplicate: (row: ProductRow) => void
+  duplicatingId: string | null
 }
 
-export function ProductsList({ rows, selectedId, onSelect, onCreate }: Props) {
+export function ProductsList({ rows, selectedId, onSelect, onCreate, onDuplicate, duplicatingId }: Props) {
   const [filter, setFilter] = useState('')
 
   const filtered = useMemo(() => {
@@ -70,37 +78,68 @@ export function ProductsList({ rows, selectedId, onSelect, onCreate }: Props) {
         ) : (
           filtered.map((row) => {
             const isSelected = row.id === selectedId
+            const isDuplicating = duplicatingId === row.id
             return (
               <li key={row.id}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  onClick={() => onSelect(row)}
+                <div
                   className={cn(
-                    'group hover:bg-accent flex w-full flex-col gap-1 rounded-md border bg-card p-3 text-left transition-colors',
+                    'group flex w-full flex-col gap-1 rounded-md border bg-card p-3 transition-colors',
                     isSelected && 'border-primary ring-1 ring-primary',
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-medium">
-                      {row.name}
-                    </span>
-                    <span
-                      className={cn(
-                        'shrink-0 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide',
-                        row.active
-                          ? 'bg-primary/10 text-primary'
-                          : 'bg-muted text-muted-foreground',
-                      )}
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => onSelect(row)}
+                      className="hover:bg-accent -m-1 flex min-w-0 flex-1 flex-col gap-1 rounded p-1 text-left"
                     >
-                      {row.active ? t.products.statusActive : t.products.statusInactive}
-                    </span>
+                      <span className="truncate text-sm font-medium">
+                        {row.name}
+                      </span>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <span
+                        className={cn(
+                          'shrink-0 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide',
+                          row.active
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-muted text-muted-foreground',
+                        )}
+                      >
+                        {row.active ? t.products.statusActive : t.products.statusInactive}
+                      </span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6"
+                            aria-label="Row actions"
+                            disabled={isDuplicating}
+                          >
+                            <MoreHorizontalIcon className="size-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onSelect={() => onDuplicate(row)}
+                            disabled={isDuplicating}
+                          >
+                            <CopyIcon className="mr-2 size-4" />
+                            {isDuplicating
+                              ? t.products.duplicating
+                              : t.products.duplicate}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                   <span className="text-muted-foreground truncate text-xs">
                     {productSummaryLine(row)}
                   </span>
-                </button>
+                </div>
               </li>
             )
           })

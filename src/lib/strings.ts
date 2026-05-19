@@ -255,6 +255,9 @@ export const t = {
     toastCreated: 'Product created.',
     toastUpdated: 'Product updated.',
     toastDeleted: 'Product deleted.',
+    duplicate: 'Duplicate',
+    duplicating: 'Duplicating…',
+    toastDuplicated: 'Product duplicated — edit and save.',
 
     errorNameRequired: 'Name is required.',
     errorSlugRequired: 'Slug is required.',
