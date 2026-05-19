@@ -641,6 +641,28 @@ export const t = {
     deleteDialogDeleting: 'Deleting…',
     deleteDialogCancel: 'Cancel',
     roleTypesError: 'Failed to load role types.',
+
+    // landr-ogf: type-manager sheet reached via pen icon
+    roleTypeManagerTitle: 'Pickup location types',
+    roleTypeManagerDescription:
+      'Add or rename the types operators can pick for a pickup location (e.g. hotel, port, beach).',
+    roleTypeManagerEdit: 'Edit type',
+    roleTypeManagerEditAria: (label: string) => `Edit type — ${label}`,
+    roleTypeManagerDeleteAria: (label: string) => `Delete type — ${label}`,
+    roleTypeManagerEmpty: 'No types yet. Add one below.',
+    roleTypeManagerAddTitle: 'Add type',
+    roleTypeManagerEditTitle: 'Rename type',
+    roleTypeManagerCodeLabel: 'Code',
+    roleTypeManagerCodeHint: 'Short identifier (lowercase, hyphenated).',
+    roleTypeManagerLabelLabel: 'Label',
+    roleTypeManagerSortLabel: 'Sort order',
+    roleTypeManagerSave: 'Save',
+    roleTypeManagerCancel: 'Cancel',
+    roleTypeManagerToastCreated: 'Type added.',
+    roleTypeManagerToastUpdated: 'Type updated.',
+    roleTypeManagerToastDeleted: 'Type deleted.',
+    roleTypeManagerToastError: 'Could not save type.',
+    roleTypeManagerEditAffordanceAria: 'Manage pickup location types',
   },
   reporting: {
     title: 'Reporting',

@@ -97,3 +97,52 @@ export async function deleteLocation(
     `/api/staff/operators/${operatorId}/locations/${locationId}`,
   )
 }
+
+// ---- location_role_types (per-operator taxonomy) -------------------
+//
+// landr-ogf: CRUD helpers for the pen-icon "manage types" sheet
+// rendered from PickupLocationForm.
+
+export type LocationRoleTypeCreate = {
+  code: string
+  label: string
+  sort_order?: number
+}
+
+export type LocationRoleTypePatch = {
+  label?: string
+  sort_order?: number
+}
+
+export async function createLocationRoleType(
+  operatorId: string,
+  body: LocationRoleTypeCreate,
+): Promise<LocationRoleType> {
+  return api<LocationRoleType>(
+    'POST',
+    `/api/staff/operators/${operatorId}/location-role-types`,
+    body,
+  )
+}
+
+export async function updateLocationRoleType(
+  operatorId: string,
+  roleTypeId: string,
+  body: LocationRoleTypePatch,
+): Promise<LocationRoleType> {
+  return api<LocationRoleType>(
+    'PATCH',
+    `/api/staff/operators/${operatorId}/location-role-types/${roleTypeId}`,
+    body,
+  )
+}
+
+export async function deleteLocationRoleType(
+  operatorId: string,
+  roleTypeId: string,
+): Promise<void> {
+  await api<void>(
+    'DELETE',
+    `/api/staff/operators/${operatorId}/location-role-types/${roleTypeId}`,
+  )
+}
