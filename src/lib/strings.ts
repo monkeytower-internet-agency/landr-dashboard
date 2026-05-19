@@ -244,6 +244,21 @@ export const t = {
     eraseDialogCancel: 'Cancel',
     eraseDialogSubmit: 'Erase contact',
     activityRecent: 'Recent: ',
+    // landr-pqk — sort dropdown + derived-type filter chips.
+    filters: {
+      sortLabel: 'Sort',
+      sortRecentlyAdded: 'Recently added',
+      sortRecentlyChanged: 'Recently changed',
+      sortAlphabetical: 'Alphabetical',
+      typeLabel: 'Type',
+      typeLabels: {
+        customer: 'Customer',
+        attendee: 'Attendee',
+        employee: 'Employee',
+        agent: 'Agent',
+      } as Record<string, string>,
+      clearAll: 'Clear filters',
+    },
   },
   customerDetail: {
     title: 'Customer',

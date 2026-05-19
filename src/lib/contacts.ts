@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase'
+import type { ContactType } from '@/lib/contacts-filters'
+import type { ContactsSort } from '@/lib/contacts-sort'
 
 export type ContactRow = {
   id: string
@@ -15,6 +17,12 @@ export type ContactRow = {
   gdpr_erased_at: string | null
   gdpr_erased_by_user_id: string | null
   gdpr_erasure_note: string | null
+  /**
+   * landr-pqk — derived type tags from the contacts_with_types view.
+   * Present on rows returned by fetchContacts; optional so callers that
+   * fetch a bare contact (fetchContact) don't have to populate it.
+   */
+  types?: ContactType[]
 }
 
 const CONTACT_SELECT = `
@@ -34,14 +42,54 @@ const CONTACT_SELECT = `
   gdpr_erasure_note
 `
 
-export async function fetchContacts(operatorId: string): Promise<ContactRow[]> {
-  const { data, error } = await supabase
-    .from('contacts')
-    .select(CONTACT_SELECT)
+const CONTACT_WITH_TYPES_SELECT = `${CONTACT_SELECT.trim()},\n  types`
+
+export type FetchContactsOptions = {
+  sort?: ContactsSort
+  /** OR-within-dimension: rows matching ANY of the listed types. Empty = all. */
+  types?: ContactType[]
+}
+
+/**
+ * landr-pqk — fetch the contacts list with optional sort + type filter
+ * applied server-side via the contacts_with_types view.
+ *
+ * Sort modes map to ORDER BY:
+ *   created_at_desc — Recently added (default)
+ *   updated_at_desc — Recently changed
+ *   name_asc        — Alphabetical (last_name, then first_name)
+ *
+ * Type filter is OR-of-tags: a contact passes if its `types` array
+ * overlaps ANY of the requested types (PostgREST `ov` / SQL `&&`).
+ */
+export async function fetchContacts(
+  operatorId: string,
+  opts: FetchContactsOptions = {},
+): Promise<ContactRow[]> {
+  const sort = opts.sort ?? 'created_at_desc'
+  let query = supabase
+    .from('contacts_with_types')
+    .select(CONTACT_WITH_TYPES_SELECT)
     .eq('operator_id', operatorId)
     .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .limit(500)
+
+  if (opts.types && opts.types.length > 0) {
+    // PostgREST overlap operator on a text[] column: at least one tag matches.
+    query = query.overlaps('types', opts.types)
+  }
+
+  if (sort === 'created_at_desc') {
+    query = query.order('created_at', { ascending: false })
+  } else if (sort === 'updated_at_desc') {
+    query = query.order('updated_at', { ascending: false })
+  } else {
+    // Alphabetical — nulls last so '—'/anonymous contacts don't lead.
+    query = query
+      .order('last_name', { ascending: true, nullsFirst: false })
+      .order('first_name', { ascending: true, nullsFirst: false })
+  }
+
+  const { data, error } = await query.limit(500)
 
   if (error) throw new Error(error.message)
   return (data ?? []) as unknown as ContactRow[]

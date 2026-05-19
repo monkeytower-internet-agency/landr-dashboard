@@ -58,6 +58,9 @@ const { mock } = vi.hoisted(() => {
       eq: vi.fn(() => builder),
       is: vi.fn(() => builder),
       order: vi.fn(() => builder),
+      // landr-pqk — fetchContacts hits contacts_with_types view with an
+      // optional `.overlaps('types', [...])` call when type chips are active.
+      overlaps: vi.fn(() => builder),
       limit: vi.fn(async () => ({
         data: state.contacts,
         error: state.contactsError,
