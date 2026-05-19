@@ -21,6 +21,12 @@ import {
 import { t } from '@/lib/strings'
 import { cn } from '@/lib/utils'
 
+// landr-f1s — pad a Postgres time value into FullCalendar's expected
+// 'HH:MM:SS' shape. Accepts 'HH:MM' or 'HH:MM:SS'; returns 'HH:MM:SS'.
+function toFcTime(value: string): string {
+  return /^\d{1,2}:\d{2}:\d{2}$/.test(value) ? value : `${value}:00`
+}
+
 type CalendarView = 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay'
 
 const STATE_CLASS: Record<BookingSemanticState, string> = {
@@ -52,6 +58,13 @@ type Props = {
     newEnd: string | null
   }) => void
   initialView?: CalendarView
+  // landr-f1s — calendar display prefs from the operator row. Default
+  // values mirror the DB defaults so omitting these in tests still
+  // produces sensible behaviour.
+  workHoursStart?: string
+  workHoursEnd?: string
+  /** true = 12h AM/PM, false = 24h. */
+  hour12?: boolean
 }
 
 export function BookingsCalendar({
@@ -60,9 +73,17 @@ export function BookingsCalendar({
   onCustomerClick,
   onReschedule,
   initialView = 'dayGridMonth',
+  workHoursStart = '08:00',
+  workHoursEnd = '20:00',
+  hour12 = false,
 }: Props) {
   const calendarRef = useRef<FullCalendar | null>(null)
   const [view, setView] = useState<CalendarView>(initialView)
+  // landr-f1s — when off-hours are collapsed (default), the calendar's
+  // vertical time axis only spans [workHoursStart, workHoursEnd). When
+  // expanded, the axis spans the full 24h day. State is local; persisting
+  // can come later if users actually request it.
+  const [offHoursExpanded, setOffHoursExpanded] = useState(false)
 
   const calendarEvents = useMemo<BookingCalendarEvent[]>(
     () => bookingsToCalendarEvents(rows),
@@ -178,6 +199,25 @@ export function BookingsCalendar({
     )
   }
 
+  // landr-f1s — only the timeGrid* views have a vertical time axis. The
+  // month grid is unaffected; pass slot props unconditionally — FullCalendar
+  // ignores them in dayGridMonth.
+  const slotMinTime = offHoursExpanded ? '00:00:00' : toFcTime(workHoursStart)
+  const slotMaxTime = offHoursExpanded ? '24:00:00' : toFcTime(workHoursEnd)
+  const showOffHoursToggle = view === 'timeGridWeek' || view === 'timeGridDay'
+
+  // FullCalendar accepts a formatter spec object; hour12 toggles AM/PM.
+  const slotLabelFormat = {
+    hour: '2-digit' as const,
+    minute: '2-digit' as const,
+    hour12,
+  }
+  const eventTimeFormat = {
+    hour: '2-digit' as const,
+    minute: '2-digit' as const,
+    hour12,
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-end gap-1" role="tablist">
@@ -195,6 +235,22 @@ export function BookingsCalendar({
           </Button>
         ))}
       </div>
+      {showOffHoursToggle ? (
+        <div className="flex items-center justify-end">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            aria-pressed={offHoursExpanded}
+            onClick={() => setOffHoursExpanded((v) => !v)}
+            data-testid="off-hours-toggle"
+          >
+            {offHoursExpanded
+              ? t.calendar.collapseOffHours
+              : t.calendar.expandOffHours(workHoursStart, workHoursEnd)}
+          </Button>
+        </div>
+      ) : null}
       <div className="landr-fc rounded-md border p-3">
         <FullCalendar
           ref={calendarRef}
@@ -216,6 +272,10 @@ export function BookingsCalendar({
           eventDrop={handleEventDrop}
           eventContent={renderEventContent}
           nowIndicator
+          slotMinTime={slotMinTime}
+          slotMaxTime={slotMaxTime}
+          slotLabelFormat={slotLabelFormat}
+          eventTimeFormat={eventTimeFormat}
         />
       </div>
     </div>

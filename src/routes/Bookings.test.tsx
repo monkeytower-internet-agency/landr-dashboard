@@ -75,6 +75,12 @@ vi.mock('@/lib/operator', () => ({
     loading: false,
     switchOperator: () => {},
   }),
+  // landr-f1s — BookingsTable now reads calendar prefs.
+  useOperatorCalendarPrefs: () => ({
+    workHoursStart: '08:00',
+    workHoursEnd: '20:00',
+    hour12: false,
+  }),
   OperatorProvider: ({ children }: { children: ReactElement }) => children,
 }))
 

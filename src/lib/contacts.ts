@@ -144,10 +144,30 @@ export function contactIsErased(row: ContactRow): boolean {
 const dateFormatter = new Intl.DateTimeFormat('en-IE', {
   dateStyle: 'medium',
 })
-const dateTimeFormatter = new Intl.DateTimeFormat('en-IE', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-})
+
+// landr-f1s — date + time-of-day display. Hour cycle follows the operator's
+// time_format_24h preference (passed by the caller via opts.hour12).
+// NOTE: Intl.DateTimeFormat forbids mixing dateStyle/timeStyle with the
+// per-component options (year, hour, minute, …); we use the per-component
+// form so hourCycle takes effect.
+const _dateTimeFormatters: Record<'h12' | 'h23', Intl.DateTimeFormat> = {
+  h12: new Intl.DateTimeFormat('en-IE', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h12',
+  }),
+  h23: new Intl.DateTimeFormat('en-IE', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }),
+}
 
 export function contactDate(iso: string | null): string {
   if (!iso) return '—'
@@ -156,9 +176,12 @@ export function contactDate(iso: string | null): string {
   return dateFormatter.format(d)
 }
 
-export function contactDateTime(iso: string | null): string {
+export function contactDateTime(
+  iso: string | null,
+  opts?: { hour12?: boolean },
+): string {
   if (!iso) return '—'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  return dateTimeFormatter.format(d)
+  return _dateTimeFormatters[opts?.hour12 ? 'h12' : 'h23'].format(d)
 }

@@ -176,6 +176,10 @@ export const t = {
     viewWeek: 'Week',
     viewDay: 'Day',
     rescheduleError: 'Could not reschedule booking.',
+    // landr-f1s — off-hours expand/collapse for the time-grid views.
+    expandOffHours: (start: string, end: string): string =>
+      `Show hours outside ${start}–${end}`,
+    collapseOffHours: 'Hide off-hours',
   },
   contacts: {
     title: 'Contacts',
@@ -444,6 +448,9 @@ export const t = {
     sectionTax: 'Tax & Legal',
     sectionContact: 'Contact & Address',
     sectionLocale: 'Locale',
+    sectionCalendar: 'Calendar & display',
+    sectionCalendarDesc:
+      'Tune the calendar to your working day. The primary view shows the hours you choose; off-hours collapse to a strip you can expand.',
     sectionIntegrations: 'Integrations',
     sectionIntegrationsDesc: 'Connect third-party services to your operator account.',
 
@@ -461,6 +468,14 @@ export const t = {
     fieldCountry: 'Country (ISO-3166 alpha-2)',
     fieldTimezone: 'Timezone (IANA)',
     fieldLocale: 'Default locale',
+    fieldWorkHoursStart: 'Work hours — start',
+    fieldWorkHoursEnd: 'Work hours — end',
+    fieldWorkHoursHint:
+      'Defaults to 08:00 – 20:00. Calendar renders this window first; off-hours are one collapsible strip.',
+    fieldTimeFormat: 'Time format',
+    timeFormat24h: '24-hour (13:05)',
+    timeFormat12h: '12-hour AM/PM (1:05 PM)',
+    errorWorkHoursOrder: 'End time must be later than start time.',
     optionNone: '— Select —',
 
     gmailLoading: 'Loading Gmail status…',

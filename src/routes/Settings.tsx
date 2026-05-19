@@ -99,6 +99,11 @@ function SettingsForm({ operator, operatorId, onSaved }: FormProps) {
       country: operator.country ?? '',
       timezone: operator.timezone ?? '',
       default_locale: operator.default_locale ?? '',
+      // landr-f1s — calendar display prefs. Postgres returns time as
+      // 'HH:MM:SS'; <Input type=time> wants 'HH:MM' — strip seconds.
+      work_hours_start: (operator.work_hours_start ?? '08:00:00').slice(0, 5),
+      work_hours_end: (operator.work_hours_end ?? '20:00:00').slice(0, 5),
+      time_format_24h: operator.time_format_24h ?? true,
     },
   })
 
@@ -251,6 +256,73 @@ function SettingsForm({ operator, operatorId, onSaved }: FormProps) {
                     onChange={field.onChange}
                     disabled={mutation.isPending}
                   />
+                )}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Calendar & display (landr-f1s) */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>{t.settings.sectionCalendar}</CardTitle>
+            <CardDescription>{t.settings.sectionCalendarDesc}</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-1.5">
+                <Label htmlFor="settings-work-hours-start">
+                  {t.settings.fieldWorkHoursStart}
+                </Label>
+                <Input
+                  id="settings-work-hours-start"
+                  type="time"
+                  step={900}
+                  {...register('work_hours_start')}
+                  disabled={mutation.isPending}
+                />
+                {errors.work_hours_start && (
+                  <p role="alert" className="text-destructive text-xs">
+                    {errors.work_hours_start.message}
+                  </p>
+                )}
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="settings-work-hours-end">
+                  {t.settings.fieldWorkHoursEnd}
+                </Label>
+                <Input
+                  id="settings-work-hours-end"
+                  type="time"
+                  step={900}
+                  {...register('work_hours_end')}
+                  disabled={mutation.isPending}
+                />
+                {errors.work_hours_end && (
+                  <p role="alert" className="text-destructive text-xs">
+                    {errors.work_hours_end.message}
+                  </p>
+                )}
+              </div>
+            </div>
+            <p className="text-muted-foreground text-xs">
+              {t.settings.fieldWorkHoursHint}
+            </p>
+            <div className="grid gap-1.5">
+              <Label htmlFor="settings-time-format">{t.settings.fieldTimeFormat}</Label>
+              <Controller
+                control={control}
+                name="time_format_24h"
+                render={({ field }) => (
+                  <NativeSelect
+                    id="settings-time-format"
+                    value={field.value === false ? '12h' : '24h'}
+                    onChange={(e) => field.onChange(e.target.value === '24h')}
+                    disabled={mutation.isPending}
+                  >
+                    <option value="24h">{t.settings.timeFormat24h}</option>
+                    <option value="12h">{t.settings.timeFormat12h}</option>
+                  </NativeSelect>
                 )}
               />
             </div>

@@ -15,7 +15,22 @@ export type Operator = {
   slug: string
   name: string | null
   onboarded_at: string | null
+  // landr-f1s — calendar display prefs. The columns are NOT NULL in the DB
+  // (defaults 08:00 / 20:00 / true) but we keep them optional on the client
+  // type so older test fixtures and stale membership caches still type-check.
+  // Consumers should funnel through useOperatorCalendarPrefs(), which
+  // collapses null / undefined onto the same safe defaults.
+  work_hours_start?: string | null
+  work_hours_end?: string | null
+  time_format_24h?: boolean | null
 }
+
+// landr-f1s — fallback defaults when an Operator row is missing the calendar
+// prefs (e.g. stale cache, race between membership fetch and migration).
+// Source of truth is the operators table defaults.
+export const DEFAULT_WORK_HOURS_START = '08:00'
+export const DEFAULT_WORK_HOURS_END = '20:00'
+export const DEFAULT_TIME_FORMAT_24H = true
 
 type OperatorContextValue = {
   operators: Operator[]
@@ -85,7 +100,10 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
 
       const { data, error } = await supabase
         .from('operator_memberships')
-        .select('operator_id, operators!inner ( id, slug, name, onboarded_at )')
+        .select(
+          'operator_id, operators!inner ( id, slug, name, onboarded_at, ' +
+            'work_hours_start, work_hours_end, time_format_24h )',
+        )
         .eq('user_id', userRow.id)
       if (cancelled) return
       if (error || !data) {
@@ -163,4 +181,28 @@ export function useOperator(): OperatorContextValue {
     throw new Error('useOperator must be used inside <OperatorProvider>')
   }
   return ctx
+}
+
+/**
+ * landr-f1s — convenience hook returning the current operator's calendar
+ * display prefs with safe defaults. Use this rather than reading
+ * `currentOperator.time_format_24h` directly so that null / stale-cache
+ * cases all converge on the same fallback.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useOperatorCalendarPrefs(): {
+  workHoursStart: string
+  workHoursEnd: string
+  hour12: boolean
+} {
+  const { currentOperator } = useOperator()
+  return {
+    workHoursStart: currentOperator?.work_hours_start ?? DEFAULT_WORK_HOURS_START,
+    workHoursEnd: currentOperator?.work_hours_end ?? DEFAULT_WORK_HOURS_END,
+    hour12:
+      currentOperator?.time_format_24h !== null &&
+      currentOperator?.time_format_24h !== undefined
+        ? !currentOperator.time_format_24h
+        : !DEFAULT_TIME_FORMAT_24H,
+  }
 }

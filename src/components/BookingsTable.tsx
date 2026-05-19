@@ -31,6 +31,7 @@ import {
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { DayChips } from '@/components/booking/DayChips'
 import { StageBadge } from '@/components/booking/StageBadge'
+import { useOperatorCalendarPrefs } from '@/lib/operator'
 import { t } from '@/lib/strings'
 
 type Props = {
@@ -44,6 +45,9 @@ export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
     { id: 'created_at', desc: true },
   ])
   const [globalFilter, setGlobalFilter] = useState('')
+  // landr-f1s — respect the operator's time_format_24h preference for the
+  // Created column.
+  const { hour12 } = useOperatorCalendarPrefs()
 
   const columns = useMemo<ColumnDef<BookingRow>[]>(
     () => [
@@ -51,7 +55,7 @@ export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
         id: 'created_at',
         accessorKey: 'created_at',
         header: t.bookings.columnDate,
-        cell: ({ row }) => dateDisplay(row.original.created_at),
+        cell: ({ row }) => dateDisplay(row.original.created_at, { hour12 }),
         sortingFn: 'datetime',
       },
       {
@@ -115,7 +119,7 @@ export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
         ),
       },
     ],
-    [onCustomerClick],
+    [onCustomerClick, hour12],
   )
 
   const table = useReactTable({
