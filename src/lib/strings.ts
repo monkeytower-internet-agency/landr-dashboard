@@ -78,9 +78,13 @@ export const t = {
       customerPhone: 'Phone',
       dateRangeStart: 'Start date',
       dateRangeEnd: 'End date',
+      pickerLabel: 'Pick days',
+      pickerHint:
+        'Click to pick a date. Click another to make a range. Hold Shift (or Cmd/Ctrl) to toggle individual days.',
       selectedDaysLabel: 'Selected days',
       selectedDaysHint:
         'Click a day chip to toggle it on or off. Pricing recomputes on save.',
+      rangeSummary: (range: string) => `Range: ${range}`,
       noSelectedDays: 'No specific days selected for this line item.',
       grossTotalLabel: 'Gross total',
       recomputeHint: 'Recomputed automatically on save.',

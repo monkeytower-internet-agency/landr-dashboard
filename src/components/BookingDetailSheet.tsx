@@ -28,6 +28,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { DayChips } from '@/components/booking/DayChips'
+import { MultiDayPicker } from '@/components/booking/MultiDayPicker'
 import { StageBadge } from '@/components/booking/StageBadge'
 import {
   cancelBooking,
@@ -116,6 +117,22 @@ function arraysEqual(a: string[], b: string[]): boolean {
   return true
 }
 
+function deriveBounds(days: string[]): {
+  start: string | null
+  end: string | null
+} {
+  if (days.length === 0) return { start: null, end: null }
+  const sorted = [...days].sort()
+  return { start: sorted[0], end: sorted[sorted.length - 1] }
+}
+
+function formatRangeLabel(days: string[]): string | null {
+  const { start, end } = deriveBounds(days)
+  if (!start || !end) return null
+  if (start === end) return start
+  return `${start} → ${end}`
+}
+
 function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const queryClient = useQueryClient()
   const [customer, setCustomer] = useState<CustomerDraft>(() =>
@@ -142,11 +159,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const dirtyItems = items.filter((draft, idx) => {
     const orig = originalItems[idx]
     if (!orig) return true
-    return (
-      draft.date_range_start !== orig.date_range_start ||
-      draft.date_range_end !== orig.date_range_end ||
-      !arraysEqual(draft.selected_days, orig.selected_days)
-    )
+    return !arraysEqual(draft.selected_days, orig.selected_days)
   })
 
   const isDirty = customerDirty || dirtyItems.length > 0
@@ -169,11 +182,15 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
       for (const draft of dirtyItems) {
         const orig = originalItems.find((o) => o.id === draft.id)
         const patch: Parameters<typeof patchBookingProduct>[2] = {}
-        if (!orig || draft.date_range_start !== orig.date_range_start) {
-          patch.date_range_start = draft.date_range_start
+        const draftBounds = deriveBounds(draft.selected_days)
+        const origBounds = orig
+          ? deriveBounds(orig.selected_days)
+          : { start: null, end: null }
+        if (!orig || draftBounds.start !== origBounds.start) {
+          patch.date_range_start = draftBounds.start
         }
-        if (!orig || draft.date_range_end !== orig.date_range_end) {
-          patch.date_range_end = draft.date_range_end
+        if (!orig || draftBounds.end !== origBounds.end) {
+          patch.date_range_end = draftBounds.end
         }
         if (!orig || !arraysEqual(draft.selected_days, orig.selected_days)) {
           patch.selected_days = draft.selected_days
@@ -393,47 +410,29 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
                   item?.products?.name ?? null,
                   idx,
                 )
+                const rangeLabel = formatRangeLabel(draft.selected_days)
                 return (
                   <div
                     key={draft.id}
                     className="flex flex-col gap-3 rounded-md border p-3"
                   >
                     <div className="text-sm font-medium">{heading}</div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1.5">
-                        <Label htmlFor={`bk-start-${draft.id}`}>
-                          {t.bookings.detail.dateRangeStart}
-                        </Label>
-                        <Input
-                          id={`bk-start-${draft.id}`}
-                          type="date"
-                          value={draft.date_range_start ?? ''}
-                          onChange={(e) =>
-                            updateItem(draft.id, (it) => ({
-                              ...it,
-                              date_range_start: e.target.value || null,
-                            }))
-                          }
-                          disabled={busy}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <Label htmlFor={`bk-end-${draft.id}`}>
-                          {t.bookings.detail.dateRangeEnd}
-                        </Label>
-                        <Input
-                          id={`bk-end-${draft.id}`}
-                          type="date"
-                          value={draft.date_range_end ?? ''}
-                          onChange={(e) =>
-                            updateItem(draft.id, (it) => ({
-                              ...it,
-                              date_range_end: e.target.value || null,
-                            }))
-                          }
-                          disabled={busy}
-                        />
-                      </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>{t.bookings.detail.pickerLabel}</Label>
+                      <MultiDayPicker
+                        value={draft.selected_days}
+                        onChange={(next) =>
+                          updateItem(draft.id, (it) => ({
+                            ...it,
+                            selected_days: next,
+                          }))
+                        }
+                        initialMonth={draft.selected_days[0] ?? undefined}
+                        disabled={busy}
+                      />
+                      <p className="text-muted-foreground text-xs">
+                        {t.bookings.detail.pickerHint}
+                      </p>
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <Label>{t.bookings.detail.selectedDaysLabel}</Label>
@@ -442,9 +441,11 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
                         editable
                         onToggle={(day) => toggleDay(draft.id, day)}
                       />
-                      <p className="text-muted-foreground text-xs">
-                        {t.bookings.detail.selectedDaysHint}
-                      </p>
+                      {rangeLabel ? (
+                        <p className="text-muted-foreground text-xs">
+                          {t.bookings.detail.rangeSummary(rangeLabel)}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 )
