@@ -47,6 +47,37 @@ export async function fetchContacts(operatorId: string): Promise<ContactRow[]> {
   return (data ?? []) as unknown as ContactRow[]
 }
 
+export async function fetchContact(contactId: string): Promise<ContactRow> {
+  const { data, error } = await supabase
+    .from('contacts')
+    .select(CONTACT_SELECT)
+    .eq('id', contactId)
+    .single()
+
+  if (error) throw new Error(error.message)
+  return data as unknown as ContactRow
+}
+
+export type ContactPatch = {
+  first_name?: string | null
+  last_name?: string | null
+  email?: string | null
+  phone?: string | null
+  preferred_locale?: string | null
+}
+
+/** PATCH a contact row via Supabase REST direct (RLS-gated, no side effects). */
+export async function patchContact(
+  contactId: string,
+  patch: ContactPatch,
+): Promise<void> {
+  const { error } = await supabase
+    .from('contacts')
+    .update(patch)
+    .eq('id', contactId)
+  if (error) throw new Error(error.message)
+}
+
 export type AuditLogRow = {
   id: string
   occurred_at: string

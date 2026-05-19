@@ -26,10 +26,12 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
+import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { DayChips } from '@/components/booking/DayChips'
 import { StageBadge } from '@/components/booking/StageBadge'
 import {
   cancelBooking,
+  customerDisplay,
   patchBookingProduct,
   patchCustomerContact,
   postHotelApprovalDecision,
@@ -42,9 +44,14 @@ import { t } from '@/lib/strings'
 type Props = {
   row: BookingRow | null
   onOpenChange: (open: boolean) => void
+  onCustomerClick?: (contactId: string) => void
 }
 
-export function BookingDetailSheet({ row, onOpenChange }: Props) {
+export function BookingDetailSheet({
+  row,
+  onOpenChange,
+  onCustomerClick,
+}: Props) {
   const open = row !== null
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -54,6 +61,7 @@ export function BookingDetailSheet({ row, onOpenChange }: Props) {
             key={row.id}
             row={row}
             onClose={() => onOpenChange(false)}
+            onCustomerClick={onCustomerClick}
           />
         ) : null}
       </SheetContent>
@@ -64,6 +72,7 @@ export function BookingDetailSheet({ row, onOpenChange }: Props) {
 type BodyProps = {
   row: BookingRow
   onClose: () => void
+  onCustomerClick?: (contactId: string) => void
 }
 
 type CustomerDraft = {
@@ -107,7 +116,7 @@ function arraysEqual(a: string[], b: string[]): boolean {
   return true
 }
 
-function BookingDetailBody({ row, onClose }: BodyProps) {
+function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const queryClient = useQueryClient()
   const [customer, setCustomer] = useState<CustomerDraft>(() =>
     customerDraftFromRow(row),
@@ -246,7 +255,20 @@ function BookingDetailBody({ row, onClose }: BodyProps) {
       <SheetHeader>
         <SheetTitle>{t.bookings.detailsTitle}</SheetTitle>
         <SheetDescription>
-          {`#${row.id.slice(0, 8)} · ${priceDisplay(row)}`}
+          {row.customer && onCustomerClick ? (
+            <span className="inline-flex flex-wrap items-center gap-x-1">
+              <CustomerNameLink
+                contactId={row.customer.id}
+                display={customerDisplay(row)}
+                onClick={onCustomerClick}
+                className="text-foreground font-medium"
+              />
+              <span aria-hidden>·</span>
+              <span>{`#${row.id.slice(0, 8)} · ${priceDisplay(row)}`}</span>
+            </span>
+          ) : (
+            `#${row.id.slice(0, 8)} · ${priceDisplay(row)}`
+          )}
         </SheetDescription>
       </SheetHeader>
 

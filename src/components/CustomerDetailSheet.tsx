@@ -1,0 +1,379 @@
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { z } from 'zod'
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import { NativeSelect } from '@/components/ui/native-select'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
+import {
+  contactNameDisplay,
+  fetchContact,
+  patchContact,
+  type ContactRow,
+} from '@/lib/contacts'
+import { t } from '@/lib/strings'
+
+type Props = {
+  contactId: string | null
+  onOpenChange: (open: boolean) => void
+}
+
+// Locale options — kept narrow; mirrors OPERATOR_LOCALES used elsewhere.
+// Contacts may carry any string in preferred_locale (e.g. legacy "es"),
+// so we treat the field as free-form text in the schema and surface the
+// known options in a select with the raw value preserved as a fallback.
+const KNOWN_LOCALES: { value: string; label: string }[] = [
+  { value: 'de', label: 'Deutsch (de)' },
+  { value: 'en', label: 'English (en)' },
+  { value: 'es', label: 'Español (es)' },
+  { value: 'fr', label: 'Français (fr)' },
+  { value: 'it', label: 'Italiano (it)' },
+]
+
+const schema = z.object({
+  first_name: z.string().trim().max(120),
+  last_name: z.string().trim().max(120),
+  email: z
+    .string()
+    .trim()
+    .max(320)
+    .refine(
+      (v) => v === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
+      { message: t.customerDetail.invalidEmail },
+    ),
+  phone: z.string().trim().max(64),
+  preferred_locale: z.string().trim().max(16),
+})
+
+type FormValues = z.infer<typeof schema>
+
+function defaultsFrom(row: ContactRow): FormValues {
+  return {
+    first_name: row.first_name ?? '',
+    last_name: row.last_name ?? '',
+    email: row.email ?? '',
+    phone: row.phone ?? '',
+    preferred_locale: row.preferred_locale ?? '',
+  }
+}
+
+export function CustomerDetailSheet({ contactId, onOpenChange }: Props) {
+  const open = contactId !== null
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-md">
+        {contactId ? (
+          <CustomerDetailBody
+            key={contactId}
+            contactId={contactId}
+            onClose={() => onOpenChange(false)}
+          />
+        ) : null}
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+type BodyProps = {
+  contactId: string
+  onClose: () => void
+}
+
+function CustomerDetailBody({ contactId, onClose }: BodyProps) {
+  const queryClient = useQueryClient()
+  const [showDiscard, setShowDiscard] = useState(false)
+
+  const query = useQuery<ContactRow>({
+    queryKey: ['contact', contactId],
+    queryFn: () => fetchContact(contactId),
+  })
+
+  return (
+    <>
+      <SheetHeader>
+        <SheetTitle>{t.customerDetail.title}</SheetTitle>
+        <SheetDescription>
+          {query.data ? contactNameDisplay(query.data) : ' '}
+        </SheetDescription>
+      </SheetHeader>
+
+      {query.isPending ? (
+        <p className="text-muted-foreground px-4 text-sm">
+          {t.customerDetail.loading}
+        </p>
+      ) : query.isError || !query.data ? (
+        <div className="flex flex-1 flex-col gap-2 px-4">
+          <p className="text-destructive text-sm" role="alert">
+            {query.error?.message ?? t.customerDetail.error}
+          </p>
+          <SheetFooter className="px-0">
+            <Button type="button" variant="outline" onClick={onClose}>
+              {t.customerDetail.close}
+            </Button>
+          </SheetFooter>
+        </div>
+      ) : (
+        <CustomerEditForm
+          row={query.data}
+          onClose={onClose}
+          showDiscard={showDiscard}
+          setShowDiscard={setShowDiscard}
+          onSaved={() => {
+            queryClient.invalidateQueries({ queryKey: ['contact', contactId] })
+            queryClient.invalidateQueries({ queryKey: ['contacts'] })
+            queryClient.invalidateQueries({ queryKey: ['bookings'] })
+          }}
+        />
+      )}
+    </>
+  )
+}
+
+type EditFormProps = {
+  row: ContactRow
+  onClose: () => void
+  showDiscard: boolean
+  setShowDiscard: (open: boolean) => void
+  onSaved: () => void
+}
+
+function CustomerEditForm({
+  row,
+  onClose,
+  showDiscard,
+  setShowDiscard,
+  onSaved,
+}: EditFormProps) {
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: defaultsFrom(row),
+    mode: 'onChange',
+  })
+
+  const mutation = useMutation({
+    mutationFn: async (values: FormValues) => {
+      await patchContact(row.id, {
+        first_name: values.first_name.trim() || null,
+        last_name: values.last_name.trim() || null,
+        email: values.email.trim() || null,
+        phone: values.phone.trim() || null,
+        preferred_locale: values.preferred_locale.trim() || null,
+      })
+    },
+    onSuccess: () => {
+      toast.success(t.customerDetail.toastSuccess)
+      onSaved()
+      onClose()
+    },
+    onError: (err: Error) => {
+      toast.error(t.customerDetail.toastError, { description: err.message })
+    },
+  })
+
+  function handleSubmit(values: FormValues) {
+    mutation.mutate(values)
+  }
+
+  function requestClose() {
+    if (form.formState.isDirty && !mutation.isPending) {
+      setShowDiscard(true)
+      return
+    }
+    onClose()
+  }
+
+  // Surface the contact's current preferred_locale even when it's not in
+  // KNOWN_LOCALES so the operator does not silently lose it.
+  const currentLocale = form.watch('preferred_locale')
+  const localeOptions = (() => {
+    const all = [...KNOWN_LOCALES]
+    if (
+      currentLocale &&
+      !all.some((opt) => opt.value === currentLocale)
+    ) {
+      all.unshift({ value: currentLocale, label: currentLocale })
+    }
+    return all
+  })()
+
+  return (
+    <>
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(handleSubmit)}
+          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2"
+          aria-label={t.customerDetail.title}
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="first_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t.customerDetail.fieldFirstName}</FormLabel>
+                  <FormControl>
+                    <Input disabled={mutation.isPending} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="last_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t.customerDetail.fieldLastName}</FormLabel>
+                  <FormControl>
+                    <Input disabled={mutation.isPending} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t.customerDetail.fieldEmail}</FormLabel>
+                <FormControl>
+                  <Input type="email" disabled={mutation.isPending} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t.customerDetail.fieldPhone}</FormLabel>
+                <FormControl>
+                  <Input type="tel" disabled={mutation.isPending} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="preferred_locale"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t.customerDetail.fieldPreferredLocale}</FormLabel>
+                <FormControl>
+                  <NativeSelect
+                    value={field.value}
+                    onChange={(e) => field.onChange(e.target.value)}
+                    disabled={mutation.isPending}
+                  >
+                    <option value="">{t.customerDetail.localeNone}</option>
+                    {localeOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </form>
+      </Form>
+
+      <SheetFooter className="flex flex-row items-center justify-end gap-2 border-t">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={requestClose}
+          disabled={mutation.isPending}
+        >
+          {t.customerDetail.cancel}
+        </Button>
+        <Button
+          type="button"
+          onClick={form.handleSubmit(handleSubmit)}
+          disabled={
+            !form.formState.isDirty ||
+            !form.formState.isValid ||
+            mutation.isPending
+          }
+          title={
+            !form.formState.isDirty ? t.customerDetail.noChanges : undefined
+          }
+        >
+          {mutation.isPending
+            ? t.customerDetail.saving
+            : t.customerDetail.save}
+        </Button>
+      </SheetFooter>
+
+      <AlertDialog
+        open={showDiscard}
+        onOpenChange={(next) => setShowDiscard(next)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t.customerDetail.discardTitle}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.customerDetail.discardDescription}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t.customerDetail.discardCancel}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                setShowDiscard(false)
+                onClose()
+              }}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {t.customerDetail.discardConfirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  )
+}

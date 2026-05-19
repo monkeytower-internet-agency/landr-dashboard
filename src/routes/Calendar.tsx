@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { BookingsCalendar } from '@/components/BookingsCalendar'
+import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   fetchBookings,
@@ -15,6 +16,7 @@ import { t } from '@/lib/strings'
 export function Calendar() {
   const { currentOperatorId } = useOperator()
   const [active, setActive] = useState<BookingRow | null>(null)
+  const [openCustomerId, setOpenCustomerId] = useState<string | null>(null)
   const [rescheduleError, setRescheduleError] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
@@ -85,6 +87,7 @@ export function Calendar() {
           <BookingsCalendar
             rows={rows}
             onEventClick={(row) => setActive(row)}
+            onCustomerClick={(id) => setOpenCustomerId(id)}
             onReschedule={({ event, newStart, newEnd }) => {
               if (!event.itemId) return
               reschedule.mutate({
@@ -100,6 +103,13 @@ export function Calendar() {
         row={active}
         onOpenChange={(open) => {
           if (!open) setActive(null)
+        }}
+        onCustomerClick={(id) => setOpenCustomerId(id)}
+      />
+      <CustomerDetailSheet
+        contactId={openCustomerId}
+        onOpenChange={(open) => {
+          if (!open) setOpenCustomerId(null)
         }}
       />
     </div>
