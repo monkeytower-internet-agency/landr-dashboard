@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Trash2Icon } from 'lucide-react'
+import { CrownIcon, Trash2Icon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,7 +19,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { MarkdownEditor } from '@/components/ui/markdown-editor'
 import { NativeSelect } from '@/components/ui/native-select'
-import { useOperatorAllowedProductKinds } from '@/lib/operator'
+import { useOperator, useOperatorAllowedProductKinds } from '@/lib/operator'
+import {
+  KIND_DISPLAY_ORDER,
+  lowestTierTooltip,
+  shouldShowTeasers,
+} from '@/lib/package-teasers'
 import {
   nameToSlug,
   type PricingSchemeRef,
@@ -40,12 +45,11 @@ import { t } from '@/lib/strings'
 // input/output types of the schema stay identical — which avoids a known
 // type-incompatibility between zod's "transformed output" types and
 // react-hook-form's strict generics.
-const ALL_KINDS: readonly ProductKind[] = [
-  'service',
-  'digital_good',
-  'physical_good',
-  'gift_card',
-] as const
+// landr-c3t — the picker now renders ALL kinds in marketing order; the
+// teaser-rendering rules decide which become disabled-with-crown vs
+// omitted entirely. The full list lives in KIND_DISPLAY_ORDER; this local
+// alias keeps the zod enum literal happy without a runtime mismatch.
+const ALL_KINDS: readonly ProductKind[] = KIND_DISPLAY_ORDER
 
 const ALL_SHAPES: readonly ServiceTimeShape[] = [
   'single_date',
@@ -217,6 +221,8 @@ function kindLabel(kind: ProductKind): string {
   switch (kind) {
     case 'service':
       return t.products.kindService
+    case 'subscription':
+      return t.products.kindSubscription
     case 'digital_good':
       return t.products.kindDigitalGood
     case 'physical_good':
@@ -256,6 +262,23 @@ export function ProductForm({
     const source = allowedKinds ?? operatorAllowedKinds
     return ALL_KINDS.filter((k) => source.includes(k))
   }, [allowedKinds, operatorAllowedKinds])
+
+  // landr-c3t — premium-tease UX. Render disabled-with-crown options for
+  // kinds outside the allow-list when shouldShowTeasers() is true. Free-tier
+  // operators always see teasers; paid tiers can toggle via Settings.
+  // The teaser decision reads operator context independently of the
+  // allowedKinds prop (which only overrides the allow-list itself) so tests
+  // and wizards can mix-and-match.
+  const { currentOperator } = useOperator()
+  const showTeasers = useMemo(
+    () => shouldShowTeasers(currentOperator),
+    [currentOperator],
+  )
+
+  const teasedKinds = useMemo<ProductKind[]>(() => {
+    if (!showTeasers) return []
+    return ALL_KINDS.filter((k) => !allowList.includes(k))
+  }, [showTeasers, allowList])
 
   // Pick the first allowed kind as the default for a new product. If the
   // operator has zero allowed kinds (defensive: schema rejects empty arrays)
@@ -347,14 +370,39 @@ export function ProductForm({
             <FormItem>
               <FormLabel>{t.products.fieldProductKind}</FormLabel>
               <FormControl>
+                {/*
+                  landr-c3t — Render every kind in marketing order; mark
+                  non-allowed kinds as disabled+teased when shouldShowTeasers()
+                  is true, or omit them entirely otherwise. Disabled <option>
+                  elements cannot be selected (HTML native semantics), so the
+                  defence-in-depth API gate is never tripped from the picker.
+                */}
                 <NativeSelect {...field}>
-                  {allowList.map((k) => (
-                    <option key={k} value={k}>
-                      {kindLabel(k)}
-                    </option>
-                  ))}
+                  {ALL_KINDS.map((k) => {
+                    const allowed = allowList.includes(k)
+                    const teased = !allowed && teasedKinds.includes(k)
+                    if (!allowed && !teased) return null
+                    return (
+                      <option
+                        key={k}
+                        value={k}
+                        disabled={!allowed}
+                        title={!allowed ? lowestTierTooltip(k) : undefined}
+                      >
+                        {allowed ? kindLabel(k) : `${kindLabel(k)} 👑`}
+                      </option>
+                    )
+                  })}
                 </NativeSelect>
               </FormControl>
+              {teasedKinds.length > 0 ? (
+                <FormDescription>
+                  <span className="inline-flex items-center gap-1">
+                    <CrownIcon className="size-3" aria-hidden="true" />
+                    {t.products.fieldProductKindTeaserHint}
+                  </span>
+                </FormDescription>
+              ) : null}
               <FormMessage />
             </FormItem>
           )}

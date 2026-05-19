@@ -3,21 +3,36 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { ProductForm, type ProductFormSubmitValue } from './ProductForm'
+import type { Operator } from '@/lib/operator'
 import type { ProductKind, ProductRow } from '@/lib/products'
 
 // The form reads the operator allow-list from a hook by default; pass
 // `allowedKinds` explicitly to bypass the context here. These tests focus
 // on the kind→shape→is_contiguous progression and the package-gating
-// rendering behaviour for landr-5eb.
+// rendering behaviour for landr-5eb + the premium-tease UX for landr-c3t.
+//
+// __mockOperator is a mutable handle that individual tests can re-assign
+// to drive useOperator() into specific tier/teaser states.
+const __operatorState: { current: Operator | null } = { current: null }
 vi.mock('@/lib/operator', () => ({
   useOperatorAllowedProductKinds: () => ['service'],
+  useOperator: () => ({
+    operators: __operatorState.current ? [__operatorState.current] : [],
+    currentOperator: __operatorState.current,
+    currentOperatorId: __operatorState.current?.id ?? null,
+    loading: false,
+    switchOperator: () => {},
+    refreshOperators: () => {},
+  }),
 }))
 
 function setup(opts: {
   product?: ProductRow | null
   allowedKinds?: ProductKind[]
+  operator?: Operator | null
   onSubmit?: (v: ProductFormSubmitValue) => void
 } = {}) {
+  __operatorState.current = opts.operator ?? null
   const onSubmit = vi.fn(opts.onSubmit ?? (() => {}))
   render(
     <ProductForm
@@ -29,6 +44,22 @@ function setup(opts: {
     />,
   )
   return { onSubmit }
+}
+
+function makeOperator(overrides: Partial<Operator> = {}): Operator {
+  return {
+    id: 'op-1',
+    slug: 'op-1',
+    name: 'Test Op',
+    onboarded_at: '2026-05-01T00:00:00Z',
+    subscription_package: {
+      slug: 'pro',
+      name: 'Pro',
+      allowed_product_kinds: ['service', 'subscription'],
+    },
+    show_premium_teasers: false,
+    ...overrides,
+  }
 }
 
 describe('ProductForm — package gating (landr-5eb)', () => {
@@ -83,6 +114,90 @@ describe('ProductForm — package gating (landr-5eb)', () => {
     expect(
       screen.getByText(/inventory & shipping for physical goods/i),
     ).toBeInTheDocument()
+  })
+})
+
+describe('ProductForm — premium-tease UX (landr-c3t)', () => {
+  it('pro operator with teasers OFF shows only allowed kinds (no teasers)', () => {
+    setup({
+      allowedKinds: ['service', 'subscription'],
+      operator: makeOperator({
+        subscription_package: {
+          slug: 'pro',
+          name: 'Pro',
+          allowed_product_kinds: ['service', 'subscription'],
+        },
+        show_premium_teasers: false,
+      }),
+    })
+    const select = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    const options = within(select).getAllByRole(
+      'option',
+    ) as HTMLOptionElement[]
+    expect(options.map((o) => o.value).sort()).toEqual(
+      ['service', 'subscription'].sort(),
+    )
+    // None disabled.
+    expect(options.every((o) => !o.disabled)).toBe(true)
+  })
+
+  it('pro operator with teasers ON shows allowed + disabled teased kinds', () => {
+    setup({
+      allowedKinds: ['service', 'subscription'],
+      operator: makeOperator({
+        subscription_package: {
+          slug: 'pro',
+          name: 'Pro',
+          allowed_product_kinds: ['service', 'subscription'],
+        },
+        show_premium_teasers: true,
+      }),
+    })
+    const select = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    const options = within(select).getAllByRole(
+      'option',
+    ) as HTMLOptionElement[]
+    // All 5 kinds present.
+    expect(options.map((o) => o.value).sort()).toEqual(
+      ['digital_good', 'gift_card', 'physical_good', 'service', 'subscription'].sort(),
+    )
+    // service + subscription enabled; the other 3 disabled.
+    const enabled = options.filter((o) => !o.disabled).map((o) => o.value)
+    const disabled = options.filter((o) => o.disabled).map((o) => o.value)
+    expect(enabled.sort()).toEqual(['service', 'subscription'].sort())
+    expect(disabled.sort()).toEqual(
+      ['digital_good', 'gift_card', 'physical_good'].sort(),
+    )
+    // Tooltip names the lowest unlocking tier.
+    const physical = options.find((o) => o.value === 'physical_good')
+    expect(physical?.title).toMatch(/business/i)
+    const gift = options.find((o) => o.value === 'gift_card')
+    expect(gift?.title).toMatch(/enterprise/i)
+  })
+
+  it('free operator always shows teasers regardless of stored value', () => {
+    setup({
+      allowedKinds: ['service'],
+      operator: makeOperator({
+        subscription_package: {
+          slug: 'free',
+          name: 'Free',
+          allowed_product_kinds: ['service'],
+        },
+        show_premium_teasers: false, // explicitly off — should still tease
+      }),
+    })
+    const select = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    const options = within(select).getAllByRole(
+      'option',
+    ) as HTMLOptionElement[]
+    expect(options.length).toBe(5)
+    const disabled = options.filter((o) => o.disabled).map((o) => o.value)
+    expect(disabled.sort()).toEqual(
+      ['digital_good', 'gift_card', 'physical_good', 'subscription'].sort(),
+    )
+    const sub = options.find((o) => o.value === 'subscription')
+    expect(sub?.title).toMatch(/pro/i)
   })
 })
 
