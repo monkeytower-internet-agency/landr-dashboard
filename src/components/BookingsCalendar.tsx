@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -58,6 +58,13 @@ type Props = {
     newEnd: string | null
   }) => void
   initialView?: CalendarView
+  // landr-1lj — controlled-view mode. When `view` is provided, the
+  // component is controlled: it renders `view` and reports changes via
+  // `onViewChange` (so callers can persist per-operator memory). Omit
+  // both for the legacy uncontrolled flow that just starts at
+  // `initialView`.
+  view?: CalendarView
+  onViewChange?: (next: CalendarView) => void
   // landr-f1s — calendar display prefs from the operator row. Default
   // values mirror the DB defaults so omitting these in tests still
   // produces sensible behaviour.
@@ -73,12 +80,27 @@ export function BookingsCalendar({
   onCustomerClick,
   onReschedule,
   initialView = 'dayGridMonth',
+  view: controlledView,
+  onViewChange,
   workHoursStart = '08:00',
   workHoursEnd = '20:00',
   hour12 = false,
 }: Props) {
   const calendarRef = useRef<FullCalendar | null>(null)
-  const [view, setView] = useState<CalendarView>(initialView)
+  const isControlled = controlledView !== undefined
+  const [uncontrolledView, setUncontrolledView] = useState<CalendarView>(
+    controlledView ?? initialView,
+  )
+  const view: CalendarView = isControlled ? controlledView : uncontrolledView
+
+  // landr-1lj — in controlled mode the parent owns view state. When that
+  // value changes externally (e.g. operator switch picks up another
+  // operator's stored view), drive FullCalendar to match.
+  useEffect(() => {
+    if (!isControlled) return
+    const api = calendarRef.current?.getApi()
+    if (api && api.view.type !== view) api.changeView(view)
+  }, [isControlled, view])
   // landr-f1s — when off-hours are collapsed (default), the calendar's
   // vertical time axis only spans [workHoursStart, workHoursEnd). When
   // expanded, the axis spans the full 24h day. State is local; persisting
@@ -115,7 +137,8 @@ export function BookingsCalendar({
   )
 
   function handleViewChange(next: CalendarView) {
-    setView(next)
+    if (!isControlled) setUncontrolledView(next)
+    onViewChange?.(next)
     calendarRef.current?.getApi().changeView(next)
   }
 
@@ -255,7 +278,7 @@ export function BookingsCalendar({
         <FullCalendar
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView={initialView}
+          initialView={isControlled ? controlledView : initialView}
           headerToolbar={{
             left: 'prev,next today',
             center: 'title',

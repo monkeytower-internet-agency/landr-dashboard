@@ -116,6 +116,16 @@ vi.mock('@/lib/supabase', () => ({
   getSupabase: () => mock.supabase,
 }))
 
+// landr-1lj — Calendar now reads useAuth() inside useBookingsFilters().
+vi.mock('@/lib/auth', () => ({
+  useAuth: () => ({
+    user: { id: 'user-test' },
+    session: null,
+    loading: false,
+    signOut: async () => {},
+  }),
+}))
+
 vi.mock('@/lib/operator', () => ({
   useOperator: () => ({
     operators: [{ id: 'op-1', slug: 'para42', name: 'Para42' }],
