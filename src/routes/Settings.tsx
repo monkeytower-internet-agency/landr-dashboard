@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
+import { TimezonePicker } from '@/components/ui/timezone-picker'
+import { LocalePicker } from '@/components/ui/locale-picker'
 import {
   Card,
   CardContent,
@@ -77,6 +79,7 @@ type FormProps = {
 function SettingsForm({ operator, operatorId, onSaved }: FormProps) {
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isDirty },
   } = useForm<OperatorPatch>({
@@ -221,11 +224,33 @@ function SettingsForm({ operator, operatorId, onSaved }: FormProps) {
           <CardContent className="grid gap-4">
             <div className="grid gap-1.5">
               <Label htmlFor="settings-timezone">{t.settings.fieldTimezone}</Label>
-              <Input id="settings-timezone" placeholder="Europe/Berlin" {...register('timezone')} disabled={mutation.isPending} />
+              <Controller
+                control={control}
+                name="timezone"
+                render={({ field }) => (
+                  <TimezonePicker
+                    id="settings-timezone"
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    disabled={mutation.isPending}
+                  />
+                )}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="settings-locale">{t.settings.fieldLocale}</Label>
-              <Input id="settings-locale" placeholder="de" {...register('default_locale')} disabled={mutation.isPending} />
+              <Controller
+                control={control}
+                name="default_locale"
+                render={({ field }) => (
+                  <LocalePicker
+                    id="settings-locale"
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    disabled={mutation.isPending}
+                  />
+                )}
+              />
             </div>
           </CardContent>
         </Card>

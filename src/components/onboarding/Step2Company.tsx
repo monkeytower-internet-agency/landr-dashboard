@@ -1,4 +1,5 @@
-import { useForm } from 'react-hook-form'
+import { useEffect, useRef } from 'react'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -6,12 +7,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
+import { TimezonePicker } from '@/components/ui/timezone-picker'
+import { LocalePicker } from '@/components/ui/locale-picker'
 import {
   OperatorPatchSchema,
   patchOperator,
   type OperatorPatch,
   type OperatorSettings,
 } from '@/lib/operatorSettings'
+import { guessLocale, guessTimezone } from '@/lib/locale-defaults'
 import { t } from '@/lib/strings'
 import { StepShell } from './StepShell'
 
@@ -26,7 +30,14 @@ type Props = {
 
 export function Step2Company({ operator, operatorId, onAdvance, onBack }: Props) {
   const qc = useQueryClient()
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<OperatorPatch>({
+  const {
+    register,
+    control,
+    handleSubmit,
+    setValue,
+    getValues,
+    formState: { errors, isSubmitting },
+  } = useForm<OperatorPatch>({
     resolver: zodResolver(OperatorPatchSchema),
     defaultValues: {
       name: operator.name ?? '',
@@ -34,8 +45,41 @@ export function Step2Company({ operator, operatorId, onAdvance, onBack }: Props)
       tax_id: operator.tax_id ?? '',
       tax_id_kind: operator.tax_id_kind ?? undefined,
       country: operator.country ?? '',
+      timezone: operator.timezone ?? '',
+      default_locale: operator.default_locale ?? '',
     },
   })
+
+  // Seed timezone/locale from country on first mount if they are empty.
+  const didSeedRef = useRef(false)
+  useEffect(() => {
+    if (didSeedRef.current) return
+    didSeedRef.current = true
+    const current = getValues()
+    const country = (current.country ?? '').trim()
+    if (!current.timezone) {
+      setValue('timezone', guessTimezone(country, operator.region), { shouldDirty: false })
+    }
+    if (!current.default_locale) {
+      setValue('default_locale', guessLocale(country), { shouldDirty: false })
+    }
+  }, [getValues, operator.region, setValue])
+
+  // Re-seed when the user picks a country, only if the user hasn't set tz/locale yet.
+  const watchedCountry = useWatch({ control, name: 'country' })
+  const userTouchedTzRef = useRef<boolean>(Boolean(operator.timezone))
+  const userTouchedLocaleRef = useRef<boolean>(Boolean(operator.default_locale))
+  useEffect(() => {
+    if (!didSeedRef.current) return
+    const country = (watchedCountry ?? '').trim()
+    if (!country) return
+    if (!userTouchedTzRef.current) {
+      setValue('timezone', guessTimezone(country, operator.region), { shouldDirty: false })
+    }
+    if (!userTouchedLocaleRef.current) {
+      setValue('default_locale', guessLocale(country), { shouldDirty: false })
+    }
+  }, [watchedCountry, operator.region, setValue])
 
   const mutation = useMutation({
     mutationFn: (patch: OperatorPatch) => patchOperator(operatorId, patch),
@@ -98,6 +142,42 @@ export function Step2Company({ operator, operatorId, onAdvance, onBack }: Props)
           {errors.country && (
             <p role="alert" className="text-destructive text-xs">{errors.country.message}</p>
           )}
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="onb-timezone">{t.settings.fieldTimezone}</Label>
+          <Controller
+            control={control}
+            name="timezone"
+            render={({ field }) => (
+              <TimezonePicker
+                id="onb-timezone"
+                value={field.value ?? ''}
+                onChange={(tz) => {
+                  userTouchedTzRef.current = true
+                  field.onChange(tz)
+                }}
+                disabled={isSubmitting}
+              />
+            )}
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="onb-locale">{t.settings.fieldLocale}</Label>
+          <Controller
+            control={control}
+            name="default_locale"
+            render={({ field }) => (
+              <LocalePicker
+                id="onb-locale"
+                value={field.value ?? ''}
+                onChange={(loc) => {
+                  userTouchedLocaleRef.current = true
+                  field.onChange(loc)
+                }}
+                disabled={isSubmitting}
+              />
+            )}
+          />
         </div>
         <div className="flex justify-between gap-3 pt-2">
           <Button type="button" variant="outline" onClick={onBack}>
