@@ -704,6 +704,13 @@ export const t = {
       embed: 'Embed',
       done: 'Done',
     },
+
+    banner: {
+      title: 'Finish setting up your account',
+      body: 'Complete the 9-step onboarding to start taking bookings.',
+      resume: 'Resume',
+      dismiss: 'Dismiss',
+    },
   },
   schedule: {
     title: 'Schedule',

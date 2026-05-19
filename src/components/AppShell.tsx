@@ -17,6 +17,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/AppSidebar'
+import { OnboardingBanner } from '@/components/OnboardingBanner'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { useAuth } from '@/lib/auth'
@@ -98,6 +99,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Button>
           </div>
         </header>
+        <OnboardingBanner />
         <main className="flex-1 px-4 py-6 sm:px-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
