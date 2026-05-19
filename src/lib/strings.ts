@@ -341,7 +341,10 @@ export const t = {
     fieldFixedStartDate: 'Fixed start date',
     fieldFixedEndDate: 'Fixed end date',
     fieldFixedDatesHint: 'Leave both empty for a floating date range.',
-    fieldPricingScheme: 'Default pricing scheme',
+    fieldPricingScheme: 'Discount scheme',
+    fieldPricingSchemeHint:
+      'Optional — applied to all bookings of this product. Leave blank for no automatic discount.',
+    manageDiscountSchemes: 'Manage discount schemes',
     fieldProductGroup: 'Product group',
     fieldSortOrder: 'Sort order',
     optionNone: '— None —',

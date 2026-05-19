@@ -282,3 +282,39 @@ describe('ProductForm — kind/shape/contiguous progression', () => {
     expect(screen.getByLabelText(/time model/i)).toBeInTheDocument()
   })
 })
+
+// landr-wto — discount-scheme rename + None submission.
+describe('ProductForm — discount scheme (landr-wto)', () => {
+  it("renders the field as 'Discount scheme' with the helper text and a None option", () => {
+    setup({ allowedKinds: ['service'] })
+    // Label rename.
+    expect(screen.getByLabelText(/discount scheme/i)).toBeInTheDocument()
+    // Helper copy beneath the field.
+    expect(
+      screen.getByText(
+        /optional.*applied to all bookings.*leave blank for no automatic discount/i,
+      ),
+    ).toBeInTheDocument()
+    // None option present.
+    const select = screen.getByLabelText(/discount scheme/i) as HTMLSelectElement
+    const options = within(select).getAllByRole('option') as HTMLOptionElement[]
+    expect(options[0].value).toBe('')
+  })
+
+  it('submits null for default_pricing_scheme_id when None stays selected', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    setup({
+      allowedKinds: ['service'],
+      onSubmit: (v) => {
+        submitted.push(v)
+      },
+    })
+
+    await user.type(screen.getByLabelText(/^name$/i), 'Tandem Flight')
+    await user.click(screen.getByRole('button', { name: /create/i }))
+
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0].default_pricing_scheme_id).toBeNull()
+  })
+})
