@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
@@ -104,6 +105,10 @@ function SettingsForm({ operator, operatorId, onSaved }: FormProps) {
       work_hours_start: (operator.work_hours_start ?? '08:00:00').slice(0, 5),
       work_hours_end: (operator.work_hours_end ?? '20:00:00').slice(0, 5),
       time_format_24h: operator.time_format_24h ?? true,
+      // landr-c3t — premium-tease opt-in. Free-tier operators are forced on
+      // visually (the Checkbox below is rendered disabled+checked) but the
+      // stored value is what we send to the API for paid tiers.
+      show_premium_teasers: operator.show_premium_teasers ?? false,
     },
   })
 
@@ -326,6 +331,56 @@ function SettingsForm({ operator, operatorId, onSaved }: FormProps) {
                 )}
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Display preferences (landr-c3t) — premium-tease opt-in */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>{t.settings.sectionDisplayPrefs}</CardTitle>
+            <CardDescription>{t.settings.sectionDisplayPrefsDesc}</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-2">
+            <Controller
+              control={control}
+              name="show_premium_teasers"
+              render={({ field }) => {
+                const isFreeTier = operator.package?.slug === 'free'
+                // Free-tier operators are forced ON visually so they can't
+                // opt out of seeing upgrade prompts; paid tiers can toggle.
+                const checked = isFreeTier ? true : !!field.value
+                return (
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="settings-show-premium-teasers"
+                      checked={checked}
+                      onChange={(e) =>
+                        !isFreeTier && field.onChange(e.target.checked)
+                      }
+                      disabled={mutation.isPending || isFreeTier}
+                      title={
+                        isFreeTier
+                          ? t.settings.fieldShowPremiumTeasersFreeLockedHint
+                          : undefined
+                      }
+                    />
+                    <div className="flex flex-col gap-1">
+                      <Label
+                        htmlFor="settings-show-premium-teasers"
+                        className="cursor-pointer text-sm font-normal"
+                      >
+                        {t.settings.fieldShowPremiumTeasers}
+                      </Label>
+                      <p className="text-muted-foreground text-xs">
+                        {isFreeTier
+                          ? t.settings.fieldShowPremiumTeasersFreeLockedHint
+                          : t.settings.fieldShowPremiumTeasersHint}
+                      </p>
+                    </div>
+                  </div>
+                )
+              }}
+            />
           </CardContent>
         </Card>
 

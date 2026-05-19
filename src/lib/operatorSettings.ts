@@ -39,6 +39,19 @@ export const OperatorSettingsSchema = z.object({
   work_hours_start: TimeOfDaySchema.nullable().optional(),
   work_hours_end: TimeOfDaySchema.nullable().optional(),
   time_format_24h: z.boolean().nullable().optional(),
+  // landr-c3t — premium-tease opt-in.
+  show_premium_teasers: z.boolean().nullable().optional(),
+  // landr-c3t — embedded subscription_package (read-only on Settings; the
+  // GET returns it via PostgREST FK join). Drives the disabled-on UX for
+  // free-tier operators so they can't opt out of teasers.
+  package: z
+    .object({
+      slug: z.string(),
+      name: z.string(),
+      allowed_product_kinds: z.array(z.string()),
+    })
+    .nullable()
+    .optional(),
 })
 
 export type OperatorSettings = z.infer<typeof OperatorSettingsSchema>
@@ -46,6 +59,8 @@ export type OperatorSettings = z.infer<typeof OperatorSettingsSchema>
 const OperatorPatchBaseSchema = OperatorSettingsSchema.omit({
   id: true,
   slug: true,
+  // landr-c3t — package is a read-only PostgREST embed, never patched.
+  package: true,
 }).partial()
 
 // landr-f1s — mirrors the API model_validator and the DB CHECK constraint

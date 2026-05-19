@@ -11,7 +11,12 @@ import { supabase } from '@/lib/supabase'
 //                         (whole-week vs pick-individual-days semantics).
 //
 // DB CHECK: (product_kind='service') = (service_time_shape IS NOT NULL).
-export type ProductKind = 'service' | 'digital_good' | 'physical_good' | 'gift_card'
+export type ProductKind =
+  | 'service'
+  | 'subscription'
+  | 'digital_good'
+  | 'physical_good'
+  | 'gift_card'
 
 export type ServiceTimeShape =
   | 'single_date'
@@ -205,6 +210,8 @@ export function productKindLabel(kind: ProductKind): string {
   switch (kind) {
     case 'service':
       return 'Service'
+    case 'subscription':
+      return 'Subscription'
     case 'digital_good':
       return 'Digital good'
     case 'physical_good':

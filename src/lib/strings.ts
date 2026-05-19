@@ -307,6 +307,8 @@ export const t = {
     fieldDescription: 'Description',
     fieldDescriptionHint: 'Markdown supported — **bold**, _italic_, lists, links.',
     fieldProductKind: 'Product kind',
+    fieldProductKindTeaserHint:
+      'Options marked with a crown are available on higher plans.',
     fieldServiceTimeShape: 'Time model',
     fieldIsContiguous: 'Whole-range (contiguous days)',
     fieldIsContiguousHint:
@@ -328,6 +330,7 @@ export const t = {
     flagRevenueThroughOperator: 'Revenue flows through operator',
 
     kindService: 'Service',
+    kindSubscription: 'Subscription',
     kindDigitalGood: 'Digital good',
     kindPhysicalGood: 'Physical good',
     kindGiftCard: 'Gift card',
@@ -512,6 +515,14 @@ export const t = {
     sectionCalendar: 'Calendar & display',
     sectionCalendarDesc:
       'Tune the calendar to your working day. The primary view shows the hours you choose; off-hours collapse to a strip you can expand.',
+    sectionDisplayPrefs: 'Display preferences',
+    sectionDisplayPrefsDesc:
+      'Control which product types and upgrade prompts appear in the dashboard.',
+    fieldShowPremiumTeasers: 'Show upgrade prompts for premium features',
+    fieldShowPremiumTeasersHint:
+      'When enabled, your dashboard shows product types available on higher plans.',
+    fieldShowPremiumTeasersFreeLockedHint:
+      'Always shown on Free plan to highlight upgrade paths.',
     sectionIntegrations: 'Integrations',
     sectionIntegrationsDesc: 'Connect third-party services to your operator account.',
 

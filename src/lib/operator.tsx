@@ -38,6 +38,11 @@ export type Operator = {
   // Consumers should use useOperatorAllowedProductKinds() which falls back
   // to the universal ['service'] default when the package isn't loaded yet.
   subscription_package?: SubscriptionPackageRef | null
+  // landr-c3t — opt-in for premium-tease UX in ProductForm. Free-tier
+  // operators always see teasers regardless of value (forced on visually).
+  // Paid tiers toggle this from Settings. Optional on the type for parity
+  // with the older optional columns above (stale-cache + test fixtures).
+  show_premium_teasers?: boolean | null
 }
 
 // landr-f1s — fallback defaults when an Operator row is missing the calendar
@@ -122,6 +127,7 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
         .select(
           'operator_id, operators!inner ( id, slug, name, onboarded_at, ' +
             'work_hours_start, work_hours_end, time_format_24h, ' +
+            'show_premium_teasers, ' +
             'subscription_package:subscription_packages ( slug, name, allowed_product_kinds ) )',
         )
         .eq('user_id', userRow.id)
