@@ -25,7 +25,13 @@ type AvailabilityFixture = {
 type ProductFixture = {
   id: string
   name: string
-  duration_kind: 'single_days_range' | 'fixed_date_range' | 'time_slot'
+  product_kind: 'service' | 'digital_good' | 'physical_good' | 'gift_card'
+  service_time_shape:
+    | 'single_date'
+    | 'days_range'
+    | 'fixed_window'
+    | 'time_slot'
+    | null
 }
 
 const { mock } = vi.hoisted(() => {
@@ -178,7 +184,8 @@ function makeProduct(overrides: Partial<ProductFixture> = {}): ProductFixture {
   return {
     id: 'prod-1',
     name: 'Hotel package',
-    duration_kind: 'fixed_date_range',
+    product_kind: 'service',
+    service_time_shape: 'fixed_window',
     ...overrides,
   }
 }
@@ -332,7 +339,7 @@ describe('Schedule route', () => {
   })
 
   it('shows time-slot fields when product is time_slot', async () => {
-    mock.state.products = [makeProduct({ duration_kind: 'time_slot' })]
+    mock.state.products = [makeProduct({ service_time_shape: 'time_slot' })]
     const user = userEvent.setup()
     render(<Schedule />)
 

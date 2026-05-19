@@ -1,10 +1,22 @@
 import { supabase } from '@/lib/supabase'
 
-// Mirrors the public.product_duration_kind enum after the m05.28 rename
-// (landr-api/supabase/migrations/20260519170000_rename_product_duration_kind_enum.sql).
-export type ProductDurationKind =
-  | 'single_days_range'
-  | 'fixed_date_range'
+// Mirrors public.product_kind + public.service_time_shape after the
+// landr-glx refactor that replaced the single product_duration_kind enum.
+//
+//   product_kind        — what the operator sells. Drives the booking flow
+//                         shape and the dashboard ProductForm.
+//   service_time_shape  — only meaningful for product_kind='service'. NULL
+//                         for non-service kinds.
+//   is_contiguous       — only meaningful when service_time_shape='days_range'
+//                         (whole-week vs pick-individual-days semantics).
+//
+// DB CHECK: (product_kind='service') = (service_time_shape IS NOT NULL).
+export type ProductKind = 'service' | 'digital_good' | 'physical_good' | 'gift_card'
+
+export type ServiceTimeShape =
+  | 'single_date'
+  | 'days_range'
+  | 'fixed_window'
   | 'time_slot'
 
 export type PricingSchemeRef = {
@@ -30,7 +42,9 @@ export type ProductRow = {
   name: string
   short_description: string | null
   description: string | null
-  duration_kind: ProductDurationKind
+  product_kind: ProductKind
+  service_time_shape: ServiceTimeShape | null
+  is_contiguous: boolean
   duration_minutes: number | null
   fixed_start_date: string | null
   fixed_end_date: string | null
@@ -56,7 +70,9 @@ const SELECT = `
   name,
   short_description,
   description,
-  duration_kind,
+  product_kind,
+  service_time_shape,
+  is_contiguous,
   duration_minutes,
   fixed_start_date,
   fixed_end_date,
@@ -127,7 +143,9 @@ export type ProductWritePayload = {
   name: string
   short_description: string | null
   description: string | null
-  duration_kind: ProductDurationKind
+  product_kind: ProductKind
+  service_time_shape: ServiceTimeShape | null
+  is_contiguous: boolean
   duration_minutes: number | null
   fixed_start_date: string | null
   fixed_end_date: string | null
@@ -183,11 +201,26 @@ export async function softDeleteProduct(
 
 // ---- Display helpers -------------------------------------------------------
 
-export function durationKindLabel(kind: ProductDurationKind): string {
+export function productKindLabel(kind: ProductKind): string {
   switch (kind) {
-    case 'single_days_range':
+    case 'service':
+      return 'Service'
+    case 'digital_good':
+      return 'Digital good'
+    case 'physical_good':
+      return 'Physical good'
+    case 'gift_card':
+      return 'Gift card'
+  }
+}
+
+export function serviceTimeShapeLabel(shape: ServiceTimeShape): string {
+  switch (shape) {
+    case 'single_date':
+      return 'Single date'
+    case 'days_range':
       return 'Day picker'
-    case 'fixed_date_range':
+    case 'fixed_window':
       return 'Course window'
     case 'time_slot':
       return 'Time slot'
@@ -195,8 +228,11 @@ export function durationKindLabel(kind: ProductDurationKind): string {
 }
 
 export function productSummaryLine(row: ProductRow): string {
-  const parts: string[] = [durationKindLabel(row.duration_kind)]
-  if (row.duration_kind === 'time_slot' && row.duration_minutes) {
+  const parts: string[] = [productKindLabel(row.product_kind)]
+  if (row.product_kind === 'service' && row.service_time_shape) {
+    parts.push(serviceTimeShapeLabel(row.service_time_shape))
+  }
+  if (row.service_time_shape === 'time_slot' && row.duration_minutes) {
     parts.push(`${row.duration_minutes} min`)
   }
   if (row.product_group?.name) parts.push(row.product_group.name)

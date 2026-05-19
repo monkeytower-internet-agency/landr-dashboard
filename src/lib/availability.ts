@@ -103,20 +103,32 @@ export async function deleteAvailability(availabilityId: string): Promise<void> 
   await api<void>('DELETE', `/api/staff/availability/${availabilityId}`)
 }
 
+// Subset of the product columns the scheduler UI needs. The (product_kind,
+// service_time_shape) pair replaces the old duration_kind enum (landr-glx
+// schema refactor; landr-5eb dashboard sweep).
 export type ProductForSchedule = {
   id: string
   name: string
-  duration_kind: 'single_days_range' | 'fixed_date_range' | 'time_slot'
+  product_kind: 'service' | 'digital_good' | 'physical_good' | 'gift_card'
+  service_time_shape:
+    | 'single_date'
+    | 'days_range'
+    | 'fixed_window'
+    | 'time_slot'
+    | null
 }
 
 export async function fetchSchedulableProducts(
   operatorId: string,
 ): Promise<ProductForSchedule[]> {
+  // Only service products have a schedule; non-service kinds (digital good,
+  // gift card, …) are filtered out so the scheduler picker doesn't list them.
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, duration_kind')
+    .select('id, name, product_kind, service_time_shape')
     .eq('operator_id', operatorId)
     .eq('active', true)
+    .eq('product_kind', 'service')
     .is('deleted_at', null)
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true })

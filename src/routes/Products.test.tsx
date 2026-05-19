@@ -23,7 +23,14 @@ type ProductFixture = {
   name: string
   short_description: string | null
   description: string | null
-  duration_kind: 'single_days_range' | 'fixed_date_range' | 'time_slot'
+  product_kind: 'service' | 'digital_good' | 'physical_good' | 'gift_card'
+  service_time_shape:
+    | 'single_date'
+    | 'days_range'
+    | 'fixed_window'
+    | 'time_slot'
+    | null
+  is_contiguous: boolean
   duration_minutes: number | null
   fixed_start_date: string | null
   fixed_end_date: string | null
@@ -118,10 +125,19 @@ const { mock } = vi.hoisted(() => {
             short_description:
               (payload.short_description as string | null) ?? null,
             description: (payload.description as string | null) ?? null,
-            duration_kind: payload.duration_kind as
-              | 'single_days_range'
-              | 'fixed_date_range'
-              | 'time_slot',
+            product_kind: payload.product_kind as
+              | 'service'
+              | 'digital_good'
+              | 'physical_good'
+              | 'gift_card',
+            service_time_shape:
+              (payload.service_time_shape as
+                | 'single_date'
+                | 'days_range'
+                | 'fixed_window'
+                | 'time_slot'
+                | null) ?? null,
+            is_contiguous: (payload.is_contiguous as boolean) ?? false,
             duration_minutes:
               (payload.duration_minutes as number | null) ?? null,
             fixed_start_date:
@@ -197,12 +213,33 @@ vi.mock('@/lib/supabase', () => ({
 
 vi.mock('@/lib/operator', () => ({
   useOperator: () => ({
-    operators: [{ id: 'op-1', slug: 'para42', name: 'Para42' }],
-    currentOperator: { id: 'op-1', slug: 'para42', name: 'Para42' },
+    operators: [
+      {
+        id: 'op-1',
+        slug: 'para42',
+        name: 'Para42',
+        subscription_package: {
+          slug: 'pro',
+          name: 'Pro',
+          allowed_product_kinds: ['service'],
+        },
+      },
+    ],
+    currentOperator: {
+      id: 'op-1',
+      slug: 'para42',
+      name: 'Para42',
+      subscription_package: {
+        slug: 'pro',
+        name: 'Pro',
+        allowed_product_kinds: ['service'],
+      },
+    },
     currentOperatorId: 'op-1',
     loading: false,
     switchOperator: () => {},
   }),
+  useOperatorAllowedProductKinds: () => ['service'],
   OperatorProvider: ({ children }: { children: ReactElement }) => children,
 }))
 
@@ -230,7 +267,9 @@ function makeProduct(over: Partial<ProductFixture> = {}): ProductFixture {
     name: 'Tandem Flight',
     short_description: 'Fly with a pro',
     description: null,
-    duration_kind: 'single_days_range',
+    product_kind: 'service',
+    service_time_shape: 'days_range',
+    is_contiguous: false,
     duration_minutes: null,
     fixed_start_date: null,
     fixed_end_date: null,
@@ -316,7 +355,8 @@ describe('Products route', () => {
       operator_id: 'op-1',
       name: 'Beginner Kayak',
       slug: 'beginner-kayak',
-      duration_kind: 'single_days_range',
+      product_kind: 'service',
+      service_time_shape: 'days_range',
       active: true,
     })
 
@@ -357,10 +397,8 @@ describe('Products route', () => {
     render(<Products />)
 
     await screen.findByLabelText(/^Name$/i)
-    const durationSelect = screen.getByLabelText(
-      /duration model/i,
-    ) as HTMLSelectElement
-    await user.selectOptions(durationSelect, 'time_slot')
+    const shapeSelect = screen.getByLabelText(/time model/i) as HTMLSelectElement
+    await user.selectOptions(shapeSelect, 'time_slot')
 
     expect(screen.getByLabelText(/duration \(minutes\)/i)).toBeInTheDocument()
   })

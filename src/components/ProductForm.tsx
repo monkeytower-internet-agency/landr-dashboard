@@ -1,10 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Trash2Icon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Form,
@@ -18,23 +19,41 @@ import {
 import { Input } from '@/components/ui/input'
 import { MarkdownEditor } from '@/components/ui/markdown-editor'
 import { NativeSelect } from '@/components/ui/native-select'
+import { useOperatorAllowedProductKinds } from '@/lib/operator'
 import {
   nameToSlug,
   type PricingSchemeRef,
   type ProductGroupRef,
+  type ProductKind,
   type ProductRow,
+  type ServiceTimeShape,
 } from '@/lib/products'
 import { t } from '@/lib/strings'
 
 // Zod schema for the product form. Mirrors the DB CHECK constraints:
 //   - time_slot requires duration_minutes
-//   - fixed_date_range bounds must be paired (both NULL or both NOT NULL)
+//   - fixed_window bounds must be paired (both NULL or both NOT NULL)
+//   - (product_kind = 'service') = (service_time_shape IS NOT NULL)
 //
 // All "free-form" fields are kept as strings here (including numbers like
 // duration_minutes and sort_order). Coercion happens in handleSubmit so the
 // input/output types of the schema stay identical — which avoids a known
 // type-incompatibility between zod's "transformed output" types and
 // react-hook-form's strict generics.
+const ALL_KINDS: readonly ProductKind[] = [
+  'service',
+  'digital_good',
+  'physical_good',
+  'gift_card',
+] as const
+
+const ALL_SHAPES: readonly ServiceTimeShape[] = [
+  'single_date',
+  'days_range',
+  'fixed_window',
+  'time_slot',
+] as const
+
 const productFormSchema = z
   .object({
     name: z.string().trim().min(1, t.products.errorNameRequired),
@@ -46,7 +65,12 @@ const productFormSchema = z
     short_description: z.string().max(280),
     description: z.string(),
     product_group_id: z.string(),
-    duration_kind: z.enum(['single_days_range', 'fixed_date_range', 'time_slot']),
+    product_kind: z.enum(ALL_KINDS as unknown as [ProductKind, ...ProductKind[]]),
+    service_time_shape: z.union([
+      z.enum(ALL_SHAPES as unknown as [ServiceTimeShape, ...ServiceTimeShape[]]),
+      z.literal(''),
+    ]),
+    is_contiguous: z.boolean(),
     duration_minutes: z.string(),
     fixed_start_date: z.string(),
     fixed_end_date: z.string(),
@@ -59,26 +83,35 @@ const productFormSchema = z
     sort_order: z.string(),
   })
   .superRefine((data, ctx) => {
-    if (data.duration_kind === 'time_slot') {
-      const trimmed = (data.duration_minutes ?? '').trim()
-      const n = Number(trimmed)
-      if (!trimmed || !Number.isFinite(n) || n < 1) {
+    if (data.product_kind === 'service') {
+      if (!data.service_time_shape) {
         ctx.addIssue({
           code: 'custom',
-          message: t.products.errorDurationRequired,
-          path: ['duration_minutes'],
+          message: 'Service products must pick a time model.',
+          path: ['service_time_shape'],
         })
       }
-    }
-    if (data.duration_kind === 'fixed_date_range') {
-      const a = (data.fixed_start_date ?? '').trim()
-      const b = (data.fixed_end_date ?? '').trim()
-      if ((a && !b) || (!a && b)) {
-        ctx.addIssue({
-          code: 'custom',
-          message: t.products.errorDateRangePaired,
-          path: ['fixed_end_date'],
-        })
+      if (data.service_time_shape === 'time_slot') {
+        const trimmed = (data.duration_minutes ?? '').trim()
+        const n = Number(trimmed)
+        if (!trimmed || !Number.isFinite(n) || n < 1) {
+          ctx.addIssue({
+            code: 'custom',
+            message: t.products.errorDurationRequired,
+            path: ['duration_minutes'],
+          })
+        }
+      }
+      if (data.service_time_shape === 'fixed_window') {
+        const a = (data.fixed_start_date ?? '').trim()
+        const b = (data.fixed_end_date ?? '').trim()
+        if ((a && !b) || (!a && b)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: t.products.errorDateRangePaired,
+            path: ['fixed_end_date'],
+          })
+        }
       }
     }
     if (data.sort_order && !Number.isFinite(Number(data.sort_order))) {
@@ -98,7 +131,9 @@ export type ProductFormSubmitValue = {
   short_description: string | null
   description: string | null
   product_group_id: string | null
-  duration_kind: 'single_days_range' | 'fixed_date_range' | 'time_slot'
+  product_kind: ProductKind
+  service_time_shape: ServiceTimeShape | null
+  is_contiguous: boolean
   duration_minutes: number | null
   fixed_start_date: string | null
   fixed_end_date: string | null
@@ -119,6 +154,8 @@ type Props = {
   onDelete?: () => void
   submitting?: boolean
   deleting?: boolean
+  /** Override the operator's allow-list (for tests / wizards). */
+  allowedKinds?: ProductKind[]
 }
 
 function emptyToNull(v: string | undefined | null): string | null {
@@ -127,7 +164,10 @@ function emptyToNull(v: string | undefined | null): string | null {
   return t === '' ? null : t
 }
 
-function defaultValues(product: ProductRow | null): ProductFormValues {
+function defaultValues(
+  product: ProductRow | null,
+  initialKind: ProductKind,
+): ProductFormValues {
   if (!product) {
     return {
       name: '',
@@ -135,7 +175,9 @@ function defaultValues(product: ProductRow | null): ProductFormValues {
       short_description: '',
       description: '',
       product_group_id: '',
-      duration_kind: 'single_days_range',
+      product_kind: initialKind,
+      service_time_shape: initialKind === 'service' ? 'days_range' : '',
+      is_contiguous: false,
       duration_minutes: '',
       fixed_start_date: '',
       fixed_end_date: '',
@@ -154,7 +196,9 @@ function defaultValues(product: ProductRow | null): ProductFormValues {
     short_description: product.short_description ?? '',
     description: product.description ?? '',
     product_group_id: product.product_group_id ?? '',
-    duration_kind: product.duration_kind,
+    product_kind: product.product_kind,
+    service_time_shape: product.service_time_shape ?? '',
+    is_contiguous: !!product.is_contiguous,
     duration_minutes:
       product.duration_minutes == null ? '' : String(product.duration_minutes),
     fixed_start_date: product.fixed_start_date ?? '',
@@ -169,6 +213,32 @@ function defaultValues(product: ProductRow | null): ProductFormValues {
   }
 }
 
+function kindLabel(kind: ProductKind): string {
+  switch (kind) {
+    case 'service':
+      return t.products.kindService
+    case 'digital_good':
+      return t.products.kindDigitalGood
+    case 'physical_good':
+      return t.products.kindPhysicalGood
+    case 'gift_card':
+      return t.products.kindGiftCard
+  }
+}
+
+function shapeLabel(shape: ServiceTimeShape): string {
+  switch (shape) {
+    case 'single_date':
+      return t.products.shapeSingleDate
+    case 'days_range':
+      return t.products.shapeDaysRange
+    case 'fixed_window':
+      return t.products.shapeFixedWindow
+    case 'time_slot':
+      return t.products.shapeTimeSlot
+  }
+}
+
 export function ProductForm({
   product,
   pricingSchemes,
@@ -177,44 +247,79 @@ export function ProductForm({
   onDelete,
   submitting,
   deleting,
+  allowedKinds,
 }: Props) {
+  const operatorAllowedKinds = useOperatorAllowedProductKinds()
+  // The form prop overrides the operator context — useful in tests + the
+  // onboarding wizard, where the operator context is mocked / not loaded.
+  const allowList = useMemo<ProductKind[]>(() => {
+    const source = allowedKinds ?? operatorAllowedKinds
+    return ALL_KINDS.filter((k) => source.includes(k))
+  }, [allowedKinds, operatorAllowedKinds])
+
+  // Pick the first allowed kind as the default for a new product. If the
+  // operator has zero allowed kinds (defensive: schema rejects empty arrays)
+  // we still default to 'service' so the form doesn't crash.
+  const defaultKind: ProductKind = allowList[0] ?? 'service'
+
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
-    defaultValues: defaultValues(product),
+    defaultValues: defaultValues(product, defaultKind),
     mode: 'onBlur',
   })
 
   // Reset when switching selected product. We key on id (and 'new' sentinel)
   // so editing one product then clicking another swaps the form state.
   useEffect(() => {
-    form.reset(defaultValues(product))
+    form.reset(defaultValues(product, defaultKind))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id ?? 'new'])
+  }, [product?.id ?? 'new', defaultKind])
 
-  const durationKind = form.watch('duration_kind')
+  const productKind = form.watch('product_kind')
+  const serviceTimeShape = form.watch('service_time_shape')
+
+  // When the operator changes product_kind away from 'service', clear the
+  // shape so the DB CHECK ((kind='service') = (shape IS NOT NULL)) is
+  // satisfied. When they switch back, default to days_range.
+  useEffect(() => {
+    if (productKind === 'service' && !serviceTimeShape) {
+      form.setValue('service_time_shape', 'days_range')
+    } else if (productKind !== 'service' && serviceTimeShape) {
+      form.setValue('service_time_shape', '')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productKind])
+
+  const isServiceKind = productKind === 'service'
+  const nonServiceBody =
+    productKind === 'physical_good'
+      ? t.products.physicalGoodComingSoonBody
+      : t.products.nonServiceComingSoonBody
 
   async function handleSubmit(values: ProductFormValues) {
     const minutesTrimmed = (values.duration_minutes ?? '').trim()
     const sortTrimmed = (values.sort_order ?? '').trim()
+    const shape: ServiceTimeShape | null =
+      values.product_kind === 'service'
+        ? (values.service_time_shape as ServiceTimeShape)
+        : null
     const payload: ProductFormSubmitValue = {
       name: values.name.trim(),
       slug: values.slug.trim(),
       short_description: emptyToNull(values.short_description),
       description: emptyToNull(values.description),
       product_group_id: emptyToNull(values.product_group_id),
-      duration_kind: values.duration_kind,
+      product_kind: values.product_kind,
+      service_time_shape: shape,
+      // is_contiguous is only meaningful for service + days_range; for
+      // everything else we collapse to false so we never store a stray true.
+      is_contiguous: shape === 'days_range' ? !!values.is_contiguous : false,
       duration_minutes:
-        values.duration_kind === 'time_slot' && minutesTrimmed
-          ? Number(minutesTrimmed)
-          : null,
+        shape === 'time_slot' && minutesTrimmed ? Number(minutesTrimmed) : null,
       fixed_start_date:
-        values.duration_kind === 'fixed_date_range'
-          ? emptyToNull(values.fixed_start_date)
-          : null,
+        shape === 'fixed_window' ? emptyToNull(values.fixed_start_date) : null,
       fixed_end_date:
-        values.duration_kind === 'fixed_date_range'
-          ? emptyToNull(values.fixed_end_date)
-          : null,
+        shape === 'fixed_window' ? emptyToNull(values.fixed_end_date) : null,
       default_pricing_scheme_id: emptyToNull(values.default_pricing_scheme_id),
       needs_provider: values.needs_provider,
       needs_pickup: values.needs_pickup,
@@ -235,6 +340,37 @@ export function ProductForm({
           product ? t.products.formEditLabel : t.products.formCreateLabel
         }
       >
+        <FormField
+          control={form.control}
+          name="product_kind"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t.products.fieldProductKind}</FormLabel>
+              <FormControl>
+                <NativeSelect {...field}>
+                  {allowList.map((k) => (
+                    <option key={k} value={k}>
+                      {kindLabel(k)}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {!isServiceKind ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.products.nonServiceComingSoonTitle}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-sm">{nonServiceBody}</p>
+            </CardContent>
+          </Card>
+        ) : null}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
@@ -313,85 +449,113 @@ export function ProductForm({
           )}
         />
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="duration_kind"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t.products.fieldDurationKind}</FormLabel>
-                <FormControl>
-                  <NativeSelect {...field}>
-                    <option value="single_days_range">
-                      {t.products.durationSingleDaysRange}
-                    </option>
-                    <option value="fixed_date_range">
-                      {t.products.durationFixedDateRange}
-                    </option>
-                    <option value="time_slot">
-                      {t.products.durationTimeSlot}
-                    </option>
-                  </NativeSelect>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          {durationKind === 'time_slot' ? (
-            <FormField
-              control={form.control}
-              name="duration_minutes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t.products.fieldDurationMinutes}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={1}
-                      step={1}
-                      {...field}
-                      value={field.value ?? ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          ) : null}
-        </div>
+        {isServiceKind ? (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="service_time_shape"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.products.fieldServiceTimeShape}</FormLabel>
+                    <FormControl>
+                      <NativeSelect {...field} value={field.value ?? ''}>
+                        {ALL_SHAPES.map((s) => (
+                          <option key={s} value={s}>
+                            {shapeLabel(s)}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {serviceTimeShape === 'time_slot' ? (
+                <FormField
+                  control={form.control}
+                  name="duration_minutes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.products.fieldDurationMinutes}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          step={1}
+                          {...field}
+                          value={field.value ?? ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ) : null}
+            </div>
 
-        {durationKind === 'fixed_date_range' ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="fixed_start_date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t.products.fieldFixedStartDate}</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} value={field.value ?? ''} />
-                  </FormControl>
-                  <FormDescription>
-                    {t.products.fieldFixedDatesHint}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="fixed_end_date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t.products.fieldFixedEndDate}</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} value={field.value ?? ''} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+            {serviceTimeShape === 'days_range' ? (
+              <FormField
+                control={form.control}
+                name="is_contiguous"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start gap-3 space-y-0 rounded-md border p-3">
+                    <FormControl>
+                      <Checkbox
+                        checked={!!field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        ref={field.ref}
+                      />
+                    </FormControl>
+                    <div className="flex flex-col gap-1">
+                      <FormLabel className="cursor-pointer text-sm font-normal">
+                        {t.products.fieldIsContiguous}
+                      </FormLabel>
+                      <FormDescription>
+                        {t.products.fieldIsContiguousHint}
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            ) : null}
+
+            {serviceTimeShape === 'fixed_window' ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="fixed_start_date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.products.fieldFixedStartDate}</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} value={field.value ?? ''} />
+                      </FormControl>
+                      <FormDescription>
+                        {t.products.fieldFixedDatesHint}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="fixed_end_date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.products.fieldFixedEndDate}</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} value={field.value ?? ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            ) : null}
+          </>
         ) : null}
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -514,7 +678,11 @@ export function ProductForm({
           ) : (
             <span />
           )}
-          <Button type="submit" disabled={!!submitting}>
+          <Button
+            type="submit"
+            disabled={!!submitting || !isServiceKind}
+            title={!isServiceKind ? t.products.nonServiceDisabledTooltip : undefined}
+          >
             {submitting
               ? t.products.saving
               : product

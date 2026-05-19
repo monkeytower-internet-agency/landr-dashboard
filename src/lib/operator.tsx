@@ -10,6 +10,16 @@ import type { ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 
+// landr-5eb / landr-2eh — subscription package embed. Gates which
+// product_kind values an operator may sell. The dashboard hides
+// disallowed kinds from the ProductForm picker; the FastAPI server
+// re-enforces with 403 so direct API calls cannot bypass.
+export type SubscriptionPackageRef = {
+  slug: string
+  name: string
+  allowed_product_kinds: string[]
+}
+
 export type Operator = {
   id: string
   slug: string
@@ -23,6 +33,11 @@ export type Operator = {
   work_hours_start?: string | null
   work_hours_end?: string | null
   time_format_24h?: boolean | null
+  // landr-5eb — embed of the operator's subscription_package row. Optional
+  // for the same reason as the calendar prefs (older test fixtures).
+  // Consumers should use useOperatorAllowedProductKinds() which falls back
+  // to the universal ['service'] default when the package isn't loaded yet.
+  subscription_package?: SubscriptionPackageRef | null
 }
 
 // landr-f1s — fallback defaults when an Operator row is missing the calendar
@@ -98,11 +113,16 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
         return
       }
 
+      // landr-5eb: embed subscription_package so the ProductForm can gate the
+      // product_kind picker without a second round-trip. PostgREST embed
+      // syntax `subscription_package:subscription_packages(...)` aliases the
+      // joined row to `subscription_package` on the operator object.
       const { data, error } = await supabase
         .from('operator_memberships')
         .select(
           'operator_id, operators!inner ( id, slug, name, onboarded_at, ' +
-            'work_hours_start, work_hours_end, time_format_24h )',
+            'work_hours_start, work_hours_end, time_format_24h, ' +
+            'subscription_package:subscription_packages ( slug, name, allowed_product_kinds ) )',
         )
         .eq('user_id', userRow.id)
       if (cancelled) return
@@ -205,4 +225,18 @@ export function useOperatorCalendarPrefs(): {
         ? !currentOperator.time_format_24h
         : !DEFAULT_TIME_FORMAT_24H,
   }
+}
+
+/**
+ * landr-5eb — convenience hook returning the operator's allowed product_kind
+ * values, derived from the embedded subscription_package row. Falls back to
+ * ['service'] (the universal v1 kind) when the package isn't loaded yet so
+ * the form never hides every option mid-render.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useOperatorAllowedProductKinds(): string[] {
+  const { currentOperator } = useOperator()
+  const kinds = currentOperator?.subscription_package?.allowed_product_kinds
+  if (kinds && kinds.length > 0) return kinds
+  return ['service']
 }

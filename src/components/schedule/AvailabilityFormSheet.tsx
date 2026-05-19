@@ -103,7 +103,7 @@ function Body({
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  const isTimeSlot = product?.duration_kind === 'time_slot'
+  const isTimeSlot = product?.service_time_shape === 'time_slot'
 
   function addSlot() {
     setSlots((prev) => [...prev, { start: '09:00', end: '11:00' }])

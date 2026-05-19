@@ -291,7 +291,8 @@ export function ProductsManager({ operatorId, hideHeader = false }: Props) {
         </div>
       )}
       {selectedProduct &&
-      selectedProduct.duration_kind === 'fixed_date_range' ? (
+      selectedProduct.product_kind === 'service' &&
+      selectedProduct.service_time_shape === 'fixed_window' ? (
         <FixedDateWindowsTable
           operatorId={operatorId}
           productId={selectedProduct.id}
