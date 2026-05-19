@@ -23,6 +23,9 @@ import {
 import {
   customerDisplay,
   dateDisplay,
+  earliestServiceDate,
+  formatServiceDateRange,
+  matchingServiceEnd,
   priceDisplay,
   productDisplay,
   stageCode,
@@ -57,6 +60,29 @@ export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
         header: t.bookings.columnDate,
         cell: ({ row }) => dateDisplay(row.original.created_at, { hour12 }),
         sortingFn: 'datetime',
+      },
+      {
+        // landr-04ec — sortable Service date column. Accessor returns the
+        // booking's earliest item.date_range_start (or null when no item
+        // is scheduled). Multi-item bookings with mixed dates use the MIN
+        // — matches calendar/reporting semantics (earliestScheduledItem
+        // in lib/bookings.ts and bookingsToCalendarEvents).
+        id: 'service_date',
+        accessorFn: (row) => earliestServiceDate(row),
+        sortUndefined: 'last',
+        header: t.bookings.columnServiceDate,
+        cell: ({ row }) => {
+          const start = earliestServiceDate(row.original)
+          if (!start) {
+            return <span className="text-muted-foreground text-xs">—</span>
+          }
+          const end = matchingServiceEnd(row.original, start)
+          return (
+            <span className="whitespace-nowrap">
+              {formatServiceDateRange(start, end)}
+            </span>
+          )
+        },
       },
       {
         id: 'customer',

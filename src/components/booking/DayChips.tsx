@@ -77,8 +77,6 @@ export function DayChips({
     return out
   }, [sorted])
 
-  const crossesMonthBoundary = groups.length > 1
-
   if (sorted.length === 0) {
     return (
       <p className="text-muted-foreground text-xs italic">No days selected.</p>
@@ -133,22 +131,10 @@ export function DayChips({
     )
   }
 
-  // Single-month fast path: original flex-wrap layout, no month markers
-  // (skipping the noise when every chip is in the same month).
-  if (!crossesMonthBoundary) {
-    return (
-      <div
-        className={cn('flex flex-wrap gap-1.5', className)}
-        role={editable ? 'group' : 'list'}
-      >
-        {sorted.map(renderChip)}
-      </div>
-    )
-  }
-
-  // Multi-month: stack month groups vertically, each row prefixed by a
-  // small uppercase month label so MAY/JUN boundaries are obvious in
-  // BookingsTable + BookingDetailSheet (landr-ppf).
+  // Always render a leading month label — even for single-month ranges —
+  // so a chip "Mon 8" is never ambiguous (May 8 vs. July 8). Multi-month
+  // ranges get one label per month at each boundary (landr-04ec; the
+  // multi-month layout itself was introduced in landr-ppf).
   return (
     <div
       className={cn('flex flex-col gap-2', className)}
