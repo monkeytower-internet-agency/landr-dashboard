@@ -1,7 +1,14 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
+import { PickupLocationsManager } from '@/components/pickup/PickupLocationsManager'
 import { fetchLocations, type Location } from '@/lib/locations'
 import { t } from '@/lib/strings'
 import { StepShell } from './StepShell'
@@ -14,6 +21,8 @@ type Props = {
 
 export function Step4Pickup({ operatorId, onAdvance, onBack }: Props) {
   const [confirmingSkip, setConfirmingSkip] = useState(false)
+  const [manageOpen, setManageOpen] = useState(false)
+  const queryClient = useQueryClient()
 
   const { data: locations = [], isLoading } = useQuery<Location[]>({
     queryKey: ['locations', operatorId],
@@ -32,6 +41,14 @@ export function Step4Pickup({ operatorId, onAdvance, onBack }: Props) {
     onAdvance()
   }
 
+  function handleManageOpenChange(open: boolean) {
+    setManageOpen(open)
+    if (!open) {
+      // Refresh the wizard's count display when the overlay closes.
+      queryClient.invalidateQueries({ queryKey: ['locations', operatorId] })
+    }
+  }
+
   return (
     <StepShell heading={t.onboarding.step4.heading} body={t.onboarding.step4.body}>
       <p className="text-sm">{t.onboarding.step4.count(count)}</p>
@@ -43,8 +60,13 @@ export function Step4Pickup({ operatorId, onAdvance, onBack }: Props) {
       </ul>
 
       <div>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/pickup-locations">{t.onboarding.step4.manage}</Link>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setManageOpen(true)}
+        >
+          {t.onboarding.step4.manage}
         </Button>
       </div>
 
@@ -62,6 +84,23 @@ export function Step4Pickup({ operatorId, onAdvance, onBack }: Props) {
           {isEmpty && !confirmingSkip ? t.onboarding.skip : t.onboarding.next}
         </Button>
       </div>
+
+      <Sheet open={manageOpen} onOpenChange={handleManageOpenChange}>
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col gap-0 overflow-y-auto sm:max-w-2xl"
+        >
+          <SheetHeader>
+            <SheetTitle>{t.pickupLocations.title}</SheetTitle>
+            <SheetDescription>
+              {t.pickupLocations.subtitle}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <PickupLocationsManager operatorId={operatorId} hideHeader />
+          </div>
+        </SheetContent>
+      </Sheet>
     </StepShell>
   )
 }
