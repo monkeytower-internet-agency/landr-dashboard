@@ -172,6 +172,10 @@ export function Step5Products({ operatorId, onAdvance, onBack }: Props) {
       is_publicly_listed: true,
       active: true,
       sort_order: (productsQuery.data?.length ?? 0) + 1,
+      // landr-ssrx — onboarding only ever creates kind='service' templates,
+      // so the hotel link stays null and the offering defaults to 'none'.
+      hotel_location_id: null,
+      hotel_offering: 'none',
     }
     mutation.mutate(payload)
   }

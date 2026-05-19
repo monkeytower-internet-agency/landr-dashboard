@@ -29,6 +29,7 @@ import {
 } from '@/lib/package-teasers'
 import {
   nameToSlug,
+  type HotelOffering,
   type PricingSchemeRef,
   type ProductGroupRef,
   type ProductKind,
@@ -36,6 +37,23 @@ import {
   type ServiceTimeShape,
 } from '@/lib/products'
 import { t } from '@/lib/strings'
+
+// landr-ssrx — surfaced as an option list in the form. Order mirrors the
+// DB-allowed values; 'none' is the default for a fresh service product.
+const HOTEL_OFFERINGS: readonly HotelOffering[] = [
+  'none',
+  'optional',
+  'mandatory',
+] as const
+
+// Lightweight reference type for the operator's hotel-role locations. The
+// caller (ProductsManager) fetches /api/locations + /api/location-role-types
+// and computes the hotel subset; the form only needs id+name to render the
+// picker.
+export type HotelLocationRef = {
+  id: string
+  name: string
+}
 
 // Zod schema for the product form. Mirrors the DB CHECK constraints:
 //   - time_slot requires duration_minutes
@@ -87,8 +105,23 @@ const productFormSchema = z
     is_publicly_listed: z.boolean(),
     active: z.boolean(),
     sort_order: z.string(),
+    // landr-ssrx — hotel-room linkage + service-only accommodation toggle.
+    // Stored as a free-form string here ('' = unset) and coerced in
+    // handleSubmit; hotel_offering is constrained to the three DB values.
+    hotel_location_id: z.string(),
+    hotel_offering: z.enum(['none', 'optional', 'mandatory']),
   })
   .superRefine((data, ctx) => {
+    if (data.product_kind === 'hotel_room' && !data.hotel_location_id) {
+      // landr-ssrx — mirror the DB CHECK
+      //   (product_kind='hotel_room') = (hotel_location_id IS NOT NULL)
+      // so the form blocks submit before the API rejects the row.
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Pick the hotel this room belongs to.',
+        path: ['hotel_location_id'],
+      })
+    }
     if (data.product_kind === 'service') {
       if (!data.service_time_shape) {
         ctx.addIssue({
@@ -150,6 +183,8 @@ export type ProductFormSubmitValue = {
   is_publicly_listed: boolean
   active: boolean
   sort_order: number
+  hotel_location_id: string | null
+  hotel_offering: HotelOffering
 }
 
 type Props = {
@@ -165,6 +200,10 @@ type Props = {
   /** Operator id — required to render the inline discount-scheme manager.
    *  Omitted in tests/wizards that don't need the pen-icon affordance. */
   operatorId?: string
+  /** landr-ssrx — operator's hotel-role locations, used to populate the
+   *  hotel_location_id picker when kind='hotel_room'. Pass [] if none
+   *  exist; the form renders a helpful empty-state hint. */
+  hotelLocations?: HotelLocationRef[]
 }
 
 function emptyToNull(v: string | undefined | null): string | null {
@@ -193,10 +232,15 @@ function defaultValues(
       default_pricing_scheme_id: '',
       needs_provider: true,
       needs_pickup: true,
-      revenue_flows_through_operator: true,
+      // landr-ssrx — hotel rooms are paid to the hotel directly, so the
+      // default for hotel_room is RFTO=false. All other kinds keep the
+      // historical default of true (operator collects the money).
+      revenue_flows_through_operator: initialKind !== 'hotel_room',
       is_publicly_listed: false,
       active: true,
       sort_order: '0',
+      hotel_location_id: '',
+      hotel_offering: 'none',
     }
   }
   return {
@@ -219,6 +263,11 @@ function defaultValues(
     is_publicly_listed: product.is_publicly_listed,
     active: product.active,
     sort_order: String(product.sort_order ?? 0),
+    hotel_location_id: product.hotel_location_id ?? '',
+    // Defensive: pre-landr-ssrx rows wouldn't carry these columns. The DB
+    // default is 'none', so we fall back to that if the server response is
+    // missing the field for any reason.
+    hotel_offering: product.hotel_offering ?? 'none',
   }
 }
 
@@ -234,6 +283,19 @@ function kindLabel(kind: ProductKind): string {
       return t.products.kindPhysicalGood
     case 'gift_card':
       return t.products.kindGiftCard
+    case 'hotel_room':
+      return t.products.kindHotelRoom
+  }
+}
+
+function hotelOfferingLabel(value: HotelOffering): string {
+  switch (value) {
+    case 'none':
+      return t.products.optionHotelOfferingNone
+    case 'optional':
+      return t.products.optionHotelOfferingOptional
+    case 'mandatory':
+      return t.products.optionHotelOfferingMandatory
   }
 }
 
@@ -260,6 +322,7 @@ export function ProductForm({
   deleting,
   allowedKinds,
   operatorId,
+  hotelLocations = [],
 }: Props) {
   const operatorAllowedKinds = useOperatorAllowedProductKinds()
   // The form prop overrides the operator context — useful in tests + the
@@ -310,16 +373,46 @@ export function ProductForm({
   // When the operator changes product_kind away from 'service', clear the
   // shape so the DB CHECK ((kind='service') = (shape IS NOT NULL)) is
   // satisfied. When they switch back, default to days_range.
+  //
+  // landr-ssrx — also flip RFTO and clear hotel_offering when entering
+  // 'hotel_room', and clear hotel_location_id when leaving it. The DB CHECK
+  //   (product_kind='hotel_room') = (hotel_location_id IS NOT NULL)
+  // would otherwise reject the row.
   useEffect(() => {
     if (productKind === 'service' && !serviceTimeShape) {
       form.setValue('service_time_shape', 'days_range')
     } else if (productKind !== 'service' && serviceTimeShape) {
       form.setValue('service_time_shape', '')
     }
+    if (productKind === 'hotel_room') {
+      // RFTO defaults to false for hotel rooms — guests pay the hotel directly.
+      // We only flip it for fresh products; existing rows keep whatever the
+      // operator stored. The defaultValues() seed handles the create path.
+      if (!product) form.setValue('revenue_flows_through_operator', false)
+      // hotel_offering on non-service rows must be 'none' (DB CHECK).
+      if (form.getValues('hotel_offering') !== 'none') {
+        form.setValue('hotel_offering', 'none')
+      }
+    } else {
+      // Leaving hotel_room → drop the hotel link to satisfy the biconditional.
+      if (form.getValues('hotel_location_id')) {
+        form.setValue('hotel_location_id', '')
+      }
+    }
+    if (productKind !== 'service') {
+      // hotel_offering only makes sense on service products; collapse to 'none'
+      // for anything else so the DB CHECK
+      //   product_kind = 'service' OR hotel_offering = 'none'
+      // holds.
+      if (form.getValues('hotel_offering') !== 'none') {
+        form.setValue('hotel_offering', 'none')
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productKind])
 
   const isServiceKind = productKind === 'service'
+  const isHotelRoomKind = productKind === 'hotel_room'
   const nonServiceBody =
     productKind === 'physical_good'
       ? t.products.physicalGoodComingSoonBody
@@ -356,6 +449,16 @@ export function ProductForm({
       is_publicly_listed: values.is_publicly_listed,
       active: values.active,
       sort_order: sortTrimmed ? Number(sortTrimmed) : 0,
+      // landr-ssrx — collapse to null/'none' on every kind except where
+      // the field is actually meaningful. The DB CHECKs would catch a
+      // stale value from a kind-switch race, but we'd rather not even
+      // send one.
+      hotel_location_id:
+        values.product_kind === 'hotel_room'
+          ? emptyToNull(values.hotel_location_id)
+          : null,
+      hotel_offering:
+        values.product_kind === 'service' ? values.hotel_offering : 'none',
     }
     await onSubmit(payload)
   }
@@ -414,13 +517,29 @@ export function ProductForm({
           )}
         />
 
-        {!isServiceKind ? (
+        {/* landr-ssrx — hotel_room ships with full editing support, so we
+            only render the "Coming soon" placeholder for the still-unsupported
+            kinds (subscription, digital_good, physical_good, gift_card). */}
+        {!isServiceKind && !isHotelRoomKind ? (
           <Card>
             <CardHeader>
               <CardTitle>{t.products.nonServiceComingSoonTitle}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground text-sm">{nonServiceBody}</p>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {/* landr-ssrx — hotel_room helper card. Sits above the hotel picker
+            so operators understand the RFTO+per-night semantics before they
+            commit to creating the product. */}
+        {isHotelRoomKind ? (
+          <Card>
+            <CardContent>
+              <p className="text-muted-foreground text-sm">
+                {t.products.hotelRoomHelperBody}
+              </p>
             </CardContent>
           </Card>
         ) : null}
@@ -509,6 +628,71 @@ export function ProductForm({
             </FormItem>
           )}
         />
+
+        {/* landr-ssrx — hotel_location_id picker. Required when
+            product_kind='hotel_room' (the DB CHECK rejects otherwise) and
+            hidden / cleared on every other kind. */}
+        {isHotelRoomKind ? (
+          <FormField
+            control={form.control}
+            name="hotel_location_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t.products.fieldHotelLocation}</FormLabel>
+                <FormControl>
+                  <NativeSelect
+                    {...field}
+                    value={field.value ?? ''}
+                    disabled={hotelLocations.length === 0}
+                  >
+                    <option value="">
+                      {t.products.fieldHotelLocationEmpty}
+                    </option>
+                    {hotelLocations.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.name}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </FormControl>
+                <FormDescription>
+                  {hotelLocations.length === 0
+                    ? t.products.fieldHotelLocationNoneAvailable
+                    : t.products.fieldHotelLocationHint}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : null}
+
+        {/* landr-ssrx — hotel_offering only matters on kind='service'
+            (DB CHECK forces 'none' elsewhere). Drives whether the widget
+            renders the accommodation step on top of the service. */}
+        {isServiceKind ? (
+          <FormField
+            control={form.control}
+            name="hotel_offering"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t.products.fieldHotelOffering}</FormLabel>
+                <FormControl>
+                  <NativeSelect {...field} value={field.value}>
+                    {HOTEL_OFFERINGS.map((o) => (
+                      <option key={o} value={o}>
+                        {hotelOfferingLabel(o)}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </FormControl>
+                <FormDescription>
+                  {t.products.fieldHotelOfferingHint}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : null}
 
         {isServiceKind ? (
           <>
@@ -755,8 +939,15 @@ export function ProductForm({
           )}
           <Button
             type="submit"
-            disabled={!!submitting || !isServiceKind}
-            title={!isServiceKind ? t.products.nonServiceDisabledTooltip : undefined}
+            // landr-ssrx — service + hotel_room are both fully editable. The
+            // still-unsupported kinds (subscription, *_good, gift_card) keep
+            // the upgrade-prompt tooltip from the prior package-gating work.
+            disabled={!!submitting || (!isServiceKind && !isHotelRoomKind)}
+            title={
+              !isServiceKind && !isHotelRoomKind
+                ? t.products.nonServiceDisabledTooltip
+                : undefined
+            }
           >
             {submitting
               ? t.products.saving

@@ -9,7 +9,10 @@ import {
 } from '@/components/ui/card'
 import { FixedDateWindowsTable } from '@/components/FixedDateWindowsTable'
 import { ProductForm } from '@/components/ProductForm'
-import type { ProductFormSubmitValue } from '@/components/ProductForm'
+import type {
+  HotelLocationRef,
+  ProductFormSubmitValue,
+} from '@/components/ProductForm'
 import { ProductsList } from '@/components/ProductsList'
 import {
   createProduct,
@@ -23,6 +26,12 @@ import {
   type ProductGroupRef,
   type ProductRow,
 } from '@/lib/products'
+import {
+  fetchLocationRoleTypes,
+  fetchLocations,
+  type Location,
+  type LocationRoleType,
+} from '@/lib/locations'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { t } from '@/lib/strings'
 
@@ -61,6 +70,34 @@ export function ProductsManager({ operatorId, hideHeader = false }: Props) {
     queryFn: () => fetchProductGroups(operatorId),
     enabled: !!operatorId,
   })
+
+  // landr-ssrx — hotel-role locations feed the kind='hotel_room' picker. We
+  // join locations × role_types client-side because the locations endpoint
+  // only carries role_type_id, and the per-operator role-type taxonomy is
+  // small enough that a second query is cheaper than widening the locations
+  // shape. Both queries are already cached for the Pickup locations page.
+  const locationsQuery = useQuery<Location[]>({
+    queryKey: ['locations', operatorId],
+    queryFn: () => fetchLocations(operatorId),
+    enabled: !!operatorId,
+  })
+  const roleTypesQuery = useQuery<LocationRoleType[]>({
+    queryKey: ['location-role-types', operatorId],
+    queryFn: () => fetchLocationRoleTypes(operatorId),
+    enabled: !!operatorId,
+  })
+
+  const hotelLocations = useMemo<HotelLocationRef[]>(() => {
+    const locs = locationsQuery.data ?? []
+    const types = roleTypesQuery.data ?? []
+    const hotelRoleIds = new Set(
+      types.filter((rt) => rt.code === 'hotel').map((rt) => rt.id),
+    )
+    if (hotelRoleIds.size === 0) return []
+    return locs
+      .filter((l) => l.role_type_id && hotelRoleIds.has(l.role_type_id))
+      .map((l) => ({ id: l.id, name: l.name }))
+  }, [locationsQuery.data, roleTypesQuery.data])
 
   const rows = useMemo(() => productsQuery.data ?? [], [productsQuery.data])
 
@@ -256,6 +293,7 @@ export function ProductsManager({ operatorId, hideHeader = false }: Props) {
                     pricingSchemes={pricingSchemesQuery.data ?? []}
                     productGroups={productGroupsQuery.data ?? []}
                     operatorId={operatorId}
+                    hotelLocations={hotelLocations}
                     onSubmit={handleSubmit}
                     onDelete={
                       resolvedSelection !== NEW_PRODUCT && selectedProduct

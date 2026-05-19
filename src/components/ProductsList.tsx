@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CopyIcon, MoreHorizontalIcon, PlusIcon, SearchIcon } from 'lucide-react'
+import { BedDoubleIcon, CopyIcon, MoreHorizontalIcon, PlusIcon, SearchIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -12,6 +12,59 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { productSummaryLine, type ProductRow } from '@/lib/products'
 import { t } from '@/lib/strings'
+
+// landr-ssrx — group hotel_room rows under their hotel for visual clarity.
+// We collect the non-hotel-room rows first (preserves the existing
+// sort_order, then name) and then push one bucket per hotel at the end of
+// the list. The supervisor explicitly preferred this over a collapsible
+// disclosure (lighter touch + same outcome).
+type RenderEntry =
+  | { kind: 'row'; row: ProductRow }
+  | { kind: 'hotel-header'; key: string; label: string }
+
+function groupRows(rows: ProductRow[]): RenderEntry[] {
+  const nonHotel: RenderEntry[] = []
+  const byHotel = new Map<string, { label: string; rows: ProductRow[] }>()
+  // Sentinel key for hotel_room rows missing a hotel link. The DB CHECK
+  // makes this an impossible state, but a defensive bucket keeps the UI
+  // honest if someone bypasses the form via direct REST writes.
+  const UNASSIGNED = '__unassigned__'
+  for (const row of rows) {
+    if (row.product_kind === 'hotel_room') {
+      const key = row.hotel_location_id ?? UNASSIGNED
+      const label =
+        row.hotel_location?.name ?? t.products.listGroupHotelUnassigned
+      const bucket = byHotel.get(key) ?? { label, rows: [] }
+      bucket.rows.push(row)
+      byHotel.set(key, bucket)
+    } else {
+      nonHotel.push({ kind: 'row', row })
+    }
+  }
+  const out: RenderEntry[] = [...nonHotel]
+  // Stable header order: hotel name A→Z, with the defensive unassigned
+  // bucket last so it doesn't shove the named hotels out of the way.
+  const hotelKeys = [...byHotel.keys()].sort((a, b) => {
+    if (a === UNASSIGNED) return 1
+    if (b === UNASSIGNED) return -1
+    return (byHotel.get(a)?.label ?? '').localeCompare(
+      byHotel.get(b)?.label ?? '',
+    )
+  })
+  for (const key of hotelKeys) {
+    const bucket = byHotel.get(key)
+    if (!bucket) continue
+    out.push({
+      kind: 'hotel-header',
+      key,
+      label: bucket.label,
+    })
+    for (const row of bucket.rows) {
+      out.push({ kind: 'row', row })
+    }
+  }
+  return out
+}
 
 type Props = {
   rows: ProductRow[]
@@ -33,10 +86,17 @@ export function ProductsList({ rows, selectedId, onSelect, onCreate, onDuplicate
         r.name.toLowerCase().includes(q) ||
         r.slug.toLowerCase().includes(q) ||
         (r.short_description ?? '').toLowerCase().includes(q) ||
-        (r.product_group?.name ?? '').toLowerCase().includes(q)
+        (r.product_group?.name ?? '').toLowerCase().includes(q) ||
+        // landr-ssrx — let operators jump to a hotel's rooms by typing
+        // the hotel name (the parent location).
+        (r.hotel_location?.name ?? '').toLowerCase().includes(q)
       )
     })
   }, [filter, rows])
+
+  // landr-ssrx — flatten the filtered list into a render plan that
+  // intersperses hotel headers above their room groups.
+  const entries = useMemo(() => groupRows(filtered), [filtered])
 
   return (
     <div className="flex h-full flex-col gap-3">
@@ -76,7 +136,26 @@ export function ProductsList({ rows, selectedId, onSelect, onCreate, onDuplicate
             {rows.length === 0 ? t.products.empty : t.products.noMatches}
           </li>
         ) : (
-          filtered.map((row) => {
+          entries.map((entry) => {
+            if (entry.kind === 'hotel-header') {
+              return (
+                <li
+                  key={`hdr-${entry.key}`}
+                  // role=presentation so the header isn't announced as an
+                  // option to AT users navigating the listbox; the rooms
+                  // beneath it stay individually selectable.
+                  role="presentation"
+                  className="text-muted-foreground mt-2 flex items-center gap-2 px-1 pt-2 text-xs font-medium uppercase tracking-wide"
+                >
+                  <BedDoubleIcon aria-hidden="true" className="size-3.5" />
+                  <span>
+                    {t.products.listGroupHotelPrefix}
+                    {entry.label}
+                  </span>
+                </li>
+              )
+            }
+            const row = entry.row
             const isSelected = row.id === selectedId
             const isDuplicating = duplicatingId === row.id
             return (

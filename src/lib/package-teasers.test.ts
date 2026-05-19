@@ -33,9 +33,10 @@ describe('KIND_LOWEST_TIER', () => {
     }
   })
 
-  it('mirrors the migration seed (free→service, pro→subscription, business→physical_good, enterprise→digital_good+gift_card)', () => {
+  it('mirrors the migration seed (free→service, pro→subscription+hotel_room, business→physical_good, enterprise→digital_good+gift_card)', () => {
     expect(KIND_LOWEST_TIER.service).toBe('free')
     expect(KIND_LOWEST_TIER.subscription).toBe('pro')
+    expect(KIND_LOWEST_TIER.hotel_room).toBe('pro')
     expect(KIND_LOWEST_TIER.physical_good).toBe('business')
     expect(KIND_LOWEST_TIER.digital_good).toBe('enterprise')
     expect(KIND_LOWEST_TIER.gift_card).toBe('enterprise')
@@ -54,6 +55,7 @@ describe('lowestTierTooltip', () => {
   it("names the lowest unlocking tier for each kind", () => {
     expect(lowestTierTooltip('service')).toMatch(/free/i)
     expect(lowestTierTooltip('subscription')).toMatch(/pro/i)
+    expect(lowestTierTooltip('hotel_room')).toMatch(/pro/i)
     expect(lowestTierTooltip('physical_good')).toMatch(/business/i)
     expect(lowestTierTooltip('digital_good')).toMatch(/enterprise/i)
     expect(lowestTierTooltip('gift_card')).toMatch(/enterprise/i)
@@ -123,6 +125,7 @@ describe('shouldShowTeasers', () => {
             allowed_product_kinds: [
               'service',
               'subscription',
+              'hotel_room',
               'physical_good',
               'digital_good',
               'gift_card',
