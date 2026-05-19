@@ -224,6 +224,7 @@ export const t = {
     fieldSlugHint: 'Lowercase, used in URLs. Must be unique per operator.',
     fieldShortDescription: 'Short description',
     fieldDescription: 'Description',
+    fieldDescriptionHint: 'Markdown supported — **bold**, _italic_, lists, links.',
     fieldDurationKind: 'Duration model',
     fieldDurationMinutes: 'Duration (minutes)',
     fieldFixedStartDate: 'Fixed start date',
