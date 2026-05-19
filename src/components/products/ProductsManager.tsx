@@ -255,6 +255,7 @@ export function ProductsManager({ operatorId, hideHeader = false }: Props) {
                     }
                     pricingSchemes={pricingSchemesQuery.data ?? []}
                     productGroups={productGroupsQuery.data ?? []}
+                    operatorId={operatorId}
                     onSubmit={handleSubmit}
                     onDelete={
                       resolvedSelection !== NEW_PRODUCT && selectedProduct

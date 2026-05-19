@@ -7,6 +7,7 @@ import { CrownIcon, Trash2Icon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { EditTaxonomyButton } from '@/components/ui/edit-taxonomy-button'
 import {
   Form,
   FormControl,
@@ -19,6 +20,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { MarkdownEditor } from '@/components/ui/markdown-editor'
 import { NativeSelect } from '@/components/ui/native-select'
+import { PricingSchemeManager } from '@/components/pricing/PricingSchemeManager'
 import { useOperator, useOperatorAllowedProductKinds } from '@/lib/operator'
 import {
   KIND_DISPLAY_ORDER,
@@ -160,6 +162,9 @@ type Props = {
   deleting?: boolean
   /** Override the operator's allow-list (for tests / wizards). */
   allowedKinds?: ProductKind[]
+  /** Operator id — required to render the inline discount-scheme manager.
+   *  Omitted in tests/wizards that don't need the pen-icon affordance. */
+  operatorId?: string
 }
 
 function emptyToNull(v: string | undefined | null): string | null {
@@ -254,6 +259,7 @@ export function ProductForm({
   submitting,
   deleting,
   allowedKinds,
+  operatorId,
 }: Props) {
   const operatorAllowedKinds = useOperatorAllowedProductKinds()
   // The form prop overrides the operator context — useful in tests + the
@@ -613,16 +619,30 @@ export function ProductForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>{t.products.fieldPricingScheme}</FormLabel>
-                <FormControl>
-                  <NativeSelect {...field} value={field.value ?? ''}>
-                    <option value="">{t.products.optionNone}</option>
-                    {pricingSchemes.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.currency})
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </FormControl>
+                <div className="flex items-center gap-1">
+                  <FormControl>
+                    <NativeSelect {...field} value={field.value ?? ''}>
+                      <option value="">{t.products.optionNone}</option>
+                      {pricingSchemes.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.currency})
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </FormControl>
+                  {operatorId ? (
+                    <EditTaxonomyButton
+                      title={t.products.fieldPricingScheme}
+                      description={t.products.fieldPricingSchemeHint}
+                      ariaLabel={t.products.manageDiscountSchemes}
+                    >
+                      <PricingSchemeManager operatorId={operatorId} />
+                    </EditTaxonomyButton>
+                  ) : null}
+                </div>
+                <FormDescription>
+                  {t.products.fieldPricingSchemeHint}
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
