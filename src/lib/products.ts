@@ -1,4 +1,7 @@
+import { toast } from 'sonner'
+
 import { supabase } from '@/lib/supabase'
+import { t } from '@/lib/strings'
 
 // Mirrors public.product_kind + public.service_time_shape after the
 // landr-glx refactor that replaced the single product_duration_kind enum.
@@ -163,6 +166,33 @@ export type ProductWritePayload = {
   sort_order: number
 }
 
+// Recognise both the FastAPI api()-wrapper error code and the raw Postgres
+// unique-violation that supabase-js surfaces when the products_operator_slug
+// unique index trips. We toast a friendly message and re-throw so the
+// mutation's onError + form error state still fire.
+//
+// landr-m17 — replaces the prior raw-message surface ("duplicate key value
+// violates unique constraint products_operator_slug_unique") with a clear
+// "pick a different slug" toast.
+function isSlugCollisionError(error: {
+  message?: string | null
+  code?: string | null
+}): boolean {
+  const msg = (error.message ?? '').toLowerCase()
+  if (msg === 'insert_failed_or_duplicate_slug') return true
+  if (error.code === '23505' && msg.includes('products_operator_slug')) {
+    return true
+  }
+  if (msg.includes('products_operator_slug_unique')) return true
+  return false
+}
+
+function reportSlugCollision(): void {
+  toast.error(t.products.slugCollisionTitle, {
+    description: t.products.slugCollisionBody,
+  })
+}
+
 export async function createProduct(
   payload: ProductWritePayload,
 ): Promise<ProductRow> {
@@ -171,7 +201,10 @@ export async function createProduct(
     .insert(payload)
     .select(SELECT)
     .single()
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (isSlugCollisionError(error)) reportSlugCollision()
+    throw new Error(error.message)
+  }
   return data as unknown as ProductRow
 }
 
@@ -185,7 +218,10 @@ export async function updateProduct(
     .eq('id', id)
     .select(SELECT)
     .single()
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (isSlugCollisionError(error)) reportSlugCollision()
+    throw new Error(error.message)
+  }
   return data as unknown as ProductRow
 }
 

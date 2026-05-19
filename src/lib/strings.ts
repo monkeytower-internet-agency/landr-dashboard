@@ -325,10 +325,16 @@ export const t = {
     statusInactive: 'Inactive',
 
     fieldName: 'Name',
+    fieldNameHelp:
+      'Short product label shown everywhere (dashboard, widget, emails).',
     fieldSlug: 'Slug',
     fieldSlugHint: 'Lowercase, used in URLs. Must be unique per operator.',
     fieldShortDescription: 'Short description',
+    fieldShortDescriptionHelp:
+      'One-line tagline shown under the name in the booking widget.',
     fieldDescription: 'Description',
+    fieldDescriptionHelp:
+      'Long Markdown description shown in the widget product card body. Optional.',
     fieldDescriptionHint: 'Markdown supported — **bold**, _italic_, lists, links.',
     fieldProductKind: 'Product kind',
     fieldProductKindTeaserHint:
@@ -389,6 +395,9 @@ export const t = {
     toastCreated: 'Product created.',
     toastUpdated: 'Product updated.',
     toastDeleted: 'Product deleted.',
+    slugCollisionTitle: 'That slug is already taken',
+    slugCollisionBody:
+      'A product with this slug already exists for your operator. Pick a different name or edit the slug.',
     duplicate: 'Duplicate',
     duplicating: 'Duplicating…',
     toastDuplicated: 'Product duplicated — edit and save.',
