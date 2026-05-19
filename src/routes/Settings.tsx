@@ -21,6 +21,7 @@ import { useOperator } from '@/lib/operator'
 import {
   fetchOperator,
   patchOperator,
+  TAX_ID_KIND_LABELS,
   fetchGmailStatus,
   fetchGmailInstallUrl,
   disconnectGmail,
@@ -30,7 +31,7 @@ import {
 } from '@/lib/operatorSettings'
 import { t } from '@/lib/strings'
 
-const TAX_ID_KIND_OPTIONS = ['NIF', 'CIF', 'UST-ID', 'VAT', 'SIREN', 'other'] as const
+const TAX_ID_KIND_OPTIONS = ['es_nif', 'es_cif', 'de_ust_idnr', 'uk_vat', 'fr_siren', 'generic_eu_vat', 'other'] as const
 
 export function Settings() {
   const { currentOperatorId } = useOperator()
@@ -163,7 +164,7 @@ function SettingsForm({ operator, operatorId, onSaved }: FormProps) {
               <NativeSelect id="settings-tax-id-kind" {...register('tax_id_kind')} disabled={mutation.isPending}>
                 <option value="">{t.settings.optionNone}</option>
                 {TAX_ID_KIND_OPTIONS.map((k) => (
-                  <option key={k} value={k}>{k}</option>
+                  <option key={k} value={k}>{TAX_ID_KIND_LABELS[k]}</option>
                 ))}
               </NativeSelect>
             </div>
