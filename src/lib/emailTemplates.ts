@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api-client'
 
 export const TEMPLATE_KINDS = [
   'booking_received',
@@ -42,34 +42,8 @@ export const templateFormSchema = z.object({
 
 export type TemplateFormValues = z.infer<typeof templateFormSchema>
 
-async function authHeaders(): Promise<{ Authorization: string; 'Content-Type': string }> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  const token = session?.access_token
-  if (!token) throw new Error('Not authenticated')
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  }
-}
-
-function apiBase(): string {
-  return (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
-}
-
 export async function fetchTemplates(operatorId: string): Promise<EmailTemplate[]> {
-  const headers = await authHeaders()
-  const res = await fetch(`${apiBase()}/api/staff/operators/${operatorId}/email-templates`, {
-    headers,
-  })
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: string }).detail ?? `HTTP ${res.status}`,
-    )
-  }
-  return res.json() as Promise<EmailTemplate[]>
+  return api<EmailTemplate[]>('GET', `/api/staff/operators/${operatorId}/email-templates`)
 }
 
 export async function createTemplate(
@@ -83,19 +57,11 @@ export async function createTemplate(
     active?: boolean
   },
 ): Promise<EmailTemplate> {
-  const headers = await authHeaders()
-  const res = await fetch(`${apiBase()}/api/staff/operators/${operatorId}/email-templates`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ active: true, ...payload }),
-  })
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: string }).detail ?? `HTTP ${res.status}`,
-    )
-  }
-  return res.json() as Promise<EmailTemplate>
+  return api<EmailTemplate>(
+    'POST',
+    `/api/staff/operators/${operatorId}/email-templates`,
+    { active: true, ...payload },
+  )
 }
 
 export async function updateTemplate(
@@ -103,61 +69,31 @@ export async function updateTemplate(
   templateId: string,
   payload: { subject?: string; body_html?: string; body_text?: string; active?: boolean },
 ): Promise<EmailTemplate> {
-  const headers = await authHeaders()
-  const res = await fetch(
-    `${apiBase()}/api/staff/operators/${operatorId}/email-templates/${templateId}`,
-    {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify(payload),
-    },
+  return api<EmailTemplate>(
+    'PATCH',
+    `/api/staff/operators/${operatorId}/email-templates/${templateId}`,
+    payload,
   )
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: string }).detail ?? `HTTP ${res.status}`,
-    )
-  }
-  return res.json() as Promise<EmailTemplate>
 }
 
 export async function deleteTemplate(
   operatorId: string,
   templateId: string,
 ): Promise<void> {
-  const headers = await authHeaders()
-  const res = await fetch(
-    `${apiBase()}/api/staff/operators/${operatorId}/email-templates/${templateId}`,
-    {
-      method: 'DELETE',
-      headers,
-    },
+  await api<void>(
+    'DELETE',
+    `/api/staff/operators/${operatorId}/email-templates/${templateId}`,
   )
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: string }).detail ?? `HTTP ${res.status}`,
-    )
-  }
 }
 
 export async function previewTemplate(
   operatorId: string,
   templateId: string,
 ): Promise<PreviewResult> {
-  const headers = await authHeaders()
-  const res = await fetch(
-    `${apiBase()}/api/staff/operators/${operatorId}/email-templates/${templateId}/preview`,
-    {
-      method: 'POST',
-      headers,
-    },
+  // POST with no body — keep the JSON content-type behavior by passing {}.
+  return api<PreviewResult>(
+    'POST',
+    `/api/staff/operators/${operatorId}/email-templates/${templateId}/preview`,
+    {},
   )
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: string }).detail ?? `HTTP ${res.status}`,
-    )
-  }
-  return res.json() as Promise<PreviewResult>
 }

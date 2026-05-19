@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api-client'
 
 export const TaxIdKindSchema = z.enum(['es_nif', 'es_cif', 'de_ust_idnr', 'uk_vat', 'fr_siren', 'generic_eu_vat', 'other'])
 export type TaxIdKind = z.infer<typeof TaxIdKindSchema>
@@ -44,82 +44,28 @@ export const GmailStatusSchema = z.object({
 })
 export type GmailStatus = z.infer<typeof GmailStatusSchema>
 
-async function getBearerToken(): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession()
-  const token = session?.access_token
-  if (!token) throw new Error('Not authenticated')
-  return token
-}
-
-const apiBase = (): string =>
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
-
 export async function fetchOperator(operatorId: string): Promise<OperatorSettings> {
-  const token = await getBearerToken()
-  const res = await fetch(`${apiBase()}/api/staff/operators/${operatorId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: { error?: string } }).detail?.error ?? `HTTP ${res.status}`,
-    )
-  }
-  return res.json() as Promise<OperatorSettings>
+  return api<OperatorSettings>('GET', `/api/staff/operators/${operatorId}`)
 }
 
 export async function patchOperator(
   operatorId: string,
   patch: OperatorPatch,
 ): Promise<OperatorSettings> {
-  const token = await getBearerToken()
-  const res = await fetch(`${apiBase()}/api/staff/operators/${operatorId}`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(patch),
-  })
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: { error?: string } }).detail?.error ?? `HTTP ${res.status}`,
-    )
-  }
-  return res.json() as Promise<OperatorSettings>
+  return api<OperatorSettings>('PATCH', `/api/staff/operators/${operatorId}`, patch)
 }
 
 export async function fetchGmailStatus(operatorId: string): Promise<GmailStatus> {
-  const token = await getBearerToken()
-  const res = await fetch(
-    `${apiBase()}/api/staff/operators/${operatorId}/integrations/gmail`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  )
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: { error?: string } }).detail?.error ?? `HTTP ${res.status}`,
-    )
-  }
-  return res.json() as Promise<GmailStatus>
+  return api<GmailStatus>('GET', `/api/staff/operators/${operatorId}/integrations/gmail`)
 }
 
 export async function fetchGmailInstallUrl(
   operatorId: string,
 ): Promise<{ install_url: string; state: string }> {
-  const token = await getBearerToken()
-  const res = await fetch(
-    `${apiBase()}/api/staff/operators/${operatorId}/integrations/gmail/install`,
-    { headers: { Authorization: `Bearer ${token}` } },
+  return api<{ install_url: string; state: string }>(
+    'GET',
+    `/api/staff/operators/${operatorId}/integrations/gmail/install`,
   )
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: { error?: string } }).detail?.error ?? `HTTP ${res.status}`,
-    )
-  }
-  return res.json() as Promise<{ install_url: string; state: string }>
 }
 
 export async function markOnboarded(
@@ -129,15 +75,5 @@ export async function markOnboarded(
 }
 
 export async function disconnectGmail(operatorId: string): Promise<void> {
-  const token = await getBearerToken()
-  const res = await fetch(
-    `${apiBase()}/api/staff/operators/${operatorId}/integrations/gmail`,
-    { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
-  )
-  if (!res.ok && res.status !== 204) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: { error?: string } }).detail?.error ?? `HTTP ${res.status}`,
-    )
-  }
+  await api<void>('DELETE', `/api/staff/operators/${operatorId}/integrations/gmail`)
 }
