@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { ContactAuditSheet } from '@/components/ContactAuditSheet'
+import { ContactsFilters } from '@/components/contacts/ContactsFilters'
 import { ContactsTable } from '@/components/ContactsTable'
 import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
 import { GdprEraseDialog } from '@/components/GdprEraseDialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { fetchContacts, type ContactRow } from '@/lib/contacts'
+import { useContactsFilters } from '@/lib/contacts-filters'
+import { useContactsSort } from '@/lib/contacts-sort'
 import { useOperator } from '@/lib/operator'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { t } from '@/lib/strings'
@@ -15,9 +18,22 @@ export function Contacts() {
   const [eraseTarget, setEraseTarget] = useState<ContactRow | null>(null)
   const [auditTarget, setAuditTarget] = useState<ContactRow | null>(null)
 
+  // landr-pqk — sort + type filter are per-user, persisted in localStorage.
+  // The query key embeds both so a change re-runs the fetch with the new
+  // ORDER BY / overlap filter at the API layer.
+  const sortApi = useContactsSort()
+  const filtersApi = useContactsFilters()
+  const { sort } = sortApi
+  const { filters } = filtersApi
+  const typesKey = filters.types.slice().sort().join(',') || 'all'
+
   const query = useRealtimeQuery<ContactRow[]>({
-    queryKey: ['contacts', currentOperatorId ?? 'none'],
-    queryFn: () => fetchContacts(currentOperatorId as string),
+    queryKey: ['contacts', currentOperatorId ?? 'none', sort, typesKey],
+    queryFn: () =>
+      fetchContacts(currentOperatorId as string, {
+        sort,
+        types: filters.types,
+      }),
     enabled: !!currentOperatorId,
     realtime: currentOperatorId
       ? {
@@ -34,6 +50,7 @@ export function Contacts() {
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">{t.contacts.title}</h1>
       </header>
+      <ContactsFilters sortApi={sortApi} filtersApi={filtersApi} />
       {query.isError ? (
         <Card>
           <CardHeader>
