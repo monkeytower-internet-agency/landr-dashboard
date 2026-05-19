@@ -201,6 +201,21 @@ export function productSummaryLine(row: ProductRow): string {
   return parts.join(' · ')
 }
 
+export async function duplicateProduct(
+  operatorId: string,
+  productId: string,
+): Promise<ProductRow> {
+  const res = await fetch(
+    `/api/staff/operators/${operatorId}/products/${productId}/duplicate`,
+    { method: 'POST' },
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error((body as { detail?: string }).detail ?? 'duplicate_failed')
+  }
+  return res.json() as Promise<ProductRow>
+}
+
 // Slug helper: convert a display name into a kebab-case slug. The DB enforces
 // uniqueness via products_operator_slug_unique; the form pre-fills using this
 // helper but the user can override.
