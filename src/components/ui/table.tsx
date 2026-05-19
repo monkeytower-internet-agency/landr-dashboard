@@ -6,9 +6,12 @@ import { cn } from "@/lib/utils"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
+    // landr-z7t: table-container is recessed (deeper than the surrounding
+    // card surface) via shadow-recessed + bg-muted, so data feels "set in"
+    // — per Sajid's video 2 recipe.
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className="relative w-full overflow-x-auto rounded-md bg-muted/40 shadow-recessed"
     >
       <table
         data-slot="table"

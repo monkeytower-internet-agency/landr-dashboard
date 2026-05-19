@@ -3,6 +3,24 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Theme tokens — landr-z7t visual depth pass.
+ *
+ * Three-shade OKLCH ramp (stepped ~0.1 lightness, hue 264 = cool blue-gray):
+ *   --bg-dark   = page background (deepest)
+ *   --bg        = card / surface (mid)
+ *   --bg-light  = highlighted / selected / interactive (lifted)
+ *
+ * shadcn's stock --background / --card / --muted / --accent are remapped
+ * onto this ramp so existing components inherit depth without per-component
+ * edits. Top-level Card border kept (shadcn identity); inner-card border
+ * dropped via the <Card inner> variant once shade differential separates them.
+ *
+ * Compound shadow tokens (--shadow-s/m/l) follow the Sajid recipe:
+ *   inset top highlight + 2-layer drop (tight + soft).
+ * Surfaced as Tailwind utilities via @theme inline (shadow-s/m/l).
+ */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -31,71 +49,145 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  /* 3-shade depth ramp surfaced as Tailwind colors. */
+  --color-bg-dark: var(--bg-dark);
+  --color-bg: var(--bg);
+  --color-bg-light: var(--bg-light);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  /* Compound shadow tiers — small (buttons/chips), medium (cards),
+     large (hover / elevated / modals). Plus a recessed inset for
+     tables / progress tracks. Surfaced as `shadow-s`, `shadow-m`,
+     `shadow-l`, `shadow-recessed` Tailwind utilities. */
+  --shadow-s: var(--shadow-s-recipe);
+  --shadow-m: var(--shadow-m-recipe);
+  --shadow-l: var(--shadow-l-recipe);
+  --shadow-recessed: var(--shadow-inset-recipe);
 }
 
+/* Light theme (default — no class on <html>). */
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+
+  /* Three-shade ramp — light theme. Steps ~0.03 here because surfaces
+     are already bright; bigger steps would feel chalky. Page is dimmest
+     so cards lift forward; selected/highlighted gets pure white. */
+  --bg-dark: oklch(0.94 0 264);
+  --bg: oklch(0.97 0 264);
+  --bg-light: oklch(1 0 264);
+  --text: oklch(0.15 0 264);
+  --text-muted: oklch(0.45 0 264);
+
+  /* shadcn aliases mapped onto the ramp. */
+  --background: var(--bg-dark);
+  --foreground: var(--text);
+  --card: var(--bg);
+  --card-foreground: var(--text);
+  --popover: var(--bg);
+  --popover-foreground: var(--text);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.92 0 264);
+  --secondary-foreground: var(--text);
+  /* --muted is used on recessed elements (progress track, inputs) — pin
+     to the dimmest rung so it reads "deeper" than the card surface. */
+  --muted: oklch(0.91 0 264);
+  --muted-foreground: var(--text-muted);
+  /* --accent is the selected/highlighted shade. */
+  --accent: var(--bg-light);
+  --accent-foreground: var(--text);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: oklch(0.88 0 264);
+  --input: oklch(0.88 0 264);
   --ring: oklch(0.708 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
+  /* Sidebar sits on the page; selected items use --bg-light. */
+  --sidebar: var(--bg-dark);
+  --sidebar-foreground: var(--text);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-accent: var(--bg-light);
+  --sidebar-accent-foreground: var(--text);
+  --sidebar-border: oklch(0.88 0 264);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Light-mode shadow recipes — lower inset white opacity (surfaces
+     already bright); darks unchanged. */
+  --shadow-s-recipe:
+    inset 0 1px 2px #ffffff80,
+    0 1px 2px #00000018,
+    0 2px 4px #0000000d;
+  --shadow-m-recipe:
+    inset 0 1px 2px #ffffff80,
+    0 2px 4px #00000018,
+    0 4px 8px #0000000d;
+  --shadow-l-recipe:
+    inset 0 1px 2px #ffffff80,
+    0 4px 6px #00000018,
+    0 8px 10px #0000000d;
+  /* Recessed inset — for tables, progress tracks. */
+  --shadow-inset-recipe: inset 0 2px 4px #00000018;
 }
 
+/* Dark theme. */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+  --bg-dark: oklch(0.14 0 264);
+  --bg: oklch(0.22 0 264);
+  --bg-light: oklch(0.31 0 264);
+  --text: oklch(0.985 0 264);
+  --text-muted: oklch(0.72 0 264);
+
+  --background: var(--bg-dark);
+  --foreground: var(--text);
+  --card: var(--bg);
+  --card-foreground: var(--text);
+  --popover: var(--bg);
+  --popover-foreground: var(--text);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --secondary: var(--bg-light);
+  --secondary-foreground: var(--text);
+  /* --muted is recessed — used on progress tracks, input bg etc. Sits
+     *between* page and card so it reads "deeper than the surface."
+     ProgressBar in Onboarding.tsx relies on this token. */
+  --muted: oklch(0.18 0 264);
+  --muted-foreground: var(--text-muted);
+  /* --accent is the selected/highlighted shade. */
+  --accent: var(--bg-light);
+  --accent-foreground: var(--text);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar: var(--bg-dark);
+  --sidebar-foreground: var(--text);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-accent: var(--bg-light);
+  --sidebar-accent-foreground: var(--text);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Dark-mode shadow recipes — inset top highlight grows with tier
+     (30 / 50 / 70) per the Sajid recipe. */
+  --shadow-s-recipe:
+    inset 0 1px 2px #ffffff30,
+    0 1px 2px #00000030,
+    0 2px 4px #00000015;
+  --shadow-m-recipe:
+    inset 0 1px 2px #ffffff50,
+    0 2px 4px #00000030,
+    0 4px 8px #00000015;
+  --shadow-l-recipe:
+    inset 0 1px 2px #ffffff70,
+    0 4px 6px #00000030,
+    0 8px 10px #00000015;
+  --shadow-inset-recipe: inset 0 2px 4px #00000033;
 }
 
 @layer base {
