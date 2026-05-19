@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ContactAuditSheet } from '@/components/ContactAuditSheet'
 import { ContactsTable } from '@/components/ContactsTable'
+import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
 import { GdprEraseDialog } from '@/components/GdprEraseDialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { fetchContacts, type ContactRow } from '@/lib/contacts'
@@ -10,6 +11,7 @@ import { t } from '@/lib/strings'
 
 export function Contacts() {
   const { currentOperatorId } = useOperator()
+  const [editContactId, setEditContactId] = useState<string | null>(null)
   const [eraseTarget, setEraseTarget] = useState<ContactRow | null>(null)
   const [auditTarget, setAuditTarget] = useState<ContactRow | null>(null)
 
@@ -48,10 +50,17 @@ export function Contacts() {
       ) : (
         <ContactsTable
           rows={rows}
+          onEdit={(row) => setEditContactId(row.id)}
           onErase={(row) => setEraseTarget(row)}
           onAudit={(row) => setAuditTarget(row)}
         />
       )}
+      <CustomerDetailSheet
+        contactId={editContactId}
+        onOpenChange={(open) => {
+          if (!open) setEditContactId(null)
+        }}
+      />
       <GdprEraseDialog
         contact={eraseTarget}
         onOpenChange={(open) => {

@@ -30,11 +30,12 @@ import { t } from '@/lib/strings'
 
 type Props = {
   rows: ContactRow[]
+  onEdit: (row: ContactRow) => void
   onErase: (row: ContactRow) => void
   onAudit: (row: ContactRow) => void
 }
 
-export function ContactsTable({ rows, onErase, onAudit }: Props) {
+export function ContactsTable({ rows, onEdit, onErase, onAudit }: Props) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'created_at', desc: true },
   ])
@@ -148,7 +149,7 @@ export function ContactsTable({ rows, onErase, onAudit }: Props) {
         },
       },
     ],
-    [onErase, onAudit],
+    [onEdit, onErase, onAudit],
   )
 
   const table = useReactTable({
@@ -229,7 +230,11 @@ export function ContactsTable({ rows, onErase, onAudit }: Props) {
               </TableRow>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  onClick={() => onEdit(row.original)}
+                  className="cursor-pointer"
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
