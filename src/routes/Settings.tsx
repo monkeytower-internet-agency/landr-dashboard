@@ -17,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { ConnectedAccounts } from '@/components/ConnectedAccounts'
 import { useOperator } from '@/lib/operator'
 import {
   fetchOperator,
@@ -265,6 +266,9 @@ function SettingsForm({ operator, operatorId, onSaved }: FormProps) {
 
       {/* Integrations — separate from form because no PATCH submit needed */}
       <GmailCard operatorId={operatorId} />
+
+      {/* Connected accounts — operator-level identity links (landr-4im) */}
+      <ConnectedAccounts />
 
       <Card>
         <CardHeader>

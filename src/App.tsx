@@ -1,4 +1,5 @@
 import { Outlet, Route, Routes } from 'react-router-dom'
+import { AuthCallback } from '@/routes/AuthCallback'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
 import { Contacts } from '@/routes/Contacts'
@@ -29,6 +30,7 @@ function App() {
         <OperatorProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route
               path="/onboarding/start"
               element={
