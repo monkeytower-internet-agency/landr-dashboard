@@ -3,6 +3,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Trash2Icon } from 'lucide-react'
+import MDEditor from '@uiw/react-md-editor'
+import '@uiw/react-md-editor/markdown-editor.css'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -17,7 +19,6 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
-import { Textarea } from '@/components/ui/textarea'
 import {
   nameToSlug,
   type PricingSchemeRef,
@@ -299,8 +300,17 @@ export function ProductForm({
             <FormItem>
               <FormLabel>{t.products.fieldDescription}</FormLabel>
               <FormControl>
-                <Textarea rows={4} {...field} />
+                <div data-color-mode="light">
+                  <MDEditor
+                    value={field.value}
+                    onChange={(val) => field.onChange(val ?? '')}
+                    onBlur={field.onBlur}
+                    preview="edit"
+                    height={240}
+                  />
+                </div>
               </FormControl>
+              <FormDescription>{t.products.fieldDescriptionHint}</FormDescription>
               <FormMessage />
             </FormItem>
           )}
