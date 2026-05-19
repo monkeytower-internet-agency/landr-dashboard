@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api-client'
 
 export type LocationRoleType = {
   id: string
@@ -48,65 +48,27 @@ export function resolveFormOutput(values: LocationFormValues): LocationFormOutpu
 }
 
 export async function fetchLocations(operatorId: string): Promise<Location[]> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  const token = session?.access_token
-  if (!token) throw new Error('Not authenticated')
-  const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
-  const res = await fetch(`${apiBase}/api/staff/operators/${operatorId}/locations`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json() as Promise<Location[]>
+  return api<Location[]>('GET', `/api/staff/operators/${operatorId}/locations`)
 }
 
 export async function fetchLocationRoleTypes(
   operatorId: string,
 ): Promise<LocationRoleType[]> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  const token = session?.access_token
-  if (!token) throw new Error('Not authenticated')
-  const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
-  const res = await fetch(
-    `${apiBase}/api/staff/operators/${operatorId}/location-role-types`,
-    { headers: { Authorization: `Bearer ${token}` } },
+  return api<LocationRoleType[]>(
+    'GET',
+    `/api/staff/operators/${operatorId}/location-role-types`,
   )
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json() as Promise<LocationRoleType[]>
 }
 
 export async function createLocation(
   operatorId: string,
   body: LocationFormOutput,
 ): Promise<Location> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  const token = session?.access_token
-  if (!token) throw new Error('Not authenticated')
-  const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
   const payload: Record<string, unknown> = { name: body.name }
   if (body.parent_id) payload.parent_id = body.parent_id
   if (body.email) payload.email = body.email
   if (body.role_type_id) payload.role_type_id = body.role_type_id
-  const res = await fetch(`${apiBase}/api/staff/operators/${operatorId}/locations`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: string }).detail ?? `HTTP ${res.status}`,
-    )
-  }
-  return res.json() as Promise<Location>
+  return api<Location>('POST', `/api/staff/operators/${operatorId}/locations`, payload)
 }
 
 export async function updateLocation(
@@ -114,58 +76,24 @@ export async function updateLocation(
   locationId: string,
   body: Partial<LocationFormOutput>,
 ): Promise<Location> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  const token = session?.access_token
-  if (!token) throw new Error('Not authenticated')
-  const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
   const payload: Record<string, unknown> = {}
   if (body.name !== undefined) payload.name = body.name
   if (body.parent_id !== undefined) payload.parent_id = body.parent_id
   if (body.email !== undefined) payload.email = body.email
   if (body.role_type_id !== undefined) payload.role_type_id = body.role_type_id
-  const res = await fetch(
-    `${apiBase}/api/staff/operators/${operatorId}/locations/${locationId}`,
-    {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-    },
+  return api<Location>(
+    'PATCH',
+    `/api/staff/operators/${operatorId}/locations/${locationId}`,
+    payload,
   )
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: string }).detail ?? `HTTP ${res.status}`,
-    )
-  }
-  return res.json() as Promise<Location>
 }
 
 export async function deleteLocation(
   operatorId: string,
   locationId: string,
 ): Promise<void> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  const token = session?.access_token
-  if (!token) throw new Error('Not authenticated')
-  const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
-  const res = await fetch(
-    `${apiBase}/api/staff/operators/${operatorId}/locations/${locationId}`,
-    {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    },
+  await api<void>(
+    'DELETE',
+    `/api/staff/operators/${operatorId}/locations/${locationId}`,
   )
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: string }).detail ?? `HTTP ${res.status}`,
-    )
-  }
 }

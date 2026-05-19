@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api-client'
 
 export type AvailabilityStatus = 'open' | 'closed' | 'fully_booked'
 export type AvailabilitySource = 'template' | 'manual'
@@ -39,48 +40,17 @@ export type AvailabilityPatch = {
   status?: AvailabilityStatus
 }
 
-async function authHeaders(): Promise<{
-  Authorization: string
-  'Content-Type': string
-}> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  const token = session?.access_token
-  if (!token) throw new Error('Not authenticated')
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  }
-}
-
-function apiBase(): string {
-  return (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
-}
-
-async function unwrap<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: string }).detail ?? `HTTP ${res.status}`,
-    )
-  }
-  return res.json() as Promise<T>
-}
-
 export async function fetchAvailability(
   operatorId: string,
   productId: string,
   fromDate: string,
   toDate: string,
 ): Promise<AvailabilityRow[]> {
-  const headers = await authHeaders()
   const params = new URLSearchParams({ from: fromDate, to: toDate })
-  const res = await fetch(
-    `${apiBase()}/api/staff/operators/${operatorId}/products/${productId}/availability?${params.toString()}`,
-    { headers },
+  return api<AvailabilityRow[]>(
+    'GET',
+    `/api/staff/operators/${operatorId}/products/${productId}/availability?${params.toString()}`,
   )
-  return unwrap<AvailabilityRow[]>(res)
 }
 
 export async function createAvailability(
@@ -94,16 +64,11 @@ export async function createAvailability(
     notes?: string | null
   },
 ): Promise<AvailabilityRow> {
-  const headers = await authHeaders()
-  const res = await fetch(
-    `${apiBase()}/api/staff/operators/${operatorId}/products/${productId}/availability`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-    },
+  return api<AvailabilityRow>(
+    'POST',
+    `/api/staff/operators/${operatorId}/products/${productId}/availability`,
+    payload,
   )
-  return unwrap<AvailabilityRow>(res)
 }
 
 export type BulkAvailabilityResult = {
@@ -116,43 +81,26 @@ export async function bulkCreateAvailability(
   productId: string,
   payload: BulkAvailabilityPayload,
 ): Promise<BulkAvailabilityResult> {
-  const headers = await authHeaders()
-  const res = await fetch(
-    `${apiBase()}/api/staff/operators/${operatorId}/products/${productId}/availability/bulk`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-    },
+  return api<BulkAvailabilityResult>(
+    'POST',
+    `/api/staff/operators/${operatorId}/products/${productId}/availability/bulk`,
+    payload,
   )
-  return unwrap<BulkAvailabilityResult>(res)
 }
 
 export async function patchAvailability(
   availabilityId: string,
   payload: AvailabilityPatch,
 ): Promise<AvailabilityRow> {
-  const headers = await authHeaders()
-  const res = await fetch(`${apiBase()}/api/staff/availability/${availabilityId}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify(payload),
-  })
-  return unwrap<AvailabilityRow>(res)
+  return api<AvailabilityRow>(
+    'PATCH',
+    `/api/staff/availability/${availabilityId}`,
+    payload,
+  )
 }
 
 export async function deleteAvailability(availabilityId: string): Promise<void> {
-  const headers = await authHeaders()
-  const res = await fetch(`${apiBase()}/api/staff/availability/${availabilityId}`, {
-    method: 'DELETE',
-    headers,
-  })
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: string }).detail ?? `HTTP ${res.status}`,
-    )
-  }
+  await api<void>('DELETE', `/api/staff/availability/${availabilityId}`)
 }
 
 export type ProductForSchedule = {

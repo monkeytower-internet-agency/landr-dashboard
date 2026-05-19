@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api-client'
 
 export type FixedDateWindow = {
   id: string
@@ -22,45 +22,14 @@ export type FixedDateWindowWritePayload = {
 
 export type FixedDateWindowPatch = Partial<FixedDateWindowWritePayload>
 
-async function authHeaders(): Promise<{
-  Authorization: string
-  'Content-Type': string
-}> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  const token = session?.access_token
-  if (!token) throw new Error('Not authenticated')
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  }
-}
-
-function apiBase(): string {
-  return (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
-}
-
-async function unwrap<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: string }).detail ?? `HTTP ${res.status}`,
-    )
-  }
-  return res.json() as Promise<T>
-}
-
 export async function fetchFixedDateWindows(
   operatorId: string,
   productId: string,
 ): Promise<FixedDateWindow[]> {
-  const headers = await authHeaders()
-  const res = await fetch(
-    `${apiBase()}/api/staff/operators/${operatorId}/products/${productId}/fixed-date-windows`,
-    { headers },
+  return api<FixedDateWindow[]>(
+    'GET',
+    `/api/staff/operators/${operatorId}/products/${productId}/fixed-date-windows`,
   )
-  return unwrap<FixedDateWindow[]>(res)
 }
 
 export async function createFixedDateWindow(
@@ -68,16 +37,11 @@ export async function createFixedDateWindow(
   productId: string,
   payload: FixedDateWindowWritePayload,
 ): Promise<FixedDateWindow> {
-  const headers = await authHeaders()
-  const res = await fetch(
-    `${apiBase()}/api/staff/operators/${operatorId}/products/${productId}/fixed-date-windows`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-    },
+  return api<FixedDateWindow>(
+    'POST',
+    `/api/staff/operators/${operatorId}/products/${productId}/fixed-date-windows`,
+    payload,
   )
-  return unwrap<FixedDateWindow>(res)
 }
 
 export async function patchFixedDateWindow(
@@ -86,16 +50,11 @@ export async function patchFixedDateWindow(
   windowId: string,
   payload: FixedDateWindowPatch,
 ): Promise<FixedDateWindow> {
-  const headers = await authHeaders()
-  const res = await fetch(
-    `${apiBase()}/api/staff/operators/${operatorId}/products/${productId}/fixed-date-windows/${windowId}`,
-    {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify(payload),
-    },
+  return api<FixedDateWindow>(
+    'PATCH',
+    `/api/staff/operators/${operatorId}/products/${productId}/fixed-date-windows/${windowId}`,
+    payload,
   )
-  return unwrap<FixedDateWindow>(res)
 }
 
 export async function deleteFixedDateWindow(
@@ -103,15 +62,8 @@ export async function deleteFixedDateWindow(
   productId: string,
   windowId: string,
 ): Promise<void> {
-  const headers = await authHeaders()
-  const res = await fetch(
-    `${apiBase()}/api/staff/operators/${operatorId}/products/${productId}/fixed-date-windows/${windowId}`,
-    { method: 'DELETE', headers },
+  await api<void>(
+    'DELETE',
+    `/api/staff/operators/${operatorId}/products/${productId}/fixed-date-windows/${windowId}`,
   )
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(
-      (detail as { detail?: string }).detail ?? `HTTP ${res.status}`,
-    )
-  }
 }

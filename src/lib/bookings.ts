@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api-client'
 
 export type BookingSemanticState =
   | 'pending'
@@ -272,20 +273,11 @@ async function postApprovalDecision(args: {
   decision: ApprovalDecision
   notes?: string
 }): Promise<void> {
-  const token = await getAuthToken()
-  const res = await fetch(
-    `${apiBaseUrl()}/api/staff/bookings/${args.bookingId}/approval`,
-    {
-      method: 'POST',
-      headers: jsonAuthHeaders(token),
-      body: JSON.stringify({
-        branch: args.branch,
-        decision: args.decision,
-        notes: args.notes ?? null,
-      }),
-    },
-  )
-  if (!res.ok) throw await parseError(res)
+  await api<unknown>('POST', `/api/staff/bookings/${args.bookingId}/approval`, {
+    branch: args.branch,
+    decision: args.decision,
+    notes: args.notes ?? null,
+  })
 }
 
 // ----- Edit / cancel mutations --------------------------------------------
@@ -306,16 +298,7 @@ export async function patchBooking(
   bookingId: string,
   patch: BookingPatch,
 ): Promise<void> {
-  const token = await getAuthToken()
-  const res = await fetch(
-    `${apiBaseUrl()}/api/staff/bookings/${bookingId}`,
-    {
-      method: 'PATCH',
-      headers: jsonAuthHeaders(token),
-      body: JSON.stringify(patch),
-    },
-  )
-  if (!res.ok) throw await parseError(res)
+  await api<unknown>('PATCH', `/api/staff/bookings/${bookingId}`, patch)
 }
 
 /** PATCH /api/staff/bookings/{id}/products/{lineId} — re-runs pricing. */
@@ -324,16 +307,11 @@ export async function patchBookingProduct(
   bookingProductId: string,
   patch: BookingProductPatch,
 ): Promise<void> {
-  const token = await getAuthToken()
-  const res = await fetch(
-    `${apiBaseUrl()}/api/staff/bookings/${bookingId}/products/${bookingProductId}`,
-    {
-      method: 'PATCH',
-      headers: jsonAuthHeaders(token),
-      body: JSON.stringify(patch),
-    },
+  await api<unknown>(
+    'PATCH',
+    `/api/staff/bookings/${bookingId}/products/${bookingProductId}`,
+    patch,
   )
-  if (!res.ok) throw await parseError(res)
 }
 
 /** DELETE /api/staff/bookings/{id} — soft-cancel with required reason. */
@@ -341,13 +319,9 @@ export async function cancelBooking(
   bookingId: string,
   reason: string,
 ): Promise<void> {
-  const token = await getAuthToken()
-  const res = await fetch(`${apiBaseUrl()}/api/staff/bookings/${bookingId}`, {
-    method: 'DELETE',
-    headers: jsonAuthHeaders(token),
-    body: JSON.stringify({ reason }),
-  })
-  if (!res.ok) throw await parseError(res)
+  // DELETE-with-body: the wrapper attaches Content-Type when a body is
+  // present, so the FastAPI handler sees the JSON payload.
+  await api<unknown>('DELETE', `/api/staff/bookings/${bookingId}`, { reason })
 }
 
 /** Patch a customer contact directly (RLS-gated; supabase write).
@@ -368,34 +342,3 @@ export async function patchCustomerContact(
   if (error) throw new Error(error.message)
 }
 
-// ----- internal helpers ---------------------------------------------------
-
-async function getAuthToken(): Promise<string> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  const token = session?.access_token
-  if (!token) throw new Error('Not authenticated')
-  return token
-}
-
-function apiBaseUrl(): string {
-  return (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
-}
-
-function jsonAuthHeaders(token: string): Record<string, string> {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  }
-}
-
-async function parseError(res: Response): Promise<Error> {
-  const detail = await res.json().catch(() => ({}))
-  const d = (detail as { detail?: unknown }).detail
-  if (typeof d === 'string') return new Error(d)
-  if (d && typeof d === 'object' && 'error' in d) {
-    return new Error(String((d as { error: unknown }).error))
-  }
-  return new Error(`HTTP ${res.status}`)
-}

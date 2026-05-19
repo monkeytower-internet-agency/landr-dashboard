@@ -24,6 +24,7 @@ export const t = {
     passwordRequired: 'Password is required.',
     genericError: 'Unable to sign in. Check your credentials and try again.',
     loadingSession: 'Loading session…',
+    sessionExpired: 'Your session expired — please sign in again.',
     continueWith: (provider: string) => `Continue with ${provider}`,
     continueWithLoading: (provider: string) => `Connecting to ${provider}…`,
     continueDivider: 'or',
