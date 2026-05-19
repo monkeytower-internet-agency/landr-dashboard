@@ -12,6 +12,7 @@ import { LocalePicker } from '@/components/ui/locale-picker'
 import {
   OperatorPatchSchema,
   patchOperator,
+  TAX_ID_KIND_LABELS,
   type OperatorPatch,
   type OperatorSettings,
 } from '@/lib/operatorSettings'
@@ -19,7 +20,7 @@ import { guessLocale, guessTimezone } from '@/lib/locale-defaults'
 import { t } from '@/lib/strings'
 import { StepShell } from './StepShell'
 
-const TAX_ID_KIND_OPTIONS = ['NIF', 'CIF', 'UST-ID', 'VAT', 'SIREN', 'other'] as const
+const TAX_ID_KIND_OPTIONS = ['es_nif', 'es_cif', 'de_ust_idnr', 'uk_vat', 'fr_siren', 'generic_eu_vat', 'other'] as const
 
 type Props = {
   operator: OperatorSettings
@@ -125,7 +126,7 @@ export function Step2Company({ operator, operatorId, onAdvance, onBack }: Props)
             <NativeSelect id="onb-tax-id-kind" {...register('tax_id_kind')} disabled={isSubmitting}>
               <option value="">{t.settings.optionNone}</option>
               {TAX_ID_KIND_OPTIONS.map((k) => (
-                <option key={k} value={k}>{k}</option>
+                <option key={k} value={k}>{TAX_ID_KIND_LABELS[k]}</option>
               ))}
             </NativeSelect>
           </div>

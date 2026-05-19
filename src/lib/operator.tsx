@@ -64,25 +64,48 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
     if (authLoading || !session) return
 
     let cancelled = false
-    supabase
-      .from('operator_memberships')
-      .select('operator_id, operators!inner ( id, slug, name, onboarded_at )')
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error || !data) {
-          setFetched({ sessionUserId: session.user.id, operators: [] })
-          return
+
+    // landr-69c: filter to the caller's own memberships. RLS bypass for
+    // is_landr_staff makes a no-filter query leak every membership row in
+    // the system, producing duplicate dropdown entries + accidental
+    // tenant-switches into operators the user doesn't own. The auth.uid()
+    // is the supabase_auth_id; resolve it to public.users.id via the
+    // bridge table, then filter operator_memberships.user_id by that.
+    ;(async () => {
+      const { data: userRow, error: userErr } = await supabase
+        .from('users')
+        .select('id')
+        .eq('supabase_auth_id', session.user.id)
+        .maybeSingle()
+      if (cancelled) return
+      if (userErr || !userRow) {
+        setFetched({ sessionUserId: session.user.id, operators: [] })
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('operator_memberships')
+        .select('operator_id, operators!inner ( id, slug, name, onboarded_at )')
+        .eq('user_id', userRow.id)
+      if (cancelled) return
+      if (error || !data) {
+        setFetched({ sessionUserId: session.user.id, operators: [] })
+        return
+      }
+      const rows = data as unknown as Array<{
+        operators: Operator | Operator[] | null
+      }>
+      const seen = new Set<string>()
+      const next: Operator[] = []
+      for (const row of rows) {
+        const op = Array.isArray(row.operators) ? row.operators[0] : row.operators
+        if (op && !seen.has(op.id)) {
+          seen.add(op.id)
+          next.push(op)
         }
-        const rows = data as unknown as Array<{
-          operators: Operator | Operator[] | null
-        }>
-        const next: Operator[] = []
-        for (const row of rows) {
-          const op = Array.isArray(row.operators) ? row.operators[0] : row.operators
-          if (op) next.push(op)
-        }
-        setFetched({ sessionUserId: session.user.id, operators: next })
-      })
+      }
+      setFetched({ sessionUserId: session.user.id, operators: next })
+    })()
 
     return () => {
       cancelled = true

@@ -1,8 +1,17 @@
 import { z } from 'zod'
 import { supabase } from '@/lib/supabase'
 
-export const TaxIdKindSchema = z.enum(['NIF', 'CIF', 'UST-ID', 'VAT', 'SIREN', 'other'])
+export const TaxIdKindSchema = z.enum(['es_nif', 'es_cif', 'de_ust_idnr', 'uk_vat', 'fr_siren', 'generic_eu_vat', 'other'])
 export type TaxIdKind = z.infer<typeof TaxIdKindSchema>
+export const TAX_ID_KIND_LABELS: Record<TaxIdKind, string> = {
+  es_nif: 'ES NIF (individual)',
+  es_cif: 'ES CIF (company)',
+  de_ust_idnr: 'DE USt-IdNr.',
+  uk_vat: 'UK VAT',
+  fr_siren: 'FR SIREN',
+  generic_eu_vat: 'EU VAT (other)',
+  other: 'Other',
+}
 
 export const OperatorSettingsSchema = z.object({
   id: z.string(),
