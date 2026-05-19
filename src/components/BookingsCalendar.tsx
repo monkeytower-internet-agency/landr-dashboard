@@ -10,6 +10,7 @@ import type {
   EventInput,
 } from '@fullcalendar/core'
 import { Button } from '@/components/ui/button'
+import { CustomerNameLink } from '@/components/CustomerNameLink'
 import {
   bookingsToCalendarEvents,
   toDateOnlyIso,
@@ -44,6 +45,7 @@ const VIEW_LABEL: Record<CalendarView, string> = {
 type Props = {
   rows: BookingRow[]
   onEventClick?: (row: BookingRow) => void
+  onCustomerClick?: (contactId: string) => void
   onReschedule?: (args: {
     event: BookingCalendarEvent
     newStart: string
@@ -55,6 +57,7 @@ type Props = {
 export function BookingsCalendar({
   rows,
   onEventClick,
+  onCustomerClick,
   onReschedule,
   initialView = 'dayGridMonth',
 }: Props) {
@@ -84,6 +87,7 @@ export function BookingsCalendar({
           state: e.state,
           productName: e.productName,
           customerName: e.customerName,
+          contactId: e.raw.customer?.id ?? null,
         },
       })),
     [calendarEvents],
@@ -133,6 +137,14 @@ export function BookingsCalendar({
       | BookingSemanticState
       | undefined
     const cls = state ? STATE_CLASS[state] : STATE_CLASS.pending
+    const contactId = arg.event.extendedProps.contactId as string | null
+    const customerName = arg.event.extendedProps.customerName as
+      | string
+      | undefined
+    const productName = arg.event.extendedProps.productName as
+      | string
+      | null
+      | undefined
     return (
       <div
         data-testid="booking-event"
@@ -147,7 +159,21 @@ export function BookingsCalendar({
             {arg.timeText}
           </span>
         ) : null}
-        <span className="truncate font-medium">{arg.event.title}</span>
+        {onCustomerClick && contactId && customerName ? (
+          <span className="flex flex-col gap-0 truncate">
+            <CustomerNameLink
+              contactId={contactId}
+              display={customerName}
+              onClick={onCustomerClick}
+              className="font-medium"
+            />
+            {productName ? (
+              <span className="truncate opacity-80">{productName}</span>
+            ) : null}
+          </span>
+        ) : (
+          <span className="truncate font-medium">{arg.event.title}</span>
+        )}
       </div>
     )
   }

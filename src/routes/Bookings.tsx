@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { BookingsTable } from '@/components/BookingsTable'
+import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { fetchBookings, type BookingRow } from '@/lib/bookings'
 import { useOperator } from '@/lib/operator'
@@ -10,6 +11,7 @@ import { t } from '@/lib/strings'
 export function Bookings() {
   const { currentOperatorId } = useOperator()
   const [active, setActive] = useState<BookingRow | null>(null)
+  const [openCustomerId, setOpenCustomerId] = useState<string | null>(null)
 
   const query = useRealtimeQuery<BookingRow[]>({
     queryKey: ['bookings', currentOperatorId ?? 'none'],
@@ -44,12 +46,23 @@ export function Bookings() {
       ) : query.isPending && currentOperatorId ? (
         <p className="text-muted-foreground text-sm">{t.bookings.loading}</p>
       ) : (
-        <BookingsTable rows={rows} onRowClick={(row) => setActive(row)} />
+        <BookingsTable
+          rows={rows}
+          onRowClick={(row) => setActive(row)}
+          onCustomerClick={(id) => setOpenCustomerId(id)}
+        />
       )}
       <BookingDetailSheet
         row={active}
         onOpenChange={(open) => {
           if (!open) setActive(null)
+        }}
+        onCustomerClick={(id) => setOpenCustomerId(id)}
+      />
+      <CustomerDetailSheet
+        contactId={openCustomerId}
+        onOpenChange={(open) => {
+          if (!open) setOpenCustomerId(null)
         }}
       />
     </div>

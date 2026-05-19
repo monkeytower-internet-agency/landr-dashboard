@@ -164,14 +164,16 @@ describe('Bookings route', () => {
     const user = userEvent.setup()
     render(<Bookings />)
 
-    const cell = await screen.findByText('Alice Anderson')
+    // Clicking the customer name itself opens the customer overlay (m05.27)
+    // instead of the booking sheet, so click the product cell to open the row.
+    const cell = await screen.findByText('Tandem Flight')
     await user.click(cell)
 
     const dialog = await screen.findByRole('dialog')
     // Product appears as the line-item heading inside the dialog
     expect(
-      within(dialog).getByText(/Tandem Flight/i),
-    ).toBeInTheDocument()
+      within(dialog).getAllByText(/Tandem Flight/i).length,
+    ).toBeGreaterThan(0)
     // Customer first/last name appear as editable input values
     expect(within(dialog).getByLabelText(/first name/i)).toHaveValue('Alice')
     expect(within(dialog).getByLabelText(/last name/i)).toHaveValue('Anderson')

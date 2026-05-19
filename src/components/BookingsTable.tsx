@@ -28,6 +28,7 @@ import {
   stageCode,
   type BookingRow,
 } from '@/lib/bookings'
+import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { DayChips } from '@/components/booking/DayChips'
 import { StageBadge } from '@/components/booking/StageBadge'
 import { t } from '@/lib/strings'
@@ -35,9 +36,10 @@ import { t } from '@/lib/strings'
 type Props = {
   rows: BookingRow[]
   onRowClick: (row: BookingRow) => void
+  onCustomerClick?: (contactId: string) => void
 }
 
-export function BookingsTable({ rows, onRowClick }: Props) {
+export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'created_at', desc: true },
   ])
@@ -56,9 +58,20 @@ export function BookingsTable({ rows, onRowClick }: Props) {
         id: 'customer',
         header: t.bookings.columnCustomer,
         accessorFn: (row) => customerDisplay(row),
-        cell: ({ getValue }) => (
-          <span className="truncate">{getValue<string>()}</span>
-        ),
+        cell: ({ row, getValue }) => {
+          const display = getValue<string>()
+          const contactId = row.original.customer?.id
+          if (onCustomerClick && contactId) {
+            return (
+              <CustomerNameLink
+                contactId={contactId}
+                display={display}
+                onClick={onCustomerClick}
+              />
+            )
+          }
+          return <span className="truncate">{display}</span>
+        },
       },
       {
         id: 'product',
@@ -102,7 +115,7 @@ export function BookingsTable({ rows, onRowClick }: Props) {
         ),
       },
     ],
-    [],
+    [onCustomerClick],
   )
 
   const table = useReactTable({
