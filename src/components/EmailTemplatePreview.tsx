@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { t } from '@/lib/strings'
 import { previewTemplate, type EmailTemplate } from '@/lib/emailTemplates'
+import { buildPreviewSrcDoc } from '@/lib/emailPreview'
 
 type Props = {
   operatorId: string
@@ -58,11 +59,11 @@ export function EmailTemplatePreview({ operatorId, template }: Props) {
           {t.emailTemplates.previewHtml}
         </p>
         <iframe
-          srcDoc={result.body_html}
+          srcDoc={buildPreviewSrcDoc(result.body_html)}
           sandbox=""
           title={t.emailTemplates.previewHtmlTitle}
-          className="w-full rounded border"
-          style={{ height: '300px' }}
+          className="w-full rounded border bg-white"
+          style={{ height: '300px', colorScheme: 'light' }}
         />
       </div>
       {result.body_text && (
