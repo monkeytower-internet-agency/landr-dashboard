@@ -252,6 +252,67 @@ describe('Onboarding wizard', () => {
     expect(mocks.createProduct.mock.calls[0][0].operator_id).toBe('op-1')
   })
 
+  it('step 5 count is derived from the products query (3 fetched → "3 products configured")', async () => {
+    mocks.fetchProducts.mockResolvedValue([
+      {
+        id: 'p-1', operator_id: 'op-1', product_group_id: null, slug: 'a',
+        name: 'A', short_description: null, description: null,
+        duration_kind: 'time_slot', duration_minutes: 60,
+        fixed_start_date: null, fixed_end_date: null,
+        default_pricing_scheme_id: null,
+        needs_provider: false, needs_pickup: false,
+        revenue_flows_through_operator: true, is_publicly_listed: true,
+        active: true, sort_order: 1, deleted_at: null,
+        created_at: '2026-05-19T10:00:00Z', updated_at: '2026-05-19T10:00:00Z',
+        pricing_scheme: null, product_group: null,
+      },
+      {
+        id: 'p-2', operator_id: 'op-1', product_group_id: null, slug: 'b',
+        name: 'B', short_description: null, description: null,
+        duration_kind: 'time_slot', duration_minutes: 60,
+        fixed_start_date: null, fixed_end_date: null,
+        default_pricing_scheme_id: null,
+        needs_provider: false, needs_pickup: false,
+        revenue_flows_through_operator: true, is_publicly_listed: true,
+        active: true, sort_order: 2, deleted_at: null,
+        created_at: '2026-05-19T10:00:00Z', updated_at: '2026-05-19T10:00:00Z',
+        pricing_scheme: null, product_group: null,
+      },
+      {
+        id: 'p-3', operator_id: 'op-1', product_group_id: null, slug: 'c',
+        name: 'C', short_description: null, description: null,
+        duration_kind: 'time_slot', duration_minutes: 60,
+        fixed_start_date: null, fixed_end_date: null,
+        default_pricing_scheme_id: null,
+        needs_provider: false, needs_pickup: false,
+        revenue_flows_through_operator: true, is_publicly_listed: true,
+        active: true, sort_order: 3, deleted_at: null,
+        created_at: '2026-05-19T10:00:00Z', updated_at: '2026-05-19T10:00:00Z',
+        pricing_scheme: null, product_group: null,
+      },
+    ])
+    renderRoute('/onboarding/start?step=5')
+
+    await screen.findByText(/step 5 of 9/i)
+    // The count is derived from the same fetchProducts query the overlay
+    // (ProductsManager) uses, so 3 fetched rows → "3 products configured".
+    await screen.findByText(/3 products configured/i)
+  })
+
+  it('step 5 "Open products" button does not navigate (it opens a Sheet overlay)', async () => {
+    const user = userEvent.setup()
+    renderRoute('/onboarding/start?step=5')
+
+    await screen.findByText(/step 5 of 9/i)
+    const openProducts = await screen.findByRole('button', { name: /open products/i })
+    // It must be a button (not a Link/anchor), so clicking it stays on the
+    // wizard route instead of pushing /products (the old broken behaviour).
+    expect(openProducts.tagName).toBe('BUTTON')
+    await user.click(openProducts)
+    // Still on the wizard step after the click.
+    expect(screen.getByText(/step 5 of 9/i)).toBeInTheDocument()
+  })
+
   it('goes back from step 3 to step 2', async () => {
     const user = userEvent.setup()
     renderRoute('/onboarding/start?step=3')

@@ -1,8 +1,15 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
+import { ProductsManager } from '@/components/products/ProductsManager'
 import {
   createProduct,
   fetchPricingSchemes,
@@ -87,7 +94,12 @@ function templateDesc(key: Template['key']): string {
 export function Step5Products({ operatorId, onAdvance, onBack }: Props) {
   const qc = useQueryClient()
   const [busyKey, setBusyKey] = useState<Template['key'] | null>(null)
+  const [manageOpen, setManageOpen] = useState(false)
 
+  // Single source of truth for the wizard count: this same TanStack
+  // Query key (`['products', operatorId]`) is also used by ProductsManager
+  // (mounted inside the overlay) so the count display below and the list
+  // the operator sees inside the overlay can never disagree.
   const productsQuery = useQuery<ProductRow[]>({
     queryKey: ['products', operatorId],
     queryFn: () => fetchProducts(operatorId),
@@ -156,6 +168,15 @@ export function Step5Products({ operatorId, onAdvance, onBack }: Props) {
     mutation.mutate(payload)
   }
 
+  function handleManageOpenChange(open: boolean) {
+    setManageOpen(open)
+    if (!open) {
+      // Refresh the wizard's count display when the overlay closes so any
+      // create/edit/delete done in the manager is reflected immediately.
+      qc.invalidateQueries({ queryKey: ['products', operatorId] })
+    }
+  }
+
   return (
     <StepShell heading={t.onboarding.step5.heading} body={t.onboarding.step5.body}>
       <p className="text-sm">{t.onboarding.step5.count(count)}</p>
@@ -184,8 +205,13 @@ export function Step5Products({ operatorId, onAdvance, onBack }: Props) {
       </div>
 
       <div>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/products">{t.onboarding.step5.manage}</Link>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setManageOpen(true)}
+        >
+          {t.onboarding.step5.manage}
         </Button>
       </div>
 
@@ -197,6 +223,21 @@ export function Step5Products({ operatorId, onAdvance, onBack }: Props) {
           {count === 0 ? t.onboarding.skip : t.onboarding.next}
         </Button>
       </div>
+
+      <Sheet open={manageOpen} onOpenChange={handleManageOpenChange}>
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col gap-0 overflow-y-auto sm:max-w-3xl"
+        >
+          <SheetHeader>
+            <SheetTitle>{t.products.title}</SheetTitle>
+            <SheetDescription>{t.onboarding.step5.body}</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <ProductsManager operatorId={operatorId} hideHeader />
+          </div>
+        </SheetContent>
+      </Sheet>
     </StepShell>
   )
 }
