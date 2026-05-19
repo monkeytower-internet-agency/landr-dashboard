@@ -5,21 +5,18 @@ import {
   ChartAreaIcon,
   CheckCircleIcon,
   LayoutDashboardIcon,
-  MailIcon,
-  MapPinIcon,
   UsersIcon,
   PackageIcon,
   SettingsIcon,
-  ShieldUserIcon,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -34,18 +31,16 @@ type NavItem = {
   exact: boolean
 }
 
-const items: NavItem[] = [
+// Primary nav — daily-use items. Order chosen per landr-wjd briefing:
+// Bookings, Schedule, Calendar, Products, Contacts. Dashboard stays at
+// the top of the list so the home route has a visible anchor; the rest
+// follow the briefing order.
+const primaryItems: NavItem[] = [
   { to: '/', label: t.nav.dashboard, icon: LayoutDashboardIcon, exact: true },
   {
     to: '/bookings',
     label: t.nav.bookings,
     icon: CalendarRangeIcon,
-    exact: false,
-  },
-  {
-    to: '/calendar',
-    label: t.nav.calendar,
-    icon: CalendarIcon,
     exact: false,
   },
   {
@@ -55,15 +50,21 @@ const items: NavItem[] = [
     exact: false,
   },
   {
-    to: '/contacts',
-    label: t.nav.contacts,
-    icon: UsersIcon,
+    to: '/calendar',
+    label: t.nav.calendar,
+    icon: CalendarIcon,
     exact: false,
   },
   {
     to: '/products',
     label: t.nav.products,
     icon: PackageIcon,
+    exact: false,
+  },
+  {
+    to: '/contacts',
+    label: t.nav.contacts,
+    icon: UsersIcon,
     exact: false,
   },
   {
@@ -78,28 +79,16 @@ const items: NavItem[] = [
     icon: CheckCircleIcon,
     exact: false,
   },
-  {
-    to: '/staff',
-    label: t.nav.staff,
-    icon: ShieldUserIcon,
-    exact: false,
-  },
+]
+
+// Secondary nav — rarely-used admin items go in a separated bottom group
+// per landr-wjd / video-1 IA notes. Settings is the only item today; Help
+// arrives once we have a docs route.
+const secondaryItems: NavItem[] = [
   {
     to: '/settings',
     label: t.nav.settings,
     icon: SettingsIcon,
-    exact: false,
-  },
-  {
-    to: '/email-templates',
-    label: t.nav.emailTemplates,
-    icon: MailIcon,
-    exact: false,
-  },
-  {
-    to: '/pickup-locations',
-    label: t.nav.pickupLocations,
-    icon: MapPinIcon,
     exact: false,
   },
 ]
@@ -109,45 +98,69 @@ function isMatch(pathname: string, item: NavItem): boolean {
   return pathname === item.to || pathname.startsWith(`${item.to}/`)
 }
 
+function NavMenu({ items, pathname }: { items: NavItem[]; pathname: string }) {
+  return (
+    <SidebarMenu>
+      {items.map((item) => {
+        const active = isMatch(pathname, item)
+        const Icon = item.icon
+        return (
+          <SidebarMenuItem key={item.to}>
+            <SidebarMenuButton
+              asChild
+              isActive={active}
+              tooltip={item.label}
+            >
+              <Link to={item.to}>
+                <Icon className="size-4" />
+                <span>{item.label}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )
+      })}
+    </SidebarMenu>
+  )
+}
+
 export function AppSidebar() {
   const { pathname } = useLocation()
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
+        {/* Workspace switcher slot — single-org today, but the wrapping
+            div reserves the layout for the future multi-org picker. */}
         <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-6 items-center justify-center rounded text-xs font-semibold">
-            L
-          </div>
-          <span className="truncate text-sm font-semibold">{t.app.name}</span>
+          {/* Theme-switched logo: light variant on dark sidebar, dark
+              variant on light sidebar. ThemeProvider toggles .dark on
+              <html>; Tailwind's dark: variant follows. */}
+          <img
+            src="/logos/landr-logo.png"
+            alt={t.app.name}
+            className="block h-7 w-auto dark:hidden"
+          />
+          <img
+            src="/logos/landr-logo-light.png"
+            alt=""
+            aria-hidden="true"
+            className="hidden h-7 w-auto dark:block"
+          />
         </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>{t.nav.sectionMain}</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => {
-                const active = isMatch(pathname, item)
-                const Icon = item.icon
-                return (
-                  <SidebarMenuItem key={item.to}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active}
-                      tooltip={item.label}
-                    >
-                      <Link to={item.to}>
-                        <Icon className="size-4" />
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
+            <NavMenu items={primaryItems} pathname={pathname} />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <SidebarGroup className="p-0">
+          <SidebarGroupContent>
+            <NavMenu items={secondaryItems} pathname={pathname} />
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarFooter>
     </Sidebar>
   )
 }
