@@ -16,9 +16,9 @@ import {
   fetchProductGroups,
   fetchProducts,
   nameToSlug,
-  type ProductDurationKind,
   type ProductRow,
   type ProductWritePayload,
+  type ServiceTimeShape,
 } from '@/lib/products'
 import { t } from '@/lib/strings'
 import { StepShell } from './StepShell'
@@ -33,7 +33,10 @@ type Template = {
   key: 'guided' | 'course' | 'hotel'
   name: string
   description: string
-  duration_kind: ProductDurationKind
+  // All onboarding templates are service products today (landr-5eb).
+  // Non-service kinds live in the upcoming Shop epic.
+  service_time_shape: ServiceTimeShape
+  is_contiguous: boolean
   duration_minutes: number | null
   needs_provider: boolean
   needs_pickup: boolean
@@ -44,7 +47,8 @@ const TEMPLATES: ReadonlyArray<Template> = [
     key: 'guided',
     name: 'Guided day',
     description: 'Single-day guided activity. Time-slot bookable, needs a guide.',
-    duration_kind: 'time_slot',
+    service_time_shape: 'time_slot',
+    is_contiguous: false,
     duration_minutes: 240,
     needs_provider: true,
     needs_pickup: false,
@@ -53,7 +57,8 @@ const TEMPLATES: ReadonlyArray<Template> = [
     key: 'course',
     name: 'Multi-day course',
     description: 'Multi-day course over a fixed date range.',
-    duration_kind: 'fixed_date_range',
+    service_time_shape: 'fixed_window',
+    is_contiguous: false,
     duration_minutes: null,
     needs_provider: true,
     needs_pickup: false,
@@ -62,7 +67,8 @@ const TEMPLATES: ReadonlyArray<Template> = [
     key: 'hotel',
     name: 'Hotel package',
     description: 'Day activity bundled with hotel pickup.',
-    duration_kind: 'single_days_range',
+    service_time_shape: 'days_range',
+    is_contiguous: false,
     duration_minutes: null,
     needs_provider: true,
     needs_pickup: true,
@@ -152,7 +158,9 @@ export function Step5Products({ operatorId, onAdvance, onBack }: Props) {
       name: tpl.name,
       short_description: tpl.description,
       description: null,
-      duration_kind: tpl.duration_kind,
+      product_kind: 'service',
+      service_time_shape: tpl.service_time_shape,
+      is_contiguous: tpl.is_contiguous,
       duration_minutes: tpl.duration_minutes,
       fixed_start_date: null,
       fixed_end_date: null,

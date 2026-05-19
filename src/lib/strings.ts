@@ -291,7 +291,11 @@ export const t = {
     fieldShortDescription: 'Short description',
     fieldDescription: 'Description',
     fieldDescriptionHint: 'Markdown supported — **bold**, _italic_, lists, links.',
-    fieldDurationKind: 'Duration model',
+    fieldProductKind: 'Product kind',
+    fieldServiceTimeShape: 'Time model',
+    fieldIsContiguous: 'Whole-range (contiguous days)',
+    fieldIsContiguousHint:
+      'On: the customer books an unbroken stretch of days. Off: they pick individual days.',
     fieldDurationMinutes: 'Duration (minutes)',
     fieldFixedStartDate: 'Fixed start date',
     fieldFixedEndDate: 'Fixed end date',
@@ -308,9 +312,23 @@ export const t = {
     flagNeedsPickup: 'Needs pickup',
     flagRevenueThroughOperator: 'Revenue flows through operator',
 
-    durationSingleDaysRange: 'Day picker (single days range)',
-    durationFixedDateRange: 'Course windows (fixed date range)',
-    durationTimeSlot: 'Time slot',
+    kindService: 'Service',
+    kindDigitalGood: 'Digital good',
+    kindPhysicalGood: 'Physical good',
+    kindGiftCard: 'Gift card',
+
+    shapeSingleDate: 'Single date',
+    shapeDaysRange: 'Day picker (days range)',
+    shapeFixedWindow: 'Course window (fixed date range)',
+    shapeTimeSlot: 'Time slot',
+
+    nonServiceComingSoonTitle: 'Coming soon — Shop UI',
+    nonServiceComingSoonBody:
+      'Configuration for non-service product kinds lives in the upcoming Shop surface (see landr-vh9 epic). This product kind is not editable here yet.',
+    nonServiceDisabledTooltip:
+      'This product kind requires the upcoming Shop surface (see landr-vh9 epic).',
+    physicalGoodComingSoonBody:
+      'Inventory & shipping for physical goods will be configured in the upcoming Shop surface.',
 
     save: 'Save changes',
     saving: 'Saving…',

@@ -89,17 +89,32 @@ vi.mock('@/lib/products', async (importOriginal) => {
   }
 })
 
-vi.mock('@/lib/operator', () => ({
-  useOperator: () => ({
-    operators: [{ id: 'op-1', slug: 'para42', name: 'Para42', onboarded_at: null }],
-    currentOperator: { id: 'op-1', slug: 'para42', name: 'Para42', onboarded_at: null },
-    currentOperatorId: 'op-1',
-    loading: false,
-    switchOperator: () => {},
-    refreshOperators: mocks.refreshOperators,
-  }),
-  OperatorProvider: ({ children }: { children: ReactNode }) => children,
-}))
+vi.mock('@/lib/operator', () => {
+  const PACKAGE = {
+    slug: 'pro',
+    name: 'Pro',
+    allowed_product_kinds: ['service'],
+  }
+  const OPERATOR = {
+    id: 'op-1',
+    slug: 'para42',
+    name: 'Para42',
+    onboarded_at: null,
+    subscription_package: PACKAGE,
+  }
+  return {
+    useOperator: () => ({
+      operators: [OPERATOR],
+      currentOperator: OPERATOR,
+      currentOperatorId: 'op-1',
+      loading: false,
+      switchOperator: () => {},
+      refreshOperators: mocks.refreshOperators,
+    }),
+    useOperatorAllowedProductKinds: () => ['service'],
+    OperatorProvider: ({ children }: { children: ReactNode }) => children,
+  }
+})
 
 vi.mock('@/lib/auth', () => ({
   useAuth: () => ({
@@ -167,7 +182,9 @@ beforeEach(() => {
     name: payload.name,
     short_description: payload.short_description,
     description: payload.description,
-    duration_kind: payload.duration_kind,
+    product_kind: payload.product_kind,
+    service_time_shape: payload.service_time_shape,
+    is_contiguous: payload.is_contiguous,
     duration_minutes: payload.duration_minutes,
     fixed_start_date: payload.fixed_start_date,
     fixed_end_date: payload.fixed_end_date,
@@ -257,7 +274,7 @@ describe('Onboarding wizard', () => {
       {
         id: 'p-1', operator_id: 'op-1', product_group_id: null, slug: 'a',
         name: 'A', short_description: null, description: null,
-        duration_kind: 'time_slot', duration_minutes: 60,
+        product_kind: 'service', service_time_shape: 'time_slot', is_contiguous: false, duration_minutes: 60,
         fixed_start_date: null, fixed_end_date: null,
         default_pricing_scheme_id: null,
         needs_provider: false, needs_pickup: false,
@@ -269,7 +286,7 @@ describe('Onboarding wizard', () => {
       {
         id: 'p-2', operator_id: 'op-1', product_group_id: null, slug: 'b',
         name: 'B', short_description: null, description: null,
-        duration_kind: 'time_slot', duration_minutes: 60,
+        product_kind: 'service', service_time_shape: 'time_slot', is_contiguous: false, duration_minutes: 60,
         fixed_start_date: null, fixed_end_date: null,
         default_pricing_scheme_id: null,
         needs_provider: false, needs_pickup: false,
@@ -281,7 +298,7 @@ describe('Onboarding wizard', () => {
       {
         id: 'p-3', operator_id: 'op-1', product_group_id: null, slug: 'c',
         name: 'C', short_description: null, description: null,
-        duration_kind: 'time_slot', duration_minutes: 60,
+        product_kind: 'service', service_time_shape: 'time_slot', is_contiguous: false, duration_minutes: 60,
         fixed_start_date: null, fixed_end_date: null,
         default_pricing_scheme_id: null,
         needs_provider: false, needs_pickup: false,
