@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { EditTaxonomyButton } from '@/components/ui/edit-taxonomy-button'
 import {
   Form,
   FormControl,
@@ -22,6 +24,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { LocationRoleTypeManager } from '@/components/pickup/LocationRoleTypeManager'
 import {
   createLocation,
   locationFormSchema,
@@ -219,24 +222,35 @@ function LocationFormSheetBody({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>{t.pickupLocations.fieldRoleType}</FormLabel>
-                <FormControl>
-                  <NativeSelect
-                    value={field.value ?? ''}
-                    onChange={(e) =>
-                      field.onChange(e.target.value === '' ? null : e.target.value)
-                    }
-                    disabled={mutation.isPending}
-                  >
-                    <option value="">
-                      {t.pickupLocations.fieldRoleTypeNone}
-                    </option>
-                    {roleTypes.map((rt) => (
-                      <option key={rt.id} value={rt.id}>
-                        {rt.label}
+                <div className="flex items-center gap-2">
+                  <FormControl>
+                    <NativeSelect
+                      value={field.value ?? ''}
+                      onChange={(e) =>
+                        field.onChange(e.target.value === '' ? null : e.target.value)
+                      }
+                      disabled={mutation.isPending}
+                    >
+                      <option value="">
+                        {t.pickupLocations.fieldRoleTypeNone}
                       </option>
-                    ))}
-                  </NativeSelect>
-                </FormControl>
+                      {roleTypes.map((rt) => (
+                        <option key={rt.id} value={rt.id}>
+                          {rt.label}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </FormControl>
+                  <EditTaxonomyButton
+                    title={t.pickupLocations.roleTypeManagerTitle}
+                    description={t.pickupLocations.roleTypeManagerDescription}
+                    ariaLabel={
+                      t.pickupLocations.roleTypeManagerEditAffordanceAria
+                    }
+                  >
+                    <LocationRoleTypeManager operatorId={operatorId} />
+                  </EditTaxonomyButton>
+                </div>
                 <FormMessage />
               </FormItem>
             )}
@@ -329,6 +343,7 @@ function LocationFormSheetBody({
               : t.pickupLocations.create}
         </Button>
       </SheetFooter>
+
     </>
   )
 }
