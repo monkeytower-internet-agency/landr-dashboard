@@ -225,8 +225,61 @@ describe('BookingDetailSheet', () => {
     expect(url).toContain('/api/staff/bookings/')
     expect(url).toContain('/products/i-1')
     expect(opts.method).toBe('PATCH')
-    expect(JSON.parse(opts.body as string)).toMatchObject({
+    const body = JSON.parse(opts.body as string)
+    expect(body).toMatchObject({
       selected_days: ['2026-06-01'],
     })
+    // Removing 06-02 collapses the derived end bound to the only remaining day.
+    expect(body.date_range_end).toBe('2026-06-01')
+  })
+
+  it('renders the MultiDayPicker in the Dates section with picker help text', () => {
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(screen.getByTestId('multi-day-picker')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Hold Shift \(or Cmd\/Ctrl\) to toggle/i),
+    ).toBeInTheDocument()
+  })
+
+  it('picking days in the calendar updates selection and PATCHes new bounds', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 'i-1' }), { status: 200 }),
+    )
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    const picker = screen.getByTestId('multi-day-picker')
+
+    // Click a fresh day (June 5th) — establishes anchor and triggers a fill
+    // from the existing selection's first day on the next click.
+    const june5 = picker.querySelector(
+      'button[data-day="2026-06-05"]',
+    ) as HTMLButtonElement
+    await user.click(june5)
+
+    // Now click June 7th — should fill 5,6,7 alongside the original 1,2.
+    const june7 = picker.querySelector(
+      'button[data-day="2026-06-07"]',
+    ) as HTMLButtonElement
+    await user.click(june7)
+
+    const saveBtn = screen.getByRole('button', { name: /save changes/i })
+    await user.click(saveBtn)
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/products/i-1')
+    const body = JSON.parse(opts.body as string)
+    expect(body.selected_days).toEqual(
+      expect.arrayContaining([
+        '2026-06-01',
+        '2026-06-02',
+        '2026-06-05',
+        '2026-06-06',
+        '2026-06-07',
+      ]),
+    )
+    // Start was already 06-01 so it's unchanged; only end gets PATCHed.
+    expect(body.date_range_end).toBe('2026-06-07')
   })
 })
