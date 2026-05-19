@@ -1,4 +1,4 @@
-import { Outlet, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AuthCallback } from '@/routes/AuthCallback'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
@@ -11,10 +11,16 @@ import { Onboarding } from '@/routes/Onboarding'
 import { Products } from '@/routes/Products'
 import { Reporting } from '@/routes/Reporting'
 import { Schedule } from '@/routes/Schedule'
-import { Settings } from '@/routes/Settings'
 import { Staff } from '@/routes/Staff'
 import { EmailTemplates } from '@/routes/EmailTemplates'
 import { PickupLocations } from '@/routes/PickupLocations'
+import { SettingsLayout } from '@/routes/SettingsLayout'
+import { CompanySettings } from '@/routes/settings/CompanySettings'
+import { CalendarDisplaySettings } from '@/routes/settings/CalendarDisplaySettings'
+import { DisplayPreferencesSettings } from '@/routes/settings/DisplayPreferencesSettings'
+import { IntegrationsGmailSettings } from '@/routes/settings/IntegrationsGmailSettings'
+import { ConnectedAccountsSettings } from '@/routes/settings/ConnectedAccountsSettings'
+import { PlanSettings } from '@/routes/settings/PlanSettings'
 import { AuthProvider } from '@/lib/auth'
 import { OperatorProvider } from '@/lib/operator'
 import { ProtectedRoute } from '@/lib/ProtectedRoute'
@@ -58,10 +64,32 @@ function App() {
               <Route path="/products" element={<Products />} />
               <Route path="/reporting" element={<Reporting />} />
               <Route path="/approvals/general" element={<GeneralApprovals />} />
-              <Route path="/staff" element={<Staff />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/email-templates" element={<EmailTemplates />} />
-              <Route path="/pickup-locations" element={<PickupLocations />} />
+
+              {/* Settings hub — left sub-sidebar wraps every subsection. */}
+              <Route path="/settings" element={<SettingsLayout />}>
+                <Route index element={<Navigate to="/settings/company" replace />} />
+                <Route path="company" element={<CompanySettings />} />
+                <Route path="calendar-display" element={<CalendarDisplaySettings />} />
+                <Route path="display-preferences" element={<DisplayPreferencesSettings />} />
+                <Route path="team" element={<Staff />} />
+                <Route path="pickup-locations" element={<PickupLocations />} />
+                <Route path="email-templates" element={<EmailTemplates />} />
+                <Route path="integrations/gmail" element={<IntegrationsGmailSettings />} />
+                <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
+                <Route path="plan" element={<PlanSettings />} />
+              </Route>
+
+              {/* Legacy URLs — keep deep-linkable bookmarks working by
+                  redirecting into the Settings hub. */}
+              <Route path="/staff" element={<Navigate to="/settings/team" replace />} />
+              <Route
+                path="/pickup-locations"
+                element={<Navigate to="/settings/pickup-locations" replace />}
+              />
+              <Route
+                path="/email-templates"
+                element={<Navigate to="/settings/email-templates" replace />}
+              />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

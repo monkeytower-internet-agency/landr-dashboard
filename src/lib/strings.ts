@@ -67,6 +67,7 @@ export const t = {
   },
   nav: {
     sectionMain: 'Workspace',
+    sectionAdmin: 'Admin',
     dashboard: 'Dashboard',
     bookings: 'Bookings',
     calendar: 'Calendar',
@@ -79,6 +80,29 @@ export const t = {
     emailTemplates: 'Email templates',
     pickupLocations: 'Pickup locations',
     schedule: 'Schedule',
+  },
+  settingsHub: {
+    navLabel: 'Settings sections',
+    sections: {
+      company: 'Company',
+      calendarDisplay: 'Calendar & display',
+      displayPreferences: 'Display preferences',
+      team: 'Team',
+      pickupLocations: 'Pickup locations',
+      emailTemplates: 'Email templates',
+      integrationsGmail: 'Gmail',
+      connectedAccounts: 'Connected accounts',
+      plan: 'Plan',
+    },
+    plan: {
+      title: 'Plan',
+      description: 'Your current subscription plan.',
+      currentLabel: 'Current plan',
+      slugLabel: 'Plan slug',
+      noPlan: 'No plan information available.',
+      upgradeHint:
+        'Plan upgrades will land in a future release. Contact support to change your plan today.',
+    },
   },
   theme: {
     switchToDark: 'Switch to dark theme',
