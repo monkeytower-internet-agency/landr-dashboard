@@ -158,7 +158,7 @@ export async function deleteAvailability(availabilityId: string): Promise<void> 
 export type ProductForSchedule = {
   id: string
   name: string
-  duration_kind: 'single_day' | 'date_range' | 'time_slot'
+  duration_kind: 'single_days_range' | 'fixed_date_range' | 'time_slot'
 }
 
 export async function fetchSchedulableProducts(

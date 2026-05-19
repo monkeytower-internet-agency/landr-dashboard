@@ -1,8 +1,11 @@
 import { supabase } from '@/lib/supabase'
 
-// Mirrors the public.product_duration_kind enum from
-// landr-api/supabase/migrations/20260512181622_products.sql.
-export type ProductDurationKind = 'single_day' | 'date_range' | 'time_slot'
+// Mirrors the public.product_duration_kind enum after the m05.28 rename
+// (landr-api/supabase/migrations/20260519170000_rename_product_duration_kind_enum.sql).
+export type ProductDurationKind =
+  | 'single_days_range'
+  | 'fixed_date_range'
+  | 'time_slot'
 
 export type PricingSchemeRef = {
   id: string
@@ -182,10 +185,10 @@ export async function softDeleteProduct(
 
 export function durationKindLabel(kind: ProductDurationKind): string {
   switch (kind) {
-    case 'single_day':
-      return 'Single day'
-    case 'date_range':
-      return 'Date range'
+    case 'single_days_range':
+      return 'Day picker'
+    case 'fixed_date_range':
+      return 'Course window'
     case 'time_slot':
       return 'Time slot'
   }
