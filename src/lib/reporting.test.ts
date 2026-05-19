@@ -291,7 +291,12 @@ describe('buildBookingsCsv', () => {
             date_range_start: null,
             date_range_end: null,
             selected_days: null,
-            products: { id: 'p-1', name: 'Tandem "Pro" Flight' },
+            products: {
+              id: 'p-1',
+              name: 'Tandem "Pro" Flight',
+              product_kind: 'service',
+              service_time_shape: 'time_slot',
+            },
           },
         ],
       }),

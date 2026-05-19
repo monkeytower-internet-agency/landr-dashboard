@@ -101,6 +101,34 @@ export const t = {
     filterPlaceholder: 'Search bookings…',
     detailsTitle: 'Booking',
     detailsClose: 'Close',
+    // landr-1lj — filter bar above the table + calendar.
+    filters: {
+      lifecycleState: 'Status',
+      product: 'Product',
+      pickupLocation: 'Pickup',
+      productKind: 'Kind',
+      serviceTimeShape: 'Time shape',
+      clearAll: 'Clear filters',
+      noOptions: 'No options to filter by yet.',
+      activeCount: (n: number): string => ` (${n})`,
+      kindLabels: {
+        service: 'Service',
+        digital_good: 'Digital good',
+        physical_good: 'Physical good',
+        gift_card: 'Gift card',
+      } as Record<string, string>,
+      shapeLabels: {
+        single_date: 'Single date',
+        days_range: 'Days range',
+        fixed_window: 'Fixed window',
+        time_slot: 'Time slot',
+      } as Record<string, string>,
+      // Fallback formatter for lifecycle codes the dashboard hasn't given
+      // a friendly label to yet. Turns 'awaiting_general_approval' into
+      // 'Awaiting general approval' so the chip is still readable.
+      stageFallback: (code: string): string =>
+        code.charAt(0).toUpperCase() + code.slice(1).replace(/_/g, ' '),
+    },
     detail: {
       sectionStatus: 'Status',
       sectionCustomer: 'Customer',

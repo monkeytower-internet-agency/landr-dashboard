@@ -88,7 +88,12 @@ function makeRow(overrides: Partial<BookingRow> = {}): BookingRow {
         date_range_start: '2026-06-01',
         date_range_end: '2026-06-03',
         selected_days: ['2026-06-01', '2026-06-02'],
-        products: { id: 'p-1', name: 'Tandem Flight' },
+        products: {
+          id: 'p-1',
+          name: 'Tandem Flight',
+          product_kind: 'service',
+          service_time_shape: 'time_slot',
+        },
       },
     ],
     ...overrides,

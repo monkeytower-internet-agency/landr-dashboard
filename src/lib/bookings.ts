@@ -18,12 +18,41 @@ export type BookingStageCode =
   | 'awaiting_payment'
   | (string & {})
 
+// Mirrors public.product_kind enum (landr-glx product_kinds_refactor).
+export type ProductKind =
+  | 'service'
+  | 'digital_good'
+  | 'physical_good'
+  | 'gift_card'
+
+// Mirrors public.service_time_shape enum. NULL for non-service products.
+export type ServiceTimeShape =
+  | 'single_date'
+  | 'days_range'
+  | 'fixed_window'
+  | 'time_slot'
+
 export type BookingItem = {
   id: string
   date_range_start: string | null
   date_range_end: string | null
   selected_days: string[] | null
-  products: { id: string; name: string } | null
+  products: {
+    id: string
+    name: string
+    // landr-1lj — surface kind + time shape so the filter bar can match
+    // booking rows. Both columns are NOT NULL / nullable per the
+    // product_kinds_refactor migration (landr-glx).
+    product_kind: ProductKind
+    service_time_shape: ServiceTimeShape | null
+  } | null
+}
+
+// landr-1lj — booking_participants brings the pickup_location_id for the
+// pickup-location filter. We hydrate the location id+name via the FK join.
+export type BookingParticipant = {
+  id: string
+  pickup_location: { id: string; name: string } | null
 }
 
 export type BookingRow = {
@@ -41,6 +70,7 @@ export type BookingRow = {
     phone: string | null
   } | null
   items: BookingItem[]
+  participants?: BookingParticipant[]
 }
 
 const SELECT = `
@@ -51,7 +81,8 @@ const SELECT = `
   gross_total,
   currency,
   customer:contacts!inner ( id, first_name, last_name, email, phone ),
-  items:booking_products ( id, date_range_start, date_range_end, selected_days, products ( id, name ) )
+  items:booking_products ( id, date_range_start, date_range_end, selected_days, products ( id, name, product_kind, service_time_shape ) ),
+  participants:booking_participants ( id, pickup_location:locations!pickup_location_id ( id, name ) )
 `
 
 /** Convenience helper — falls back to null safely. */

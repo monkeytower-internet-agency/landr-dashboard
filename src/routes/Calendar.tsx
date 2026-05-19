@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { BookingsCalendar } from '@/components/BookingsCalendar'
+import { BookingsFilters } from '@/components/bookings/BookingsFilters'
 import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -9,6 +10,9 @@ import {
   rescheduleBookingItem,
   type BookingRow,
 } from '@/lib/bookings'
+import { filterBookings } from '@/lib/bookings-filter-match'
+import { useBookingsFilters } from '@/lib/bookings-filters'
+import { useCalendarView } from '@/lib/calendar-view-memory'
 import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { t } from '@/lib/strings'
@@ -20,6 +24,9 @@ export function Calendar() {
   const [openCustomerId, setOpenCustomerId] = useState<string | null>(null)
   const [rescheduleError, setRescheduleError] = useState<string | null>(null)
   const queryClient = useQueryClient()
+  const filtersApi = useBookingsFilters()
+  // landr-1lj — per-operator memory of the last selected calendar view.
+  const calendarView = useCalendarView(currentOperatorId)
 
   const query = useRealtimeQuery<BookingRow[]>({
     queryKey: ['bookings', currentOperatorId ?? 'none'],
@@ -55,7 +62,11 @@ export function Calendar() {
     },
   })
 
-  const rows = query.data ?? []
+  const rows = useMemo(() => query.data ?? [], [query.data])
+  const filteredRows = useMemo(
+    () => filterBookings(rows, filtersApi.filters),
+    [rows, filtersApi.filters],
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -85,11 +96,18 @@ export function Calendar() {
               {rescheduleError}
             </p>
           ) : null}
+          <BookingsFilters
+            bookings={rows}
+            filtersApi={filtersApi}
+            testIdPrefix="calendar-filters"
+          />
           <BookingsCalendar
-            rows={rows}
+            rows={filteredRows}
             workHoursStart={workHoursStart}
             workHoursEnd={workHoursEnd}
             hour12={hour12}
+            view={calendarView.view}
+            onViewChange={calendarView.setView}
             onEventClick={(row) => setActive(row)}
             onCustomerClick={(id) => setOpenCustomerId(id)}
             onReschedule={({ event, newStart, newEnd }) => {
