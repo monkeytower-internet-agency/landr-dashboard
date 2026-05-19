@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { FixedDateWindowsTable } from '@/components/FixedDateWindowsTable'
 import { ProductForm } from '@/components/ProductForm'
 import type { ProductFormSubmitValue } from '@/components/ProductForm'
 import { ProductsList } from '@/components/ProductsList'
@@ -267,6 +268,14 @@ export function Products() {
           </Card>
         </div>
       )}
+      {selectedProduct &&
+      selectedProduct.duration_kind === 'fixed_date_range' &&
+      currentOperatorId ? (
+        <FixedDateWindowsTable
+          operatorId={currentOperatorId}
+          productId={selectedProduct.id}
+        />
+      ) : null}
     </div>
   )
 }

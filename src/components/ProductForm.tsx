@@ -28,7 +28,7 @@ import { t } from '@/lib/strings'
 
 // Zod schema for the product form. Mirrors the DB CHECK constraints:
 //   - time_slot requires duration_minutes
-//   - date_range bounds must be paired (both NULL or both NOT NULL)
+//   - fixed_date_range bounds must be paired (both NULL or both NOT NULL)
 //
 // All "free-form" fields are kept as strings here (including numbers like
 // duration_minutes and sort_order). Coercion happens in handleSubmit so the
@@ -46,7 +46,7 @@ const productFormSchema = z
     short_description: z.string().max(280),
     description: z.string(),
     product_group_id: z.string(),
-    duration_kind: z.enum(['single_day', 'date_range', 'time_slot']),
+    duration_kind: z.enum(['single_days_range', 'fixed_date_range', 'time_slot']),
     duration_minutes: z.string(),
     fixed_start_date: z.string(),
     fixed_end_date: z.string(),
@@ -70,7 +70,7 @@ const productFormSchema = z
         })
       }
     }
-    if (data.duration_kind === 'date_range') {
+    if (data.duration_kind === 'fixed_date_range') {
       const a = (data.fixed_start_date ?? '').trim()
       const b = (data.fixed_end_date ?? '').trim()
       if ((a && !b) || (!a && b)) {
@@ -98,7 +98,7 @@ export type ProductFormSubmitValue = {
   short_description: string | null
   description: string | null
   product_group_id: string | null
-  duration_kind: 'single_day' | 'date_range' | 'time_slot'
+  duration_kind: 'single_days_range' | 'fixed_date_range' | 'time_slot'
   duration_minutes: number | null
   fixed_start_date: string | null
   fixed_end_date: string | null
@@ -135,7 +135,7 @@ function defaultValues(product: ProductRow | null): ProductFormValues {
       short_description: '',
       description: '',
       product_group_id: '',
-      duration_kind: 'single_day',
+      duration_kind: 'single_days_range',
       duration_minutes: '',
       fixed_start_date: '',
       fixed_end_date: '',
@@ -208,11 +208,11 @@ export function ProductForm({
           ? Number(minutesTrimmed)
           : null,
       fixed_start_date:
-        values.duration_kind === 'date_range'
+        values.duration_kind === 'fixed_date_range'
           ? emptyToNull(values.fixed_start_date)
           : null,
       fixed_end_date:
-        values.duration_kind === 'date_range'
+        values.duration_kind === 'fixed_date_range'
           ? emptyToNull(values.fixed_end_date)
           : null,
       default_pricing_scheme_id: emptyToNull(values.default_pricing_scheme_id),
@@ -315,11 +315,11 @@ export function ProductForm({
                 <FormLabel>{t.products.fieldDurationKind}</FormLabel>
                 <FormControl>
                   <NativeSelect {...field}>
-                    <option value="single_day">
-                      {t.products.durationSingleDay}
+                    <option value="single_days_range">
+                      {t.products.durationSingleDaysRange}
                     </option>
-                    <option value="date_range">
-                      {t.products.durationDateRange}
+                    <option value="fixed_date_range">
+                      {t.products.durationFixedDateRange}
                     </option>
                     <option value="time_slot">
                       {t.products.durationTimeSlot}
@@ -353,7 +353,7 @@ export function ProductForm({
           ) : null}
         </div>
 
-        {durationKind === 'date_range' ? (
+        {durationKind === 'fixed_date_range' ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}

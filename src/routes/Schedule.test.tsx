@@ -25,7 +25,7 @@ type AvailabilityFixture = {
 type ProductFixture = {
   id: string
   name: string
-  duration_kind: 'single_day' | 'date_range' | 'time_slot'
+  duration_kind: 'single_days_range' | 'fixed_date_range' | 'time_slot'
 }
 
 const { mock } = vi.hoisted(() => {
@@ -178,7 +178,7 @@ function makeProduct(overrides: Partial<ProductFixture> = {}): ProductFixture {
   return {
     id: 'prod-1',
     name: 'Hotel package',
-    duration_kind: 'date_range',
+    duration_kind: 'fixed_date_range',
     ...overrides,
   }
 }

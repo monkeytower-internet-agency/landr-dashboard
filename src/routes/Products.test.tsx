@@ -23,7 +23,7 @@ type ProductFixture = {
   name: string
   short_description: string | null
   description: string | null
-  duration_kind: 'single_day' | 'date_range' | 'time_slot'
+  duration_kind: 'single_days_range' | 'fixed_date_range' | 'time_slot'
   duration_minutes: number | null
   fixed_start_date: string | null
   fixed_end_date: string | null
@@ -119,8 +119,8 @@ const { mock } = vi.hoisted(() => {
               (payload.short_description as string | null) ?? null,
             description: (payload.description as string | null) ?? null,
             duration_kind: payload.duration_kind as
-              | 'single_day'
-              | 'date_range'
+              | 'single_days_range'
+              | 'fixed_date_range'
               | 'time_slot',
             duration_minutes:
               (payload.duration_minutes as number | null) ?? null,
@@ -230,7 +230,7 @@ function makeProduct(over: Partial<ProductFixture> = {}): ProductFixture {
     name: 'Tandem Flight',
     short_description: 'Fly with a pro',
     description: null,
-    duration_kind: 'single_day',
+    duration_kind: 'single_days_range',
     duration_minutes: null,
     fixed_start_date: null,
     fixed_end_date: null,
@@ -316,7 +316,7 @@ describe('Products route', () => {
       operator_id: 'op-1',
       name: 'Beginner Kayak',
       slug: 'beginner-kayak',
-      duration_kind: 'single_day',
+      duration_kind: 'single_days_range',
       active: true,
     })
 
