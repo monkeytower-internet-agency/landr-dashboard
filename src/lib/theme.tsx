@@ -19,7 +19,10 @@ type ThemeContextValue = {
 }
 
 const STORAGE_KEY = 'landr.dashboard.theme'
-const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
+// eslint-disable-next-line react-refresh/only-export-components
+export const ThemeContext = createContext<ThemeContextValue | undefined>(
+  undefined,
+)
 
 function readStored(): Theme {
   if (typeof window === 'undefined') return 'system'
