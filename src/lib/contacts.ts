@@ -163,12 +163,23 @@ export async function fetchContactAuditLog(
  */
 export async function gdprEraseContact(args: {
   contactId: string
+  /** Caller passes the supabase auth.uid; we bridge to public.users.id here. */
   requestedByUserId: string
   jurisdictionNote: string
 }): Promise<void> {
+  // contacts.gdpr_erased_by_user_id FKs public.users(id), not auth.users(id).
+  // Resolve via the supabase_auth_id bridge (rls-bridge-supabase-auth-id memory).
+  const { data: userRow, error: userErr } = await supabase
+    .from('users')
+    .select('id')
+    .eq('supabase_auth_id', args.requestedByUserId)
+    .maybeSingle()
+  if (userErr) throw new Error(userErr.message)
+  if (!userRow) throw new Error('public.users row not found for current session')
+
   const { error } = await supabase.rpc('gdpr_erase_contact', {
     p_contact_id: args.contactId,
-    p_requested_by_user_id: args.requestedByUserId,
+    p_requested_by_user_id: userRow.id,
     p_jurisdiction_note: args.jurisdictionNote,
   })
   if (error) throw new Error(error.message)
