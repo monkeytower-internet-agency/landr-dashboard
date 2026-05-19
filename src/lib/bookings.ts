@@ -173,6 +173,64 @@ export function dateDisplay(iso: string, opts?: { hour12?: boolean }): string {
   return _dateTimeFormatters[opts?.hour12 ? 'h12' : 'h23'].format(d)
 }
 
+// ----- Service date helpers (landr-04ec) ----------------------------------
+// Used by BookingsTable's "Service date" column. The booking row itself
+// stores no scheduled date — schedule lives on booking_products. For the
+// table we surface the EARLIEST item.date_range_start; multi-item bookings
+// with mixed dates collapse to the min (matches calendar / earliest-event
+// semantics in bookingsToCalendarEvents above).
+
+/** Earliest item.date_range_start across a booking's items, or null. */
+export function earliestServiceDate(row: BookingRow): string | null {
+  let best: string | null = null
+  for (const item of row.items) {
+    const start = item.date_range_start
+    if (!start) continue
+    if (best === null || start < best) best = start
+  }
+  return best
+}
+
+/** Date_range_end paired with the given start (so single-day bookings
+ *  collapse to one date and multi-day ranges still render with an end). */
+export function matchingServiceEnd(
+  row: BookingRow,
+  start: string,
+): string | null {
+  for (const item of row.items) {
+    if (item.date_range_start === start) {
+      return item.date_range_end
+    }
+  }
+  return null
+}
+
+const _serviceDateFormatter = new Intl.DateTimeFormat('en-IE', {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+})
+
+function _formatServiceDay(iso: string): string {
+  // ISO YYYY-MM-DD — anchor at UTC noon to keep weekday stable across TZs.
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (!m) return iso
+  const [, y, mo, d] = m
+  const date = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d), 12))
+  if (Number.isNaN(date.getTime())) return iso
+  return _serviceDateFormatter.format(date)
+}
+
+/** "Tue 8 Jul" (single day) or "Tue 8 Jul – Sat 12 Jul" (range). */
+export function formatServiceDateRange(
+  start: string,
+  end: string | null,
+): string {
+  const s = _formatServiceDay(start)
+  if (!end || end === start) return s
+  return `${s} – ${_formatServiceDay(end)}`
+}
+
 // ----- Calendar helpers --------------------------------------------------
 // The bookings table itself stores no scheduled timestamp; the schedule
 // lives on booking_products (date_range_start / date_range_end /

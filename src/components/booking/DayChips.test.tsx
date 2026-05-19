@@ -38,10 +38,16 @@ describe('DayChips', () => {
     expect(screen.getByText(/no days/i)).toBeInTheDocument()
   })
 
-  it('omits month markers when every day is in the same month', () => {
-    render(<DayChips days={['2026-05-18', '2026-05-19']} />)
-    // No month markers expected for single-month ranges.
-    expect(screen.queryByText(/^MAY$/)).not.toBeInTheDocument()
+  it('renders a single leading month marker for single-month ranges (landr-04ec)', () => {
+    const { container } = render(
+      <DayChips days={['2026-05-18', '2026-05-19']} locale="en-US" />,
+    )
+    // Exactly ONE month marker even when all chips share a month — the
+    // chip "Mon 8" alone is ambiguous so we always anchor it with a label.
+    const markers = container.querySelectorAll('[data-month]')
+    expect(markers).toHaveLength(1)
+    expect(markers[0]).toHaveAttribute('data-month', '2026-05')
+    expect(screen.getByText('MAY')).toBeInTheDocument()
     expect(screen.queryByText(/^JUN$/)).not.toBeInTheDocument()
   })
 
