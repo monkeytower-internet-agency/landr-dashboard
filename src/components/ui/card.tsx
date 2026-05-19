@@ -2,12 +2,32 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+/**
+ * Card primitive — landr-z7t visual depth pass.
+ *
+ * Default: top-level surface with hairline border + shadow-s (compound
+ * inset highlight + 2-layer drop). `interactive` adds hover:shadow-l for
+ * clickable cards. `inner` drops the border (shade differential already
+ * separates it from the parent card per video 2's selective border rule).
+ */
+function Card({
+  className,
+  inner = false,
+  interactive = false,
+  ...props
+}: React.ComponentProps<"div"> & {
+  inner?: boolean
+  interactive?: boolean
+}) {
   return (
     <div
       data-slot="card"
+      data-inner={inner ? "true" : undefined}
+      data-interactive={interactive ? "true" : undefined}
       className={cn(
-        "flex flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground shadow-sm",
+        "flex flex-col gap-6 rounded-xl bg-card py-6 text-card-foreground shadow-s",
+        inner ? "" : "border",
+        interactive && "transition-shadow hover:shadow-l",
         className
       )}
       {...props}
