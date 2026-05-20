@@ -14,6 +14,7 @@
 
 import { Filter, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { NativeSelect } from '@/components/ui/native-select'
 import {
   CONTACT_TYPES,
@@ -47,7 +48,7 @@ export function ContactsFilters({
   testIdPrefix = 'contacts-filters',
 }: Props) {
   const { sort, setSort } = sortApi
-  const { filters, toggleType, clearAll } = filtersApi
+  const { filters, toggleType, setIncludeErased, clearAll } = filtersApi
   const total = activeFilterCount(filters)
 
   return (
@@ -119,6 +120,19 @@ export function ContactsFilters({
           {t.contacts.filters.clearAll}
         </Button>
       ) : null}
+      {/* landr-dp45 — view toggle for GDPR-erased tombstones (default off). */}
+      <label
+        className="text-muted-foreground ml-auto flex cursor-pointer items-center gap-2 text-xs"
+        htmlFor={`${testIdPrefix}-show-erased`}
+      >
+        <Checkbox
+          id={`${testIdPrefix}-show-erased`}
+          checked={filters.includeErased}
+          onChange={(e) => setIncludeErased(e.target.checked)}
+          data-testid={`${testIdPrefix}-show-erased`}
+        />
+        {t.contacts.filters.showErasedLabel}
+      </label>
     </div>
   )
 }

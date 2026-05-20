@@ -283,6 +283,8 @@ export const t = {
         agent: 'Agent',
       } as Record<string, string>,
       clearAll: 'Clear filters',
+      // landr-dp45 — view toggle to surface GDPR-erased tombstones.
+      showErasedLabel: 'Show erased contacts',
     },
   },
   customerDetail: {

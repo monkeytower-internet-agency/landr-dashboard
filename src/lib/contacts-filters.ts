@@ -26,19 +26,32 @@ export type ContactType = (typeof CONTACT_TYPES)[number]
 export type ContactsFilters = {
   /** Subset of CONTACT_TYPES; empty = match all. */
   types: ContactType[]
+  /**
+   * landr-dp45 — when true, GDPR-erased tombstones are included in the
+   * fetched list. Default false. Persisted alongside `types` so the
+   * setting survives reloads without needing a storage-shape version bump
+   * (older payloads simply default to false via the parser below).
+   */
+  includeErased: boolean
 }
 
-export const EMPTY_FILTERS: ContactsFilters = { types: [] }
+export const EMPTY_FILTERS: ContactsFilters = {
+  types: [],
+  includeErased: false,
+}
 
 export function storageKey(userId: string): string {
   return `landr.dashboard.contactsFilters.${userId}`
 }
 
 export function isEmptyFilters(f: ContactsFilters): boolean {
-  return f.types.length === 0
+  return f.types.length === 0 && !f.includeErased
 }
 
 export function activeFilterCount(f: ContactsFilters): number {
+  // landr-dp45 — `includeErased` is a view toggle, not a filter chip.
+  // Don't count it so the "Clear filters" affordance only appears when
+  // a real type chip is active (matches landr-pqk semantics).
   return f.types.length
 }
 
@@ -58,7 +71,9 @@ function readStored(userId: string): ContactsFilters {
     const types = Array.isArray(parsed?.types)
       ? parsed.types.filter(isContactType)
       : []
-    return { types }
+    const includeErased =
+      typeof parsed?.includeErased === 'boolean' ? parsed.includeErased : false
+    return { types, includeErased }
   } catch {
     return EMPTY_FILTERS
   }
@@ -77,6 +92,8 @@ export type UseContactsFilters = {
   filters: ContactsFilters
   setFilters: (next: ContactsFilters) => void
   toggleType: (value: ContactType) => void
+  /** landr-dp45 — flip the "Show erased contacts" view toggle. */
+  setIncludeErased: (value: boolean) => void
   clearAll: () => void
 }
 
@@ -113,10 +130,23 @@ export function useContactsFilters(): UseContactsFilters {
       setFiltersState((current) => {
         const exists = current.types.includes(value)
         const next: ContactsFilters = {
+          ...current,
           types: exists
             ? current.types.filter((t) => t !== value)
             : [...current.types, value],
         }
+        if (userId) writeStored(userId, next)
+        return next
+      })
+    },
+    [userId],
+  )
+
+  const setIncludeErased = useCallback(
+    (value: boolean) => {
+      setFiltersState((current) => {
+        if (current.includeErased === value) return current
+        const next: ContactsFilters = { ...current, includeErased: value }
         if (userId) writeStored(userId, next)
         return next
       })
@@ -130,7 +160,7 @@ export function useContactsFilters(): UseContactsFilters {
   }, [userId])
 
   return useMemo(
-    () => ({ filters, setFilters, toggleType, clearAll }),
-    [filters, setFilters, toggleType, clearAll],
+    () => ({ filters, setFilters, toggleType, setIncludeErased, clearAll }),
+    [filters, setFilters, toggleType, setIncludeErased, clearAll],
   )
 }

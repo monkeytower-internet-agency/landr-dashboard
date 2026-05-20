@@ -48,6 +48,12 @@ export type FetchContactsOptions = {
   sort?: ContactsSort
   /** OR-within-dimension: rows matching ANY of the listed types. Empty = all. */
   types?: ContactType[]
+  /**
+   * landr-dp45 — include GDPR-erased tombstones in the result.
+   * Default `false` hides rows where `gdpr_erased_at IS NOT NULL`; the
+   * `deleted_at IS NULL` filter is a separate concern and always applies.
+   */
+  includeErased?: boolean
 }
 
 /**
@@ -61,6 +67,11 @@ export type FetchContactsOptions = {
  *
  * Type filter is OR-of-tags: a contact passes if its `types` array
  * overlaps ANY of the requested types (PostgREST `ov` / SQL `&&`).
+ *
+ * landr-dp45 — when `opts.includeErased` is omitted/false, also filters
+ * out GDPR-erased tombstones (`gdpr_erased_at IS NULL`). The toggle on
+ * ContactsFilters flips this on so operators can audit-verify an erase
+ * without digging into audit_log.
  */
 export async function fetchContacts(
   operatorId: string,
@@ -72,6 +83,10 @@ export async function fetchContacts(
     .select(CONTACT_WITH_TYPES_SELECT)
     .eq('operator_id', operatorId)
     .is('deleted_at', null)
+
+  if (!opts.includeErased) {
+    query = query.is('gdpr_erased_at', null)
+  }
 
   if (opts.types && opts.types.length > 0) {
     // PostgREST overlap operator on a text[] column: at least one tag matches.
