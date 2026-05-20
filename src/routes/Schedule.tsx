@@ -208,7 +208,7 @@ export function Schedule() {
         </Button>
       </header>
 
-      <Card>
+      <Card className="max-w-sm">
         <CardHeader>
           <CardTitle className="text-base">{t.schedule.productLabel}</CardTitle>
         </CardHeader>
@@ -257,6 +257,7 @@ export function Schedule() {
           rows={rows}
           onRangeSelect={handleRangeSelect}
           onDayClick={handleDayClick}
+          onPillClick={handleDayClick}
         />
       )}
 

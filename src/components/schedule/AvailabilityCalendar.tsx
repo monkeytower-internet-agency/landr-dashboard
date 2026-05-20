@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, type MouseEvent as ReactMouseEvent } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
@@ -18,6 +18,7 @@ type DaySummary = {
 type Props = {
   rows: AvailabilityRow[]
   onDayClick?: (summary: DaySummary | null, date: string) => void
+  onPillClick?: (summary: DaySummary | null, date: string) => void
   onRangeSelect?: (fromDate: string, toDate: string) => void
 }
 
@@ -47,7 +48,12 @@ function toLocalIso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function AvailabilityCalendar({ rows, onDayClick, onRangeSelect }: Props) {
+export function AvailabilityCalendar({
+  rows,
+  onDayClick,
+  onPillClick,
+  onRangeSelect,
+}: Props) {
   const calendarRef = useRef<FullCalendar | null>(null)
   const byDate = useMemo(() => groupByDate(rows), [rows])
 
@@ -73,6 +79,12 @@ export function AvailabilityCalendar({ rows, onDayClick, onRangeSelect }: Props)
       // part of a drag-select.
       const target = ev.target as HTMLElement
       if (target.closest('.fc-event')) return
+      // Pill clicks call stopPropagation in React-land, but FullCalendar
+      // attaches its cell handler at the DOM level — bypass cell open when
+      // the click originated on the pill button.
+      if (target.closest('[data-testid="day-chip"][data-interactive="true"]')) {
+        return
+      }
       onDayClick(summary, iso)
     })
   }
@@ -80,6 +92,14 @@ export function AvailabilityCalendar({ rows, onDayClick, onRangeSelect }: Props)
   function renderDayCellContent(arg: DayCellContentArg) {
     const iso = toLocalIso(arg.date)
     const summary = byDate.get(iso)
+    const handlePill = onPillClick
+      ? (ev: ReactMouseEvent<HTMLButtonElement>) => {
+          // Stop the click from bubbling to the cell-level click handler
+          // (which would also open the day editor — landr-5rsf).
+          ev.stopPropagation()
+          onPillClick(summary ?? null, iso)
+        }
+      : undefined
     return (
       <div className="flex h-full w-full flex-col gap-1 p-1">
         <div className="text-muted-foreground text-xs font-medium">
@@ -87,27 +107,35 @@ export function AvailabilityCalendar({ rows, onDayClick, onRangeSelect }: Props)
         </div>
         {summary ? (
           summary.allClosed ? (
-            <span
+            <button
+              type="button"
               data-testid="day-chip"
               data-state="closed"
+              data-interactive={handlePill ? 'true' : undefined}
+              onClick={handlePill}
               className={cn(
                 'inline-flex w-fit items-center rounded-md border px-1.5 py-0.5 text-[10px]',
                 'border-destructive/30 bg-destructive/10 text-destructive line-through',
+                handlePill ? 'cursor-pointer' : 'cursor-default',
               )}
             >
               {t.schedule.dayClosed}
-            </span>
+            </button>
           ) : (
-            <span
+            <button
+              type="button"
               data-testid="day-chip"
               data-state="open"
+              data-interactive={handlePill ? 'true' : undefined}
+              onClick={handlePill}
               className={cn(
                 'inline-flex w-fit items-center rounded-md border px-1.5 py-0.5 text-[10px]',
                 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700',
+                handlePill ? 'cursor-pointer' : 'cursor-default',
               )}
             >
               {summary.reserved}/{summary.capacity}
-            </span>
+            </button>
           )
         ) : (
           <span
