@@ -2,6 +2,7 @@ import { toast } from 'sonner'
 
 import { supabase } from '@/lib/supabase'
 import { t } from '@/lib/strings'
+import type { ProductsSort } from '@/lib/products-sort'
 
 // Mirrors public.product_kind + public.service_time_shape after the
 // landr-glx refactor that replaced the single product_duration_kind enum.
@@ -123,18 +124,100 @@ const SELECT = `
   hotel_location:locations!hotel_location_id ( id, name )
 `
 
-export async function fetchProducts(operatorId: string): Promise<ProductRow[]> {
-  const { data, error } = await supabase
+export type FetchProductsOptions = {
+  /**
+   * landr-pugm — sort mode applied via .order() at the API layer so the
+   * 500-row limit still surfaces the most relevant rows first.
+   * Defaults to the existing sort_order ASC / name ASC pair (the v0
+   * behaviour that operators are used to from the manual list ordering).
+   */
+  sort?: ProductsSort
+  /**
+   * OR-within-dimension: rows whose product_kind is in the listed set.
+   * Empty / undefined = all kinds.
+   */
+  kinds?: ProductKind[]
+}
+
+/**
+ * landr-pugm — fetch the products list with optional sort + kind filter
+ * applied server-side. When no opts are passed this falls back to the
+ * original sort_order ASC / name ASC pair so existing callers (and the
+ * legacy v0 manual-ordering UX) stay unchanged.
+ */
+export async function fetchProducts(
+  operatorId: string,
+  opts: FetchProductsOptions = {},
+): Promise<ProductRow[]> {
+  let query = supabase
     .from('products')
     .select(SELECT)
     .eq('operator_id', operatorId)
     .is('deleted_at', null)
-    .order('sort_order', { ascending: true })
-    .order('name', { ascending: true })
-    .limit(500)
+
+  if (opts.kinds && opts.kinds.length > 0) {
+    query = query.in('product_kind', opts.kinds)
+  }
+
+  if (opts.sort === 'created_at_desc') {
+    query = query.order('created_at', { ascending: false })
+  } else if (opts.sort === 'updated_at_desc') {
+    query = query.order('updated_at', { ascending: false })
+  } else if (opts.sort === 'name_asc') {
+    query = query.order('name', { ascending: true })
+  } else {
+    // No explicit sort — preserve the legacy ordering callers expect.
+    query = query
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true })
+  }
+
+  const { data, error } = await query.limit(500)
 
   if (error) throw new Error(error.message)
   return (data ?? []) as unknown as ProductRow[]
+}
+
+export type ProductKindCounts = Record<ProductKind, number>
+
+/**
+ * landr-pugm — counts of products per kind for an operator. Powers the
+ * '(N)' badge on the ProductsFilters kind chips and the disabled-when-zero
+ * behaviour from landr-knz3.
+ *
+ * Soft-deleted rows (`deleted_at NOT NULL`) are excluded so the counts
+ * match the visible Products list. Client-side reduce is fine at Para42
+ * scale (~few dozen products per operator); revisit if an operator's
+ * catalogue grows past ~1000 rows.
+ */
+export async function fetchProductKindCounts(
+  operatorId: string,
+): Promise<ProductKindCounts> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('product_kind')
+    .eq('operator_id', operatorId)
+    .is('deleted_at', null)
+    .limit(5000)
+  if (error) throw new Error(error.message)
+
+  const counts: ProductKindCounts = {
+    service: 0,
+    subscription: 0,
+    digital_good: 0,
+    physical_good: 0,
+    gift_card: 0,
+    hotel_room: 0,
+  }
+
+  const rows = (data ?? []) as Array<{ product_kind: string | null }>
+  for (const row of rows) {
+    const kind = row.product_kind
+    if (kind && kind in counts) {
+      counts[kind as ProductKind] += 1
+    }
+  }
+  return counts
 }
 
 export async function fetchPricingSchemes(

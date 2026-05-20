@@ -397,6 +397,20 @@ export const t = {
     listGroupHotelPrefix: 'Hotel: ',
     listGroupHotelUnassigned: 'Unassigned hotel rooms',
 
+    // landr-pugm — sort dropdown + product_kind chip filters.
+    filters: {
+      sortLabel: 'Sort',
+      sortRecentlyAdded: 'Recently added',
+      sortRecentlyChanged: 'Recently changed',
+      sortAlphabetical: 'Alphabetical',
+      kindLabel: 'Kind',
+      clearAll: 'Clear filters',
+      // landr-knz3 — tooltip shown on a chip when its count=0 so the
+      // operator understands the chip is intentionally non-clickable.
+      noOfKind: (label: string): string =>
+        `No products of kind ${label.toLowerCase()}`,
+    },
+
     shapeSingleDate: 'Single date',
     shapeDaysRange: 'Day picker (days range)',
     shapeFixedWindow: 'Course window (fixed date range)',

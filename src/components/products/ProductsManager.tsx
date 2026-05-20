@@ -14,18 +14,23 @@ import type {
   ProductFormSubmitValue,
 } from '@/components/ProductForm'
 import { ProductsList } from '@/components/ProductsList'
+import { ProductsFilters } from '@/components/products/ProductsFilters'
 import {
   createProduct,
   duplicateProduct,
   fetchPricingSchemes,
   fetchProductGroups,
+  fetchProductKindCounts,
   fetchProducts,
   softDeleteProduct,
   updateProduct,
   type PricingSchemeRef,
   type ProductGroupRef,
+  type ProductKindCounts,
   type ProductRow,
 } from '@/lib/products'
+import { useProductsFilters } from '@/lib/products-filters'
+import { useProductsSort } from '@/lib/products-sort'
 import {
   fetchLocationRoleTypes,
   fetchLocations,
@@ -49,14 +54,36 @@ export function ProductsManager({ operatorId, hideHeader = false }: Props) {
   const [selection, setSelection] = useState<Selection>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
 
+  // landr-pugm — per-user sort + product_kind filter applied at the API
+  // layer so the 500-row limit still surfaces the most relevant products
+  // first. State is keyed into the query so a change re-runs the fetch
+  // with the new ORDER BY / .in('product_kind', …) constraints.
+  const sortApi = useProductsSort()
+  const filtersApi = useProductsFilters()
+  const { sort } = sortApi
+  const { filters } = filtersApi
+  const kindsKey = filters.kinds.slice().sort().join(',') || 'all'
+
   const productsQuery = useRealtimeQuery<ProductRow[]>({
-    queryKey: ['products', operatorId],
-    queryFn: () => fetchProducts(operatorId),
+    queryKey: ['products', operatorId, sort, kindsKey],
+    queryFn: () =>
+      fetchProducts(operatorId, { sort, kinds: filters.kinds }),
     enabled: !!operatorId,
     realtime: {
       table: 'products',
       filter: `operator_id=eq.${operatorId}`,
     },
+  })
+
+  // landr-pugm + landr-knz3 — per-kind counts power the '(N)' chip badges
+  // and the disabled-when-zero behaviour. Separate from the main list
+  // query because the counts are independent of the current filter
+  // selection (they always reflect operator-wide totals across kinds).
+  const kindCountsQuery = useQuery<ProductKindCounts>({
+    queryKey: ['product-kind-counts', operatorId],
+    queryFn: () => fetchProductKindCounts(operatorId),
+    enabled: !!operatorId,
+    staleTime: 30_000,
   })
 
   const pricingSchemesQuery = useQuery<PricingSchemeRef[]>({
@@ -116,6 +143,11 @@ export function ProductsManager({ operatorId, hideHeader = false }: Props) {
     return rows.find((r) => r.id === resolvedSelection) ?? null
   }, [rows, resolvedSelection])
 
+  // landr-pugm — query key now includes sort + kinds, so per-key writes
+  // (setQueryData(['products', operatorId], …)) would miss the active cache
+  // entry. setQueriesData with a partial-key filter patches every variant.
+  const PRODUCTS_KEY_PREFIX = ['products', operatorId] as const
+
   const createMutation = useMutation({
     mutationFn: (payload: ProductFormSubmitValue) => {
       return createProduct({
@@ -124,10 +156,15 @@ export function ProductsManager({ operatorId, hideHeader = false }: Props) {
       })
     },
     onSuccess: (created) => {
-      queryClient.setQueryData<ProductRow[]>(
-        ['products', operatorId],
+      queryClient.setQueriesData<ProductRow[]>(
+        { queryKey: PRODUCTS_KEY_PREFIX },
         (prev) => (prev ? [created, ...prev] : [created]),
       )
+      // Invalidate the kind-count query so the chip badge picks up the
+      // new product without waiting for the 30s staleTime.
+      queryClient.invalidateQueries({
+        queryKey: ['product-kind-counts', operatorId],
+      })
       setSelection(created.id)
       setFeedback(t.products.toastCreated)
     },
@@ -144,24 +181,36 @@ export function ProductsManager({ operatorId, hideHeader = false }: Props) {
     onMutate: async ({ id, payload }) => {
       // Optimistic update — the matching realtime UPDATE event will
       // refetch and reconcile if the server-side value disagrees.
-      const key = ['products', operatorId] as const
-      await queryClient.cancelQueries({ queryKey: key })
-      const previous = queryClient.getQueryData<ProductRow[]>(key)
-      queryClient.setQueryData<ProductRow[]>(key, (rows) =>
-        rows
-          ? rows.map((r) => (r.id === id ? { ...r, ...payload } : r))
-          : rows,
+      await queryClient.cancelQueries({ queryKey: PRODUCTS_KEY_PREFIX })
+      const previous = queryClient.getQueriesData<ProductRow[]>({
+        queryKey: PRODUCTS_KEY_PREFIX,
+      })
+      queryClient.setQueriesData<ProductRow[]>(
+        { queryKey: PRODUCTS_KEY_PREFIX },
+        (rows) =>
+          rows
+            ? rows.map((r) => (r.id === id ? { ...r, ...payload } : r))
+            : rows,
       )
-      return { previous, key }
+      return { previous }
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(ctx.key, ctx.previous)
+      if (ctx?.previous) {
+        for (const [key, data] of ctx.previous) {
+          queryClient.setQueryData(key, data)
+        }
+      }
     },
     onSuccess: (updated) => {
-      const key = ['products', operatorId] as const
-      queryClient.setQueryData<ProductRow[]>(key, (rows) =>
-        rows ? rows.map((r) => (r.id === updated.id ? updated : r)) : rows,
+      queryClient.setQueriesData<ProductRow[]>(
+        { queryKey: PRODUCTS_KEY_PREFIX },
+        (rows) =>
+          rows ? rows.map((r) => (r.id === updated.id ? updated : r)) : rows,
       )
+      // product_kind may have changed; refresh the chip badge counts.
+      queryClient.invalidateQueries({
+        queryKey: ['product-kind-counts', operatorId],
+      })
       setFeedback(t.products.toastUpdated)
     },
   })
@@ -169,18 +218,27 @@ export function ProductsManager({ operatorId, hideHeader = false }: Props) {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => softDeleteProduct(id, null),
     onMutate: async (id) => {
-      const key = ['products', operatorId] as const
-      await queryClient.cancelQueries({ queryKey: key })
-      const previous = queryClient.getQueryData<ProductRow[]>(key)
-      queryClient.setQueryData<ProductRow[]>(key, (rows) =>
-        rows ? rows.filter((r) => r.id !== id) : rows,
+      await queryClient.cancelQueries({ queryKey: PRODUCTS_KEY_PREFIX })
+      const previous = queryClient.getQueriesData<ProductRow[]>({
+        queryKey: PRODUCTS_KEY_PREFIX,
+      })
+      queryClient.setQueriesData<ProductRow[]>(
+        { queryKey: PRODUCTS_KEY_PREFIX },
+        (rows) => (rows ? rows.filter((r) => r.id !== id) : rows),
       )
-      return { previous, key }
+      return { previous }
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(ctx.key, ctx.previous)
+      if (ctx?.previous) {
+        for (const [key, data] of ctx.previous) {
+          queryClient.setQueryData(key, data)
+        }
+      }
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['product-kind-counts', operatorId],
+      })
       setSelection(null)
       setFeedback(t.products.toastDeleted)
     },
@@ -189,10 +247,13 @@ export function ProductsManager({ operatorId, hideHeader = false }: Props) {
   const duplicateMutation = useMutation({
     mutationFn: (id: string) => duplicateProduct(operatorId, id),
     onSuccess: (copy) => {
-      queryClient.setQueryData<ProductRow[]>(
-        ['products', operatorId],
+      queryClient.setQueriesData<ProductRow[]>(
+        { queryKey: PRODUCTS_KEY_PREFIX },
         (prev) => (prev ? [copy, ...prev] : [copy]),
       )
+      queryClient.invalidateQueries({
+        queryKey: ['product-kind-counts', operatorId],
+      })
       setSelection(copy.id)
       setFeedback(t.products.toastDuplicated)
     },
@@ -250,27 +311,34 @@ export function ProductsManager({ operatorId, hideHeader = false }: Props) {
         <p className="text-muted-foreground text-sm">{t.products.loading}</p>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-          <ProductsList
-            rows={rows}
-            selectedId={
-              resolvedSelection === NEW_PRODUCT
-                ? null
-                : (resolvedSelection ?? null)
-            }
-            onSelect={(row) => {
-              setSelection(row.id)
-              setFeedback(null)
-            }}
-            onCreate={() => {
-              setSelection(NEW_PRODUCT)
-              setFeedback(null)
-            }}
-            onDuplicate={(row) => {
-              setFeedback(null)
-              duplicateMutation.mutate(row.id)
-            }}
-            duplicatingId={duplicatingId}
-          />
+          <div className="flex flex-col gap-3">
+            <ProductsFilters
+              sortApi={sortApi}
+              filtersApi={filtersApi}
+              kindCounts={kindCountsQuery.data}
+            />
+            <ProductsList
+              rows={rows}
+              selectedId={
+                resolvedSelection === NEW_PRODUCT
+                  ? null
+                  : (resolvedSelection ?? null)
+              }
+              onSelect={(row) => {
+                setSelection(row.id)
+                setFeedback(null)
+              }}
+              onCreate={() => {
+                setSelection(NEW_PRODUCT)
+                setFeedback(null)
+              }}
+              onDuplicate={(row) => {
+                setFeedback(null)
+                duplicateMutation.mutate(row.id)
+              }}
+              duplicatingId={duplicatingId}
+            />
+          </div>
           <Card>
             <CardHeader>
               <CardTitle>
