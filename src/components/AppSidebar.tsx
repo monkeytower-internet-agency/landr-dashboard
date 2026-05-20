@@ -157,7 +157,7 @@ export function AppSidebar() {
             footer controls reads top-to-bottom: collapse → settings. */}
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
-            <div className="flex justify-end px-2 py-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+            <div className="flex justify-start px-2 py-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
               <SidebarTrigger className="size-8" />
             </div>
           </SidebarGroupContent>
