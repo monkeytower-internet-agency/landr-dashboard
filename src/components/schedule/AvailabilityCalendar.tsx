@@ -43,6 +43,10 @@ function groupByDate(rows: AvailabilityRow[]): Map<string, DaySummary> {
   return out
 }
 
+function toLocalIso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function AvailabilityCalendar({ rows, onDayClick, onRangeSelect }: Props) {
   const calendarRef = useRef<FullCalendar | null>(null)
   const byDate = useMemo(() => groupByDate(rows), [rows])
@@ -52,14 +56,14 @@ export function AvailabilityCalendar({ rows, onDayClick, onRangeSelect }: Props)
     // FullCalendar end is exclusive — subtract one day for inclusive range.
     const end = new Date(arg.end)
     end.setDate(end.getDate() - 1)
-    const toIso = (d: Date) => d.toISOString().slice(0, 10)
+    const toIso = toLocalIso
     onRangeSelect(toIso(arg.start), toIso(end))
     calendarRef.current?.getApi().unselect()
   }
 
   function handleDayCellDidMount(arg: DayCellContentArg) {
     if (!onDayClick) return
-    const iso = arg.date.toISOString().slice(0, 10)
+    const iso = toLocalIso(arg.date)
     const summary = byDate.get(iso) ?? null
     const el = arg.el
     el.style.cursor = 'pointer'
@@ -74,7 +78,7 @@ export function AvailabilityCalendar({ rows, onDayClick, onRangeSelect }: Props)
   }
 
   function renderDayCellContent(arg: DayCellContentArg) {
-    const iso = arg.date.toISOString().slice(0, 10)
+    const iso = toLocalIso(arg.date)
     const summary = byDate.get(iso)
     return (
       <div className="flex h-full w-full flex-col gap-1 p-1">
