@@ -7,11 +7,12 @@ import { ContactsFilters } from './ContactsFilters'
 import type { ContactType } from '@/lib/contacts-filters'
 import type { ContactsSort } from '@/lib/contacts-sort'
 
-function makeFiltersApi(types: ContactType[] = []) {
+function makeFiltersApi(types: ContactType[] = [], includeErased = false) {
   return {
-    filters: { types },
+    filters: { types, includeErased },
     setFilters: vi.fn(),
     toggleType: vi.fn(),
+    setIncludeErased: vi.fn(),
     clearAll: vi.fn(),
   }
 }
@@ -92,5 +93,49 @@ describe('ContactsFilters', () => {
     expect(
       screen.getByTestId('contacts-filters-clear-all'),
     ).toBeInTheDocument()
+  })
+
+  // landr-dp45 — "Show erased contacts" toggle.
+  it('renders the Show erased contacts toggle, unchecked by default', () => {
+    render(
+      <ContactsFilters
+        sortApi={makeSortApi()}
+        filtersApi={makeFiltersApi([], false)}
+      />,
+    )
+    const toggle = screen.getByTestId('contacts-filters-show-erased')
+    expect(toggle).toBeInTheDocument()
+    expect(toggle).not.toBeChecked()
+    expect(screen.getByText(/show erased contacts/i)).toBeInTheDocument()
+  })
+
+  it('reflects an enabled includeErased state', () => {
+    render(
+      <ContactsFilters
+        sortApi={makeSortApi()}
+        filtersApi={makeFiltersApi([], true)}
+      />,
+    )
+    expect(screen.getByTestId('contacts-filters-show-erased')).toBeChecked()
+  })
+
+  it('calls setIncludeErased(true) when the toggle is checked', async () => {
+    const filtersApi = makeFiltersApi([], false)
+    render(
+      <ContactsFilters sortApi={makeSortApi()} filtersApi={filtersApi} />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('contacts-filters-show-erased'))
+    expect(filtersApi.setIncludeErased).toHaveBeenCalledWith(true)
+  })
+
+  it('calls setIncludeErased(false) when the toggle is unchecked', async () => {
+    const filtersApi = makeFiltersApi([], true)
+    render(
+      <ContactsFilters sortApi={makeSortApi()} filtersApi={filtersApi} />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('contacts-filters-show-erased'))
+    expect(filtersApi.setIncludeErased).toHaveBeenCalledWith(false)
   })
 })

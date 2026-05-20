@@ -21,6 +21,9 @@ export function Contacts() {
   // landr-pqk — sort + type filter are per-user, persisted in localStorage.
   // The query key embeds both so a change re-runs the fetch with the new
   // ORDER BY / overlap filter at the API layer.
+  // landr-dp45 — `includeErased` is also part of the key so flipping the
+  // "Show erased contacts" toggle re-runs the fetch with/without the
+  // `gdpr_erased_at IS NULL` filter.
   const sortApi = useContactsSort()
   const filtersApi = useContactsFilters()
   const { sort } = sortApi
@@ -28,11 +31,18 @@ export function Contacts() {
   const typesKey = filters.types.slice().sort().join(',') || 'all'
 
   const query = useRealtimeQuery<ContactRow[]>({
-    queryKey: ['contacts', currentOperatorId ?? 'none', sort, typesKey],
+    queryKey: [
+      'contacts',
+      currentOperatorId ?? 'none',
+      sort,
+      typesKey,
+      filters.includeErased ? 'with-erased' : 'no-erased',
+    ],
     queryFn: () =>
       fetchContacts(currentOperatorId as string, {
         sort,
         types: filters.types,
+        includeErased: filters.includeErased,
       }),
     enabled: !!currentOperatorId,
     realtime: currentOperatorId

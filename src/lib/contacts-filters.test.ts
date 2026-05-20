@@ -61,7 +61,10 @@ describe('useContactsFilters', () => {
 
     const raw = window.localStorage.getItem(storageKey('user-1'))
     expect(raw).not.toBeNull()
-    expect(JSON.parse(raw!)).toEqual({ types: ['attendee'] })
+    expect(JSON.parse(raw!)).toEqual({
+      types: ['attendee'],
+      includeErased: false,
+    })
   })
 
   it('restores stored types on a fresh mount for the same user', () => {
@@ -72,6 +75,8 @@ describe('useContactsFilters', () => {
     const { result } = renderHook(() => useContactsFilters())
     expect(result.current.filters.types.sort()).toEqual(['agent', 'employee'])
     expect(activeFilterCount(result.current.filters)).toBe(2)
+    // landr-dp45 — legacy payload without `includeErased` defaults to false.
+    expect(result.current.filters.includeErased).toBe(false)
   })
 
   it('drops unknown type values from storage to stay forward-compatible', () => {
@@ -111,12 +116,66 @@ describe('useContactsFilters', () => {
     expect(isEmptyFilters(result.current.filters)).toBe(true)
     expect(
       JSON.parse(window.localStorage.getItem(storageKey('user-1'))!),
-    ).toEqual({ types: [] })
+    ).toEqual({ types: [], includeErased: false })
   })
 
   it('tolerates malformed JSON in storage without throwing', () => {
     window.localStorage.setItem(storageKey('user-1'), '{not json}')
     const { result } = renderHook(() => useContactsFilters())
     expect(isEmptyFilters(result.current.filters)).toBe(true)
+  })
+
+  // landr-dp45 — "Show erased contacts" view toggle.
+  describe('includeErased toggle', () => {
+    it('defaults to false and is not counted as an active filter', () => {
+      const { result } = renderHook(() => useContactsFilters())
+      expect(result.current.filters.includeErased).toBe(false)
+      expect(activeFilterCount(result.current.filters)).toBe(0)
+      expect(isEmptyFilters(result.current.filters)).toBe(true)
+    })
+
+    it('setIncludeErased(true) flips the flag and persists it', () => {
+      const { result } = renderHook(() => useContactsFilters())
+      act(() => result.current.setIncludeErased(true))
+      expect(result.current.filters.includeErased).toBe(true)
+      expect(
+        JSON.parse(window.localStorage.getItem(storageKey('user-1'))!),
+      ).toEqual({ types: [], includeErased: true })
+    })
+
+    it('preserves selected types when flipping includeErased', () => {
+      const { result } = renderHook(() => useContactsFilters())
+      act(() => result.current.toggleType('customer'))
+      act(() => result.current.setIncludeErased(true))
+      expect(result.current.filters.types).toEqual(['customer'])
+      expect(result.current.filters.includeErased).toBe(true)
+    })
+
+    it('restores includeErased on remount for the same user', () => {
+      window.localStorage.setItem(
+        storageKey('user-1'),
+        JSON.stringify({ types: [], includeErased: true }),
+      )
+      const { result } = renderHook(() => useContactsFilters())
+      expect(result.current.filters.includeErased).toBe(true)
+    })
+
+    it('ignores non-boolean includeErased values in storage', () => {
+      window.localStorage.setItem(
+        storageKey('user-1'),
+        JSON.stringify({ types: [], includeErased: 'yes' }),
+      )
+      const { result } = renderHook(() => useContactsFilters())
+      expect(result.current.filters.includeErased).toBe(false)
+    })
+
+    it('clearAll also resets includeErased back to false', () => {
+      const { result } = renderHook(() => useContactsFilters())
+      act(() => result.current.setIncludeErased(true))
+      act(() => result.current.toggleType('customer'))
+      act(() => result.current.clearAll())
+      expect(result.current.filters.includeErased).toBe(false)
+      expect(result.current.filters.types).toEqual([])
+    })
   })
 })
