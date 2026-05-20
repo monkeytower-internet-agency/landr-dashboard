@@ -11,6 +11,16 @@ export const t = {
     name: 'LANDR Operator Dashboard',
     collapseMenu: 'Collapse menu',
     expandMenu: 'Expand menu',
+    // landr-fzcg — 3-state sidebar collapse control.
+    sidebarMode: {
+      groupLabel: 'Sidebar display mode',
+      collapsed: 'Always collapsed',
+      expanded: 'Always expanded',
+      hoverExpand: 'Expand on hover',
+      cycleHint: 'Cycle sidebar mode',
+    },
+    account: 'Account',
+    settings: 'Settings',
   },
   auth: {
     signInHeading: 'Sign in',
@@ -78,10 +88,18 @@ export const t = {
     reporting: 'Reporting',
     generalApprovals: 'Approvals',
     staff: 'Staff',
+    // landr-fzcg — Account is now a top-level sidebar item alongside
+    // Settings. Account holds user/billing-scoped subsections; Settings
+    // holds program/operator-scoped subsections.
+    account: 'Account',
     settings: 'Settings',
     emailTemplates: 'Email templates',
     pickupLocations: 'Pickup locations',
     schedule: 'Schedule',
+  },
+  // landr-fzcg — sibling of settingsHub for the Account sub-sidebar.
+  accountHub: {
+    navLabel: 'Account sections',
   },
   settingsHub: {
     navLabel: 'Settings sections',

@@ -222,27 +222,48 @@ describe('SettingsLayout', () => {
     expect(await screen.findByDisplayValue('Para42')).toBeInTheDocument()
   })
 
-  it('renders all eleven sub-sidebar links (incl. landr-sydf Products)', () => {
+  it('renders the Account sub-sidebar when on an account URL (landr-fzcg)', () => {
     renderSettingsTree('/settings/company')
+    // /settings/company belongs to the Account group, so the sub-sidebar
+    // renders ACCOUNT_SECTIONS (Company, Connected accounts, Gmail, Plan).
+    const nav = screen.getByRole('navigation', { name: /account sections/i })
+    const links = nav.querySelectorAll('a')
+    expect(links).toHaveLength(4)
+    expect(nav).toHaveTextContent(/company/i)
+    expect(nav).toHaveTextContent(/connected accounts/i)
+    expect(nav).toHaveTextContent(/gmail/i)
+    expect(nav).toHaveTextContent(/plan/i)
+    // Settings-group items must NOT appear in the Account sub-sidebar.
+    expect(nav).not.toHaveTextContent(/calendar & display/i)
+    expect(nav).not.toHaveTextContent(/team/i)
+    expect(nav).not.toHaveTextContent(/email templates/i)
+  })
+
+  it('renders the Settings sub-sidebar when on a settings-group URL (landr-fzcg)', () => {
+    renderSettingsTree('/settings/team')
+    // /settings/team belongs to the Settings group → 7 sections shown.
     const nav = screen.getByRole('navigation', { name: /settings sections/i })
     const links = nav.querySelectorAll('a')
-    expect(links).toHaveLength(11)
-    expect(nav).toHaveTextContent(/company/i)
+    expect(links).toHaveLength(7)
     expect(nav).toHaveTextContent(/calendar & display/i)
     expect(nav).toHaveTextContent(/display preferences/i)
     expect(nav).toHaveTextContent(/team/i)
     expect(nav).toHaveTextContent(/pickup locations/i)
     expect(nav).toHaveTextContent(/products/i)
     expect(nav).toHaveTextContent(/email templates/i)
-    expect(nav).toHaveTextContent(/gmail/i)
-    expect(nav).toHaveTextContent(/connected accounts/i)
-    expect(nav).toHaveTextContent(/plan/i)
+    expect(nav).toHaveTextContent(/pricing/i)
+    // Account-group items must NOT appear here.
+    expect(nav).not.toHaveTextContent(/connected accounts/i)
+    expect(nav).not.toHaveTextContent(/gmail/i)
+    expect(nav).not.toHaveTextContent(/plan/i)
+    expect(nav).not.toHaveTextContent(/company/i)
   })
 
   it('navigates to the calendar-display subsection when its sidebar link is clicked', async () => {
     const user = userEvent.setup()
-    renderSettingsTree('/settings/company')
-    await screen.findByDisplayValue('Para42')
+    // Start on a Settings-group URL so the sub-sidebar shows the
+    // settings list (which contains the calendar-display link).
+    renderSettingsTree('/settings/team')
 
     await user.click(screen.getByRole('link', { name: /calendar & display/i }))
 

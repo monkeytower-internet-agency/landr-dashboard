@@ -79,6 +79,18 @@ function App() {
               <Route path="/reporting" element={<Reporting />} />
               <Route path="/approvals/general" element={<GeneralApprovals />} />
 
+              {/* landr-fzcg — Account is a virtual top-level nav item
+                  whose subsections live under /settings/*. Hitting
+                  /account lands the user on /settings/company (first
+                  ACCOUNT_SECTIONS entry); the sub-sidebar then renders
+                  the Account group's section list because the URL is
+                  in ACCOUNT_PATHS. Keeping leaf URLs under /settings/*
+                  preserves every existing deep link. */}
+              <Route
+                path="/account"
+                element={<Navigate to="/settings/company" replace />}
+              />
+
               {/* Settings hub — left sub-sidebar wraps every subsection. */}
               <Route path="/settings" element={<SettingsLayout />}>
                 <Route index element={<Navigate to="/settings/company" replace />} />
