@@ -67,6 +67,14 @@ export function Calendar() {
     () => filterBookings(rows, filtersApi.filters),
     [rows, filtersApi.filters],
   )
+  // landr-3uai — the calendar shows per-day capacity pills only when the
+  // operator has narrowed to a single product. Multi-select means the
+  // calendar still filters by those products, but the pill doesn't try to
+  // sum across heterogeneous capacities (would be misleading).
+  const activeProductId =
+    filtersApi.filters.productIds.length === 1
+      ? filtersApi.filters.productIds[0]
+      : null
 
   return (
     <div className="flex flex-col gap-6">
@@ -108,6 +116,8 @@ export function Calendar() {
             hour12={hour12}
             view={calendarView.view}
             onViewChange={calendarView.setView}
+            operatorId={currentOperatorId}
+            activeProductId={activeProductId}
             onEventClick={(row) => setActive(row)}
             onCustomerClick={(id) => setOpenCustomerId(id)}
             onReschedule={({ event, newStart, newEnd }) => {
