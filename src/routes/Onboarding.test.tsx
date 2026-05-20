@@ -25,7 +25,7 @@ const OPERATOR_FIXTURE: OperatorSettings = {
   legal_name: 'Para42 GmbH',
   slug: 'para42',
   tax_id: 'DE123456789',
-  tax_id_kind: 'VAT',
+  tax_id_kind: 'de_ust_idnr',
   phone: '+49 1234 567890',
   street: 'Hauptstr. 1',
   city: 'Berlin',
