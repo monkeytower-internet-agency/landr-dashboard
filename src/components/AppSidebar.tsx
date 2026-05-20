@@ -128,20 +128,14 @@ export function AppSidebar() {
       <SidebarHeader>
         {/* Workspace switcher slot — single-org today, but the wrapping
             div reserves the layout for the future multi-org picker. */}
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          {/* Theme-switched logo: light variant on dark sidebar, dark
-              variant on light sidebar. ThemeProvider toggles .dark on
-              <html>; Tailwind's dark: variant follows. */}
+        <div className="flex items-center justify-center px-2 py-2">
+          {/* Colored logo on both light + dark backgrounds (looks good
+              against the dark sidebar too). Sized to match the width of
+              the sidebar nav labels below. */}
           <img
             src="/logos/landr-logo.png"
             alt={t.app.name}
-            className="block h-7 w-auto dark:hidden"
-          />
-          <img
-            src="/logos/landr-logo-light.png"
-            alt=""
-            aria-hidden="true"
-            className="hidden h-7 w-auto dark:block"
+            className="block h-16 w-auto"
           />
         </div>
       </SidebarHeader>
