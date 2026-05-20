@@ -20,6 +20,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { t } from '@/lib/strings'
 
@@ -152,6 +153,15 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
+        {/* Collapse trigger sits above the Settings gear so the rail of
+            footer controls reads top-to-bottom: collapse → settings. */}
+        <SidebarGroup className="p-0">
+          <SidebarGroupContent>
+            <div className="flex justify-end px-2 py-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+              <SidebarTrigger className="size-8" />
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
             <NavMenu items={secondaryItems} pathname={pathname} />
