@@ -84,4 +84,89 @@ describe('DayChips', () => {
     expect(mayChips?.length).toBe(1)
     expect(junChips?.length).toBe(2)
   })
+
+  it('splits non-consecutive days into runs with visible separators (landr-irz1)', () => {
+    // The canonical example: [24, 27, 28, 30, 31] → 3 runs.
+    const { container } = render(
+      <DayChips
+        days={[
+          '2026-05-24',
+          '2026-05-27',
+          '2026-05-28',
+          '2026-05-30',
+          '2026-05-31',
+        ]}
+        locale="en-US"
+      />,
+    )
+    const runs = container.querySelectorAll('[data-run-start]')
+    expect(runs).toHaveLength(3)
+    expect(runs[0]).toHaveAttribute('data-run-start', '2026-05-24')
+    expect(runs[1]).toHaveAttribute('data-run-start', '2026-05-27')
+    expect(runs[2]).toHaveAttribute('data-run-start', '2026-05-30')
+    // Between three runs there are two separators.
+    const seps = container.querySelectorAll('[data-run-separator]')
+    expect(seps).toHaveLength(2)
+    // Each chip still renders.
+    expect(screen.getByText('24')).toBeInTheDocument()
+    expect(screen.getByText('27')).toBeInTheDocument()
+    expect(screen.getByText('28')).toBeInTheDocument()
+    expect(screen.getByText('30')).toBeInTheDocument()
+    expect(screen.getByText('31')).toBeInTheDocument()
+  })
+
+  it('renders a contiguous range as a single run with no separators (landr-irz1)', () => {
+    const { container } = render(
+      <DayChips
+        days={['2026-05-24', '2026-05-25', '2026-05-26']}
+        locale="en-US"
+      />,
+    )
+    expect(container.querySelectorAll('[data-run-start]')).toHaveLength(1)
+    expect(container.querySelectorAll('[data-run-separator]')).toHaveLength(0)
+  })
+
+  it('renders a single day as one run with no separators (landr-irz1)', () => {
+    const { container } = render(
+      <DayChips days={['2026-05-24']} locale="en-US" />,
+    )
+    expect(container.querySelectorAll('[data-run-start]')).toHaveLength(1)
+    expect(container.querySelectorAll('[data-run-separator]')).toHaveLength(0)
+  })
+
+  it('detects within-month runs alongside cross-month boundaries (landr-irz1)', () => {
+    // May: 24, then 27+28 (two runs). June: 1+2 (one run, in its own month group).
+    const { container } = render(
+      <DayChips
+        days={[
+          '2026-05-24',
+          '2026-05-27',
+          '2026-05-28',
+          '2026-06-01',
+          '2026-06-02',
+        ]}
+        locale="en-US"
+      />,
+    )
+    const mayMarker = container.querySelector('[data-month="2026-05"]')
+    const junMarker = container.querySelector('[data-month="2026-06"]')
+    expect(mayMarker).not.toBeNull()
+    expect(junMarker).not.toBeNull()
+
+    const mayRuns =
+      mayMarker?.parentElement?.querySelectorAll('[data-run-start]') ?? []
+    const junRuns =
+      junMarker?.parentElement?.querySelectorAll('[data-run-start]') ?? []
+    expect(mayRuns).toHaveLength(2)
+    expect(junRuns).toHaveLength(1)
+
+    // The gap between May 28 and June 1 is handled by the existing
+    // month-grouping layout, NOT by a within-row separator.
+    const maySeps =
+      mayMarker?.parentElement?.querySelectorAll('[data-run-separator]') ?? []
+    const junSeps =
+      junMarker?.parentElement?.querySelectorAll('[data-run-separator]') ?? []
+    expect(maySeps).toHaveLength(1)
+    expect(junSeps).toHaveLength(0)
+  })
 })
