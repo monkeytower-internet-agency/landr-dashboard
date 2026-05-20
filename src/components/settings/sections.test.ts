@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { SETTINGS_SECTIONS } from './sections'
+import {
+  ACCOUNT_SECTIONS,
+  SETTINGS_SECTIONS,
+  groupForPath,
+  landingPathFor,
+} from './sections'
 
 // landr-sydf — Products moved out of the main sidebar into Settings. The
 // data-level assertions below pin the contract: the sub-sidebar exposes a
@@ -16,5 +21,82 @@ describe('SETTINGS_SECTIONS', () => {
   it('has no duplicate routes', () => {
     const tos = SETTINGS_SECTIONS.map((s) => s.to)
     expect(new Set(tos).size).toBe(tos.length)
+  })
+})
+
+// landr-fzcg — split Account out of Settings. Both groups share
+// /settings/* URLs but are surfaced as two distinct top-level sidebar
+// items; groupForPath() drives which sub-sidebar list renders.
+describe('ACCOUNT_SECTIONS (landr-fzcg)', () => {
+  it('contains exactly company/connected/gmail/plan in that order', () => {
+    expect(ACCOUNT_SECTIONS.map((s) => s.to)).toEqual([
+      '/settings/company',
+      '/settings/connected-accounts',
+      '/settings/integrations/gmail',
+      '/settings/plan',
+    ])
+  })
+
+  it('has no duplicate routes', () => {
+    const tos = ACCOUNT_SECTIONS.map((s) => s.to)
+    expect(new Set(tos).size).toBe(tos.length)
+  })
+})
+
+describe('account/settings grouping (landr-fzcg)', () => {
+  it('settings group contains the seven program subsections', () => {
+    expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
+      '/settings/calendar-display',
+      '/settings/display-preferences',
+      '/settings/team',
+      '/settings/pickup-locations',
+      '/settings/products',
+      '/settings/email-templates',
+      '/settings/pricing',
+    ])
+  })
+
+  it('account + settings are disjoint', () => {
+    const a = new Set(ACCOUNT_SECTIONS.map((s) => s.to))
+    for (const section of SETTINGS_SECTIONS) {
+      expect(a.has(section.to)).toBe(false)
+    }
+  })
+})
+
+describe('groupForPath() (landr-fzcg)', () => {
+  it('routes account-group leaf URLs to "account"', () => {
+    for (const section of ACCOUNT_SECTIONS) {
+      expect(groupForPath(section.to)).toBe('account')
+    }
+  })
+
+  it('routes account-group deeper URLs to "account"', () => {
+    expect(groupForPath('/settings/integrations/gmail/oauth-callback')).toBe(
+      'account',
+    )
+    expect(groupForPath('/settings/connected-accounts/google')).toBe('account')
+  })
+
+  it('routes settings-group leaf URLs to "settings"', () => {
+    for (const section of SETTINGS_SECTIONS) {
+      expect(groupForPath(section.to)).toBe('settings')
+    }
+  })
+
+  it('defaults to "settings" for unknown paths', () => {
+    expect(groupForPath('/somewhere/else')).toBe('settings')
+    expect(groupForPath('/settings')).toBe('settings')
+    expect(groupForPath('/')).toBe('settings')
+  })
+})
+
+describe('landingPathFor() (landr-fzcg)', () => {
+  it('returns the first ACCOUNT section for the account group', () => {
+    expect(landingPathFor('account')).toBe(ACCOUNT_SECTIONS[0].to)
+  })
+
+  it('returns the first SETTINGS section for the settings group', () => {
+    expect(landingPathFor('settings')).toBe(SETTINGS_SECTIONS[0].to)
   })
 })

@@ -20,15 +20,41 @@ export type SettingsSubSection = {
   icon: LucideIcon
 }
 
-// Flat list (no nesting) per landr-wjd Step 4. Order matches the briefing
-// + the parent ticket's subsection enumeration so the sub-sidebar reads
-// the same as the Beads design notes.
-export const SETTINGS_SECTIONS: SettingsSubSection[] = [
+// landr-fzcg — Account vs Settings split. Account holds user/billing-
+// scoped subsections (company, connected accounts + Gmail, plan).
+// Settings holds program/operator-scoped subsections (calendar, display,
+// team, locations, products, email templates, pricing).
+//
+// URL routes intentionally stay under /settings/* for both groups —
+// keeps deep-link history valid and avoids a destructive route rename.
+// The sidebar exposes /account as a virtual top-level item that lands
+// the user on /settings/company (first ACCOUNT_SECTIONS entry) and the
+// sub-sidebar then renders the ACCOUNT_SECTIONS list. See
+// SettingsSubSidebar + AppSidebar for the path→group mapping.
+export const ACCOUNT_SECTIONS: SettingsSubSection[] = [
   {
     to: '/settings/company',
     label: t.settingsHub.sections.company,
     icon: BuildingIcon,
   },
+  {
+    to: '/settings/connected-accounts',
+    label: t.settingsHub.sections.connectedAccounts,
+    icon: LinkIcon,
+  },
+  {
+    to: '/settings/integrations/gmail',
+    label: t.settingsHub.sections.integrationsGmail,
+    icon: PlugIcon,
+  },
+  {
+    to: '/settings/plan',
+    label: t.settingsHub.sections.plan,
+    icon: CreditCardIcon,
+  },
+]
+
+export const SETTINGS_SECTIONS: SettingsSubSection[] = [
   {
     to: '/settings/calendar-display',
     label: t.settingsHub.sections.calendarDisplay,
@@ -60,23 +86,40 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     icon: MailIcon,
   },
   {
-    to: '/settings/integrations/gmail',
-    label: t.settingsHub.sections.integrationsGmail,
-    icon: PlugIcon,
-  },
-  {
-    to: '/settings/connected-accounts',
-    label: t.settingsHub.sections.connectedAccounts,
-    icon: LinkIcon,
-  },
-  {
     to: '/settings/pricing',
     label: t.settingsHub.sections.pricing,
     icon: TagIcon,
   },
-  {
-    to: '/settings/plan',
-    label: t.settingsHub.sections.plan,
-    icon: CreditCardIcon,
-  },
 ]
+
+// Set of all URL prefixes that belong to ACCOUNT — used by the sub-
+// sidebar to decide which group's section list to render. Cheap O(1)
+// lookup avoids dragging the full ACCOUNT_SECTIONS list into the layout.
+const ACCOUNT_PATHS = new Set(ACCOUNT_SECTIONS.map((s) => s.to))
+
+/**
+ * Decide whether `pathname` belongs to the Account group or the Settings
+ * group. Defaults to Settings for unknown paths — the Settings list is
+ * the larger/safer default surface to render in that edge case.
+ */
+export function groupForPath(
+  pathname: string,
+): 'account' | 'settings' {
+  // Exact match on a known account path, OR a deeper segment under it
+  // (e.g. /settings/integrations/gmail/oauth-callback).
+  for (const p of ACCOUNT_PATHS) {
+    if (pathname === p || pathname.startsWith(`${p}/`)) return 'account'
+  }
+  return 'settings'
+}
+
+/**
+ * Resolve the landing path for a top-level sidebar item. Used by
+ * AppSidebar to know where to send the user when they click 'Account'
+ * or 'Settings' (the first sub-section in each group).
+ */
+export function landingPathFor(group: 'account' | 'settings'): string {
+  return group === 'account'
+    ? ACCOUNT_SECTIONS[0].to
+    : SETTINGS_SECTIONS[0].to
+}

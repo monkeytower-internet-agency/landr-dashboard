@@ -5,9 +5,12 @@ import {
   ChartAreaIcon,
   CheckCircleIcon,
   LayoutDashboardIcon,
-  UsersIcon,
-  PanelLeftIcon,
+  MousePointerClickIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
   SettingsIcon,
+  UserCircleIcon,
+  UsersIcon,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
@@ -21,15 +24,28 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from '@/components/ui/sidebar'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
+import { groupForPath } from '@/components/settings/sections'
+import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
+import type { SidebarMode } from '@/lib/sidebar-mode'
 import { t } from '@/lib/strings'
 
 type NavItem = {
   to: string
   label: string
   icon: LucideIcon
+  // exact: render isActive only on URL equality (vs. prefix match).
   exact: boolean
+  // landr-fzcg — for Account/Settings we need to highlight based on the
+  // URL group (account vs settings) rather than the literal `to` path,
+  // because both groups share /settings/* leaf URLs. Optional override.
+  matchGroup?: 'account' | 'settings'
 }
 
 // Primary nav — daily-use items. Order chosen per landr-wjd briefing:
@@ -81,19 +97,42 @@ const primaryItems: NavItem[] = [
   },
 ]
 
-// Secondary nav — rarely-used admin items go in a separated bottom group
-// per landr-wjd / video-1 IA notes. Settings is the only item today; Help
-// arrives once we have a docs route.
+// Secondary nav — rarely-used admin items in the bottom footer cluster.
+// landr-fzcg — split Settings into Account + Settings:
+//   Account  → company / connected accounts / gmail / plan
+//   Settings → calendar / display / team / locations / products / emails /
+//              pricing
+// Both groups share /settings/* leaf URLs; the matchGroup field tells the
+// active-highlight code to compare via groupForPath() instead of a path
+// prefix check (otherwise /settings/* would always also highlight Settings
+// when the user is on an Account subsection).
 const secondaryItems: NavItem[] = [
+  {
+    to: '/account',
+    label: t.nav.account,
+    icon: UserCircleIcon,
+    exact: false,
+    matchGroup: 'account',
+  },
   {
     to: '/settings',
     label: t.nav.settings,
     icon: SettingsIcon,
     exact: false,
+    matchGroup: 'settings',
   },
 ]
 
 function isMatch(pathname: string, item: NavItem): boolean {
+  if (item.matchGroup) {
+    // Only consider Account/Settings active when the user is actually
+    // INSIDE the settings hub (or onthe Account redirect target). A user
+    // on /bookings shouldn't see either bottom nav item highlighted.
+    if (pathname !== '/account' && !pathname.startsWith('/settings')) {
+      return false
+    }
+    return groupForPath(pathname) === item.matchGroup
+  }
   if (item.exact) return pathname === item.to
   return pathname === item.to || pathname.startsWith(`${item.to}/`)
 }
@@ -123,23 +162,126 @@ function NavMenu({ items, pathname }: { items: NavItem[]; pathname: string }) {
   )
 }
 
-function CollapseMenuItem() {
-  const { toggleSidebar, state } = useSidebar()
-  const label = state === 'expanded' ? t.app.collapseMenu : t.app.expandMenu
+// landr-fzcg — 3-state collapse control rendered at the very bottom of
+// the sidebar footer. In the expanded sidebar it shows as a segmented
+// control with three labelled icon buttons (collapsed / expanded /
+// hover-expand) so the user can pick a mode in one click. In the
+// collapsed icon-rail variants it compresses to a single icon button
+// that cycles through the modes on click — that's the only affordance
+// that fits the narrow rail, matching how Supabase handles the same
+// constraint.
+type ModeOption = {
+  mode: SidebarMode
+  icon: LucideIcon
+  label: string
+}
+
+const MODE_OPTIONS: ReadonlyArray<ModeOption> = [
+  {
+    mode: 'collapsed',
+    icon: PanelLeftCloseIcon,
+    label: t.app.sidebarMode.collapsed,
+  },
+  {
+    mode: 'expanded',
+    icon: PanelLeftOpenIcon,
+    label: t.app.sidebarMode.expanded,
+  },
+  {
+    mode: 'hover-expand',
+    icon: MousePointerClickIcon,
+    label: t.app.sidebarMode.hoverExpand,
+  },
+]
+
+function SidebarModeControl() {
+  const { mode, setMode, cycle } = useSidebarModeContext()
+  const current = MODE_OPTIONS.find((o) => o.mode === mode) ?? MODE_OPTIONS[1]
+  const CurrentIcon = current.icon
+
   return (
-    <SidebarMenuItem>
-      <SidebarMenuButton tooltip={label} onClick={toggleSidebar}>
-        <PanelLeftIcon className="size-4" />
-        <span>{label}</span>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
+    <>
+      {/* Expanded variant: segmented control (3 icon buttons). Hidden
+          on the icon-rail collapse via group-data-[collapsible=icon]. */}
+      <div
+        role="radiogroup"
+        aria-label={t.app.sidebarMode.groupLabel}
+        className={cn(
+          'flex items-center justify-center gap-1 rounded-md border bg-sidebar-accent/30 p-0.5',
+          'group-data-[collapsible=icon]:hidden',
+        )}
+      >
+        {MODE_OPTIONS.map((opt) => {
+          const Icon = opt.icon
+          const active = opt.mode === mode
+          return (
+            <Tooltip key={opt.mode}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  aria-label={opt.label}
+                  onClick={() => setMode(opt.mode)}
+                  className={cn(
+                    'flex h-7 flex-1 cursor-pointer items-center justify-center rounded-sm text-sidebar-foreground/70 transition-colors',
+                    'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                    'focus-visible:outline-2 focus-visible:outline-sidebar-ring',
+                    active &&
+                      'bg-sidebar text-sidebar-accent-foreground shadow-s',
+                  )}
+                >
+                  <Icon className="size-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="center">
+                {opt.label}
+              </TooltipContent>
+            </Tooltip>
+          )
+        })}
+      </div>
+
+      {/* Collapsed-rail variant: single cycling button showing the
+          current mode's icon. Click cycles through the 3 modes. Hidden
+          unless the sidebar is in icon-rail mode. */}
+      <SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            onClick={cycle}
+            tooltip={`${current.label} (${t.app.sidebarMode.cycleHint})`}
+            aria-label={t.app.sidebarMode.cycleHint}
+          >
+            <CurrentIcon className="size-4" />
+            <span>{current.label}</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </>
   )
 }
 
 export function AppSidebar() {
   const { pathname } = useLocation()
+  const { mode, setHovered } = useSidebarModeContext()
+
+  // landr-fzcg — hover-expand: only attach pointer handlers when the user
+  // has opted into the hover mode. In collapsed/expanded modes the open
+  // state is fully controlled by `mode`, so handlers would be no-ops
+  // anyway, but skipping them keeps the DOM cleaner for screen readers.
+  const hoverHandlers =
+    mode === 'hover-expand'
+      ? {
+          onMouseEnter: () => setHovered(true),
+          onMouseLeave: () => setHovered(false),
+          // Pointer leave covers pen/touch too. Mouse handlers stay for
+          // older browsers where pointer events haven't replaced them.
+          onPointerLeave: () => setHovered(false),
+        }
+      : {}
+
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" {...hoverHandlers}>
       <SidebarHeader>
         {/* Logo top-left. Expanded sidebar shows the full colored logo;
             collapsed (icon-only) sidebar shows a small square version
@@ -167,21 +309,21 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        {/* Collapse trigger rendered as a sibling nav item so it aligns
-            pixel-perfectly with the Settings gear below it (same
-            SidebarMenuButton padding + icon column). */}
-        <SidebarGroup className="p-0">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <CollapseMenuItem />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Account + Settings live above the mode control. They are
+            sibling nav rows so they align pixel-perfectly with the
+            primary nav above. */}
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
             <NavMenu items={secondaryItems} pathname={pathname} />
           </SidebarGroupContent>
         </SidebarGroup>
+        {/* 3-state collapse control — VERY bottom of the sidebar
+            (Supabase pattern). Rendered without SidebarGroup wrapper
+            so the segmented control can size itself without inheriting
+            the group's `p-2`. */}
+        <div className="px-2 pb-1">
+          <SidebarModeControl />
+        </div>
       </SidebarFooter>
     </Sidebar>
   )

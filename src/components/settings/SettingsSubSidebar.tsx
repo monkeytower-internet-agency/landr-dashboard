@@ -1,16 +1,29 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
-import { SETTINGS_SECTIONS } from './sections'
+import {
+  ACCOUNT_SECTIONS,
+  SETTINGS_SECTIONS,
+  groupForPath,
+  type SettingsSubSection,
+} from './sections'
 
+// landr-fzcg — sub-sidebar now renders one of two section lists based on
+// whether the current URL belongs to the Account group (company, gmail,
+// connected accounts, plan) or the Settings group (everything else).
+// Both groups share the same /settings/* URL prefix; the split is purely
+// a sidebar IA grouping decision.
 export function SettingsSubSidebar() {
+  const { pathname } = useLocation()
+  const group = groupForPath(pathname)
+  const sections: ReadonlyArray<SettingsSubSection> =
+    group === 'account' ? ACCOUNT_SECTIONS : SETTINGS_SECTIONS
+  const navLabel =
+    group === 'account' ? t.accountHub.navLabel : t.settingsHub.navLabel
   return (
-    <nav
-      aria-label={t.settingsHub.navLabel}
-      className="w-full shrink-0 md:w-56"
-    >
+    <nav aria-label={navLabel} className="w-full shrink-0 md:w-56">
       <ul className="flex flex-col gap-0.5">
-        {SETTINGS_SECTIONS.map((section) => {
+        {sections.map((section) => {
           const Icon = section.icon
           return (
             <li key={section.to}>

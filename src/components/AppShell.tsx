@@ -19,6 +19,9 @@ import { OnboardingBanner } from '@/components/OnboardingBanner'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { useAuth } from '@/lib/auth'
+import { SidebarModeProvider } from '@/lib/sidebar-mode-context'
+import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
+import { openFor } from '@/lib/sidebar-mode'
 import { t } from '@/lib/strings'
 
 function UserMenu({ onSignOut }: { onSignOut: () => void }) {
@@ -67,17 +70,24 @@ function UserMenu({ onSignOut }: { onSignOut: () => void }) {
   )
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
-  const { signOut } = useAuth()
-  const navigate = useNavigate()
-
-  async function onSignOut() {
-    await signOut()
-    navigate('/login', { replace: true })
-  }
+// landr-fzcg — inner shell that bridges the mode state into the shadcn
+// SidebarProvider's controlled `open` prop. Lives inside SidebarModeProvider
+// so it can read the mode + hover state and drive open accordingly.
+// AppSidebar itself attaches pointer handlers to the underlying Sidebar
+// DOM element (so the hit area matches the actual visible rail) and
+// toggles the shared `hovered` flag via the context's setHovered.
+function AppShellInner({
+  children,
+  onSignOut,
+}: {
+  children: ReactNode
+  onSignOut: () => void
+}) {
+  const { mode, hovered } = useSidebarModeContext()
+  const open = openFor(mode, hovered)
 
   return (
-    <SidebarProvider>
+    <SidebarProvider open={open} onOpenChange={() => { /* mode-driven */ }}>
       <AppSidebar />
       <SidebarInset>
         <header className="bg-background sticky top-0 z-10 flex h-14 items-center gap-2 border-b px-4">
@@ -99,5 +109,21 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main className="flex-1 px-4 py-6 sm:px-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
+  )
+}
+
+export function AppShell({ children }: { children: ReactNode }) {
+  const { signOut } = useAuth()
+  const navigate = useNavigate()
+
+  async function onSignOut() {
+    await signOut()
+    navigate('/login', { replace: true })
+  }
+
+  return (
+    <SidebarModeProvider>
+      <AppShellInner onSignOut={onSignOut}>{children}</AppShellInner>
+    </SidebarModeProvider>
   )
 }

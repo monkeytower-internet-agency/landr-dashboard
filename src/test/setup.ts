@@ -60,4 +60,24 @@ if (typeof window !== 'undefined') {
         }) as unknown as MediaQueryList,
     })
   }
+  // landr-fzcg — jsdom doesn't ship ResizeObserver; Radix's Tooltip /
+  // Popper rely on it. A noop polyfill is enough — Radix doesn't act on
+  // the measurements during these tests.
+  if (typeof window.ResizeObserver === 'undefined') {
+    class ResizeObserverPolyfill {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    Object.defineProperty(window, 'ResizeObserver', {
+      configurable: true,
+      writable: true,
+      value: ResizeObserverPolyfill,
+    })
+    Object.defineProperty(globalThis, 'ResizeObserver', {
+      configurable: true,
+      writable: true,
+      value: ResizeObserverPolyfill,
+    })
+  }
 }
