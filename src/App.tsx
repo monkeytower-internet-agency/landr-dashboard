@@ -1,4 +1,4 @@
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes, useParams } from 'react-router-dom'
 import { AuthCallback } from '@/routes/AuthCallback'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
@@ -29,6 +29,20 @@ import { ThemeProvider } from '@/lib/theme'
 import { AppShell } from '@/components/AppShell'
 import { OnboardingGuard } from '@/components/OnboardingGuard'
 import { Toaster } from '@/components/ui/sonner'
+
+// landr-sydf — preserve /products/:productId deep links by forwarding the
+// captured productId param to the new /settings/products/:productId path.
+// A plain <Navigate to="/settings/products" /> would lose the param and
+// land on the auto-selected first product.
+function ProductsRedirect() {
+  const { productId } = useParams<{ productId?: string }>()
+  return (
+    <Navigate
+      to={productId ? `/settings/products/${productId}` : '/settings/products'}
+      replace
+    />
+  )
+}
 
 function App() {
   return (
@@ -62,12 +76,6 @@ function App() {
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/schedule" element={<Schedule />} />
               <Route path="/contacts" element={<Contacts />} />
-              <Route path="/products" element={<Products />} />
-              {/* landr-i018 — deep-link a specific product (used by the
-                  Pricing settings 'Used by' chips). The route reuses the
-                  same Products screen; the productId param feeds into
-                  ProductsManager's initialSelection. */}
-              <Route path="/products/:productId" element={<Products />} />
               <Route path="/reporting" element={<Reporting />} />
               <Route path="/approvals/general" element={<GeneralApprovals />} />
 
@@ -79,6 +87,12 @@ function App() {
                 <Route path="display-preferences" element={<DisplayPreferencesSettings />} />
                 <Route path="team" element={<Staff />} />
                 <Route path="pickup-locations" element={<PickupLocations />} />
+                {/* landr-sydf — Products lives under Settings now (operators
+                    edit rarely, not daily). The :productId variant preserves
+                    the landr-i018 deep-link contract used by the PricingSettings
+                    'Used by' chips. */}
+                <Route path="products" element={<Products />} />
+                <Route path="products/:productId" element={<Products />} />
                 <Route path="email-templates" element={<EmailTemplates />} />
                 <Route path="integrations/gmail" element={<IntegrationsGmailSettings />} />
                 <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
@@ -96,6 +110,16 @@ function App() {
               <Route
                 path="/email-templates"
                 element={<Navigate to="/settings/email-templates" replace />}
+              />
+              {/* landr-sydf — preserve /products and /products/:productId
+                  bookmarks (landr-i018 'Used by' links, external links). */}
+              <Route
+                path="/products"
+                element={<Navigate to="/settings/products" replace />}
+              />
+              <Route
+                path="/products/:productId"
+                element={<ProductsRedirect />}
               />
             </Route>
             <Route path="*" element={<NotFound />} />

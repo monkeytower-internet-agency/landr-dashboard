@@ -89,6 +89,7 @@ export const t = {
       displayPreferences: 'Display preferences',
       team: 'Team',
       pickupLocations: 'Pickup locations',
+      products: 'Products',
       emailTemplates: 'Email templates',
       integrationsGmail: 'Gmail',
       connectedAccounts: 'Connected accounts',

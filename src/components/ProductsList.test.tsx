@@ -259,3 +259,49 @@ describe('ProductsList — addon_only visibility (landr-u34k)', () => {
     expect(toggle).toBeDisabled()
   })
 })
+
+// landr-sydf — full chip is the click target (not just the name). Click
+// anywhere on the chip — including the summary line beneath the name —
+// and onSelect fires once. Opening the row-actions menu must NOT fire
+// onSelect (stopPropagation on the action cell).
+describe('ProductsList — chip click target (landr-sydf)', () => {
+  it('fires onSelect when clicking the chip body (not just the name)', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event')
+    const user = userEvent.setup()
+    const onSelect = vi.fn()
+    render(
+      <ProductsList
+        rows={[makeRow({ id: 'p-1', name: 'Tandem Flight' })]}
+        selectedId={null}
+        onSelect={onSelect}
+        onCreate={() => {}}
+        onDuplicate={() => {}}
+        duplicatingId={null}
+      />,
+    )
+    const option = screen.getByRole('option', { name: /tandem flight/i })
+    // Click the entire chip — assert onSelect fires.
+    await user.click(option)
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    expect(onSelect.mock.calls[0][0].id).toBe('p-1')
+  })
+
+  it('clicking the row-actions menu trigger does NOT fire onSelect', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event')
+    const user = userEvent.setup()
+    const onSelect = vi.fn()
+    render(
+      <ProductsList
+        rows={[makeRow({ id: 'p-1', name: 'Tandem Flight' })]}
+        selectedId={null}
+        onSelect={onSelect}
+        onCreate={() => {}}
+        onDuplicate={() => {}}
+        duplicatingId={null}
+      />,
+    )
+    const trigger = screen.getByRole('button', { name: /row actions/i })
+    await user.click(trigger)
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+})
