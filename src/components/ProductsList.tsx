@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BedDoubleIcon, CopyIcon, MoreHorizontalIcon, PlusIcon, SearchIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,9 +10,40 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 import { productSummaryLine, type ProductRow } from '@/lib/products'
 import { t } from '@/lib/strings'
+
+// landr-u34k — persist the "show add-on products" toggle per user so
+// flipping it on one tab survives reloads and other dashboard surfaces.
+// Keyed by auth user id so two operators on the same browser don't see
+// each other's preference. Falls back to a shared key for anonymous /
+// pre-auth renders (the toggle just won't survive sign-out either way).
+function addonsToggleStorageKey(userId: string | null): string {
+  return `landr.dashboard.productsShowAddons.${userId ?? 'anonymous'}`
+}
+
+function readShowAddons(userId: string | null): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(addonsToggleStorageKey(userId)) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeShowAddons(userId: string | null, value: boolean): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(
+      addonsToggleStorageKey(userId),
+      value ? '1' : '0',
+    )
+  } catch {
+    /* ignore quota / disabled-storage errors */
+  }
+}
 
 // landr-ssrx — group hotel_room rows under their hotel for visual clarity.
 // We collect the non-hotel-room rows first (preserves the existing
@@ -77,11 +109,49 @@ type Props = {
 
 export function ProductsList({ rows, selectedId, onSelect, onCreate, onDuplicate, duplicatingId }: Props) {
   const [filter, setFilter] = useState('')
+  // landr-u34k — hide is_addon_only=true rows by default. The toggle
+  // surfaces them again for operators who need to find / edit one.
+  const { user } = useAuth()
+  const userId = user?.id ?? null
+  const [showAddons, setShowAddons] = useState<boolean>(() =>
+    readShowAddons(userId),
+  )
+
+  // Re-hydrate when the auth user changes (e.g. an operator signs out and
+  // a colleague signs in on the same browser). Reads from THAT user's
+  // stored preference rather than carrying over the previous one.
+  const lastUserRef = useRef<string | null>(userId)
+  useEffect(() => {
+    if (lastUserRef.current === userId) return
+    lastUserRef.current = userId
+    setShowAddons(readShowAddons(userId))
+  }, [userId])
+
+  const onToggleAddons = useCallback(
+    (next: boolean) => {
+      setShowAddons(next)
+      writeShowAddons(userId, next)
+    },
+    [userId],
+  )
+
+  // Apply the addon-only visibility first, then the search filter. This
+  // ordering means the "X / Y" counter at the top reflects the addon-aware
+  // visible set (rather than counting hidden add-on rows the operator
+  // can't see).
+  const visibleRows = useMemo(
+    () => (showAddons ? rows : rows.filter((r) => !r.is_addon_only)),
+    [rows, showAddons],
+  )
+  const hiddenAddonCount = useMemo(
+    () => rows.filter((r) => r.is_addon_only).length,
+    [rows],
+  )
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((r) => {
+    if (!q) return visibleRows
+    return visibleRows.filter((r) => {
       return (
         r.name.toLowerCase().includes(q) ||
         r.slug.toLowerCase().includes(q) ||
@@ -92,7 +162,7 @@ export function ProductsList({ rows, selectedId, onSelect, onCreate, onDuplicate
         (r.hotel_location?.name ?? '').toLowerCase().includes(q)
       )
     })
-  }, [filter, rows])
+  }, [filter, visibleRows])
 
   // landr-ssrx — flatten the filtered list into a render plan that
   // intersperses hotel headers above their room groups.
@@ -123,8 +193,25 @@ export function ProductsList({ rows, selectedId, onSelect, onCreate, onDuplicate
           <span className="hidden sm:inline">{t.products.createNew}</span>
         </Button>
       </div>
+      {/* landr-u34k — Show add-on products toggle. Disabled with a clear
+          empty-state when the operator has zero addon_only products, so
+          new accounts don't see a confusing checkbox that does nothing. */}
+      <label className="text-muted-foreground flex items-center gap-2 text-xs">
+        <Checkbox
+          checked={showAddons}
+          onChange={(e) => onToggleAddons(e.target.checked)}
+          disabled={hiddenAddonCount === 0}
+          aria-label={t.products.showAddonsToggle}
+        />
+        <span>
+          {t.products.showAddonsToggle}
+          {hiddenAddonCount > 0 ? (
+            <span className="ml-1 opacity-70">({hiddenAddonCount})</span>
+          ) : null}
+        </span>
+      </label>
       <div className="text-muted-foreground text-xs">
-        {filtered.length} / {rows.length}
+        {filtered.length} / {visibleRows.length}
       </div>
       <ul
         role="listbox"
@@ -133,7 +220,7 @@ export function ProductsList({ rows, selectedId, onSelect, onCreate, onDuplicate
       >
         {filtered.length === 0 ? (
           <li className="text-muted-foreground rounded-md border border-dashed p-4 text-center text-sm">
-            {rows.length === 0 ? t.products.empty : t.products.noMatches}
+            {visibleRows.length === 0 ? t.products.empty : t.products.noMatches}
           </li>
         ) : (
           entries.map((entry) => {

@@ -50,6 +50,9 @@ type ProductFixture = {
   sort_order: number
   hotel_location_id: string | null
   hotel_offering: 'none' | 'optional' | 'mandatory'
+  // landr-u34k added is_addon_only; tests use the default (false) but the
+  // lib type requires it for assignability against ProductRow.
+  is_addon_only: boolean
   deleted_at: string | null
   created_at: string
   updated_at: string
@@ -168,6 +171,7 @@ const { mock } = vi.hoisted(() => {
             hotel_offering:
               (payload.hotel_offering as 'none' | 'optional' | 'mandatory') ??
               'none',
+            is_addon_only: (payload.is_addon_only as boolean) ?? false,
             deleted_at: null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -228,10 +232,11 @@ vi.mock('@/lib/supabase', () => ({
   getSupabase: () => mock.supabase,
 }))
 
-// landr-pugm — ProductsManager now uses useProductsSort / useProductsFilters
-// hooks that read from useAuth() for per-user localStorage keying. The test
-// harness here doesn't mount an AuthProvider, so we stub useAuth directly
-// (mirrors the Contacts.test.tsx pattern).
+// landr-pugm + landr-u34k — both ProductsManager (sort/filter per-user
+// localStorage) and ProductsList (show-add-ons toggle) now read useAuth()
+// to scope their preferences. The test harness here doesn't mount an
+// AuthProvider, so we stub useAuth directly (mirrors the Contacts.test.tsx
+// pattern).
 vi.mock('@/lib/auth', () => ({
   useAuth: () => ({
     user: { id: 'test-user' },
@@ -313,6 +318,7 @@ function makeProduct(over: Partial<ProductFixture> = {}): ProductFixture {
     sort_order: 0,
     hotel_location_id: null,
     hotel_offering: 'none',
+    is_addon_only: false,
     deleted_at: null,
     created_at: '2026-05-01T00:00:00.000Z',
     updated_at: '2026-05-01T00:00:00.000Z',

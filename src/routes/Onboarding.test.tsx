@@ -197,6 +197,7 @@ beforeEach(() => {
     sort_order: payload.sort_order,
     hotel_location_id: payload.hotel_location_id,
     hotel_offering: payload.hotel_offering,
+    is_addon_only: payload.is_addon_only,
     deleted_at: null,
     created_at: '2026-05-19T10:00:00.000Z',
     updated_at: '2026-05-19T10:00:00.000Z',
@@ -284,7 +285,7 @@ describe('Onboarding wizard', () => {
         revenue_flows_through_operator: true, is_publicly_listed: true,
         active: true, sort_order: 1, deleted_at: null,
         created_at: '2026-05-19T10:00:00Z', updated_at: '2026-05-19T10:00:00Z',
-        hotel_location_id: null, hotel_offering: 'none',
+        hotel_location_id: null, hotel_offering: 'none', is_addon_only: false,
         pricing_scheme: null, product_group: null, hotel_location: null,
       },
       {
@@ -297,7 +298,7 @@ describe('Onboarding wizard', () => {
         revenue_flows_through_operator: true, is_publicly_listed: true,
         active: true, sort_order: 2, deleted_at: null,
         created_at: '2026-05-19T10:00:00Z', updated_at: '2026-05-19T10:00:00Z',
-        hotel_location_id: null, hotel_offering: 'none',
+        hotel_location_id: null, hotel_offering: 'none', is_addon_only: false,
         pricing_scheme: null, product_group: null, hotel_location: null,
       },
       {
@@ -310,7 +311,7 @@ describe('Onboarding wizard', () => {
         revenue_flows_through_operator: true, is_publicly_listed: true,
         active: true, sort_order: 3, deleted_at: null,
         created_at: '2026-05-19T10:00:00Z', updated_at: '2026-05-19T10:00:00Z',
-        hotel_location_id: null, hotel_offering: 'none',
+        hotel_location_id: null, hotel_offering: 'none', is_addon_only: false,
         pricing_scheme: null, product_group: null, hotel_location: null,
       },
     ])
