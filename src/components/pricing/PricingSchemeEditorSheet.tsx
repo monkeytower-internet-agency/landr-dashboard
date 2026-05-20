@@ -1,6 +1,21 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,11 +32,14 @@ import {
   createRule,
   fetchPricingSchemeTree,
   patchPricingScheme,
+  patchRule,
   RULE_KIND_LABELS,
+  type PricingRule,
   type PricingScheme,
   type RuleKind,
 } from '@/lib/pricingSchemes'
-import { PricingRuleEditor } from './PricingRuleEditor'
+import { SortableRuleItem } from './SortableRuleItem'
+import { diffSortChanges } from './pricing-reorder-math'
 
 type Props = {
   schemeId: string | null
@@ -129,6 +147,70 @@ function SchemeEditor({ scheme, operatorId, onRefetch }: EditorProps) {
       : 10,
   )
 
+  // Server-derived canonical order (by sort_order asc).
+  const serverOrderedRules = useMemo<PricingRule[]>(
+    () => [...scheme.rules].sort((a, b) => a.sort_order - b.sort_order),
+    [scheme.rules],
+  )
+  const serverOrderIds = useMemo(
+    () => serverOrderedRules.map((r) => r.id),
+    [serverOrderedRules],
+  )
+
+  // Optimistic override after drop; null = follow server order.
+  const [orderOverride, setOrderOverride] = useState<string[] | null>(null)
+
+  // Drop the override once the server confirms our new ordering.
+  if (
+    orderOverride !== null &&
+    orderOverride.length === serverOrderIds.length &&
+    orderOverride.every((id, i) => serverOrderIds[i] === id)
+  ) {
+    // Schedule the reset; doing it inline during render is safe because
+    // setState during render only re-renders if the value actually differs.
+    queueMicrotask(() => setOrderOverride(null))
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
+
+  const reorderMutation = useMutation({
+    mutationFn: async (changes: { id: string; sort_order: number }[]) => {
+      await Promise.all(
+        changes.map((c) =>
+          patchRule(operatorId, c.id, { sort_order: c.sort_order }),
+        ),
+      )
+    },
+    onSuccess: () => onRefetch(),
+    onError: (err: Error) => {
+      // Revert the optimistic order and surface the failure.
+      setOrderOverride(null)
+      toast.error(`Failed to save rule order: ${err.message}`)
+    },
+  })
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const currentOrder = orderOverride ?? serverOrderIds
+    const oldIndex = currentOrder.indexOf(String(active.id))
+    const newIndex = currentOrder.indexOf(String(over.id))
+    if (oldIndex < 0 || newIndex < 0) return
+
+    const nextOrder = arrayMove(currentOrder, oldIndex, newIndex)
+    setOrderOverride(nextOrder)
+
+    const changes = diffSortChanges(scheme.rules, nextOrder)
+    if (changes.length === 0) return
+    reorderMutation.mutate(changes)
+  }
+
   const patchMutation = useMutation({
     mutationFn: (body: Parameters<typeof patchPricingScheme>[2]) =>
       patchPricingScheme(operatorId, scheme.id, body),
@@ -167,7 +249,12 @@ function SchemeEditor({ scheme, operatorId, onRefetch }: EditorProps) {
     patchMutation.mutate({ active: !scheme.active })
   }
 
-  const sortedRules = [...scheme.rules].sort((a, b) => a.sort_order - b.sort_order)
+  // Effective render order: optimistic override (if set) wins, else server order.
+  const ruleById = new Map(scheme.rules.map((r) => [r.id, r]))
+  const displayIds = orderOverride ?? serverOrderIds
+  const displayRules = displayIds
+    .map((id) => ruleById.get(id))
+    .filter((r): r is PricingRule => r !== undefined)
 
   return (
     <>
@@ -214,21 +301,34 @@ function SchemeEditor({ scheme, operatorId, onRefetch }: EditorProps) {
         {/* Rules */}
         <div className="space-y-2">
           <p className="text-sm font-medium">Rules</p>
-          {sortedRules.length === 0 ? (
+          {displayRules.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               No rules yet — add one below.
             </p>
           ) : (
-            sortedRules.map((rule) => (
-              <PricingRuleEditor
-                key={rule.id}
-                rule={rule}
-                operatorId={operatorId}
-                currency={scheme.currency}
-                onDeleted={onRefetch}
-                onRefetch={onRefetch}
-              />
-            ))
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={displayIds}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2">
+                  {displayRules.map((rule) => (
+                    <SortableRuleItem
+                      key={rule.id}
+                      rule={rule}
+                      operatorId={operatorId}
+                      currency={scheme.currency}
+                      onDeleted={onRefetch}
+                      onRefetch={onRefetch}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           )}
         </div>
 
