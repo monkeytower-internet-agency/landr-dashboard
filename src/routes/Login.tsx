@@ -74,7 +74,7 @@ export function Login() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center gap-3 overflow-hidden bg-background p-6 pb-[12vh]">
+    <div className="relative flex min-h-screen flex-col items-center justify-center gap-0 overflow-hidden bg-background p-6 pb-[24vh]">
       {/*
         Soft radial gradient — mirrors the mobile onboarding background
         (app/(auth)/onboarding.tsx WelcomePage): RadialGradient at 80%/20%
