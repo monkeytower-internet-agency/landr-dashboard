@@ -419,6 +419,11 @@ export const t = {
       'No hotel-role locations yet. Add one under Pickup locations first.',
     hotelRoomHelperBody:
       'Hotel room prices are displayed per night to guests but paid directly to the hotel. Revenue does not flow through your operator account.',
+    // landr-knm0 — capacity_per_unit input on hotel_room products.
+    fieldRoomCapacity: 'Room capacity (people)',
+    fieldRoomCapacityHint:
+      'How many guests fit in one of these rooms. Defaults follow the room name (single → 1, double/twin → 2, triple → 3, family → 4).',
+    errorRoomCapacityRequired: 'Room capacity must be at least 1.',
     fieldHotelOffering: 'Includes accommodation',
     fieldHotelOfferingHint:
       'When the booking widget should add a hotel step on top of this service.',

@@ -30,6 +30,7 @@ import {
 } from '@/lib/package-teasers'
 import {
   nameToSlug,
+  suggestRoomCapacity,
   type HotelOffering,
   type PricingSchemeRef,
   type ProductGroupRef,
@@ -113,8 +114,33 @@ const productFormSchema = z
     hotel_offering: z.enum(['none', 'optional', 'mandatory']),
     // landr-u34k — hide from main list, restrict to add-on flow.
     is_addon_only: z.boolean(),
+    // landr-knm0 — capacity_per_unit. Stored as a free-form string here
+    // (same convention as duration_minutes/sort_order) and coerced in
+    // handleSubmit. Only surfaced for kind='hotel_room'; collapsed to null
+    // for other kinds before the API call.
+    capacity_per_unit: z.string(),
   })
   .superRefine((data, ctx) => {
+    if (data.product_kind === 'hotel_room') {
+      // landr-knm0 — DB CHECK forbids 0/negative; require an integer >=1.
+      const trimmed = (data.capacity_per_unit ?? '').trim()
+      if (!trimmed) {
+        ctx.addIssue({
+          code: 'custom',
+          message: t.products.errorRoomCapacityRequired,
+          path: ['capacity_per_unit'],
+        })
+      } else {
+        const n = Number(trimmed)
+        if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) {
+          ctx.addIssue({
+            code: 'custom',
+            message: t.products.errorRoomCapacityRequired,
+            path: ['capacity_per_unit'],
+          })
+        }
+      }
+    }
     if (data.product_kind === 'hotel_room' && !data.hotel_location_id) {
       // landr-ssrx — mirror the DB CHECK
       //   (product_kind='hotel_room') = (hotel_location_id IS NOT NULL)
@@ -192,6 +218,10 @@ export type ProductFormSubmitValue = {
   // edited via the main form (not the add-ons section, which manages link
   // rows on a DIFFERENT parent product).
   is_addon_only: boolean
+  // landr-knm0 — max sleepers per unit. NULL on non-room kinds (the form
+  // collapses to null before submit so the API never receives a stray
+  // value); >=1 integer on hotel_room.
+  capacity_per_unit: number | null
 }
 
 type Props = {
@@ -255,6 +285,12 @@ function defaultValues(
       hotel_location_id: '',
       hotel_offering: 'none',
       is_addon_only: false,
+      // landr-knm0 — pre-fill a sensible default ONLY for fresh hotel_room
+      // rows (the input is hidden for other kinds, and existing rows are
+      // loaded from the server). The suggestRoomCapacity heuristic returns
+      // null on empty names; we fall back to '1' so the field starts valid
+      // and the operator can type over it.
+      capacity_per_unit: initialKind === 'hotel_room' ? '1' : '',
     }
   }
   return {
@@ -283,6 +319,14 @@ function defaultValues(
     // missing the field for any reason.
     hotel_offering: product.hotel_offering ?? 'none',
     is_addon_only: !!product.is_addon_only,
+    // landr-knm0 — pre-landr-fi68 rows have no capacity_per_unit column at
+    // all; map NULL → '' so the input renders empty and the operator can
+    // type a value. The zod refine catches the empty case for hotel_room
+    // on submit.
+    capacity_per_unit:
+      product.capacity_per_unit == null
+        ? ''
+        : String(product.capacity_per_unit),
   }
 }
 
@@ -409,10 +453,28 @@ export function ProductForm({
       if (form.getValues('hotel_offering') !== 'none') {
         form.setValue('hotel_offering', 'none')
       }
+      // landr-knm0 — when entering hotel_room on a fresh product, seed a
+      // capacity default if the field is empty. The name-based heuristic
+      // (single→1, double→2, etc.) wins when the operator has already
+      // typed a meaningful name; otherwise default to 1 so the input
+      // starts in a valid state. For existing products that arrive with
+      // capacity_per_unit=NULL we ALSO apply the heuristic on entry so
+      // the operator isn't forced to invent a number from scratch.
+      const currentCap = (form.getValues('capacity_per_unit') ?? '').trim()
+      if (!currentCap) {
+        const nameOrSlug =
+          form.getValues('name') || form.getValues('slug') || ''
+        const suggested = suggestRoomCapacity(nameOrSlug) ?? 1
+        form.setValue('capacity_per_unit', String(suggested))
+      }
     } else {
-      // Leaving hotel_room → drop the hotel link to satisfy the biconditional.
+      // Leaving hotel_room → drop the hotel link to satisfy the biconditional,
+      // and clear the capacity input so the submit payload sends null.
       if (form.getValues('hotel_location_id')) {
         form.setValue('hotel_location_id', '')
+      }
+      if (form.getValues('capacity_per_unit')) {
+        form.setValue('capacity_per_unit', '')
       }
     }
     if (productKind !== 'service') {
@@ -476,6 +538,14 @@ export function ProductForm({
       hotel_offering:
         values.product_kind === 'service' ? values.hotel_offering : 'none',
       is_addon_only: values.is_addon_only,
+      // landr-knm0 — capacity is meaningful only for hotel_room today.
+      // Collapse to null on every other kind so the API never receives a
+      // stray value (the DB column accepts NULL but the column comment
+      // documents the convention).
+      capacity_per_unit:
+        values.product_kind === 'hotel_room'
+          ? Number((values.capacity_per_unit ?? '').trim()) || null
+          : null,
     }
     await onSubmit(payload)
   }
@@ -676,6 +746,34 @@ export function ProductForm({
                   {hotelLocations.length === 0
                     ? t.products.fieldHotelLocationNoneAvailable
                     : t.products.fieldHotelLocationHint}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : null}
+
+        {/* landr-knm0 — capacity_per_unit input. Visible only on
+            kind='hotel_room'; defaults are seeded by the kind-switch
+            effect above so the operator just confirms or overrides. */}
+        {isHotelRoomKind ? (
+          <FormField
+            control={form.control}
+            name="capacity_per_unit"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t.products.fieldRoomCapacity}</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    {...field}
+                    value={field.value ?? ''}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t.products.fieldRoomCapacityHint}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
