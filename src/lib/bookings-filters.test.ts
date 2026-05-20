@@ -127,6 +127,9 @@ describe('useBookingsFilters', () => {
       pickupLocationIds: [],
       productKinds: [],
       serviceTimeShapes: [],
+      // landr-qhi0 — showPast is part of the persisted shape; clearAll
+      // resets it to the default (false).
+      showPast: false,
     })
   })
 
@@ -144,5 +147,51 @@ describe('useBookingsFilters', () => {
     window.localStorage.setItem(storageKey('user-1'), 'not valid json')
     const { result } = renderHook(() => useBookingsFilters())
     expect(isEmptyFilters(result.current.filters)).toBe(true)
+  })
+
+  // ----- landr-qhi0 — showPast view toggle -----------------------------
+  describe('showPast (landr-qhi0)', () => {
+    it('defaults to false on a fresh mount', () => {
+      const { result } = renderHook(() => useBookingsFilters())
+      expect(result.current.filters.showPast).toBe(false)
+    })
+
+    it('setShowPast(true) persists and survives reload', () => {
+      const first = renderHook(() => useBookingsFilters())
+      act(() => first.result.current.setShowPast(true))
+      expect(first.result.current.filters.showPast).toBe(true)
+
+      const raw = window.localStorage.getItem(storageKey('user-1'))
+      expect(JSON.parse(raw!).showPast).toBe(true)
+
+      // Fresh mount picks up the stored value.
+      const second = renderHook(() => useBookingsFilters())
+      expect(second.result.current.filters.showPast).toBe(true)
+    })
+
+    it('older stored payloads without showPast default to false', () => {
+      window.localStorage.setItem(
+        storageKey('user-1'),
+        JSON.stringify({
+          lifecycleStates: ['cancelled'],
+          productIds: [],
+          pickupLocationIds: [],
+          productKinds: [],
+          serviceTimeShapes: [],
+          // showPast intentionally omitted — emulates pre-qhi0 payload.
+        }),
+      )
+      const { result } = renderHook(() => useBookingsFilters())
+      expect(result.current.filters.showPast).toBe(false)
+      // Chip dimensions still hydrate normally.
+      expect(result.current.filters.lifecycleStates).toEqual(['cancelled'])
+    })
+
+    it('setShowPast is not reflected in activeFilterCount', () => {
+      const { result } = renderHook(() => useBookingsFilters())
+      act(() => result.current.setShowPast(true))
+      expect(activeFilterCount(result.current.filters)).toBe(0)
+      expect(isEmptyFilters(result.current.filters)).toBe(true)
+    })
   })
 })

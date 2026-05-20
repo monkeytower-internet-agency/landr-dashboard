@@ -338,6 +338,46 @@ export function toDateOnlyIso(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
+// ----- Past-booking helper (landr-qhi0) -----------------------------------
+// A booking is "past" when its latest activity date is strictly before today.
+// Activity date per item is max(date_range_end, last(selected_days[])); the
+// booking-level activity date is the MAX across items. Bookings with NO
+// dates at all (rare — direct stub bookings) are treated as future ("not
+// past") so they never silently disappear from the operator's queue.
+//
+// All comparisons happen on ISO YYYY-MM-DD strings, which sort
+// lexicographically. We anchor "today" in the operator's LOCAL timezone via
+// toDateOnlyIso(new Date()) so the cut-off rolls over at the operator's
+// midnight, not UTC midnight.
+
+/** Latest activity date across a booking's items as YYYY-MM-DD, or null. */
+function latestActivityDate(row: BookingRow): string | null {
+  let best: string | null = null
+  for (const item of row.items) {
+    const end = item.date_range_end
+    if (end && (best === null || end > best)) best = end
+    const days = item.selected_days
+    if (days && days.length > 0) {
+      // selected_days[] is not guaranteed sorted — scan for max.
+      for (const d of days) {
+        if (d && (best === null || d > best)) best = d
+      }
+    }
+  }
+  return best
+}
+
+/**
+ * True when the booking's latest activity date is strictly before `now`
+ * (operator-local date). Bookings without any item-level dates are
+ * treated as NOT past, so they remain visible by default.
+ */
+export function isPastBooking(row: BookingRow, now: Date = new Date()): boolean {
+  const latest = latestActivityDate(row)
+  if (!latest) return false
+  return latest < toDateOnlyIso(now)
+}
+
 // ----- General approval queue ---------------------------------------------
 
 /** Fetch all bookings awaiting_general_approval for an operator. */

@@ -224,6 +224,24 @@ describe('BookingsFilters', () => {
     )
   })
 
+  // landr-qhi0 — view toggle that hides past-activity bookings by default.
+  it('renders the show-past checkbox unchecked by default and persists the flip', async () => {
+    const user = userEvent.setup()
+    render(<Harness bookings={sample} />)
+
+    const checkbox = screen.getByTestId('harness-show-past') as HTMLInputElement
+    expect(checkbox).toBeInTheDocument()
+    expect(checkbox.checked).toBe(false)
+
+    await user.click(checkbox)
+    expect(checkbox.checked).toBe(true)
+
+    const stored = window.localStorage.getItem(
+      'landr.dashboard.bookingsFilters.user-1',
+    )
+    expect(JSON.parse(stored!).showPast).toBe(true)
+  })
+
   it('clicking a zero-count enum chip does not toggle the filter', async () => {
     // Opt out of the pointer-events check at session-setup time so the
     // disabled chip can receive a dispatched click and we can verify

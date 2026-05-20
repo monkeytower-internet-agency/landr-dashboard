@@ -22,6 +22,14 @@ export type BookingsFilters = {
   productKinds: string[]
   /** service_time_shape enum values. */
   serviceTimeShapes: string[]
+  /**
+   * landr-qhi0 — when true, bookings whose latest activity date is in the
+   * past are kept in the list. Default false (past bookings are hidden so
+   * the operator focuses on upcoming work). Persisted alongside the chip
+   * dimensions; older stored payloads simply default to false via the
+   * parser below.
+   */
+  showPast: boolean
 }
 
 export const EMPTY_FILTERS: BookingsFilters = {
@@ -30,9 +38,12 @@ export const EMPTY_FILTERS: BookingsFilters = {
   pickupLocationIds: [],
   productKinds: [],
   serviceTimeShapes: [],
+  showPast: false,
 }
 
-const FILTER_KEYS: ReadonlyArray<keyof BookingsFilters> = [
+type ChipDimension = Exclude<keyof BookingsFilters, 'showPast'>
+
+const FILTER_KEYS: ReadonlyArray<ChipDimension> = [
   'lifecycleStates',
   'productIds',
   'pickupLocationIds',
@@ -44,12 +55,17 @@ export function storageKey(userId: string): string {
   return `landr.dashboard.bookingsFilters.${userId}`
 }
 
-/** True when no dimension has any selection (i.e. "show everything"). */
+/** True when no dimension has any selection (i.e. "show everything").
+ *  landr-qhi0 — `showPast` is a view toggle, not a chip, so we ignore it
+ *  here (matches the includeErased precedent in contacts-filters.ts). */
 export function isEmptyFilters(f: BookingsFilters): boolean {
   return FILTER_KEYS.every((k) => f[k].length === 0)
 }
 
-/** Total count of active filter selections across all dimensions. */
+/** Total count of active filter selections across all chip dimensions.
+ *  landr-qhi0 — `showPast` is intentionally NOT counted: same reasoning
+ *  as `includeErased` in contacts-filters — keeps the "Clear filters"
+ *  affordance reserved for the chip selections. */
 export function activeFilterCount(f: BookingsFilters): number {
   return FILTER_KEYS.reduce((sum, k) => sum + f[k].length, 0)
 }
@@ -60,14 +76,18 @@ function readStored(userId: string): BookingsFilters {
     const raw = window.localStorage.getItem(storageKey(userId))
     if (!raw) return EMPTY_FILTERS
     const parsed = JSON.parse(raw) as Partial<BookingsFilters>
-    // Tolerate older / malformed shapes: every key is normalised to a
-    // string[]; unknown keys are dropped.
+    // Tolerate older / malformed shapes: every chip dimension is normalised
+    // to a string[]; unknown keys are dropped. `showPast` defaults to false
+    // when missing so older payloads behave like the new "hide past" default.
     const out: BookingsFilters = { ...EMPTY_FILTERS }
     for (const k of FILTER_KEYS) {
       const v = parsed?.[k]
       if (Array.isArray(v)) {
         out[k] = v.filter((x): x is string => typeof x === 'string')
       }
+    }
+    if (typeof parsed?.showPast === 'boolean') {
+      out.showPast = parsed.showPast
     }
     return out
   } catch {
@@ -87,9 +107,11 @@ function writeStored(userId: string, value: BookingsFilters): void {
 export type UseBookingsFilters = {
   filters: BookingsFilters
   setFilters: (next: BookingsFilters) => void
-  toggle: (dimension: keyof BookingsFilters, value: string) => void
-  clearDimension: (dimension: keyof BookingsFilters) => void
+  toggle: (dimension: ChipDimension, value: string) => void
+  clearDimension: (dimension: ChipDimension) => void
   clearAll: () => void
+  /** landr-qhi0 — flip the "Show past bookings" view toggle. */
+  setShowPast: (value: boolean) => void
 }
 
 /**
@@ -124,7 +146,7 @@ export function useBookingsFilters(): UseBookingsFilters {
   )
 
   const toggle = useCallback(
-    (dimension: keyof BookingsFilters, value: string) => {
+    (dimension: ChipDimension, value: string) => {
       setFiltersState((current) => {
         const existing = current[dimension]
         const next: BookingsFilters = {
@@ -141,7 +163,7 @@ export function useBookingsFilters(): UseBookingsFilters {
   )
 
   const clearDimension = useCallback(
-    (dimension: keyof BookingsFilters) => {
+    (dimension: ChipDimension) => {
       setFiltersState((current) => {
         const next: BookingsFilters = { ...current, [dimension]: [] }
         if (userId) writeStored(userId, next)
@@ -156,8 +178,20 @@ export function useBookingsFilters(): UseBookingsFilters {
     if (userId) writeStored(userId, EMPTY_FILTERS)
   }, [userId])
 
+  const setShowPast = useCallback(
+    (value: boolean) => {
+      setFiltersState((current) => {
+        if (current.showPast === value) return current
+        const next: BookingsFilters = { ...current, showPast: value }
+        if (userId) writeStored(userId, next)
+        return next
+      })
+    },
+    [userId],
+  )
+
   return useMemo(
-    () => ({ filters, setFilters, toggle, clearDimension, clearAll }),
-    [filters, setFilters, toggle, clearDimension, clearAll],
+    () => ({ filters, setFilters, toggle, clearDimension, clearAll, setShowPast }),
+    [filters, setFilters, toggle, clearDimension, clearAll, setShowPast],
   )
 }
