@@ -134,7 +134,7 @@ export function EmailTemplates() {
                           type="button"
                           onClick={() => setSelection({ kind, locale })}
                           className={cn(
-                            'flex-1 border-r px-3 py-2 text-sm last:border-r-0 transition-colors',
+                            'flex-1 cursor-pointer border-r px-3 py-2 text-sm last:border-r-0 transition-colors',
                             isSelected
                               ? 'bg-primary text-primary-foreground'
                               : 'hover:bg-accent hover:text-accent-foreground',

@@ -215,7 +215,7 @@ function MonthGrid({
             disabled={disabled || blocked}
             onClick={(e) => onPick(iso, e)}
             className={cn(
-              'flex h-9 w-9 items-center justify-center rounded-md text-sm transition-colors',
+              'flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-sm transition-colors',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               !inMonth && 'text-muted-foreground/50',
               blocked && 'cursor-not-allowed opacity-40',

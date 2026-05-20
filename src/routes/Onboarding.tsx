@@ -204,7 +204,7 @@ function OnboardingInner({
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="text-xs text-muted-foreground underline"
+            className="cursor-pointer text-xs text-muted-foreground underline"
           >
             {t.onboarding.step9.ctaDashboard}
           </button>

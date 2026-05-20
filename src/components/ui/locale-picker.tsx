@@ -51,7 +51,7 @@ export function LocalePicker({
           aria-expanded={open}
           disabled={disabled}
           className={cn(
-            "flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30",
+            "flex h-9 w-full cursor-pointer items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30",
             "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
           )}
         >
@@ -95,7 +95,7 @@ export function LocalePicker({
                       setQuery("")
                     }}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground",
+                      "flex w-full cursor-pointer items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground",
                       selected && "bg-accent/50",
                     )}
                   >
