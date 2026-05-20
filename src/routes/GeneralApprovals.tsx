@@ -292,7 +292,7 @@ export function GeneralApprovals() {
                             <button
                               type="button"
                               onClick={header.column.getToggleSortingHandler()}
-                              className="hover:text-foreground inline-flex items-center gap-1"
+                              className="hover:text-foreground inline-flex cursor-pointer items-center gap-1"
                               data-testid={`approvals-sort-${header.column.id}`}
                             >
                               {flexRender(

@@ -182,7 +182,7 @@ export function StaffTable({ rows, onEdit, onRevoke }: Props) {
                         <button
                           type="button"
                           onClick={header.column.getToggleSortingHandler()}
-                          className="hover:text-foreground inline-flex items-center gap-1"
+                          className="hover:text-foreground inline-flex cursor-pointer items-center gap-1"
                         >
                           {flexRender(
                             header.column.columnDef.header,
