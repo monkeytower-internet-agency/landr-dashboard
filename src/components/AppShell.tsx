@@ -95,14 +95,6 @@ function AppShellInner({
           <div className="ml-auto flex items-center gap-1">
             <ThemeToggle />
             <UserMenu onSignOut={onSignOut} />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onSignOut}
-              className="hidden sm:inline-flex"
-            >
-              {t.auth.signOut}
-            </Button>
           </div>
         </header>
         <OnboardingBanner />
