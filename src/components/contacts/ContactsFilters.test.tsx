@@ -157,6 +157,7 @@ describe('ContactsFilters', () => {
     const user = userEvent.setup()
     await user.click(screen.getByTestId('contacts-filters-show-erased'))
     expect(filtersApi.setIncludeErased).toHaveBeenCalledWith(false)
+  })
 
   // landr-knz3 — zero-count chips are disabled, advertise it accessibly,
   // expose a tooltip via title, and don't fire toggleType when clicked.
