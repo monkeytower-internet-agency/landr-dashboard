@@ -19,7 +19,6 @@ import {
   patchPricingScheme,
   RULE_KIND_LABELS,
   type PricingScheme,
-  type PricingSchemePatch,
   type RuleKind,
 } from '@/lib/pricingSchemes'
 import { PricingRuleEditor } from './PricingRuleEditor'
