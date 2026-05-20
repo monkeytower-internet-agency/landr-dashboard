@@ -167,6 +167,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['bookings'] })
     queryClient.invalidateQueries({ queryKey: ['calendar'] })
+    queryClient.invalidateQueries({ queryKey: ['contacts'] })
   }
 
   const saveMutation = useMutation({
