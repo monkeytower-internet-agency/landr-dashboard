@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Trash2Icon } from 'lucide-react'
+import { GripVerticalIcon, Trash2Icon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,14 @@ type Props = {
   currency: string
   onDeleted: () => void
   onRefetch: () => void
+  /** Optional drag handle (provided by SortableRuleItem). */
+  dragHandle?: ReactNode
+  /** Optional style for the draggable wrapper (transform/transition). */
+  wrapperStyle?: CSSProperties
+  /** Visual flag while this row is being dragged. */
+  isDragging?: boolean
+  /** Forwarded ref for dnd-kit setNodeRef. */
+  innerRef?: (node: HTMLElement | null) => void
 }
 
 // ---- module-level params editor for non-tiered rule kinds ---------------
@@ -122,6 +130,38 @@ function ParamsEditor({ rule, currency, onPatch }: ParamsEditorProps) {
   return null
 }
 
+// ---- default drag handle ------------------------------------------------
+
+/**
+ * Static (non-interactive) drag handle for the rule chip header. The
+ * SortableRuleItem wrapper attaches the actual dnd-kit listeners; this
+ * component only renders the visual affordance + a11y label.
+ */
+export function RuleDragHandle({
+  attributes,
+  listeners,
+  className,
+}: {
+  attributes?: Record<string, unknown>
+  listeners?: Record<string, unknown>
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      aria-label="Drag to reorder rule"
+      className={
+        'text-muted-foreground hover:text-foreground -ml-1 inline-flex h-6 w-6 shrink-0 cursor-grab items-center justify-center rounded touch-none active:cursor-grabbing' +
+        (className ? ' ' + className : '')
+      }
+      {...(attributes ?? {})}
+      {...(listeners ?? {})}
+    >
+      <GripVerticalIcon className="size-4" />
+    </button>
+  )
+}
+
 // ---- main component -----------------------------------------------------
 
 export function PricingRuleEditor({
@@ -130,9 +170,11 @@ export function PricingRuleEditor({
   currency,
   onDeleted,
   onRefetch,
+  dragHandle,
+  wrapperStyle,
+  isDragging,
+  innerRef,
 }: Props) {
-  const [sortOrder, setSortOrder] = useState(String(rule.sort_order))
-
   const patchMutation = useMutation({
     mutationFn: (body: Parameters<typeof patchRule>[2]) =>
       patchRule(operatorId, rule.id, body),
@@ -148,13 +190,6 @@ export function PricingRuleEditor({
       toast.error(`Failed to delete rule: ${err.message}`),
   })
 
-  function saveSortOrder() {
-    const v = parseInt(sortOrder, 10)
-    if (isNaN(v)) { setSortOrder(String(rule.sort_order)); return }
-    if (v === rule.sort_order) return
-    patchMutation.mutate({ sort_order: v })
-  }
-
   function toggleActive() {
     patchMutation.mutate({ active: !rule.active })
   }
@@ -162,26 +197,21 @@ export function PricingRuleEditor({
   const tiered = isTieredKind(rule.rule_kind)
 
   return (
-    <div className="space-y-1 rounded-md border p-3">
+    <div
+      ref={innerRef}
+      style={wrapperStyle}
+      className={
+        'space-y-1 rounded-md border p-3' +
+        (isDragging ? ' opacity-50 shadow-md' : '')
+      }
+    >
       {/* Header row */}
       <div className="flex flex-wrap items-center gap-2">
+        {dragHandle ?? null}
+
         <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium">
           {RULE_KIND_LABELS[rule.rule_kind]}
         </span>
-
-        <div className="flex items-center gap-1">
-          <Label htmlFor={`sort-${rule.id}`} className="text-muted-foreground text-xs">
-            Order
-          </Label>
-          <Input
-            id={`sort-${rule.id}`}
-            className="h-6 w-14 text-xs"
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            onBlur={saveSortOrder}
-            type="number"
-          />
-        </div>
 
         <Button
           type="button"
