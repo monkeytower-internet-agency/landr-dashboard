@@ -69,6 +69,25 @@ const { mock } = vi.hoisted(() => {
     return builder
   }
 
+  // landr-39nw — gdprEraseContact() resolves auth.uid → public.users.id via
+  // `.from('users').select('id').eq('supabase_auth_id', uid).maybeSingle()`
+  // before calling the rpc. Without a terminal maybeSingle() the chain
+  // throws and the rpc is never reached. We return `id: 'user-1'` so the
+  // bridged id matches the auth.uid stubbed by the useAuth() mock above —
+  // existing rpc assertions check `p_requested_by_user_id: 'user-1'`.
+  const usersBuilder = () => {
+    const builder: Record<string, unknown> = {}
+    Object.assign(builder, {
+      select: vi.fn(() => builder),
+      eq: vi.fn(() => builder),
+      maybeSingle: vi.fn(async () => ({
+        data: { id: 'user-1' },
+        error: null,
+      })),
+    })
+    return builder
+  }
+
   const auditBuilder = () => {
     const builder: Record<string, unknown> = {}
     Object.assign(builder, {
@@ -83,6 +102,7 @@ const { mock } = vi.hoisted(() => {
   const supabase = {
     from: vi.fn((table: string) => {
       if (table === 'audit_log') return auditBuilder()
+      if (table === 'users') return usersBuilder()
       return contactsBuilder()
     }),
     channel: vi.fn(() => channel),

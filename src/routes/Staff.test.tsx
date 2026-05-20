@@ -24,6 +24,16 @@ type MembershipFixture = {
   permissions: Record<string, unknown> | null
   created_at: string
   updated_at: string
+  // landr-39nw — StaffTable now renders a "Name" column that falls back
+  // to email when no contact is linked. The fixtures default to a null
+  // contact (matching the original shape) so the table renders email in
+  // both columns; tests that scope by email use queryAllByText / within()
+  // to disambiguate. Tests that need a distinct name can supply a contact.
+  contact: {
+    id: string
+    first_name: string | null
+    last_name: string | null
+  } | null
   user: { id: string; email: string | null; is_landr_staff: boolean } | null
 }
 
@@ -126,6 +136,7 @@ const { mock } = vi.hoisted(() => {
               (payload.permissions as Record<string, unknown> | null) ?? null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
+            contact: null,
             user: {
               id: payload.user_id as string,
               email:
@@ -244,6 +255,7 @@ function makeMembership(
     permissions: null,
     created_at: '2026-05-10T09:00:00.000Z',
     updated_at: '2026-05-10T09:00:00.000Z',
+    contact: null,
     user: { id: 'u-1', email: 'martin@operator.example', is_landr_staff: false },
     ...overrides,
   }
@@ -304,8 +316,14 @@ describe('Staff route', () => {
     ]
     render(<Staff />)
 
-    await screen.findByText('martin@operator.example')
-    expect(screen.getByText('alice@operator.example')).toBeInTheDocument()
+    // landr-39nw — StaffTable renders the email in both the Name column
+    // (fallback) and the Email column when no contact is linked, so the
+    // text appears twice per row. Use the *AllBy* variants and check
+    // length to assert presence without disambiguating cells.
+    await screen.findAllByText('martin@operator.example')
+    expect(screen.getAllByText('alice@operator.example').length).toBeGreaterThan(
+      0,
+    )
     expect(screen.getByText('owner')).toBeInTheDocument()
     expect(screen.getByText('staff')).toBeInTheDocument()
     // Permissions count summary for the row that has 1 key
@@ -328,7 +346,7 @@ describe('Staff route', () => {
     const user = userEvent.setup()
     render(<Staff />)
 
-    await screen.findByText('martin@operator.example')
+    await screen.findAllByText('martin@operator.example')
 
     await user.click(
       screen.getByRole('button', { name: /invite by email/i }),
@@ -380,7 +398,7 @@ describe('Staff route', () => {
     const user = userEvent.setup()
     render(<Staff />)
 
-    await screen.findByText('martin@operator.example')
+    await screen.findAllByText('martin@operator.example')
     await user.click(screen.getByRole('button', { name: /invite by email/i }))
 
     const dialog = await screen.findByRole('dialog')
@@ -415,7 +433,7 @@ describe('Staff route', () => {
     const user = userEvent.setup()
     render(<Staff />)
 
-    await screen.findByText('martin@operator.example')
+    await screen.findAllByText('martin@operator.example')
     await user.click(screen.getByRole('button', { name: /invite by email/i }))
 
     const dialog = await screen.findByRole('dialog')
@@ -453,7 +471,7 @@ describe('Staff route', () => {
     const user = userEvent.setup()
     render(<Staff />)
 
-    await screen.findByText('alice@operator.example')
+    await screen.findAllByText('alice@operator.example')
     await user.click(
       screen.getByRole('button', { name: /Edit — alice@operator.example/i }),
     )
@@ -501,7 +519,7 @@ describe('Staff route', () => {
     const user = userEvent.setup()
     render(<Staff />)
 
-    await screen.findByText('alice@operator.example')
+    await screen.findAllByText('alice@operator.example')
     await user.click(
       screen.getByRole('button', { name: /Revoke — alice@operator.example/i }),
     )
@@ -539,7 +557,7 @@ describe('Staff route', () => {
     ]
     render(<Staff />)
 
-    await screen.findByText('martin@operator.example')
+    await screen.findAllByText('martin@operator.example')
     expect(mock.supabase.channel).toHaveBeenCalled()
     expect(mock.channel.on).toHaveBeenCalledWith(
       'postgres_changes',
