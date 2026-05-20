@@ -228,6 +228,20 @@ vi.mock('@/lib/supabase', () => ({
   getSupabase: () => mock.supabase,
 }))
 
+// landr-pugm — ProductsManager now uses useProductsSort / useProductsFilters
+// hooks that read from useAuth() for per-user localStorage keying. The test
+// harness here doesn't mount an AuthProvider, so we stub useAuth directly
+// (mirrors the Contacts.test.tsx pattern).
+vi.mock('@/lib/auth', () => ({
+  useAuth: () => ({
+    user: { id: 'test-user' },
+    session: null,
+    loading: false,
+    signOut: async () => {},
+  }),
+  AuthProvider: ({ children }: { children: ReactElement }) => children,
+}))
+
 vi.mock('@/lib/operator', () => ({
   useOperator: () => ({
     operators: [
