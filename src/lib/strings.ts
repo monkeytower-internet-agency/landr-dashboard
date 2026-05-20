@@ -337,6 +337,7 @@ export const t = {
     headingNew: 'New product',
     headingPick: 'Select a product',
     pickHint: 'Pick a product on the left to edit, or create a new one.',
+    backToList: 'Back to products',
     statusActive: 'Active',
     statusInactive: 'Inactive',
 

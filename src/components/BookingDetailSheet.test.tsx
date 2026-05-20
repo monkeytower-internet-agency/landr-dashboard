@@ -121,6 +121,15 @@ describe('BookingDetailSheet', () => {
     expect(screen.getByLabelText(/phone/i)).toHaveValue('+34600111222')
   })
 
+  it('widens the SheetContent to ~60vw on desktop (landr-li8e)', () => {
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    const content = document.querySelector('[data-slot="sheet-content"]')
+    expect(content).not.toBeNull()
+    // Operators review 2-3 bookings in a row; 60vw keeps the underlying
+    // list visible while giving line items + customer fields room to breathe.
+    expect(content?.className).toMatch(/sm:max-w-\[60vw\]/)
+  })
+
   it('disables Save until something changes, then persists customer patch', async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
