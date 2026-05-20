@@ -128,6 +128,15 @@ describe('CustomerDetailSheet', () => {
     expect(screen.getByLabelText(/phone/i)).toHaveValue('+34600111222')
   })
 
+  it('widens the SheetContent to ~60vw on desktop (landr-li8e)', () => {
+    render(<CustomerDetailSheet contactId="c-1" onOpenChange={() => {}} />)
+    const content = document.querySelector('[data-slot="sheet-content"]')
+    expect(content).not.toBeNull()
+    // Stays as a Sheet (not modal) so the contacts list behind it remains
+    // visible for quick triage. 60vw gives the contact form room.
+    expect(content?.className).toMatch(/sm:max-w-\[60vw\]/)
+  })
+
   it('disables Save until something changes, then PATCHes the contact', async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()

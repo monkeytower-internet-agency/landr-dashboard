@@ -56,7 +56,12 @@ export function BookingDetailSheet({
   const open = row !== null
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-xl">
+      {/* landr-li8e — widen to ~60vw on desktop so operators can review
+          line items, participants and customer details without scrolling
+          sideways. Keep w-full on mobile (the sm: breakpoint kicks in
+          ≥640px) and stay as a Sheet (not modal) so the underlying list
+          stays visible. */}
+      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-[60vw]">
         {row ? (
           <BookingDetailBody
             key={row.id}

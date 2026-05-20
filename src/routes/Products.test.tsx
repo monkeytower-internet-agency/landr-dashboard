@@ -5,7 +5,7 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactElement } from 'react'
@@ -281,17 +281,25 @@ vi.mock('@/lib/operator', () => ({
 
 import { Products } from './Products'
 
-function render(ui: ReactElement) {
+// landr-li8e — Products route now drives selection from the URL
+// (/settings/products[/:productId]) and renders list-only OR detail-only,
+// never both. Tests that need the detail panel (form fields, save/create
+// flows) mount at /settings/products/<id> directly; list-only tests mount
+// at /settings/products with no productId.
+function render(initialEntry: string = '/settings/products') {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
-  return rtlRender(ui, {
-    wrapper: ({ children }) => (
-      <QueryClientProvider client={client}>
-        <MemoryRouter>{children}</MemoryRouter>
-      </QueryClientProvider>
-    ),
-  })
+  return rtlRender(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route path="/settings/products" element={<Products />} />
+          <Route path="/settings/products/:productId" element={<Products />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
 }
 
 function makeProduct(over: Partial<ProductFixture> = {}): ProductFixture {
@@ -346,32 +354,74 @@ afterEach(() => {
 })
 
 describe('Products route', () => {
-  it('renders the list and auto-selects the first product', async () => {
+  it('renders the list at /settings/products with no productId (landr-li8e)', async () => {
     mock.state.products = [
       makeProduct({ id: 'p-1', name: 'Tandem Flight' }),
       makeProduct({ id: 'p-2', name: 'Solo Course', slug: 'solo-course' }),
     ]
-    render(<Products />)
+    render('/settings/products')
 
     await screen.findByRole('option', { name: /Tandem Flight/i })
     expect(
       screen.getByRole('option', { name: /Solo Course/i }),
     ).toBeInTheDocument()
 
-    // The auto-selected product appears as the form heading + has its name
-    // pre-filled in the Name input.
+    // landr-li8e — list-only view: the detail form is NOT mounted, so the
+    // 'Name' input is absent and there is no 'Back to products' button.
+    expect(screen.queryByLabelText(/^Name$/i)).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /back to products/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('renders the detail full-page at /settings/products/:productId with a back button (landr-li8e)', async () => {
+    mock.state.products = [
+      makeProduct({ id: 'p-1', name: 'Tandem Flight' }),
+      makeProduct({ id: 'p-2', name: 'Solo Course', slug: 'solo-course' }),
+    ]
+    render('/settings/products/p-1')
+
+    // Detail form is mounted with the URL-selected product.
     const nameInput = (await screen.findByLabelText(
       /^Name$/i,
     )) as HTMLInputElement
     expect(nameInput.value).toBe('Tandem Flight')
+
+    // Back-to-list button is present in detail header.
+    expect(
+      screen.getByRole('button', { name: /back to products/i }),
+    ).toBeInTheDocument()
+
+    // List is hidden in full-page detail mode.
+    expect(
+      screen.queryByRole('option', { name: /Solo Course/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("navigates back to the list when 'Back to products' is clicked (landr-li8e)", async () => {
+    mock.state.products = [makeProduct({ id: 'p-1', name: 'Tandem Flight' })]
+
+    const user = userEvent.setup()
+    render('/settings/products/p-1')
+
+    await screen.findByLabelText(/^Name$/i)
+    await user.click(
+      screen.getByRole('button', { name: /back to products/i }),
+    )
+
+    // List is now visible and detail form is gone.
+    await screen.findByRole('option', { name: /Tandem Flight/i })
+    expect(screen.queryByLabelText(/^Name$/i)).not.toBeInTheDocument()
   })
 
   it('creates a new product via the form', async () => {
     mock.state.products = [makeProduct({ id: 'p-1', name: 'Existing' })]
 
     const user = userEvent.setup()
-    render(<Products />)
+    render('/settings/products')
 
+    // Click 'New product' from the list — navigates to /settings/products/new
+    // which renders the full-page detail in create mode.
     await screen.findByRole('option', { name: /Existing/i })
     await user.click(screen.getByRole('button', { name: /new product/i }))
 
@@ -399,16 +449,13 @@ describe('Products route', () => {
       service_time_shape: 'days_range',
       active: true,
     })
-
-    // The list now shows the new product.
-    await screen.findByRole('option', { name: /Beginner Kayak/i })
   })
 
   it('updates an existing product via the form', async () => {
     mock.state.products = [makeProduct({ id: 'p-1', name: 'Tandem Flight' })]
 
     const user = userEvent.setup()
-    render(<Products />)
+    render('/settings/products/p-1')
 
     const nameInput = (await screen.findByLabelText(
       /^Name$/i,
@@ -434,7 +481,7 @@ describe('Products route', () => {
     mock.state.products = [makeProduct({ id: 'p-1', name: 'Tandem Flight' })]
 
     const user = userEvent.setup()
-    render(<Products />)
+    render('/settings/products/p-1')
 
     await screen.findByLabelText(/^Name$/i)
     const shapeSelect = screen.getByLabelText(/time model/i) as HTMLSelectElement
@@ -449,7 +496,7 @@ describe('Products route', () => {
       makeProduct({ id: 'p-2', name: 'Solo Course', slug: 'solo-course' }),
     ]
     const user = userEvent.setup()
-    render(<Products />)
+    render('/settings/products')
 
     const list = await screen.findByRole('listbox')
     expect(

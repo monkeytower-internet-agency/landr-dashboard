@@ -90,7 +90,10 @@ export function CustomerDetailSheet({ contactId, onOpenChange }: Props) {
   const open = contactId !== null
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-md">
+      {/* landr-li8e — widen to ~60vw on desktop so the contact form +
+          history have room to breathe. Stays as Sheet (not modal) so the
+          contacts list behind it remains visible for quick triage. */}
+      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-[60vw]">
         {contactId ? (
           <CustomerDetailBody
             key={contactId}

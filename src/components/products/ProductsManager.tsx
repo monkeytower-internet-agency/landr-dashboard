@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -48,22 +50,38 @@ type Props = {
   /** Hide the page-style header (title); used when rendered inside a Sheet that has its own header. */
   hideHeader?: boolean
   /**
-   * landr-i018 — initial selection driven by the URL path
-   * (/products/:productId). Lets cross-page links (e.g. the Pricing
-   * settings 'Used by' chips) deep-link to a specific product. The
-   * manager keeps its own selection state after the first render so
-   * subsequent in-page clicks behave like before.
+   * landr-li8e — URL-driven selection. When the parent route owns the
+   * selection via the URL (`/settings/products/:productId`), it passes the
+   * current productId here ('new' is the sentinel for create mode) plus an
+   * `onUrlSelect` callback to drive navigation. In that mode the manager
+   * renders in two states: list-only (no selection) or detail-only / full
+   * page (selection present, list hidden). When these props are absent
+   * (e.g. the onboarding Step5 embed), the manager keeps the legacy
+   * side-by-side list + auto-pick-first behaviour.
    */
-  initialSelection?: string | null
+  urlSelection?: Selection
+  onUrlSelect?: (id: string | null) => void
 }
 
 export function ProductsManager({
   operatorId,
   hideHeader = false,
-  initialSelection = null,
+  urlSelection,
+  onUrlSelect,
 }: Props) {
   const queryClient = useQueryClient()
-  const [selection, setSelection] = useState<Selection>(initialSelection)
+  const routed = onUrlSelect !== undefined
+  // In routed mode the URL is the source of truth; otherwise we keep local
+  // selection state (legacy onboarding embed).
+  const [localSelection, setLocalSelection] = useState<Selection>(null)
+  const selection: Selection = routed ? (urlSelection ?? null) : localSelection
+  const setSelection = (next: Selection) => {
+    if (routed) {
+      onUrlSelect(next === NEW_PRODUCT ? NEW_PRODUCT : next)
+    } else {
+      setLocalSelection(next)
+    }
+  }
   const [feedback, setFeedback] = useState<string | null>(null)
 
   // landr-pugm — per-user sort + product_kind filter applied at the API
@@ -140,13 +158,16 @@ export function ProductsManager({
 
   const rows = useMemo(() => productsQuery.data ?? [], [productsQuery.data])
 
-  // Resolve the active selection. If the user has not picked anything yet
-  // (selection === null), fall back to the first row so the form has
-  // content to edit by default. NEW_PRODUCT means "creating new".
+  // Resolve the active selection. In routed mode (landr-li8e), no selection
+  // means "list view" — we do NOT auto-pick a row, because that would force
+  // an immediate navigation to the detail page. In legacy (onboarding) mode
+  // we fall back to the first row so the form has content by default.
+  // NEW_PRODUCT means "creating new".
   const resolvedSelection: Selection = useMemo(() => {
     if (selection !== null) return selection
+    if (routed) return null
     return rows[0]?.id ?? null
-  }, [selection, rows])
+  }, [selection, rows, routed])
 
   const selectedProduct = useMemo<ProductRow | null>(() => {
     if (resolvedSelection === null || resolvedSelection === NEW_PRODUCT) {
@@ -300,6 +321,135 @@ export function ProductsManager({
   const deleting = deleteMutation.isPending
   const duplicatingId = duplicateMutation.isPending ? (duplicateMutation.variables ?? null) : null
 
+  // landr-li8e — in routed mode, hide the list when a selection is active
+  // (full-page detail) and hide the detail when there's no selection
+  // (list-only). Legacy mode (no router wiring, e.g. Onboarding Step5)
+  // keeps the side-by-side layout.
+  const isFullPageDetail =
+    routed &&
+    (resolvedSelection === NEW_PRODUCT || resolvedSelection !== null)
+  const showList = !routed || !isFullPageDetail
+  const showDetail = !routed || isFullPageDetail
+
+  const detailHeading =
+    resolvedSelection === NEW_PRODUCT
+      ? t.products.headingNew
+      : selectedProduct
+        ? selectedProduct.name
+        : t.products.headingPick
+
+  const detailCard = (
+    <Card>
+      <CardHeader
+        className={
+          routed
+            ? 'flex flex-row items-center gap-3 space-y-0'
+            : undefined
+        }
+      >
+        {routed ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSelection(null)
+              setFeedback(null)
+            }}
+            className="-ml-2 gap-1"
+          >
+            <ArrowLeft className="size-4" />
+            {t.products.backToList}
+          </Button>
+        ) : null}
+        <CardTitle>{detailHeading}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {resolvedSelection === NEW_PRODUCT || selectedProduct ? (
+          <>
+            <ProductForm
+              product={
+                resolvedSelection === NEW_PRODUCT
+                  ? null
+                  : selectedProduct
+              }
+              pricingSchemes={pricingSchemesQuery.data ?? []}
+              productGroups={productGroupsQuery.data ?? []}
+              operatorId={operatorId}
+              hotelLocations={hotelLocations}
+              // landr-u34k — pass the full product roster so the
+              // Add-ons section can populate its addon-product
+              // picker. We pass `rows` (not `rows.filter(...)`)
+              // because the Add-ons section already filters out
+              // the parent itself; addon_only candidates are
+              // explicitly allowed (Breakfast linked to Rooms).
+              allProducts={rows}
+              onSubmit={handleSubmit}
+              onDelete={
+                resolvedSelection !== NEW_PRODUCT && selectedProduct
+                  ? handleDelete
+                  : undefined
+              }
+              submitting={submitting}
+              deleting={deleting}
+            />
+            {mutationError ? (
+              <p
+                role="alert"
+                className="text-destructive mt-4 text-sm"
+              >
+                {mutationError.message}
+              </p>
+            ) : null}
+            {feedback ? (
+              <p
+                role="status"
+                className="text-muted-foreground mt-4 text-sm"
+              >
+                {feedback}
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            {t.products.pickHint}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  )
+
+  const listColumn = (
+    <div className="flex flex-col gap-3">
+      <ProductsFilters
+        sortApi={sortApi}
+        filtersApi={filtersApi}
+        kindCounts={kindCountsQuery.data}
+      />
+      <ProductsList
+        rows={rows}
+        selectedId={
+          resolvedSelection === NEW_PRODUCT
+            ? null
+            : (resolvedSelection ?? null)
+        }
+        onSelect={(row) => {
+          setSelection(row.id)
+          setFeedback(null)
+        }}
+        onCreate={() => {
+          setSelection(NEW_PRODUCT)
+          setFeedback(null)
+        }}
+        onDuplicate={(row) => {
+          setFeedback(null)
+          duplicateMutation.mutate(row.id)
+        }}
+        duplicatingId={duplicatingId}
+      />
+    </div>
+  )
+
   return (
     <div className="flex flex-col gap-6">
       {hideHeader ? null : (
@@ -321,107 +471,24 @@ export function ProductsManager({
         </Card>
       ) : isLoading ? (
         <p className="text-muted-foreground text-sm">{t.products.loading}</p>
+      ) : routed ? (
+        /* landr-li8e — routed mode: list view OR full-page detail, never
+           both. Switching is driven by the URL via the Products route. */
+        showList ? listColumn : detailCard
       ) : (
-        /* landr-sydf — list column gets a guaranteed 320px minimum (chip
-           text + dual-action header fit without overflow) while keeping the
-           1fr / 2fr ratio for the detail panel on wide viewports. Items
-           stretch via items-start so the list grows with the page rather
-           than being capped by the detail-card height. */
+        /* landr-sydf — legacy side-by-side layout for the onboarding embed.
+           List column gets a guaranteed 320px minimum (chip text + dual-
+           action header fit without overflow) while keeping the 1fr / 2fr
+           ratio for the detail panel on wide viewports. Items stretch via
+           items-start so the list grows with the page rather than being
+           capped by the detail-card height. */
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(320px,1fr)_minmax(0,2fr)]">
-          <div className="flex flex-col gap-3">
-            <ProductsFilters
-              sortApi={sortApi}
-              filtersApi={filtersApi}
-              kindCounts={kindCountsQuery.data}
-            />
-            <ProductsList
-              rows={rows}
-              selectedId={
-                resolvedSelection === NEW_PRODUCT
-                  ? null
-                  : (resolvedSelection ?? null)
-              }
-              onSelect={(row) => {
-                setSelection(row.id)
-                setFeedback(null)
-              }}
-              onCreate={() => {
-                setSelection(NEW_PRODUCT)
-                setFeedback(null)
-              }}
-              onDuplicate={(row) => {
-                setFeedback(null)
-                duplicateMutation.mutate(row.id)
-              }}
-              duplicatingId={duplicatingId}
-            />
-          </div>
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {resolvedSelection === NEW_PRODUCT
-                  ? t.products.headingNew
-                  : selectedProduct
-                    ? selectedProduct.name
-                    : t.products.headingPick}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {resolvedSelection === NEW_PRODUCT || selectedProduct ? (
-                <>
-                  <ProductForm
-                    product={
-                      resolvedSelection === NEW_PRODUCT
-                        ? null
-                        : selectedProduct
-                    }
-                    pricingSchemes={pricingSchemesQuery.data ?? []}
-                    productGroups={productGroupsQuery.data ?? []}
-                    operatorId={operatorId}
-                    hotelLocations={hotelLocations}
-                    // landr-u34k — pass the full product roster so the
-                    // Add-ons section can populate its addon-product
-                    // picker. We pass `rows` (not `rows.filter(...)`)
-                    // because the Add-ons section already filters out
-                    // the parent itself; addon_only candidates are
-                    // explicitly allowed (Breakfast linked to Rooms).
-                    allProducts={rows}
-                    onSubmit={handleSubmit}
-                    onDelete={
-                      resolvedSelection !== NEW_PRODUCT && selectedProduct
-                        ? handleDelete
-                        : undefined
-                    }
-                    submitting={submitting}
-                    deleting={deleting}
-                  />
-                  {mutationError ? (
-                    <p
-                      role="alert"
-                      className="text-destructive mt-4 text-sm"
-                    >
-                      {mutationError.message}
-                    </p>
-                  ) : null}
-                  {feedback ? (
-                    <p
-                      role="status"
-                      className="text-muted-foreground mt-4 text-sm"
-                    >
-                      {feedback}
-                    </p>
-                  ) : null}
-                </>
-              ) : (
-                <p className="text-muted-foreground text-sm">
-                  {t.products.pickHint}
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          {listColumn}
+          {detailCard}
         </div>
       )}
-      {selectedProduct &&
+      {showDetail &&
+      selectedProduct &&
       selectedProduct.product_kind === 'service' &&
       selectedProduct.service_time_shape === 'fixed_window' ? (
         <FixedDateWindowsTable
