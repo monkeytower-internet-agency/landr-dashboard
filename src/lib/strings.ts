@@ -157,6 +157,10 @@ export const t = {
       // landr-knz3 — tooltip shown on a counted filter chip when its
       // count is zero (e.g. an enum value with no bookings yet).
       noOfValue: (label: string): string => `No bookings match ${label}`,
+      // landr-qhi0 — view toggle that surfaces bookings whose activity
+      // date is already in the past. Default off so the operator focuses
+      // on upcoming work.
+      showPastLabel: 'Show past bookings',
     },
     detail: {
       sectionStatus: 'Status',

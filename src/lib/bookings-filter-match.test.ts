@@ -241,4 +241,79 @@ describe('matchesFilters', () => {
       ])
     })
   })
+
+  // ----- landr-qhi0 — showPast view toggle -----------------------------
+  describe('showPast (landr-qhi0)', () => {
+    // Deterministic clock — avoids machine-time flakiness.
+    const NOW = new Date('2026-05-20T12:00:00.000Z')
+
+    function withEnd(id: string, end: string | null): BookingRow {
+      return row({
+        id,
+        items: [
+          {
+            id: `${id}-i`,
+            date_range_start: null,
+            date_range_end: end,
+            selected_days: null,
+            products: {
+              id: 'p-1',
+              name: 'X',
+              product_kind: 'service',
+              service_time_shape: 'time_slot',
+            },
+          },
+        ],
+      })
+    }
+
+    it('hides past-activity rows when showPast=false (default)', () => {
+      const past = withEnd('past', '2026-05-10')
+      const future = withEnd('future', '2026-06-10')
+      const noDates = withEnd('no-dates', null)
+
+      const out = filterBookings([past, future, noDates], EMPTY_FILTERS, NOW)
+      // Past row hidden; future + dateless rows kept.
+      expect(out.map((r) => r.id).sort()).toEqual(['future', 'no-dates'])
+    })
+
+    it('keeps past-activity rows when showPast=true', () => {
+      const past = withEnd('past', '2026-05-10')
+      const future = withEnd('future', '2026-06-10')
+
+      const out = filterBookings(
+        [past, future],
+        f({ showPast: true }),
+        NOW,
+      )
+      expect(out.map((r) => r.id).sort()).toEqual(['future', 'past'])
+    })
+
+    it('showPast=false applies BEFORE chip filters', () => {
+      // A past row that would otherwise match the lifecycle chip is still
+      // hidden when showPast=false.
+      const past = withEnd('past', '2026-05-10')
+      // The base row factory has current_stage.code = awaiting_general_approval.
+      const out = filterBookings(
+        [past],
+        f({
+          showPast: false,
+          lifecycleStates: ['awaiting_general_approval'],
+        }),
+        NOW,
+      )
+      expect(out).toEqual([])
+
+      // With showPast=true the same chip filter passes.
+      const out2 = filterBookings(
+        [past],
+        f({
+          showPast: true,
+          lifecycleStates: ['awaiting_general_approval'],
+        }),
+        NOW,
+      )
+      expect(out2.map((r) => r.id)).toEqual(['past'])
+    })
+  })
 })

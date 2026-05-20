@@ -17,6 +17,7 @@
 import { useMemo } from 'react'
 import { Filter, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { CountedFilterChip } from '@/components/ui/counted-filter-chip'
 import {
   Popover,
@@ -105,7 +106,7 @@ export function BookingsFilters({
   filtersApi,
   testIdPrefix = 'bookings-filters',
 }: Props) {
-  const { filters, toggle, clearDimension, clearAll } = filtersApi
+  const { filters, toggle, clearDimension, clearAll, setShowPast } = filtersApi
 
   // Derive dropdown options from the dataset. Counts (landr-knz3) reflect
   // the UNFILTERED base dataset — disable-when-zero semantics come from
@@ -268,6 +269,22 @@ export function BookingsFilters({
           {t.bookings.filters.clearAll}
         </Button>
       ) : null}
+      {/* landr-qhi0 — view toggle to surface past-activity bookings
+          (default off). Mirrors the includeErased pattern from
+          ContactsFilters (landr-dp45): plain checkbox + label, right-
+          aligned with `ml-auto`, view-toggle semantics (not a chip). */}
+      <label
+        className="text-muted-foreground ml-auto flex cursor-pointer items-center gap-2 text-xs"
+        htmlFor={`${testIdPrefix}-show-past`}
+      >
+        <Checkbox
+          id={`${testIdPrefix}-show-past`}
+          checked={filters.showPast}
+          onChange={(e) => setShowPast(e.target.checked)}
+          data-testid={`${testIdPrefix}-show-past`}
+        />
+        {t.bookings.filters.showPastLabel}
+      </label>
     </div>
   )
 }

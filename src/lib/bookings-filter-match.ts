@@ -9,13 +9,19 @@
 //   - Multi-participant bookings match if ANY participant satisfies the
 //     pickup_location filter.
 
-import type { BookingRow } from '@/lib/bookings'
+import { isPastBooking, type BookingRow } from '@/lib/bookings'
 import type { BookingsFilters } from '@/lib/bookings-filters'
 
 export function matchesFilters(
   booking: BookingRow,
   filters: BookingsFilters,
+  now: Date = new Date(),
 ): boolean {
+  // landr-qhi0 — past-activity view toggle. Hide past bookings when
+  // showPast is false (the default). Applied BEFORE chip filters so a
+  // hidden past row never contributes to e.g. lifecycle counts.
+  if (!filters.showPast && isPastBooking(booking, now)) return false
+
   // Lifecycle state (current_stage.code).
   if (filters.lifecycleStates.length > 0) {
     const stage = booking.current_stage?.code ?? null
@@ -68,6 +74,7 @@ export function matchesFilters(
 export function filterBookings(
   bookings: BookingRow[],
   filters: BookingsFilters,
+  now: Date = new Date(),
 ): BookingRow[] {
-  return bookings.filter((b) => matchesFilters(b, filters))
+  return bookings.filter((b) => matchesFilters(b, filters, now))
 }
