@@ -74,7 +74,7 @@ export function Login() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center gap-6 overflow-hidden bg-background p-6">
+    <div className="relative flex min-h-screen flex-col items-center justify-center gap-3 overflow-hidden bg-background p-6 pb-[12vh]">
       {/*
         Soft radial gradient — mirrors the mobile onboarding background
         (app/(auth)/onboarding.tsx WelcomePage): RadialGradient at 80%/20%
@@ -92,7 +92,7 @@ export function Login() {
       <img
         src="/logos/landr-logo-hi.webp"
         alt={t.app.name}
-        className="relative z-10 w-full max-w-sm h-auto"
+        className="relative z-10 w-full max-w-xs h-auto"
       />
       <Card className="relative z-10 w-full max-w-sm">
         <CardHeader>
