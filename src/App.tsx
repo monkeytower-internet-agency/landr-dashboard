@@ -63,6 +63,11 @@ function App() {
               <Route path="/schedule" element={<Schedule />} />
               <Route path="/contacts" element={<Contacts />} />
               <Route path="/products" element={<Products />} />
+              {/* landr-i018 — deep-link a specific product (used by the
+                  Pricing settings 'Used by' chips). The route reuses the
+                  same Products screen; the productId param feeds into
+                  ProductsManager's initialSelection. */}
+              <Route path="/products/:productId" element={<Products />} />
               <Route path="/reporting" element={<Reporting />} />
               <Route path="/approvals/general" element={<GeneralApprovals />} />
 

@@ -47,11 +47,23 @@ type Props = {
   operatorId: string
   /** Hide the page-style header (title); used when rendered inside a Sheet that has its own header. */
   hideHeader?: boolean
+  /**
+   * landr-i018 — initial selection driven by the URL path
+   * (/products/:productId). Lets cross-page links (e.g. the Pricing
+   * settings 'Used by' chips) deep-link to a specific product. The
+   * manager keeps its own selection state after the first render so
+   * subsequent in-page clicks behave like before.
+   */
+  initialSelection?: string | null
 }
 
-export function ProductsManager({ operatorId, hideHeader = false }: Props) {
+export function ProductsManager({
+  operatorId,
+  hideHeader = false,
+  initialSelection = null,
+}: Props) {
   const queryClient = useQueryClient()
-  const [selection, setSelection] = useState<Selection>(null)
+  const [selection, setSelection] = useState<Selection>(initialSelection)
   const [feedback, setFeedback] = useState<string | null>(null)
 
   // landr-pugm — per-user sort + product_kind filter applied at the API
