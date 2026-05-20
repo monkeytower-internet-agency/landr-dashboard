@@ -126,16 +126,21 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        {/* Workspace switcher slot — single-org today, but the wrapping
-            div reserves the layout for the future multi-org picker. */}
-        <div className="flex items-center justify-center px-2 py-2">
-          {/* Colored logo on both light + dark backgrounds (looks good
-              against the dark sidebar too). Sized to match the width of
-              the sidebar nav labels below. */}
+        {/* Logo top-left. Expanded sidebar shows the full colored logo;
+            collapsed (icon-only) sidebar shows a small square version
+            so it doesn't get squished. Toggle via the sidebar's
+            data-collapsible="icon" group state. */}
+        <div className="flex items-center px-2 py-1.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
           <img
             src="/logos/landr-logo.png"
             alt={t.app.name}
-            className="block h-16 w-auto"
+            className="block h-12 w-auto group-data-[collapsible=icon]:hidden"
+          />
+          <img
+            src="/logos/landr-logo.png"
+            alt=""
+            aria-hidden
+            className="hidden h-8 w-8 object-contain group-data-[collapsible=icon]:block"
           />
         </div>
       </SidebarHeader>
