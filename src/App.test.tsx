@@ -90,16 +90,35 @@ const { mock } = vi.hoisted(() => {
         return { error: null }
       }),
     },
-    from: vi.fn(() => {
-      const builder = {
+    // landr-39nw — useOperator now resolves the auth.uid → public.users.id
+    // via a `.from('users').select('id').eq(...).maybeSingle()` round-trip
+    // before fetching memberships. The chain must therefore expose `eq()`
+    // and `maybeSingle()` (users table) plus the existing thenable for the
+    // memberships SELECT. We dispatch on table name so the membership query
+    // still resolves via `then`, while the users-bridge resolves via the
+    // terminal `maybeSingle()` to a stub row.
+    from: vi.fn((table: string) => {
+      const builder: Record<string, unknown> = {}
+      Object.assign(builder, {
         select: vi.fn(() => builder),
+        eq: vi.fn(() => builder),
+        maybeSingle: vi.fn(async () => {
+          if (table === 'users') {
+            // Resolve the supabase_auth_id → public.users.id bridge so the
+            // membership fetch downstream has a non-null userRow to filter
+            // on. The exact id is irrelevant for the tests; what matters is
+            // that the chain resolves and useOperator proceeds.
+            return { data: { id: 'public-user-1' }, error: null }
+          }
+          return { data: null, error: null }
+        }),
         then: (
           resolve: (v: { data: FakeRow[]; error: null }) => void,
         ) => {
           resolve({ data: state.operatorRows, error: null })
           return Promise.resolve({ data: state.operatorRows, error: null })
         },
-      }
+      })
       return builder
     }),
   }

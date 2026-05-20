@@ -220,6 +220,14 @@ beforeEach(() => {
   mock.state.error = null
   mock.state.updateError = null
   mock.state.lastUpdate = null
+  // landr-39nw — default view is `timeGridWeek` (landr-1lj), which clips
+  // sample bookings that fall outside the current week. Force month view
+  // before each test so the fixtures (isoDay(2) + isoDay(5)) always land
+  // inside the rendered range regardless of what weekday "today" is.
+  window.localStorage.setItem(
+    'landr.dashboard.calendarView.op-1',
+    'dayGridMonth',
+  )
 })
 
 afterEach(() => {
