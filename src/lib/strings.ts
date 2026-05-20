@@ -515,10 +515,18 @@ export const t = {
   },
   generalApprovals: {
     title: 'Pending approvals',
-    empty: 'No bookings awaiting general approval.',
+    // landr-aqn4 — friendlier empty state ('All caught up').
+    empty: 'All caught up — no pending approvals.',
+    emptyEmoji: '🎉',
     loading: 'Loading approval queue…',
     error: 'Failed to load approval queue.',
-    columnDate: 'Date',
+    // landr-aqn4 — count badge next to the page title.
+    pendingCount: (n: number): string => `${n} pending`,
+    columnDate: 'Requested',
+    // landr-aqn4 — new activity-date column. Sorted alongside the
+    // request date column so operators can prioritise by when the
+    // booking is *happening*, not when it was *submitted*.
+    columnActivityDate: 'Activity',
     columnCustomer: 'Customer',
     columnProduct: 'Product',
     columnPrice: 'Price',
@@ -541,6 +549,41 @@ export const t = {
     toastApproved: 'Booking approved.',
     toastRejected: 'Booking rejected.',
     toastError: 'Action failed.',
+    // landr-aqn4 — filter bar above the table.
+    filters: {
+      reason: 'Reason',
+      product: 'Product',
+      customerStatus: 'Customer',
+      urgency: 'Urgency',
+      price: 'Price',
+      clearAll: 'Clear filters',
+      noOptions: 'No options to filter by yet.',
+      activeCount: (n: number): string => ` (${n})`,
+      reasonLabels: {
+        capacity_warning: 'Capacity',
+        new_customer: 'New customer',
+        voucher_invalid: 'Voucher',
+        manual_override: 'Override',
+        other: 'Other',
+      } as Record<string, string>,
+      customerStatusLabels: {
+        new: 'New',
+        returning: 'Returning',
+      } as Record<string, string>,
+      urgencyLabels: {
+        urgent: 'Urgent (≤3d)',
+        soon: 'Soon (4–14d)',
+        later: 'Later (15+d)',
+        unknown: 'Unscheduled',
+      } as Record<string, string>,
+      priceLabels: {
+        low: '<100 €',
+        mid: '100–500 €',
+        high: '500 €+',
+      } as Record<string, string>,
+      // Tooltip shown on a counted chip when its count=0.
+      noOfValue: (label: string): string => `No bookings match ${label}`,
+    },
   },
   staff: {
     title: 'Staff',
