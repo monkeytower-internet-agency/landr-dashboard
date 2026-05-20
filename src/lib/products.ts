@@ -41,11 +41,25 @@ export type ServiceTimeShape =
 // (non-service rows are forced to 'none' by a DB CHECK).
 export type HotelOffering = 'none' | 'optional' | 'mandatory'
 
+export type PricingSchemeProductUsage = {
+  id: string
+  slug: string
+  name: string
+}
+
 export type PricingSchemeRef = {
   id: string
   name: string
   currency: string
   active: boolean
+  // landr-i018 — surface optional notes inline on the Pricing index card
+  // (previously hidden until the detail editor sheet opened).
+  notes: string | null
+  // landr-i018 — products whose default_pricing_scheme_id points at this
+  // scheme. PostgREST inverse-embed via the FK
+  // products_default_pricing_scheme_id_fkey; we filter out soft-deleted
+  // rows client-side because PostgREST embeds keep them by default.
+  products: PricingSchemeProductUsage[]
 }
 
 export type ProductGroupRef = {
@@ -234,16 +248,42 @@ export async function fetchProductKindCounts(
 export async function fetchPricingSchemes(
   operatorId: string,
 ): Promise<PricingSchemeRef[]> {
+  // landr-i018 — inverse-embed products that link this scheme as their
+  // default_pricing_scheme_id so the Pricing index can render the
+  // 'Used by: <product>' line in a single round-trip. We pin the embed
+  // to the foreign column name (products!default_pricing_scheme_id),
+  // matching the convention used elsewhere in this file
+  // (locations!hotel_location_id on the products SELECT).
   const { data, error } = await supabase
     .from('pricing_schemes')
-    .select('id, name, currency, active')
+    .select(
+      'id, name, currency, active, notes, products:products!default_pricing_scheme_id ( id, slug, name, deleted_at )',
+    )
     .eq('operator_id', operatorId)
     .is('deleted_at', null)
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true })
 
   if (error) throw new Error(error.message)
-  return (data ?? []) as PricingSchemeRef[]
+
+  type RawScheme = Omit<PricingSchemeRef, 'products'> & {
+    products: Array<PricingSchemeProductUsage & { deleted_at: string | null }> | null
+  }
+
+  const rows = (data ?? []) as unknown as RawScheme[]
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    currency: row.currency,
+    active: row.active,
+    notes: row.notes ?? null,
+    // Embedded rows include soft-deleted products; strip them so the
+    // 'Used by' line only mentions products the operator can still see.
+    products: (row.products ?? [])
+      .filter((p) => p.deleted_at === null)
+      .map(({ id, slug, name }) => ({ id, slug, name }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  }))
 }
 
 export async function fetchProductGroups(

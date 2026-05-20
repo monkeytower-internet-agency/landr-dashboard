@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PlusIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -165,23 +166,60 @@ function PricingSettingsInner({ operatorId }: InnerProps) {
         <ul className="space-y-2">
           {schemes.map((scheme) => (
             <li key={scheme.id}>
-              <button
-                type="button"
-                className="w-full rounded-md border p-3 text-left hover:bg-muted/50 transition-colors"
-                onClick={() => setEditingSchemeId(scheme.id)}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">{scheme.name}</span>
-                  <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs">
-                    {scheme.currency}
-                  </span>
-                  {!scheme.active && (
-                    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
-                      Inactive
+              {/* landr-i018 — card body wraps both the scheme-edit button
+                  and the (interactive) 'Used by' product links. Nesting
+                  <Link> inside <button> is invalid HTML, so the card is
+                  a flex column with a sibling button for the title row
+                  and a non-button block for the metadata. The whole card
+                  highlights on hover via group-hover so the affordance
+                  reads as a single clickable surface. */}
+              <div className="group rounded-md border p-3 hover:bg-muted/50 transition-colors">
+                <button
+                  type="button"
+                  className="w-full text-left"
+                  onClick={() => setEditingSchemeId(scheme.id)}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">{scheme.name}</span>
+                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs">
+                      {scheme.currency}
+                    </span>
+                    {!scheme.active && (
+                      <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+                        Inactive
+                      </span>
+                    )}
+                  </div>
+                </button>
+
+                {scheme.notes && scheme.notes.trim().length > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground whitespace-pre-wrap">
+                    {scheme.notes}
+                  </p>
+                )}
+
+                <div className="mt-1 text-xs">
+                  {scheme.products.length === 0 ? (
+                    <span className="text-muted-foreground/70">Not in use</span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      Used by:{' '}
+                      {scheme.products.map((p, i) => (
+                        <Fragment key={p.id}>
+                          {i > 0 && ', '}
+                          <Link
+                            to={`/products/${p.id}`}
+                            className="underline hover:text-foreground"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {p.name}
+                          </Link>
+                        </Fragment>
+                      ))}
                     </span>
                   )}
                 </div>
-              </button>
+              </div>
             </li>
           ))}
         </ul>
