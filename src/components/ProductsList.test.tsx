@@ -1,5 +1,19 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+// landr-u34k — the list now reads useAuth() to scope the
+// "show add-on products" toggle to the current user (localStorage key
+// includes the user id). Mock the auth context so render() works
+// outside an AuthProvider.
+const __authUser: { current: { id: string } | null } = { current: null }
+vi.mock('@/lib/auth', () => ({
+  useAuth: () => ({
+    session: null,
+    user: __authUser.current,
+    loading: false,
+    signOut: async () => {},
+  }),
+}))
 
 import { ProductsList } from './ProductsList'
 import type { ProductRow } from '@/lib/products'
@@ -31,6 +45,7 @@ function makeRow(overrides: Partial<ProductRow>): ProductRow {
     sort_order: 0,
     hotel_location_id: null,
     hotel_offering: 'none',
+    is_addon_only: false,
     deleted_at: null,
     created_at: '2026-05-20T10:00:00Z',
     updated_at: '2026-05-20T10:00:00Z',
@@ -139,5 +154,107 @@ describe('ProductsList — hotel grouping (landr-ssrx)', () => {
     // Single Room (a hotel_room) survives because its hotel name matches.
     expect(screen.getByText(/single room/i)).toBeInTheDocument()
     expect(screen.queryByText(/guided dive/i)).not.toBeInTheDocument()
+  })
+})
+
+// landr-u34k — hide is_addon_only=true products from the main list by
+// default; the "Show add-on products" toggle reveals them again and the
+// preference is persisted per user via localStorage.
+describe('ProductsList — addon_only visibility (landr-u34k)', () => {
+  beforeEach(() => {
+    __authUser.current = { id: 'user-1' }
+    window.localStorage.clear()
+  })
+
+  afterEach(() => {
+    window.localStorage.clear()
+    __authUser.current = null
+  })
+
+  function makeRows(): ProductRow[] {
+    return [
+      makeRow({ id: 'p-main', name: 'Tandem Flight' }),
+      makeRow({
+        id: 'p-addon',
+        name: 'Video Package',
+        is_addon_only: true,
+      }),
+    ]
+  }
+
+  it('hides addon_only rows by default and shows them after the toggle is enabled', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event')
+    const user = userEvent.setup()
+    render(
+      <ProductsList
+        rows={makeRows()}
+        selectedId={null}
+        onSelect={() => {}}
+        onCreate={() => {}}
+        onDuplicate={() => {}}
+        duplicatingId={null}
+      />,
+    )
+
+    // Tandem Flight is visible; Video Package (addon_only) is hidden.
+    expect(screen.getByText(/tandem flight/i)).toBeInTheDocument()
+    expect(screen.queryByText(/video package/i)).not.toBeInTheDocument()
+
+    // Flip the toggle — the addon_only row appears.
+    const toggle = screen.getByLabelText(/show add-on products/i)
+    await user.click(toggle)
+    expect(screen.getByText(/video package/i)).toBeInTheDocument()
+    expect(screen.getByText(/tandem flight/i)).toBeInTheDocument()
+  })
+
+  it('persists the toggle in localStorage scoped to the current user', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event')
+    const user = userEvent.setup()
+    const { unmount } = render(
+      <ProductsList
+        rows={makeRows()}
+        selectedId={null}
+        onSelect={() => {}}
+        onCreate={() => {}}
+        onDuplicate={() => {}}
+        duplicatingId={null}
+      />,
+    )
+
+    const toggle = screen.getByLabelText(/show add-on products/i)
+    await user.click(toggle)
+    expect(
+      window.localStorage.getItem('landr.dashboard.productsShowAddons.user-1'),
+    ).toBe('1')
+    unmount()
+
+    // Remount as the same user — the preference is restored and the
+    // addon_only row is visible without re-clicking the toggle.
+    render(
+      <ProductsList
+        rows={makeRows()}
+        selectedId={null}
+        onSelect={() => {}}
+        onCreate={() => {}}
+        onDuplicate={() => {}}
+        duplicatingId={null}
+      />,
+    )
+    expect(screen.getByText(/video package/i)).toBeInTheDocument()
+  })
+
+  it('disables the toggle when there are no addon_only rows', () => {
+    render(
+      <ProductsList
+        rows={[makeRow({ id: 'p-main', name: 'Tandem Flight' })]}
+        selectedId={null}
+        onSelect={() => {}}
+        onCreate={() => {}}
+        onDuplicate={() => {}}
+        duplicatingId={null}
+      />,
+    )
+    const toggle = screen.getByLabelText(/show add-on products/i) as HTMLInputElement
+    expect(toggle).toBeDisabled()
   })
 })

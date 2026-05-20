@@ -176,6 +176,8 @@ export function Step5Products({ operatorId, onAdvance, onBack }: Props) {
       // so the hotel link stays null and the offering defaults to 'none'.
       hotel_location_id: null,
       hotel_offering: 'none',
+      // landr-u34k — onboarding seeds standalone services, never add-ons.
+      is_addon_only: false,
     }
     mutation.mutate(payload)
   }

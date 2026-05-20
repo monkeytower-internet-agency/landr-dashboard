@@ -512,6 +512,132 @@ describe('ProductForm — hotel_offering on services (landr-ssrx)', () => {
   })
 })
 
+// landr-u34k — is_addon_only checkbox + Add-ons section gating. The
+// section is hidden when allProducts is omitted (covers the default test
+// setup above + the wizard/legacy callers that don't pass it). When passed
+// it appears for EXISTING products but renders a "Save first" hint for new.
+describe('ProductForm — addon-only flag + add-ons section (landr-u34k)', () => {
+  function makeProduct(): import('@/lib/products').ProductRow {
+    return {
+      id: 'p-parent',
+      operator_id: 'op-1',
+      product_group_id: null,
+      slug: 'tandem-flight',
+      name: 'Tandem Flight',
+      short_description: null,
+      description: null,
+      product_kind: 'service',
+      service_time_shape: 'days_range',
+      is_contiguous: false,
+      duration_minutes: null,
+      fixed_start_date: null,
+      fixed_end_date: null,
+      default_pricing_scheme_id: null,
+      needs_provider: false,
+      needs_pickup: false,
+      revenue_flows_through_operator: true,
+      is_publicly_listed: true,
+      active: true,
+      sort_order: 0,
+      hotel_location_id: null,
+      hotel_offering: 'none',
+      is_addon_only: false,
+      deleted_at: null,
+      created_at: '2026-05-20T10:00:00Z',
+      updated_at: '2026-05-20T10:00:00Z',
+      pricing_scheme: null,
+      product_group: null,
+      hotel_location: null,
+    }
+  }
+
+  it('renders the Add-on only checkbox in the flags fieldset and submits the value', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    setup({
+      allowedKinds: ['service'],
+      onSubmit: (v) => {
+        submitted.push(v)
+      },
+    })
+
+    await user.type(screen.getByLabelText(/^name$/i), 'Breakfast')
+    const addonOnly = screen.getByLabelText(/add-on only/i)
+    expect(addonOnly).toBeInTheDocument()
+    await user.click(addonOnly)
+    await user.click(screen.getByRole('button', { name: /create product/i }))
+
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      name: 'Breakfast',
+      is_addon_only: true,
+    })
+  })
+
+  it('shows the Save-first hint instead of the section when creating a new product', async () => {
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service']}
+        allProducts={[]}
+        operatorId="op-1"
+        onSubmit={() => {}}
+      />,
+    )
+    expect(screen.getByText(/save this product first/i)).toBeInTheDocument()
+    expect(
+      screen.queryByLabelText(/^add-ons$/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('renders the Add-ons section for an existing product when allProducts is passed', async () => {
+    // QueryClient required for the manager's useQuery call.
+    const { QueryClient, QueryClientProvider } = await import(
+      '@tanstack/react-query'
+    )
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ProductForm
+          product={makeProduct()}
+          pricingSchemes={[]}
+          productGroups={[]}
+          allowedKinds={['service']}
+          allProducts={[
+            makeProduct(),
+            { ...makeProduct(), id: 'p-other', name: 'Video Package' },
+          ]}
+          operatorId="op-1"
+          onSubmit={() => {}}
+        />
+      </QueryClientProvider>,
+    )
+
+    // The Add-ons section heading (CardTitle) is present.
+    expect(
+      screen.getAllByText(/^add-ons$/i).length,
+    ).toBeGreaterThan(0)
+    // The Add-on-product picker option list (when we click + Add) would
+    // include "Video Package" and exclude the parent itself; the addon
+    // manager isn't expanded by default so we just confirm the action
+    // button exists.
+    expect(
+      screen.getByRole('button', { name: /add add-on/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('hides the section entirely when allProducts is omitted', async () => {
+    setup({ allowedKinds: ['service'], product: makeProduct() })
+    expect(
+      screen.queryByRole('button', { name: /add add-on/i }),
+    ).not.toBeInTheDocument()
+  })
+})
+
 // landr-wto — discount-scheme rename + None submission.
 describe('ProductForm — discount scheme (landr-wto)', () => {
   it("renders the field as 'Discount scheme' with the helper text and a None option", () => {

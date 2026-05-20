@@ -371,6 +371,37 @@ export const t = {
     flagNeedsProvider: 'Needs a provider',
     flagNeedsPickup: 'Needs pickup',
     flagRevenueThroughOperator: 'Revenue flows through operator',
+    // landr-u34k — is_addon_only checkbox + section copy. The flag hides
+    // the product from the main list and restricts purchase to add-on
+    // flows; the section manages product_addons rows for the current
+    // parent product.
+    flagAddonOnly: 'Add-on only',
+    flagAddonOnlyHint:
+      'Hide from main product list — only available as an add-on of another product.',
+    showAddonsToggle: 'Show add-on products',
+    addonsSectionTitle: 'Add-ons',
+    addonsSectionBody:
+      'Link other products as add-ons for this one. The booking widget surfaces them alongside the parent product.',
+    addonsSaveFirstHint:
+      'Save this product first to manage its add-ons.',
+    addonsLoading: 'Loading add-ons…',
+    addonsEmpty: 'No add-ons linked yet.',
+    addonsAddNew: 'Add add-on',
+    addonsListAriaLabel: 'Add-ons',
+    addonsPickProduct: '— Pick a product —',
+    addonsNoOtherProducts:
+      'Create at least one other product before linking add-ons.',
+    addonsFieldAddon: 'Add-on product',
+    addonsFieldRequired: 'Required',
+    addonsFieldMinQty: 'Min',
+    addonsFieldMaxQty: 'Max',
+    addonsFieldMaxQtyPlaceholder: '∞',
+    addonsFieldSortOrder: 'Sort',
+    addonsSave: 'Save',
+    addonsSaving: 'Saving…',
+    addonsAdd: 'Add',
+    addonsDelete: 'Remove add-on',
+    addonsErrorPickProduct: 'Pick an add-on product first.',
 
     kindService: 'Service',
     kindSubscription: 'Subscription',

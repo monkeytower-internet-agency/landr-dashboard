@@ -362,6 +362,13 @@ export function ProductsManager({ operatorId, hideHeader = false }: Props) {
                     productGroups={productGroupsQuery.data ?? []}
                     operatorId={operatorId}
                     hotelLocations={hotelLocations}
+                    // landr-u34k — pass the full product roster so the
+                    // Add-ons section can populate its addon-product
+                    // picker. We pass `rows` (not `rows.filter(...)`)
+                    // because the Add-ons section already filters out
+                    // the parent itself; addon_only candidates are
+                    // explicitly allowed (Breakfast linked to Rooms).
+                    allProducts={rows}
                     onSubmit={handleSubmit}
                     onDelete={
                       resolvedSelection !== NEW_PRODUCT && selectedProduct

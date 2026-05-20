@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { CrownIcon, Trash2Icon } from 'lucide-react'
 
+import { ProductAddonsManager } from '@/components/products/ProductAddonsManager'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -110,6 +111,8 @@ const productFormSchema = z
     // handleSubmit; hotel_offering is constrained to the three DB values.
     hotel_location_id: z.string(),
     hotel_offering: z.enum(['none', 'optional', 'mandatory']),
+    // landr-u34k — hide from main list, restrict to add-on flow.
+    is_addon_only: z.boolean(),
   })
   .superRefine((data, ctx) => {
     if (data.product_kind === 'hotel_room' && !data.hotel_location_id) {
@@ -185,6 +188,10 @@ export type ProductFormSubmitValue = {
   sort_order: number
   hotel_location_id: string | null
   hotel_offering: HotelOffering
+  // landr-u34k — hide-from-main-list flag. Persisted on the products row,
+  // edited via the main form (not the add-ons section, which manages link
+  // rows on a DIFFERENT parent product).
+  is_addon_only: boolean
 }
 
 type Props = {
@@ -204,6 +211,12 @@ type Props = {
    *  hotel_location_id picker when kind='hotel_room'. Pass [] if none
    *  exist; the form renders a helpful empty-state hint. */
   hotelLocations?: HotelLocationRef[]
+  /** landr-u34k — full operator product roster, used by the Add-ons section
+   *  to populate the addon-product picker (filtered to other products on
+   *  the same operator, excluding the parent itself). Pass `undefined` to
+   *  hide the Add-ons section entirely (e.g. tests / wizards that don't
+   *  load products). */
+  allProducts?: ProductRow[]
 }
 
 function emptyToNull(v: string | undefined | null): string | null {
@@ -241,6 +254,7 @@ function defaultValues(
       sort_order: '0',
       hotel_location_id: '',
       hotel_offering: 'none',
+      is_addon_only: false,
     }
   }
   return {
@@ -268,6 +282,7 @@ function defaultValues(
     // default is 'none', so we fall back to that if the server response is
     // missing the field for any reason.
     hotel_offering: product.hotel_offering ?? 'none',
+    is_addon_only: !!product.is_addon_only,
   }
 }
 
@@ -323,6 +338,7 @@ export function ProductForm({
   allowedKinds,
   operatorId,
   hotelLocations = [],
+  allProducts,
 }: Props) {
   const operatorAllowedKinds = useOperatorAllowedProductKinds()
   // The form prop overrides the operator context — useful in tests + the
@@ -459,6 +475,7 @@ export function ProductForm({
           : null,
       hotel_offering:
         values.product_kind === 'service' ? values.hotel_offering : 'none',
+      is_addon_only: values.is_addon_only,
     }
     await onSubmit(payload)
   }
@@ -920,7 +937,63 @@ export function ProductForm({
               )}
             />
           ))}
+          {/* landr-u34k — is_addon_only spans both columns so the helper
+              text has room to breathe; sits at the bottom of the flags
+              fieldset because it changes how the product is surfaced in
+              both the main list and the add-on flow. */}
+          <FormField
+            control={form.control}
+            name="is_addon_only"
+            render={({ field }) => (
+              <FormItem className="sm:col-span-2 flex flex-row items-start gap-3 space-y-0">
+                <FormControl>
+                  <Checkbox
+                    checked={!!field.value}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                  />
+                </FormControl>
+                <div className="flex flex-col gap-1">
+                  <FormLabel className="cursor-pointer text-sm font-normal">
+                    {t.products.flagAddonOnly}
+                  </FormLabel>
+                  <FormDescription>
+                    {t.products.flagAddonOnlyHint}
+                  </FormDescription>
+                </div>
+              </FormItem>
+            )}
+          />
         </fieldset>
+
+        {/* landr-u34k — Add-ons management section. Only meaningful for
+            existing products (the link rows reference parent_product_id,
+            which doesn't exist until the parent has been saved). For new
+            products we render a small hint instead so the operator knows
+            to save first; for tests that don't pass `allProducts` the
+            entire section is hidden. */}
+        {allProducts !== undefined && operatorId ? (
+          product ? (
+            <ProductAddonsManager
+              operatorId={operatorId}
+              parentProduct={product}
+              allProducts={allProducts}
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>{t.products.addonsSectionTitle}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground text-sm">
+                  {t.products.addonsSaveFirstHint}
+                </p>
+              </CardContent>
+            </Card>
+          )
+        ) : null}
 
         <div className="flex items-center justify-between gap-2">
           {product && onDelete ? (

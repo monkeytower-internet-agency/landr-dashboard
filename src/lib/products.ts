@@ -83,6 +83,11 @@ export type ProductRow = {
   // 'optional' or 'mandatory'.
   hotel_location_id: string | null
   hotel_offering: HotelOffering
+  // landr-u34k — when true, the product is hidden from the main product
+  // list and is only purchasable as an add-on of another product (via
+  // product_addons.addon_product_id). Distinct from is_publicly_listed;
+  // a row can be addon_only AND publicly_listed for the storefront widget.
+  is_addon_only: boolean
   deleted_at: string | null
   created_at: string
   updated_at: string
@@ -116,6 +121,7 @@ const SELECT = `
   sort_order,
   hotel_location_id,
   hotel_offering,
+  is_addon_only,
   deleted_at,
   created_at,
   updated_at,
@@ -277,6 +283,9 @@ export type ProductWritePayload = {
   // 'optional' / 'mandatory' only on kind='service' rows.
   hotel_location_id: string | null
   hotel_offering: HotelOffering
+  // landr-u34k — hide from the main product list, restrict purchase to
+  // add-on flows. See ProductRow comment.
+  is_addon_only: boolean
 }
 
 // Recognise both the FastAPI api()-wrapper error code and the raw Postgres
