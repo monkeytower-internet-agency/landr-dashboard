@@ -9,6 +9,8 @@
 export const t = {
   app: {
     name: 'LANDR Operator Dashboard',
+    collapseMenu: 'Collapse menu',
+    expandMenu: 'Expand menu',
   },
   auth: {
     signInHeading: 'Sign in',

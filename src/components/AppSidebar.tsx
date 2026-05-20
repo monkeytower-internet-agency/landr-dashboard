@@ -6,6 +6,7 @@ import {
   CheckCircleIcon,
   LayoutDashboardIcon,
   UsersIcon,
+  PanelLeftIcon,
   SettingsIcon,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
@@ -20,7 +21,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar'
 import { t } from '@/lib/strings'
 
@@ -122,6 +123,19 @@ function NavMenu({ items, pathname }: { items: NavItem[]; pathname: string }) {
   )
 }
 
+function CollapseMenuItem() {
+  const { toggleSidebar, state } = useSidebar()
+  const label = state === 'expanded' ? t.app.collapseMenu : t.app.expandMenu
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton tooltip={label} onClick={toggleSidebar}>
+        <PanelLeftIcon className="size-4" />
+        <span>{label}</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  )
+}
+
 export function AppSidebar() {
   const { pathname } = useLocation()
   return (
@@ -153,13 +167,14 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        {/* Collapse trigger sits above the Settings gear so the rail of
-            footer controls reads top-to-bottom: collapse → settings. */}
+        {/* Collapse trigger rendered as a sibling nav item so it aligns
+            pixel-perfectly with the Settings gear below it (same
+            SidebarMenuButton padding + icon column). */}
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
-            <div className="flex justify-start px-2 py-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-              <SidebarTrigger className="size-8" />
-            </div>
+            <SidebarMenu>
+              <CollapseMenuItem />
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup className="p-0">
