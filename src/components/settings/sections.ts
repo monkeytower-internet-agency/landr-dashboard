@@ -6,6 +6,7 @@ import {
   MailIcon,
   MapPinIcon,
   MonitorIcon,
+  PackageIcon,
   PlugIcon,
   TagIcon,
   UsersIcon,
@@ -47,6 +48,11 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/pickup-locations',
     label: t.settingsHub.sections.pickupLocations,
     icon: MapPinIcon,
+  },
+  {
+    to: '/settings/products',
+    label: t.settingsHub.sections.products,
+    icon: PackageIcon,
   },
   {
     to: '/settings/email-templates',

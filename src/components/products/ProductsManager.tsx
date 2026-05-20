@@ -322,7 +322,12 @@ export function ProductsManager({
       ) : isLoading ? (
         <p className="text-muted-foreground text-sm">{t.products.loading}</p>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+        /* landr-sydf — list column gets a guaranteed 320px minimum (chip
+           text + dual-action header fit without overflow) while keeping the
+           1fr / 2fr ratio for the detail panel on wide viewports. Items
+           stretch via items-start so the list grows with the page rather
+           than being capped by the detail-card height. */
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(320px,1fr)_minmax(0,2fr)]">
           <div className="flex flex-col gap-3">
             <ProductsFilters
               sortApi={sortApi}

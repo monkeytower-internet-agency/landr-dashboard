@@ -213,10 +213,14 @@ export function ProductsList({ rows, selectedId, onSelect, onCreate, onDuplicate
       <div className="text-muted-foreground text-xs">
         {filtered.length} / {visibleRows.length}
       </div>
+      {/* landr-sydf — list grows with the viewport instead of capping at
+          70vh and scrolling early. The list itself only scrolls when its
+          natural height exceeds the available space; the detail card on the
+          right keeps its own scroll if its content is long. */}
       <ul
         role="listbox"
         aria-label={t.products.listAriaLabel}
-        className="flex max-h-[70vh] flex-col gap-1 overflow-y-auto"
+        className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto"
       >
         {filtered.length === 0 ? (
           <li className="text-muted-foreground rounded-md border border-dashed p-4 text-center text-sm">
@@ -247,25 +251,42 @@ export function ProductsList({ rows, selectedId, onSelect, onCreate, onDuplicate
             const isDuplicating = duplicatingId === row.id
             return (
               <li key={row.id}>
+                {/* landr-sydf — entire chip is the selection trigger (not
+                    just the name). The outer wrapper uses role=option +
+                    keyboard handlers because nesting a <button> inside a
+                    <button> (we have a DropdownMenu trigger inside) would
+                    be invalid HTML. The dropdown menu cell stops click
+                    propagation so opening the menu does not also fire
+                    onSelect. */}
                 <div
+                  role="option"
+                  aria-selected={isSelected}
+                  tabIndex={0}
+                  onClick={() => onSelect(row)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      onSelect(row)
+                    }
+                  }}
                   className={cn(
-                    'group flex w-full flex-col gap-1 rounded-md border bg-card p-3 transition-colors',
+                    'group flex w-full cursor-pointer flex-col gap-1 rounded-md border bg-card p-3 text-left transition-colors',
+                    'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     isSelected && 'border-primary ring-1 ring-primary',
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      onClick={() => onSelect(row)}
-                      className="hover:bg-accent -m-1 flex min-w-0 flex-1 flex-col gap-1 rounded p-1 text-left"
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {row.name}
+                    </span>
+                    <div
+                      className="flex shrink-0 items-center gap-1"
+                      // Clicks on the badge / dropdown trigger live inside
+                      // the chip — guard against double-firing onSelect
+                      // when the user opens the row menu.
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
                     >
-                      <span className="truncate text-sm font-medium">
-                        {row.name}
-                      </span>
-                    </button>
-                    <div className="flex shrink-0 items-center gap-1">
                       <span
                         className={cn(
                           'shrink-0 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide',
@@ -302,7 +323,7 @@ export function ProductsList({ rows, selectedId, onSelect, onCreate, onDuplicate
                       </DropdownMenu>
                     </div>
                   </div>
-                  <span className="text-muted-foreground truncate text-xs">
+                  <span className="text-muted-foreground w-full truncate text-xs">
                     {productSummaryLine(row)}
                   </span>
                 </div>

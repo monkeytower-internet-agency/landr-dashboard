@@ -6,7 +6,6 @@ import {
   CheckCircleIcon,
   LayoutDashboardIcon,
   UsersIcon,
-  PackageIcon,
   SettingsIcon,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
@@ -32,9 +31,14 @@ type NavItem = {
 }
 
 // Primary nav — daily-use items. Order chosen per landr-wjd briefing:
-// Bookings, Schedule, Calendar, Products, Contacts. Dashboard stays at
-// the top of the list so the home route has a visible anchor; the rest
-// follow the briefing order.
+// Bookings, Schedule, Calendar, Contacts. Dashboard stays at the top of
+// the list so the home route has a visible anchor; the rest follow the
+// briefing order.
+//
+// landr-sydf — Products moved into Settings → Products. Operators edit
+// products rarely (weekly at most) rather than daily, so the top-level
+// slot is reclaimed for the daily-use cluster per Kole's rarely-used →
+// settings pattern from the recent sidebar reorg.
 const primaryItems: NavItem[] = [
   { to: '/', label: t.nav.dashboard, icon: LayoutDashboardIcon, exact: true },
   {
@@ -53,12 +57,6 @@ const primaryItems: NavItem[] = [
     to: '/calendar',
     label: t.nav.calendar,
     icon: CalendarIcon,
-    exact: false,
-  },
-  {
-    to: '/products',
-    label: t.nav.products,
-    icon: PackageIcon,
     exact: false,
   },
   {
