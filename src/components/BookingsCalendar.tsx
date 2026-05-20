@@ -4,11 +4,15 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import type {
+  DatesSetArg,
+  DayCellContentArg,
   EventClickArg,
   EventContentArg,
   EventDropArg,
   EventInput,
 } from '@fullcalendar/core'
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import {
@@ -18,6 +22,7 @@ import {
   type BookingRow,
   type BookingSemanticState,
 } from '@/lib/bookings'
+import { fetchAvailability, type AvailabilityRow } from '@/lib/availability'
 import { t } from '@/lib/strings'
 import { cn } from '@/lib/utils'
 
@@ -72,6 +77,55 @@ type Props = {
   workHoursEnd?: string
   /** true = 12h AM/PM, false = 24h. */
   hour12?: boolean
+  // landr-3uai — when both are set, per-day capacity pills are rendered
+  // in each day cell's corner. Click → /schedule with date+product
+  // preselected. Both null/undefined ⇒ no pills (preserves the clean
+  // daily-ops calendar).
+  operatorId?: string | null
+  activeProductId?: string | null
+}
+
+// landr-3uai — pill state derived from reserved/capacity sums for the day.
+type CapacityState = 'open' | 'full' | 'overbooked'
+
+function capacityState(reserved: number, capacity: number): CapacityState {
+  if (capacity > 0 && reserved > capacity) return 'overbooked'
+  if (capacity > 0 && reserved === capacity) return 'full'
+  return 'open'
+}
+
+const CAPACITY_PILL_CLASS: Record<CapacityState, string> = {
+  open:
+    'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700',
+  full:
+    'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700',
+  overbooked:
+    'border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20',
+}
+
+type DayCapacity = { capacity: number; reserved: number }
+
+function groupAvailabilityByDate(
+  rows: AvailabilityRow[],
+): Map<string, DayCapacity> {
+  const out = new Map<string, DayCapacity>()
+  for (const row of rows) {
+    const prev = out.get(row.date)
+    if (prev) {
+      prev.capacity += row.capacity
+      prev.reserved += row.capacity_reserved
+    } else {
+      out.set(row.date, {
+        capacity: row.capacity,
+        reserved: row.capacity_reserved,
+      })
+    }
+  }
+  return out
+}
+
+function toLocalIso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 export function BookingsCalendar({
@@ -85,13 +139,68 @@ export function BookingsCalendar({
   workHoursStart = '08:00',
   workHoursEnd = '20:00',
   hour12 = false,
+  operatorId,
+  activeProductId,
 }: Props) {
   const calendarRef = useRef<FullCalendar | null>(null)
+  const navigate = useNavigate()
   const isControlled = controlledView !== undefined
   const [uncontrolledView, setUncontrolledView] = useState<CalendarView>(
     controlledView ?? initialView,
   )
   const view: CalendarView = isControlled ? controlledView : uncontrolledView
+
+  // landr-3uai — track the visible date range so the capacity query can be
+  // keyed on it. Falls back to a 6-week window around today on first paint
+  // (before FullCalendar fires datesSet).
+  const [visibleRange, setVisibleRange] = useState<{
+    from: string
+    to: string
+  }>(() => {
+    const today = new Date()
+    const start = new Date(today)
+    start.setDate(start.getDate() - 14)
+    const end = new Date(today)
+    end.setDate(end.getDate() + 42)
+    return { from: toLocalIso(start), to: toLocalIso(end) }
+  })
+
+  function handleDatesSet(arg: DatesSetArg) {
+    // FullCalendar reports `end` as exclusive — subtract one day so the
+    // window matches the inclusive `to` shape used by /availability.
+    const end = new Date(arg.end)
+    end.setDate(end.getDate() - 1)
+    const next = { from: toLocalIso(arg.start), to: toLocalIso(end) }
+    setVisibleRange((prev) =>
+      prev.from === next.from && prev.to === next.to ? prev : next,
+    )
+  }
+
+  // landr-3uai — only fire the availability query when a product filter
+  // is active. Without it, the calendar stays clean (no pills, no fetch).
+  const availabilityEnabled = !!operatorId && !!activeProductId
+  const availabilityQuery = useQuery<AvailabilityRow[]>({
+    queryKey: [
+      'calendar-availability',
+      operatorId ?? 'none',
+      activeProductId ?? 'none',
+      visibleRange.from,
+      visibleRange.to,
+    ],
+    queryFn: () =>
+      fetchAvailability(
+        operatorId as string,
+        activeProductId as string,
+        visibleRange.from,
+        visibleRange.to,
+      ),
+    enabled: availabilityEnabled,
+  })
+
+  const capacityByDate = useMemo(
+    () => groupAvailabilityByDate(availabilityQuery.data ?? []),
+    [availabilityQuery.data],
+  )
 
   // landr-1lj — in controlled mode the parent owns view state. When that
   // value changes externally (e.g. operator switch picks up another
@@ -222,6 +331,51 @@ export function BookingsCalendar({
     )
   }
 
+  // landr-3uai — render a small capacity pill in each day cell's corner.
+  // The pill only appears in dayGrid* views (month grid) where day cells
+  // have room for the badge; timeGrid* slot views are pill-free. When no
+  // product filter is active, this returns FullCalendar's default content
+  // so the daily-ops calendar stays clean.
+  function renderDayCellContent(arg: DayCellContentArg) {
+    if (!availabilityEnabled) return undefined
+    const iso = toLocalIso(arg.date)
+    const summary = capacityByDate.get(iso)
+    return (
+      <div className="relative flex h-full w-full flex-col p-1">
+        <div className="text-xs font-medium">{arg.dayNumberText}</div>
+        {summary ? (
+          <button
+            type="button"
+            data-testid="calendar-capacity-pill"
+            data-date={iso}
+            data-state={capacityState(summary.reserved, summary.capacity)}
+            aria-label={t.calendar.capacityPillAria(
+              summary.reserved,
+              summary.capacity,
+              iso,
+            )}
+            onClick={(e) => {
+              e.stopPropagation()
+              const params = new URLSearchParams({
+                date: iso,
+                product: activeProductId as string,
+              })
+              navigate(`/schedule?${params.toString()}`)
+            }}
+            className={cn(
+              'absolute right-1 top-1 inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-mono leading-none transition-colors',
+              CAPACITY_PILL_CLASS[
+                capacityState(summary.reserved, summary.capacity)
+              ],
+            )}
+          >
+            {summary.reserved}/{summary.capacity}
+          </button>
+        ) : null}
+      </div>
+    )
+  }
+
   // landr-f1s — only the timeGrid* views have a vertical time axis. The
   // month grid is unaffected; pass slot props unconditionally — FullCalendar
   // ignores them in dayGridMonth.
@@ -294,6 +448,8 @@ export function BookingsCalendar({
           eventClick={handleEventClick}
           eventDrop={handleEventDrop}
           eventContent={renderEventContent}
+          datesSet={handleDatesSet}
+          dayCellContent={renderDayCellContent}
           nowIndicator
           slotMinTime={slotMinTime}
           slotMaxTime={slotMaxTime}

@@ -262,6 +262,11 @@ export const t = {
     expandOffHours: (start: string, end: string): string =>
       `Show hours outside ${start}–${end}`,
     collapseOffHours: 'Hide off-hours',
+    // landr-3uai — per-day capacity pill rendered in the dayGrid view when
+    // a product filter is active. Click → opens the Schedule editor for
+    // that date + product.
+    capacityPillAria: (reserved: number, capacity: number, date: string) =>
+      `${reserved} of ${capacity} reserved on ${date}. Open schedule editor.`,
   },
   contacts: {
     title: 'Contacts',
