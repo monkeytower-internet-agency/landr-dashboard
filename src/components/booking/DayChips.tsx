@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -44,6 +44,32 @@ function parseDayOnly(iso: string): Date | null {
 /** "YYYY-MM" key used to group chips into month rows. */
 function monthKey(iso: string): string {
   return iso.slice(0, 7)
+}
+
+/**
+ * Group an already-sorted YYYY-MM-DD array into runs of consecutive calendar
+ * days. Two ISO dates are "consecutive" iff their UTC day-difference is
+ * exactly 1. Unparseable inputs end the current run (start a new one) so we
+ * never silently merge garbage. landr-irz1.
+ */
+function groupIntoRuns(sortedDays: string[]): string[][] {
+  const runs: string[][] = []
+  const MS_PER_DAY = 86_400_000
+  let prevDate: Date | null = null
+  for (const iso of sortedDays) {
+    const d = parseDayOnly(iso)
+    if (d && prevDate) {
+      const diff = Math.round((d.getTime() - prevDate.getTime()) / MS_PER_DAY)
+      if (diff === 1) {
+        runs[runs.length - 1].push(iso)
+        prevDate = d
+        continue
+      }
+    }
+    runs.push([iso])
+    prevDate = d
+  }
+  return runs
 }
 
 export function DayChips({
@@ -143,6 +169,9 @@ export function DayChips({
       {groups.map((g) => {
         const probe = parseDayOnly(g.days[0])
         const label = probe ? monthFmt.format(probe).toUpperCase() : g.key
+        // Within each month, split into runs of consecutive days so the
+        // discontinuity between runs is visually obvious. landr-irz1.
+        const runs = groupIntoRuns(g.days)
         return (
           <div key={g.key} className="flex flex-col gap-1">
             <span
@@ -151,8 +180,26 @@ export function DayChips({
             >
               {label}
             </span>
-            <div className="flex flex-wrap gap-1.5">
-              {g.days.map(renderChip)}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {runs.map((run, i) => (
+                <Fragment key={run[0]}>
+                  {i > 0 ? (
+                    <span
+                      aria-hidden="true"
+                      data-run-separator
+                      className="text-muted-foreground px-1 text-sm leading-none select-none"
+                    >
+                      ·
+                    </span>
+                  ) : null}
+                  <div
+                    className="flex flex-wrap gap-1.5"
+                    data-run-start={run[0]}
+                  >
+                    {run.map(renderChip)}
+                  </div>
+                </Fragment>
+              ))}
             </div>
           </div>
         )
