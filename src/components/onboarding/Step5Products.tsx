@@ -178,6 +178,10 @@ export function Step5Products({ operatorId, onAdvance, onBack }: Props) {
       hotel_offering: 'none',
       // landr-u34k — onboarding seeds standalone services, never add-ons.
       is_addon_only: false,
+      // landr-knm0 — onboarding only creates kind='service' templates, so
+      // capacity_per_unit stays NULL (the column is meaningful for hotel
+      // rooms, which the wizard doesn't seed).
+      capacity_per_unit: null,
     }
     mutation.mutate(payload)
   }

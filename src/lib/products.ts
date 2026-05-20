@@ -88,6 +88,10 @@ export type ProductRow = {
   // product_addons.addon_product_id). Distinct from is_publicly_listed;
   // a row can be addon_only AND publicly_listed for the storefront widget.
   is_addon_only: boolean
+  // landr-fi68 / landr-knm0 — max people accommodated by one unit of this
+  // product. Meaningful today for kind='hotel_room' (room sleeps N); NULL
+  // elsewhere by convention. DB CHECK enforces NULL OR >= 1.
+  capacity_per_unit: number | null
   deleted_at: string | null
   created_at: string
   updated_at: string
@@ -122,6 +126,7 @@ const SELECT = `
   hotel_location_id,
   hotel_offering,
   is_addon_only,
+  capacity_per_unit,
   deleted_at,
   created_at,
   updated_at,
@@ -286,6 +291,9 @@ export type ProductWritePayload = {
   // landr-u34k — hide from the main product list, restrict purchase to
   // add-on flows. See ProductRow comment.
   is_addon_only: boolean
+  // landr-fi68 / landr-knm0 — max people per unit (rooms today). NULL when
+  // the operator hasn't set a value or the kind doesn't carry the semantic.
+  capacity_per_unit: number | null
 }
 
 // Recognise both the FastAPI api()-wrapper error code and the raw Postgres
@@ -425,6 +433,27 @@ export async function duplicateProduct(
     throw new Error((body as { detail?: string }).detail ?? 'duplicate_failed')
   }
   return res.json() as Promise<ProductRow>
+}
+
+// landr-knm0 — suggest a sensible capacity_per_unit for hotel_room products
+// from the display name (or slug). Mirrors the Para42 seed heuristic:
+//
+//   single  → 1
+//   double  → 2
+//   twin    → 2
+//   triple  → 3
+//   family  → 4
+//
+// Returns null when no token matches; callers should fall back to 1 only
+// when actually creating a brand-new row (existing rows with NULL stay
+// NULL until the operator edits the field).
+export function suggestRoomCapacity(nameOrSlug: string): number | null {
+  const haystack = nameOrSlug.toLowerCase()
+  if (haystack.includes('family')) return 4
+  if (haystack.includes('triple')) return 3
+  if (haystack.includes('double') || haystack.includes('twin')) return 2
+  if (haystack.includes('single')) return 1
+  return null
 }
 
 // Slug helper: convert a display name into a kebab-case slug. The DB enforces

@@ -512,6 +512,175 @@ describe('ProductForm — hotel_offering on services (landr-ssrx)', () => {
   })
 })
 
+// landr-knm0 — capacity_per_unit input visible only for hotel_room.
+describe('ProductForm — room capacity (landr-knm0)', () => {
+  const hotelLocations = [{ id: 'hotel-1', name: 'Hotel Sol' }]
+
+  it('does NOT render the room capacity input for kind=service', () => {
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={() => {}}
+      />,
+    )
+    expect(
+      screen.queryByLabelText(/room capacity \(people\)/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('renders the capacity input when switching to kind=hotel_room', async () => {
+    const user = userEvent.setup()
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={() => {}}
+      />,
+    )
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'hotel_room')
+    expect(
+      screen.getByLabelText(/room capacity \(people\)/i),
+    ).toBeInTheDocument()
+  })
+
+  it('suggests capacity=2 when the name contains "double"', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+    // Type a name first so the kind-switch effect can use it for the
+    // heuristic.
+    await user.type(screen.getByLabelText(/^name$/i), 'Double Room')
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'hotel_room')
+
+    const capacity = screen.getByLabelText(
+      /room capacity \(people\)/i,
+    ) as HTMLInputElement
+    expect(capacity.value).toBe('2')
+
+    await user.selectOptions(screen.getByLabelText(/^hotel$/i), 'hotel-1')
+    await user.click(screen.getByRole('button', { name: /create product/i }))
+
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      product_kind: 'hotel_room',
+      capacity_per_unit: 2,
+    })
+  })
+
+  it('defaults capacity to 1 when the name has no recognisable token', async () => {
+    const user = userEvent.setup()
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={() => {}}
+      />,
+    )
+    // No name typed; switch kind → defaults to 1.
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'hotel_room')
+    const capacity = screen.getByLabelText(
+      /room capacity \(people\)/i,
+    ) as HTMLInputElement
+    expect(capacity.value).toBe('1')
+  })
+
+  it('blocks submit on capacity=0 (DB CHECK mirror)', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'hotel_room')
+    await user.type(screen.getByLabelText(/^name$/i), 'Test Room')
+    await user.selectOptions(screen.getByLabelText(/^hotel$/i), 'hotel-1')
+
+    const capacity = screen.getByLabelText(
+      /room capacity \(people\)/i,
+    ) as HTMLInputElement
+    await user.clear(capacity)
+    await user.type(capacity, '0')
+
+    await user.click(screen.getByRole('button', { name: /create product/i }))
+
+    expect(submitted).toHaveLength(0)
+    const messages = await screen.findAllByText(
+      /room capacity must be at least 1/i,
+    )
+    const messageNode = messages.find(
+      (n) => n.getAttribute('data-slot') === 'form-message',
+    )
+    expect(messageNode).toBeDefined()
+  })
+
+  it('collapses capacity to null when kind switches away from hotel_room', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'hotel_room')
+    // Capacity input now visible with default value '1'. Switch back to
+    // service and submit.
+    await user.selectOptions(kind, 'service')
+    expect(
+      screen.queryByLabelText(/room capacity \(people\)/i),
+    ).not.toBeInTheDocument()
+
+    await user.type(screen.getByLabelText(/^name$/i), 'Tandem Flight')
+    await user.click(screen.getByRole('button', { name: /create product/i }))
+
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      product_kind: 'service',
+      capacity_per_unit: null,
+    })
+  })
+})
+
 // landr-u34k — is_addon_only checkbox + Add-ons section gating. The
 // section is hidden when allProducts is omitted (covers the default test
 // setup above + the wizard/legacy callers that don't pass it). When passed
@@ -542,6 +711,7 @@ describe('ProductForm — addon-only flag + add-ons section (landr-u34k)', () =>
       hotel_location_id: null,
       hotel_offering: 'none',
       is_addon_only: false,
+      capacity_per_unit: null,
       deleted_at: null,
       created_at: '2026-05-20T10:00:00Z',
       updated_at: '2026-05-20T10:00:00Z',
