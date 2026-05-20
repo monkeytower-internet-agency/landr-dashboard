@@ -222,11 +222,11 @@ describe('SettingsLayout', () => {
     expect(await screen.findByDisplayValue('Para42')).toBeInTheDocument()
   })
 
-  it('renders all nine sub-sidebar links', () => {
+  it('renders all ten sub-sidebar links', () => {
     renderSettingsTree('/settings/company')
     const nav = screen.getByRole('navigation', { name: /settings sections/i })
     const links = nav.querySelectorAll('a')
-    expect(links).toHaveLength(9)
+    expect(links).toHaveLength(10)
     expect(nav).toHaveTextContent(/company/i)
     expect(nav).toHaveTextContent(/calendar & display/i)
     expect(nav).toHaveTextContent(/display preferences/i)
