@@ -74,8 +74,27 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-6">
-      <Card className="w-full max-w-sm">
+    <div className="relative flex min-h-screen flex-col items-center justify-center gap-6 overflow-hidden bg-background p-6">
+      {/*
+        Soft radial gradient — mirrors the mobile onboarding background
+        (app/(auth)/onboarding.tsx WelcomePage): RadialGradient at 80%/20%
+        with rx/ry 65%, accent color stops 0.16 → 0.08 → 0.
+        Mobile uses iOS blue for accent; in the dashboard theme --accent
+        resolves to --bg-light (a near-surface tone), so a colored glow
+        is hardcoded to the Landr brand purple. Low opacity (16%/8%) reads
+        well on both the light (oklch 0.94) and dark (oklch 0.14) page
+        backgrounds.
+      */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_65%_65%_at_80%_20%,_rgba(134,59,255,0.16)_0%,_rgba(134,59,255,0.08)_55%,_transparent_100%)]"
+      />
+      <img
+        src="/logos/landr-logo.png"
+        alt={t.app.name}
+        className="relative z-10 h-24 w-auto"
+      />
+      <Card className="relative z-10 w-full max-w-sm">
         <CardHeader>
           <CardTitle>
             <h1 className="text-base">{t.auth.signInHeading}</h1>
