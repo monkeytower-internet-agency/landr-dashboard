@@ -349,4 +349,117 @@ describe('Schedule route', () => {
     await screen.findByText(/time slots/i)
     expect(screen.getAllByLabelText(/^start$/i)[0]).toBeInTheDocument()
   })
+
+  // landr-lp9t — Month/List view toggle + compacted list rendering.
+  describe('Month/List view toggle', () => {
+    beforeEach(() => {
+      window.localStorage.clear()
+    })
+
+    it('renders the Month view by default', async () => {
+      mock.state.products = [makeProduct()]
+      mock.state.rows = [makeAvailability()]
+      render(<Schedule />)
+
+      await screen.findByTestId('availability-calendar')
+      expect(screen.queryByTestId('availability-list')).not.toBeInTheDocument()
+      expect(screen.getByTestId('schedule-view-month')).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+    })
+
+    it('switches to the List view and renders compacted ranges', async () => {
+      mock.state.products = [makeProduct()]
+      // Three consecutive days, identical capacity → one compacted row.
+      mock.state.rows = [
+        makeAvailability({ id: 'a1', date: '2026-06-01' }),
+        makeAvailability({ id: 'a2', date: '2026-06-02' }),
+        makeAvailability({ id: 'a3', date: '2026-06-03' }),
+      ]
+      const user = userEvent.setup()
+      render(<Schedule />)
+
+      await screen.findByTestId('availability-calendar')
+      await user.click(screen.getByTestId('schedule-view-list'))
+
+      await screen.findByTestId('availability-list')
+      expect(screen.queryByTestId('availability-calendar')).not.toBeInTheDocument()
+      const rows = screen.getAllByTestId('list-row')
+      expect(rows).toHaveLength(1)
+      // The single compacted row shows the seats/day chip.
+      expect(screen.getByTestId('list-row-chip')).toHaveTextContent(/6 seats\/day/)
+    })
+
+    it('renders one List row per non-contiguous range', async () => {
+      mock.state.products = [makeProduct()]
+      mock.state.rows = [
+        makeAvailability({ id: 'a1', date: '2026-06-01' }),
+        makeAvailability({ id: 'a2', date: '2026-06-02' }),
+        // Gap on Jun 3-4 → new range starts Jun 5.
+        makeAvailability({ id: 'a3', date: '2026-06-05', capacity: 4 }),
+      ]
+      const user = userEvent.setup()
+      render(<Schedule />)
+
+      await screen.findByTestId('availability-calendar')
+      await user.click(screen.getByTestId('schedule-view-list'))
+
+      await screen.findByTestId('availability-list')
+      expect(screen.getAllByTestId('list-row')).toHaveLength(2)
+    })
+
+    it('renders an empty-state when the visible window has no rows', async () => {
+      mock.state.products = [makeProduct()]
+      mock.state.rows = []
+      const user = userEvent.setup()
+      render(<Schedule />)
+
+      await screen.findByTestId('availability-calendar')
+      await user.click(screen.getByTestId('schedule-view-list'))
+
+      await screen.findByTestId('list-view-empty')
+    })
+
+    it('clicking a List row opens the bulk-add sheet pre-filled with the range', async () => {
+      mock.state.products = [makeProduct()]
+      mock.state.rows = [
+        makeAvailability({ id: 'a1', date: '2026-06-01' }),
+        makeAvailability({ id: 'a2', date: '2026-06-02' }),
+      ]
+      const user = userEvent.setup()
+      render(<Schedule />)
+
+      await screen.findByTestId('availability-calendar')
+      await user.click(screen.getByTestId('schedule-view-list'))
+
+      const row = await screen.findByTestId('list-row')
+      await user.click(row)
+
+      const fromInput = await screen.findByLabelText(/^from$/i)
+      expect(fromInput).toHaveValue('2026-06-01')
+      const toInput = screen.getByLabelText(/^to/i)
+      expect(toInput).toHaveValue('2026-06-02')
+    })
+
+    it('persists the chosen view to localStorage and restores it on remount', async () => {
+      mock.state.products = [makeProduct()]
+      mock.state.rows = [makeAvailability()]
+      const user = userEvent.setup()
+      const { unmount } = render(<Schedule />)
+
+      await screen.findByTestId('availability-calendar')
+      await user.click(screen.getByTestId('schedule-view-list'))
+      await screen.findByTestId('availability-list')
+
+      expect(window.localStorage.getItem('landr.dashboard.scheduleView')).toBe(
+        'list',
+      )
+
+      unmount()
+      render(<Schedule />)
+      await screen.findByTestId('availability-list')
+      expect(screen.queryByTestId('availability-calendar')).not.toBeInTheDocument()
+    })
+  })
 })
