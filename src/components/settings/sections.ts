@@ -1,6 +1,7 @@
 import {
   BuildingIcon,
   CalendarClockIcon,
+  CalendarDaysIcon,
   CreditCardIcon,
   LinkIcon,
   MailIcon,
@@ -54,6 +55,11 @@ export const ACCOUNT_SECTIONS: SettingsSubSection[] = [
   },
 ]
 
+// landr-e8jf — Schedule joins the SETTINGS group below Products. It
+// sits alongside other operator-config surfaces (calendar display,
+// pickup locations, products) because, with the main Calendar showing
+// capacity pills (landr-3uai), Schedule is now a setup/management tool
+// for defining availability windows, not a daily-ops surface.
 export const SETTINGS_SECTIONS: SettingsSubSection[] = [
   {
     to: '/settings/calendar-display',
@@ -79,6 +85,11 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/products',
     label: t.settingsHub.sections.products,
     icon: PackageIcon,
+  },
+  {
+    to: '/settings/schedule',
+    label: t.settingsHub.sections.schedule,
+    icon: CalendarDaysIcon,
   },
   {
     to: '/settings/email-templates',

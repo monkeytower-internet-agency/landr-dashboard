@@ -1,4 +1,11 @@
-import { Navigate, Outlet, Route, Routes, useParams } from 'react-router-dom'
+import {
+  Navigate,
+  Outlet,
+  Route,
+  Routes,
+  useLocation,
+  useParams,
+} from 'react-router-dom'
 import { AuthCallback } from '@/routes/AuthCallback'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
@@ -44,6 +51,16 @@ function ProductsRedirect() {
   )
 }
 
+// landr-e8jf — preserve /schedule bookmarks AND the landr-3uai Calendar
+// capacity pill navigation, which jumps to /schedule?date=...&product=...
+// when the operator clicks a pill. A plain `<Navigate to="/settings/schedule" />`
+// drops the query string; this wrapper carries `search` through so the
+// Schedule page still receives the date + product preselection.
+function ScheduleRedirect() {
+  const { search } = useLocation()
+  return <Navigate to={`/settings/schedule${search}`} replace />
+}
+
 function App() {
   return (
     <ThemeProvider>
@@ -74,7 +91,6 @@ function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/bookings" element={<Bookings />} />
               <Route path="/calendar" element={<Calendar />} />
-              <Route path="/schedule" element={<Schedule />} />
               <Route path="/contacts" element={<Contacts />} />
               <Route path="/reporting" element={<Reporting />} />
               <Route path="/approvals/general" element={<GeneralApprovals />} />
@@ -105,6 +121,10 @@ function App() {
                     'Used by' chips. */}
                 <Route path="products" element={<Products />} />
                 <Route path="products/:productId" element={<Products />} />
+                {/* landr-e8jf — Schedule lives under Settings now. The
+                    capacity pills on the main Calendar (landr-3uai) make
+                    Schedule a setup tool, not a daily-ops view. */}
+                <Route path="schedule" element={<Schedule />} />
                 <Route path="email-templates" element={<EmailTemplates />} />
                 <Route path="integrations/gmail" element={<IntegrationsGmailSettings />} />
                 <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
@@ -133,6 +153,11 @@ function App() {
                 path="/products/:productId"
                 element={<ProductsRedirect />}
               />
+              {/* landr-e8jf — preserve /schedule bookmarks + the
+                  landr-3uai Calendar capacity-pill navigation, which
+                  jumps to /schedule?date=...&product=... when clicked.
+                  ScheduleRedirect carries the search string through. */}
+              <Route path="/schedule" element={<ScheduleRedirect />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -1,5 +1,4 @@
 import {
-  CalendarDaysIcon,
   CalendarIcon,
   CalendarRangeIcon,
   ChartAreaIcon,
@@ -57,18 +56,17 @@ type NavItem = {
 // products rarely (weekly at most) rather than daily, so the top-level
 // slot is reclaimed for the daily-use cluster per Kole's rarely-used →
 // settings pattern from the recent sidebar reorg.
+//
+// landr-e8jf — Schedule moved into Settings → Schedule. Now that the
+// landr-3uai capacity pills live on the main Calendar, the Schedule
+// page is a setup/management surface (define windows, edit capacity)
+// rather than a daily-ops view. Same rarely-used → settings pattern.
 const primaryItems: NavItem[] = [
   { to: '/', label: t.nav.dashboard, icon: LayoutDashboardIcon, exact: true },
   {
     to: '/bookings',
     label: t.nav.bookings,
     icon: CalendarRangeIcon,
-    exact: false,
-  },
-  {
-    to: '/schedule',
-    label: t.nav.schedule,
-    icon: CalendarDaysIcon,
     exact: false,
   },
   {
