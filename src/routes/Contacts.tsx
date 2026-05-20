@@ -1,11 +1,16 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { ContactAuditSheet } from '@/components/ContactAuditSheet'
 import { ContactsFilters } from '@/components/contacts/ContactsFilters'
 import { ContactsTable } from '@/components/ContactsTable'
 import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
 import { GdprEraseDialog } from '@/components/GdprEraseDialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { fetchContacts, type ContactRow } from '@/lib/contacts'
+import {
+  fetchContacts,
+  fetchContactTypeCounts,
+  type ContactRow,
+} from '@/lib/contacts'
 import { useContactsFilters } from '@/lib/contacts-filters'
 import { useContactsSort } from '@/lib/contacts-sort'
 import { useOperator } from '@/lib/operator'
@@ -53,6 +58,20 @@ export function Contacts() {
       : null,
   })
 
+  // landr-knz3 — per-type counts for the chip badges. Separate from the
+  // main list query because the counts are independent of the selected
+  // filter (they always reflect the operator-wide totals). The default
+  // (excludes GDPR-erased + soft-deleted) matches the visible list.
+  const countsQuery = useQuery({
+    queryKey: ['contact-type-counts', currentOperatorId ?? 'none', false],
+    queryFn: () =>
+      fetchContactTypeCounts(currentOperatorId as string, {
+        includeErased: false,
+      }),
+    enabled: !!currentOperatorId,
+    staleTime: 30_000,
+  })
+
   const rows = query.data ?? []
 
   return (
@@ -60,7 +79,11 @@ export function Contacts() {
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">{t.contacts.title}</h1>
       </header>
-      <ContactsFilters sortApi={sortApi} filtersApi={filtersApi} />
+      <ContactsFilters
+        sortApi={sortApi}
+        filtersApi={filtersApi}
+        typeCounts={countsQuery.data}
+      />
       {query.isError ? (
         <Card>
           <CardHeader>

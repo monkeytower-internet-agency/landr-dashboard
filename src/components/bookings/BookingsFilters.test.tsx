@@ -1,6 +1,8 @@
 // landr-1lj — verifies the filter bar renders all 5 dimensions, derives
 // options from the dataset, applies a selection, and Clear filters
 // resets every dimension.
+// landr-knz3 — extended with count badge + disable-when-zero coverage on
+// the per-option chips inside each dimension popover.
 
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -116,25 +118,34 @@ describe('BookingsFilters', () => {
     await user.click(screen.getByTestId('harness-lifecycle-trigger'))
     const lifecycleContent = await screen.findByTestId('harness-lifecycle-content')
     // 'awaiting_general_approval' has a friendly label in the dashboard
-    // strings → 'Awaiting approval'.
+    // strings → 'Awaiting approval'. Each option now carries its
+    // booking-count badge (landr-knz3) so we match via regex.
     expect(
-      within(lifecycleContent).getByText(/awaiting approval/i),
+      within(lifecycleContent).getByText(/awaiting approval \(\d+\)/i),
     ).toBeInTheDocument()
     // 'confirmed_paid' has no friendly label yet → humanised fallback.
-    expect(within(lifecycleContent).getByText(/Confirmed paid/i)).toBeInTheDocument()
+    expect(
+      within(lifecycleContent).getByText(/Confirmed paid \(\d+\)/i),
+    ).toBeInTheDocument()
     // Close and open another popover.
     await user.keyboard('{Escape}')
 
     await user.click(screen.getByTestId('harness-product-trigger'))
     const productContent = await screen.findByTestId('harness-product-content')
-    expect(within(productContent).getByText('Tandem')).toBeInTheDocument()
-    expect(within(productContent).getByText('Solo Course')).toBeInTheDocument()
+    expect(within(productContent).getByText(/Tandem \(\d+\)/)).toBeInTheDocument()
+    expect(
+      within(productContent).getByText(/Solo Course \(\d+\)/),
+    ).toBeInTheDocument()
     await user.keyboard('{Escape}')
 
     await user.click(screen.getByTestId('harness-pickup-trigger'))
     const pickupContent = await screen.findByTestId('harness-pickup-content')
-    expect(within(pickupContent).getByText('Hotel Alpha')).toBeInTheDocument()
-    expect(within(pickupContent).getByText('Hotel Beta')).toBeInTheDocument()
+    expect(
+      within(pickupContent).getByText(/Hotel Alpha \(\d+\)/),
+    ).toBeInTheDocument()
+    expect(
+      within(pickupContent).getByText(/Hotel Beta \(\d+\)/),
+    ).toBeInTheDocument()
   })
 
   it('toggling a chip surfaces the active count in the trigger and a Clear filters button', async () => {
@@ -179,5 +190,61 @@ describe('BookingsFilters', () => {
     // Belt-and-braces — make sure the hook spins up without the component.
     const { result } = renderHook(() => useBookingsFilters())
     expect(result.current.filters.lifecycleStates).toEqual([])
+  })
+
+  // landr-knz3 — per-option chips inside each dimension popover surface
+  // a count badge derived from the unfiltered base dataset. For derived
+  // dimensions (product/pickup/lifecycle) the chip wouldn't appear at
+  // all unless count >= 1; the static enum dimensions (product_kind /
+  // service_time_shape) always render the full enum, with empty values
+  // shown as disabled chips so operators can see the gap.
+  it('shows accurate count badges and disables empty enum chips', async () => {
+    const user = userEvent.setup()
+    render(<Harness bookings={sample} />)
+
+    // Sample has both bookings on product_kind=service; the other 3 kinds
+    // (digital_good / physical_good / gift_card) should render disabled.
+    await user.click(screen.getByTestId('harness-kind-trigger'))
+    const kindContent = await screen.findByTestId('harness-kind-content')
+
+    const serviceChip = within(kindContent).getByTestId(
+      'harness-kind-option-service',
+    )
+    expect(serviceChip).toHaveTextContent('Service (2)')
+    expect(serviceChip).not.toBeDisabled()
+
+    const giftCardChip = within(kindContent).getByTestId(
+      'harness-kind-option-gift_card',
+    )
+    expect(giftCardChip).toHaveTextContent('Gift card (0)')
+    expect(giftCardChip).toBeDisabled()
+    expect(giftCardChip).toHaveAttribute(
+      'title',
+      expect.stringMatching(/gift card/i),
+    )
+  })
+
+  it('clicking a zero-count enum chip does not toggle the filter', async () => {
+    // Opt out of the pointer-events check at session-setup time so the
+    // disabled chip can receive a dispatched click and we can verify
+    // React still skips onClick (per the `disabled` attribute).
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    render(<Harness bookings={sample} />)
+
+    await user.click(screen.getByTestId('harness-shape-trigger'))
+    const shapeContent = await screen.findByTestId('harness-shape-content')
+
+    // 'single_date' is absent from the sample (count=0) → disabled.
+    const singleDateChip = within(shapeContent).getByTestId(
+      'harness-shape-option-single_date',
+    )
+    expect(singleDateChip).toBeDisabled()
+    await user.click(singleDateChip)
+
+    // Filter state stayed empty — no trigger label update, no clear-all.
+    expect(screen.getByTestId('harness-shape-trigger')).not.toHaveTextContent(
+      '(1)',
+    )
+    expect(screen.queryByTestId('harness-clear-all')).not.toBeInTheDocument()
   })
 })

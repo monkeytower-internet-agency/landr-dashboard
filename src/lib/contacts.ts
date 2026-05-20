@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import type { ContactType } from '@/lib/contacts-filters'
+import { CONTACT_TYPES, type ContactType } from '@/lib/contacts-filters'
 import type { ContactsSort } from '@/lib/contacts-sort'
 
 export type ContactRow = {
@@ -108,6 +108,70 @@ export async function fetchContacts(
 
   if (error) throw new Error(error.message)
   return (data ?? []) as unknown as ContactRow[]
+}
+
+export type ContactTypeCounts = Record<ContactType, number>
+
+export type FetchContactTypeCountsOptions = {
+  /**
+   * Whether to include GDPR-erased rows in the count. Defaults to false
+   * to match the visible contacts list (which excludes erased rows on
+   * the active surface). Caller decides based on the current view.
+   */
+  includeErased?: boolean
+}
+
+/**
+ * landr-knz3 — counts of contacts per derived type for an operator.
+ *
+ * Reads the `contacts_with_types` view (same view that powers fetchContacts)
+ * and reduces the per-row `types[]` arrays into a Record<ContactType, number>.
+ * Contacts can carry multiple types (e.g. customer + attendee), so the
+ * counts sum to >= the row count.
+ *
+ * Soft-deleted rows (`deleted_at NOT NULL`) are always excluded; GDPR-erased
+ * rows are excluded by default — pass `includeErased: true` to count them too.
+ *
+ * v1 client-side aggregation is fine for Para42 (~30-50 contacts). When an
+ * operator's contact count grows past ~1000 a server-side aggregate RPC
+ * would be more efficient (see ticket DESCRIPTION performance note).
+ */
+export async function fetchContactTypeCounts(
+  operatorId: string,
+  opts: FetchContactTypeCountsOptions = {},
+): Promise<ContactTypeCounts> {
+  const includeErased = opts.includeErased ?? false
+
+  let query = supabase
+    .from('contacts_with_types')
+    .select('types')
+    .eq('operator_id', operatorId)
+    .is('deleted_at', null)
+
+  if (!includeErased) {
+    query = query.is('gdpr_erased_at', null)
+  }
+
+  const { data, error } = await query.limit(5000)
+  if (error) throw new Error(error.message)
+
+  const counts: ContactTypeCounts = {
+    customer: 0,
+    attendee: 0,
+    employee: 0,
+    agent: 0,
+  }
+
+  const rows = (data ?? []) as Array<{ types: string[] | null }>
+  for (const row of rows) {
+    const tags = row.types ?? []
+    for (const tag of tags) {
+      if ((CONTACT_TYPES as ReadonlyArray<string>).includes(tag)) {
+        counts[tag as ContactType] += 1
+      }
+    }
+  }
+  return counts
 }
 
 export async function fetchContact(contactId: string): Promise<ContactRow> {
