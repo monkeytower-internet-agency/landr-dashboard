@@ -1097,5 +1097,16 @@ export const t = {
     toastSaveError: 'Failed to update availability.',
     toastDeleteSuccess: 'Availability removed.',
     toastDeleteError: 'Failed to remove availability.',
+
+    // landr-lp9t — Month/List view toggle + List view chrome.
+    viewToggleMonth: 'Month',
+    viewToggleList: 'List',
+    viewToggleLabel: 'View',
+    listEmpty: 'No availability in the visible window yet.',
+    listOneDay: '1 day',
+    listDayCount: (n: number) => `${n} days`,
+    listSeatsPerDay: (n: number) => `${n} seats/day`,
+    listReservedHint: (reserved: number, total: number) =>
+      `${reserved}/${total} reserved`,
   },
 } as const

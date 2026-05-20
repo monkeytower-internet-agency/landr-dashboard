@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card'
 import { NativeSelect } from '@/components/ui/native-select'
 import { AvailabilityCalendar } from '@/components/schedule/AvailabilityCalendar'
+import { AvailabilityListView } from '@/components/schedule/AvailabilityListView'
 import {
   AvailabilityFormSheet,
   type AvailabilityFormSubmit,
@@ -28,6 +29,28 @@ import {
 } from '@/lib/availability'
 import { useOperator } from '@/lib/operator'
 import { t } from '@/lib/strings'
+import { cn } from '@/lib/utils'
+
+// landr-lp9t — persisted Month/List view toggle. Keyed globally (not per
+// operator) because users typically prefer one view across all tenants;
+// matches the lightweight pattern used by other UI prefs.
+type ScheduleView = 'month' | 'list'
+const SCHEDULE_VIEW_STORAGE_KEY = 'landr.dashboard.scheduleView'
+const DEFAULT_SCHEDULE_VIEW: ScheduleView = 'month'
+
+function isScheduleView(v: unknown): v is ScheduleView {
+  return v === 'month' || v === 'list'
+}
+
+function readStoredScheduleView(): ScheduleView {
+  if (typeof window === 'undefined') return DEFAULT_SCHEDULE_VIEW
+  try {
+    const raw = window.localStorage.getItem(SCHEDULE_VIEW_STORAGE_KEY)
+    return isScheduleView(raw) ? raw : DEFAULT_SCHEDULE_VIEW
+  } catch {
+    return DEFAULT_SCHEDULE_VIEW
+  }
+}
 
 function widenForCalendar(d: Date): { from: string; to: string } {
   // FullCalendar dayGrid month shows trailing/leading days from neighbouring
@@ -55,8 +78,24 @@ export function Schedule() {
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [popoverDate, setPopoverDate] = useState<string | null>(null)
 
+  // landr-lp9t — view toggle (Month calendar vs compacted List), persisted
+  // to localStorage so a power user who lives in List view doesn't have to
+  // re-pick it on every visit.
+  const [view, setViewState] = useState<ScheduleView>(() =>
+    readStoredScheduleView(),
+  )
+  const setView = useCallback((next: ScheduleView) => {
+    setViewState(next)
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(SCHEDULE_VIEW_STORAGE_KEY, next)
+    } catch {
+      /* silently ignore — quota / disabled storage. */
+    }
+  }, [])
+
   const today = useMemo(() => new Date(), [])
-  const window = useMemo(() => widenForCalendar(today), [today])
+  const calendarWindow = useMemo(() => widenForCalendar(today), [today])
 
   const productsQuery = useQuery<ProductForSchedule[]>({
     queryKey: ['schedulable-products', currentOperatorId ?? 'none'],
@@ -73,15 +112,15 @@ export function Schedule() {
       'availability',
       currentOperatorId ?? 'none',
       resolvedProductId ?? 'none',
-      window.from,
-      window.to,
+      calendarWindow.from,
+      calendarWindow.to,
     ],
     queryFn: () =>
       fetchAvailability(
         currentOperatorId as string,
         resolvedProductId as string,
-        window.from,
-        window.to,
+        calendarWindow.from,
+        calendarWindow.to,
       ),
     enabled: !!currentOperatorId && !!resolvedProductId,
   })
@@ -208,36 +247,84 @@ export function Schedule() {
         </Button>
       </header>
 
-      <Card className="max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-base">{t.schedule.productLabel}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {products.length === 0 && !productsQuery.isPending ? (
-            <p className="text-muted-foreground text-sm">
-              {t.schedule.noProducts}
-            </p>
-          ) : (
-            <NativeSelect
-              aria-label={t.schedule.productLabel}
-              value={resolvedProductId ?? ''}
-              onChange={(e) => setProductId(e.target.value || null)}
-            >
-              <option value="" disabled>
-                {t.schedule.productPlaceholder}
-              </option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+      {/* landr-5rsf made the picker Card narrow (max-w-sm) so the right side
+          of the page has room for the Month/List toggle (landr-lp9t). Wrap
+          both in a flex row that wraps on narrow viewports. */}
+      <div className="flex flex-wrap items-start gap-3">
+        <Card className="max-w-sm flex-1 min-w-[16rem]">
+          <CardHeader>
+            <CardTitle className="text-base">{t.schedule.productLabel}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {products.length === 0 && !productsQuery.isPending ? (
+              <p className="text-muted-foreground text-sm">
+                {t.schedule.noProducts}
+              </p>
+            ) : (
+              <NativeSelect
+                aria-label={t.schedule.productLabel}
+                value={resolvedProductId ?? ''}
+                onChange={(e) => setProductId(e.target.value || null)}
+              >
+                <option value="" disabled>
+                  {t.schedule.productPlaceholder}
                 </option>
-              ))}
-            </NativeSelect>
-          )}
-          <p className="text-muted-foreground text-xs">
-            {t.schedule.rangeHint}
-          </p>
-        </CardContent>
-      </Card>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
+            <p className="text-muted-foreground text-xs">
+              {t.schedule.rangeHint}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* landr-lp9t — Month/List view toggle. Sits next to (not inside)
+            the product picker card so it stays visible without crowding the
+            picker. Hidden when no product is pickable — there's nothing to
+            view-toggle in that case. */}
+        {products.length > 0 || productsQuery.isPending ? (
+          <div
+            role="tablist"
+            aria-label={t.schedule.viewToggleLabel}
+            className="border-input bg-background mt-1 inline-flex shrink-0 rounded-md border p-0.5"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'month'}
+              data-testid="schedule-view-month"
+              onClick={() => setView('month')}
+              className={cn(
+                'cursor-pointer rounded-sm px-3 py-1.5 text-xs font-medium transition-colors',
+                view === 'month'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+              )}
+            >
+              {t.schedule.viewToggleMonth}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'list'}
+              data-testid="schedule-view-list"
+              onClick={() => setView('list')}
+              className={cn(
+                'cursor-pointer rounded-sm px-3 py-1.5 text-xs font-medium transition-colors',
+                view === 'list'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+              )}
+            >
+              {t.schedule.viewToggleList}
+            </button>
+          </div>
+        ) : null}
+      </div>
 
       {availabilityQuery.isError ? (
         <Card>
@@ -252,6 +339,11 @@ export function Schedule() {
         </Card>
       ) : availabilityQuery.isPending && resolvedProductId ? (
         <p className="text-muted-foreground text-sm">{t.schedule.loading}</p>
+      ) : view === 'list' ? (
+        <AvailabilityListView
+          rows={rows}
+          onRangeSelect={handleRangeSelect}
+        />
       ) : (
         <AvailabilityCalendar
           rows={rows}
