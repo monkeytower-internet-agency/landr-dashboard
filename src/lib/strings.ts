@@ -153,6 +153,9 @@ export const t = {
       // 'Awaiting general approval' so the chip is still readable.
       stageFallback: (code: string): string =>
         code.charAt(0).toUpperCase() + code.slice(1).replace(/_/g, ' '),
+      // landr-knz3 — tooltip shown on a counted filter chip when its
+      // count is zero (e.g. an enum value with no bookings yet).
+      noOfValue: (label: string): string => `No bookings match ${label}`,
     },
     detail: {
       sectionStatus: 'Status',
@@ -285,6 +288,10 @@ export const t = {
       clearAll: 'Clear filters',
       // landr-dp45 — view toggle to surface GDPR-erased tombstones.
       showErasedLabel: 'Show erased contacts',
+      // landr-knz3 — tooltip shown on a chip when its count=0 so the
+      // operator understands the chip is intentionally non-clickable.
+      noOfType: (label: string): string =>
+        `No contacts of type ${label.toLowerCase()}`,
     },
   },
   customerDetail: {

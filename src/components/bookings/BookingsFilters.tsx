@@ -15,9 +15,9 @@
 // because filter state lives in the hook, not the component.
 
 import { useMemo } from 'react'
-import { Check, Filter, X } from 'lucide-react'
+import { Filter, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
+import { CountedFilterChip } from '@/components/ui/counted-filter-chip'
 import {
   Popover,
   PopoverContent,
@@ -29,7 +29,6 @@ import {
 } from '@/lib/bookings-filters'
 import type { BookingRow, ProductKind, ServiceTimeShape } from '@/lib/bookings'
 import { t } from '@/lib/strings'
-import { cn } from '@/lib/utils'
 
 type Props = {
   bookings: BookingRow[]
@@ -65,16 +64,40 @@ function lifecycleLabel(code: string): string {
   return KNOWN_STAGE_LABELS[code] ?? t.bookings.filters.stageFallback(code)
 }
 
-type Option = { value: string; label: string }
+type Option = { value: string; label: string; count: number }
 
-function uniqueSorted(options: Option[]): Option[] {
-  const seen = new Map<string, Option>()
-  for (const opt of options) {
-    if (!seen.has(opt.value)) seen.set(opt.value, opt)
+/**
+ * landr-knz3 — collapse a list of (value, label) pairs into unique options
+ * tagged with the number of distinct BOOKINGS each value appears in.
+ * Pass an explicit `extras` set to seed values that should be returned
+ * with count=0 (used for the static enum dimensions so empty enum members
+ * still render as disabled chips).
+ */
+function bucketByValue(
+  pairs: Array<{ bookingId: string; value: string; label: string }>,
+  extras: Array<{ value: string; label: string }> = [],
+): Option[] {
+  const seenByValue = new Map<string, { label: string; bookings: Set<string> }>()
+  for (const { bookingId, value, label } of pairs) {
+    let entry = seenByValue.get(value)
+    if (!entry) {
+      entry = { label, bookings: new Set() }
+      seenByValue.set(value, entry)
+    }
+    entry.bookings.add(bookingId)
   }
-  return Array.from(seen.values()).sort((a, b) =>
-    a.label.localeCompare(b.label),
-  )
+  for (const extra of extras) {
+    if (!seenByValue.has(extra.value)) {
+      seenByValue.set(extra.value, { label: extra.label, bookings: new Set() })
+    }
+  }
+  return Array.from(seenByValue.entries())
+    .map(([value, { label, bookings }]) => ({
+      value,
+      label,
+      count: bookings.size,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label))
 }
 
 export function BookingsFilters({
@@ -84,59 +107,104 @@ export function BookingsFilters({
 }: Props) {
   const { filters, toggle, clearDimension, clearAll } = filtersApi
 
-  // Derive dropdown options from the dataset so the bar only offers
-  // dimensions the operator actually has data for.
+  // Derive dropdown options from the dataset. Counts (landr-knz3) reflect
+  // the UNFILTERED base dataset — disable-when-zero semantics come from
+  // "does the operator have any bookings on this dimension at all?", not
+  // "would this chip narrow the current view further?".
   const lifecycleOptions = useMemo<Option[]>(
     () =>
-      uniqueSorted(
+      bucketByValue(
         bookings
-          .map((b) => b.current_stage?.code ?? null)
-          .filter((c): c is string => !!c)
-          .map((c) => ({ value: c, label: lifecycleLabel(c) })),
+          .map((b) => ({
+            bookingId: b.id,
+            code: b.current_stage?.code ?? null,
+          }))
+          .filter(
+            (x): x is { bookingId: string; code: string } => x.code !== null,
+          )
+          .map(({ bookingId, code }) => ({
+            bookingId,
+            value: code,
+            label: lifecycleLabel(code),
+          })),
       ),
     [bookings],
   )
 
   const productOptions = useMemo<Option[]>(
     () =>
-      uniqueSorted(
-        bookings
-          .flatMap((b) => b.items)
-          .map((it) => it.products)
-          .filter((p): p is NonNullable<typeof p> => !!p)
-          .map((p) => ({ value: p.id, label: p.name })),
+      bucketByValue(
+        bookings.flatMap((b) =>
+          b.items
+            .map((it) => it.products)
+            .filter((p): p is NonNullable<typeof p> => !!p)
+            .map((p) => ({ bookingId: b.id, value: p.id, label: p.name })),
+        ),
       ),
     [bookings],
   )
 
   const pickupOptions = useMemo<Option[]>(
     () =>
-      uniqueSorted(
-        bookings
-          .flatMap((b) => b.participants ?? [])
-          .map((p) => p.pickup_location)
-          .filter((l): l is NonNullable<typeof l> => !!l)
-          .map((l) => ({ value: l.id, label: l.name })),
+      bucketByValue(
+        bookings.flatMap((b) =>
+          (b.participants ?? [])
+            .map((p) => p.pickup_location)
+            .filter((l): l is NonNullable<typeof l> => !!l)
+            .map((l) => ({ bookingId: b.id, value: l.id, label: l.name })),
+        ),
       ),
     [bookings],
   )
 
+  // Static enums: include every enum value so empty members still render
+  // as disabled chips (vs. silently disappearing like the derived dims).
   const kindOptions = useMemo<Option[]>(
     () =>
-      PRODUCT_KINDS.map((k) => ({
-        value: k,
-        label: t.bookings.filters.kindLabels[k] ?? k,
-      })),
-    [],
+      bucketByValue(
+        bookings.flatMap((b) =>
+          b.items
+            .map((it) => it.products)
+            .filter((p): p is NonNullable<typeof p> => !!p)
+            .map((p) => ({
+              bookingId: b.id,
+              value: p.product_kind,
+              label: t.bookings.filters.kindLabels[p.product_kind] ?? p.product_kind,
+            })),
+        ),
+        PRODUCT_KINDS.map((k) => ({
+          value: k,
+          label: t.bookings.filters.kindLabels[k] ?? k,
+        })),
+      ),
+    [bookings],
   )
 
   const shapeOptions = useMemo<Option[]>(
     () =>
-      SERVICE_TIME_SHAPES.map((s) => ({
-        value: s,
-        label: t.bookings.filters.shapeLabels[s] ?? s,
-      })),
-    [],
+      bucketByValue(
+        bookings.flatMap((b) =>
+          b.items
+            .map((it) => it.products)
+            .filter((p): p is NonNullable<typeof p> => !!p)
+            .filter(
+              (p): p is NonNullable<typeof p> & { service_time_shape: ServiceTimeShape } =>
+                p.service_time_shape !== null,
+            )
+            .map((p) => ({
+              bookingId: b.id,
+              value: p.service_time_shape,
+              label:
+                t.bookings.filters.shapeLabels[p.service_time_shape] ??
+                p.service_time_shape,
+            })),
+        ),
+        SERVICE_TIME_SHAPES.map((s) => ({
+          value: s,
+          label: t.bookings.filters.shapeLabels[s] ?? s,
+        })),
+      ),
+    [bookings],
   )
 
   const total = activeFilterCount(filters)
@@ -240,7 +308,7 @@ function FilterDropdown({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-64 p-2"
+        className="w-72 p-2"
         data-testid={`${testId}-content`}
       >
         {options.length === 0 ? (
@@ -248,31 +316,29 @@ function FilterDropdown({
             {t.bookings.filters.noOptions}
           </p>
         ) : (
-          <ul className="flex flex-col gap-1" role="group" aria-label={label}>
+          // landr-knz3 — each value is a CountedFilterChip ('Label (N)';
+          // disabled when N=0). Chips wrap inside the popover so long
+          // option lists stay scannable.
+          <div
+            className="flex flex-wrap gap-1.5 p-1"
+            role="group"
+            aria-label={label}
+          >
             {options.map((opt) => {
               const checked = selected.includes(opt.value)
               return (
-                <li key={opt.value}>
-                  <label
-                    className={cn(
-                      'hover:bg-muted flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm',
-                    )}
-                    data-testid={`${testId}-option-${opt.value}`}
-                  >
-                    <Checkbox
-                      checked={checked}
-                      onChange={() => onToggle(opt.value)}
-                      aria-label={opt.label}
-                    />
-                    <span className="flex-1 truncate">{opt.label}</span>
-                    {checked ? (
-                      <Check className="size-3.5 opacity-70" aria-hidden="true" />
-                    ) : null}
-                  </label>
-                </li>
+                <CountedFilterChip
+                  key={opt.value}
+                  label={opt.label}
+                  count={opt.count}
+                  selected={checked}
+                  onToggle={() => onToggle(opt.value)}
+                  testId={`${testId}-option-${opt.value}`}
+                  disabledTooltip={t.bookings.filters.noOfValue(opt.label)}
+                />
               )
             })}
-          </ul>
+          </div>
         )}
         {count > 0 ? (
           <div className="border-t mt-2 pt-2">

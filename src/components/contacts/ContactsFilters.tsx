@@ -15,7 +15,9 @@
 import { Filter, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { CountedFilterChip } from '@/components/ui/counted-filter-chip'
 import { NativeSelect } from '@/components/ui/native-select'
+import type { ContactTypeCounts } from '@/lib/contacts'
 import {
   CONTACT_TYPES,
   activeFilterCount,
@@ -23,11 +25,23 @@ import {
 } from '@/lib/contacts-filters'
 import type { ContactsSort, UseContactsSort } from '@/lib/contacts-sort'
 import { t } from '@/lib/strings'
-import { cn } from '@/lib/utils'
+
+const ZERO_COUNTS: ContactTypeCounts = {
+  customer: 0,
+  attendee: 0,
+  employee: 0,
+  agent: 0,
+}
 
 type Props = {
   sortApi: UseContactsSort
   filtersApi: UseContactsFilters
+  /**
+   * Per-type counts (landr-knz3). When omitted, defaults to all-zero, which
+   * disables every chip — callers should pass a real value as soon as the
+   * count query resolves.
+   */
+  typeCounts?: ContactTypeCounts
   /** Test-id prefix so multiple bars on the same page stay distinguishable. */
   testIdPrefix?: string
 }
@@ -45,6 +59,7 @@ function isSort(v: string): v is ContactsSort {
 export function ContactsFilters({
   sortApi,
   filtersApi,
+  typeCounts = ZERO_COUNTS,
   testIdPrefix = 'contacts-filters',
 }: Props) {
   const { sort, setSort } = sortApi
@@ -92,19 +107,17 @@ export function ContactsFilters({
       </span>
       {CONTACT_TYPES.map((type) => {
         const active = filters.types.includes(type)
+        const label = t.contacts.filters.typeLabels[type] ?? type
         return (
-          <Button
+          <CountedFilterChip
             key={type}
-            type="button"
-            size="sm"
-            variant={active ? 'default' : 'outline'}
-            onClick={() => toggleType(type)}
-            data-testid={`${testIdPrefix}-type-${type}`}
-            aria-pressed={active}
-            className={cn('h-7 px-2 text-xs', active && 'shadow-sm')}
-          >
-            {t.contacts.filters.typeLabels[type] ?? type}
-          </Button>
+            label={label}
+            count={typeCounts[type]}
+            selected={active}
+            onToggle={() => toggleType(type)}
+            testId={`${testIdPrefix}-type-${type}`}
+            disabledTooltip={t.contacts.filters.noOfType(label)}
+          />
         )
       })}
       {total > 0 ? (
