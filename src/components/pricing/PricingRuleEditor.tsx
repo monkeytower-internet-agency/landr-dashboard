@@ -12,6 +12,7 @@ import {
   patchRule,
   RULE_KIND_LABELS,
   type PricingRule,
+  type RuleKind,
 } from '@/lib/pricingSchemes'
 import { TierTable } from './TierTable'
 
@@ -22,6 +23,106 @@ type Props = {
   onDeleted: () => void
   onRefetch: () => void
 }
+
+// ---- module-level params editor for non-tiered rule kinds ---------------
+
+type ParamsEditorProps = {
+  rule: PricingRule
+  currency: string
+  onPatch: (body: { params: Record<string, unknown> }) => void
+}
+
+function ParamsEditor({ rule, currency, onPatch }: ParamsEditorProps) {
+  const kind: RuleKind = rule.rule_kind
+  const pctCurrent = (rule.params as { percentage?: number }).percentage ?? 0
+  const amtCurrent = (rule.params as { amount?: number }).amount ?? 0
+  const totCurrent = (rule.params as { total?: number }).total ?? 0
+
+  const [pctVal, setPctVal] = useState(String(pctCurrent))
+  const [amtVal, setAmtVal] = useState(String(amtCurrent))
+  const [totVal, setTotVal] = useState(String(totCurrent))
+
+  if (kind === 'percentage_discount') {
+    return (
+      <div className="mt-2 flex items-center gap-2">
+        <Label htmlFor={`param-${rule.id}`} className="shrink-0 text-sm">
+          Percentage (0–100)
+        </Label>
+        <Input
+          id={`param-${rule.id}`}
+          className="h-7 w-24 text-sm"
+          value={pctVal}
+          onChange={(e) => setPctVal(e.target.value)}
+          onBlur={() => {
+            const v = parseFloat(pctVal)
+            if (isNaN(v) || v < 0 || v > 100) { setPctVal(String(pctCurrent)); return }
+            if (v === pctCurrent) return
+            onPatch({ params: { percentage: v } })
+          }}
+          type="number"
+          min={0}
+          max={100}
+          step={0.01}
+        />
+        <span className="text-muted-foreground text-sm">%</span>
+      </div>
+    )
+  }
+
+  if (kind === 'flat_discount') {
+    return (
+      <div className="mt-2 flex items-center gap-2">
+        <Label htmlFor={`param-${rule.id}`} className="shrink-0 text-sm">
+          Discount amount ({currency})
+        </Label>
+        <Input
+          id={`param-${rule.id}`}
+          className="h-7 w-28 text-sm"
+          value={amtVal}
+          onChange={(e) => setAmtVal(e.target.value)}
+          onBlur={() => {
+            const v = parseFloat(amtVal)
+            if (isNaN(v) || v < 0) { setAmtVal(String(amtCurrent)); return }
+            if (v === amtCurrent) return
+            onPatch({ params: { amount: v } })
+          }}
+          type="number"
+          min={0}
+          step={0.01}
+        />
+      </div>
+    )
+  }
+
+  if (kind === 'fixed_total') {
+    return (
+      <div className="mt-2 flex items-center gap-2">
+        <Label htmlFor={`param-${rule.id}`} className="shrink-0 text-sm">
+          Fixed total ({currency})
+        </Label>
+        <Input
+          id={`param-${rule.id}`}
+          className="h-7 w-28 text-sm"
+          value={totVal}
+          onChange={(e) => setTotVal(e.target.value)}
+          onBlur={() => {
+            const v = parseFloat(totVal)
+            if (isNaN(v) || v < 0) { setTotVal(String(totCurrent)); return }
+            if (v === totCurrent) return
+            onPatch({ params: { total: v } })
+          }}
+          type="number"
+          min={0}
+          step={0.01}
+        />
+      </div>
+    )
+  }
+
+  return null
+}
+
+// ---- main component -----------------------------------------------------
 
 export function PricingRuleEditor({
   rule,
@@ -60,109 +161,16 @@ export function PricingRuleEditor({
 
   const tiered = isTieredKind(rule.rule_kind)
 
-  // ---- params inputs for non-tiered rules ----
-  function ParamsEditor() {
-    const kind = rule.rule_kind
-
-    if (kind === 'percentage_discount') {
-      const current = (rule.params as { percentage?: number }).percentage ?? ''
-      const [val, setVal] = useState(String(current))
-      function save() {
-        const v = parseFloat(val)
-        if (isNaN(v) || v < 0 || v > 100) { setVal(String(current)); return }
-        if (v === current) return
-        patchMutation.mutate({ params: { percentage: v } })
-      }
-      return (
-        <div className="mt-2 flex items-center gap-2">
-          <Label htmlFor={`param-${rule.id}`} className="text-sm shrink-0">
-            Percentage (0–100)
-          </Label>
-          <Input
-            id={`param-${rule.id}`}
-            className="h-7 w-24 text-sm"
-            value={val}
-            onChange={(e) => setVal(e.target.value)}
-            onBlur={save}
-            type="number"
-            min={0}
-            max={100}
-            step={0.01}
-          />
-          <span className="text-sm text-muted-foreground">%</span>
-        </div>
-      )
-    }
-
-    if (kind === 'flat_discount') {
-      const current = (rule.params as { amount?: number }).amount ?? ''
-      const [val, setVal] = useState(String(current))
-      function save() {
-        const v = parseFloat(val)
-        if (isNaN(v) || v < 0) { setVal(String(current)); return }
-        if (v === current) return
-        patchMutation.mutate({ params: { amount: v } })
-      }
-      return (
-        <div className="mt-2 flex items-center gap-2">
-          <Label htmlFor={`param-${rule.id}`} className="text-sm shrink-0">
-            Discount amount ({currency})
-          </Label>
-          <Input
-            id={`param-${rule.id}`}
-            className="h-7 w-28 text-sm"
-            value={val}
-            onChange={(e) => setVal(e.target.value)}
-            onBlur={save}
-            type="number"
-            min={0}
-            step={0.01}
-          />
-        </div>
-      )
-    }
-
-    if (kind === 'fixed_total') {
-      const current = (rule.params as { total?: number }).total ?? ''
-      const [val, setVal] = useState(String(current))
-      function save() {
-        const v = parseFloat(val)
-        if (isNaN(v) || v < 0) { setVal(String(current)); return }
-        if (v === current) return
-        patchMutation.mutate({ params: { total: v } })
-      }
-      return (
-        <div className="mt-2 flex items-center gap-2">
-          <Label htmlFor={`param-${rule.id}`} className="text-sm shrink-0">
-            Fixed total ({currency})
-          </Label>
-          <Input
-            id={`param-${rule.id}`}
-            className="h-7 w-28 text-sm"
-            value={val}
-            onChange={(e) => setVal(e.target.value)}
-            onBlur={save}
-            type="number"
-            min={0}
-            step={0.01}
-          />
-        </div>
-      )
-    }
-
-    return null
-  }
-
   return (
-    <div className="rounded-md border p-3 space-y-1">
+    <div className="space-y-1 rounded-md border p-3">
       {/* Header row */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium">
           {RULE_KIND_LABELS[rule.rule_kind]}
         </span>
 
         <div className="flex items-center gap-1">
-          <Label htmlFor={`sort-${rule.id}`} className="text-xs text-muted-foreground">
+          <Label htmlFor={`sort-${rule.id}`} className="text-muted-foreground text-xs">
             Order
           </Label>
           <Input
@@ -214,7 +222,11 @@ export function PricingRuleEditor({
           onRefetch={onRefetch}
         />
       ) : (
-        <ParamsEditor />
+        <ParamsEditor
+          rule={rule}
+          currency={currency}
+          onPatch={(body) => patchMutation.mutate(body)}
+        />
       )}
     </div>
   )
