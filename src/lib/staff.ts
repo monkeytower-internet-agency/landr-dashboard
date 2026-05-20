@@ -17,6 +17,11 @@ export type StaffRow = {
   permissions: StaffPermissions | null
   created_at: string
   updated_at: string
+  contact: {
+    id: string
+    first_name: string | null
+    last_name: string | null
+  } | null
   user: {
     id: string
     email: string | null
@@ -47,7 +52,8 @@ const STAFF_SELECT = `
   permissions,
   created_at,
   updated_at,
-  user:users ( id, email, is_landr_staff )
+  user:users ( id, email, is_landr_staff ),
+  contact:contacts ( id, first_name, last_name )
 `
 
 export async function fetchStaff(operatorId: string): Promise<StaffRow[]> {
@@ -195,6 +201,14 @@ export function staffDate(iso: string | null): string {
 
 export function staffEmailDisplay(row: StaffRow): string {
   return row.user?.email ?? '—'
+}
+
+export function staffNameDisplay(row: StaffRow): string {
+  const name = [row.contact?.first_name, row.contact?.last_name]
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+  return name || staffEmailDisplay(row)
 }
 
 export function permissionsSummary(p: StaffPermissions | null): string {

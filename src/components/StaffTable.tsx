@@ -30,6 +30,7 @@ import {
   permissionsSummary,
   staffDate,
   staffEmailDisplay,
+  staffNameDisplay,
   type StaffRow,
 } from '@/lib/staff'
 import { t } from '@/lib/strings'
@@ -48,6 +49,14 @@ export function StaffTable({ rows, onEdit, onRevoke }: Props) {
 
   const columns = useMemo<ColumnDef<StaffRow>[]>(
     () => [
+      {
+        id: 'name',
+        header: 'Name',
+        accessorFn: (row) => staffNameDisplay(row),
+        cell: ({ getValue }) => (
+          <span className="truncate font-medium">{getValue<string>()}</span>
+        ),
+      },
       {
         id: 'email',
         header: t.staff.columnEmail,
