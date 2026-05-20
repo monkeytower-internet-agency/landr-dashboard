@@ -176,7 +176,7 @@ function PricingSettingsInner({ operatorId }: InnerProps) {
               <div className="group rounded-md border p-3 hover:bg-muted/50 transition-colors">
                 <button
                   type="button"
-                  className="w-full text-left"
+                  className="w-full text-left cursor-pointer"
                   onClick={() => setEditingSchemeId(scheme.id)}
                 >
                   <div className="flex items-center gap-2">
