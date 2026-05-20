@@ -88,6 +88,17 @@ vi.mock('@/lib/operator', () => ({
   OperatorProvider: ({ children }: { children: ReactElement }) => children,
 }))
 
+// landr-aqn4 — the new ApprovalsFilters chip bar persists state per-user
+// via useAuth(); stub it so the queue can mount without a real provider.
+vi.mock('@/lib/auth', () => ({
+  useAuth: () => ({
+    user: { id: 'user-1' },
+    session: null,
+    loading: false,
+    signOut: async () => {},
+  }),
+}))
+
 // Stub window.fetch used by postGeneralApprovalDecision
 const fetchSpy = vi.fn()
 vi.stubGlobal('fetch', fetchSpy)
@@ -114,6 +125,12 @@ const sampleRow = {
   current_stage: { code: 'awaiting_general_approval' },
   gross_total: 300,
   currency: 'EUR',
+  // landr-aqn4 — approval_trace is now selected on the row; the reason
+  // chip filter buckets off `applied_rules[].rule_kind`.
+  approval_trace: {
+    outcome: 'requires_general_approval',
+    applied_rules: [{ rule_kind: 'capacity_threshold', detail: {} }],
+  },
   customer: {
     id: 'c-1',
     first_name: 'Carol',
@@ -123,9 +140,9 @@ const sampleRow = {
   items: [
     {
       id: 'i-1',
-      date_range_start: null,
-      date_range_end: null,
-      selected_days: null,
+      date_range_start: '2026-05-25',
+      date_range_end: '2026-05-25',
+      selected_days: ['2026-05-25'],
       products: { id: 'p-1', name: 'Tandem Flight' },
     },
   ],
@@ -135,11 +152,46 @@ beforeEach(() => {
   mock.state.rows = []
   mock.state.error = null
   fetchSpy.mockReset()
+  // landr-aqn4 — ApprovalsFilters persists state under
+  // `landr.dashboard.approvalsFilters.<userId>`; tests share the mocked
+  // user-1 so clear between specs to avoid filter leakage.
+  window.localStorage.clear()
 })
 
 afterEach(() => {
   vi.clearAllMocks()
 })
+
+// landr-aqn4 — second sample row used for sort/filter tests. Different
+// reason bucket (first_time_customer), different product/customer/price
+// so each filter dimension has at least one differentiating value.
+const newCustomerRow = {
+  id: 'b-xyz789',
+  created_at: '2026-05-19T10:00:00.000Z',
+  current_semantic_state: 'pending',
+  current_stage: { code: 'awaiting_general_approval' },
+  gross_total: 90,
+  currency: 'EUR',
+  approval_trace: {
+    outcome: 'requires_general_approval',
+    applied_rules: [{ rule_kind: 'first_time_customer', detail: {} }],
+  },
+  customer: {
+    id: 'c-2',
+    first_name: 'Adam',
+    last_name: 'Adams',
+    email: 'adam@example.com',
+  },
+  items: [
+    {
+      id: 'i-2',
+      date_range_start: '2026-06-15',
+      date_range_end: '2026-06-15',
+      selected_days: ['2026-06-15'],
+      products: { id: 'p-2', name: 'Solo Course' },
+    },
+  ],
+}
 
 describe('GeneralApprovals route', () => {
   it('renders approval queue rows from Supabase', async () => {
@@ -230,5 +282,151 @@ describe('GeneralApprovals route', () => {
       decision: 'reject',
       notes: 'High risk customer',
     })
+  })
+
+  // ---- landr-aqn4 ------------------------------------------------------
+
+  it('shows a friendly empty state when there are no pending approvals', async () => {
+    mock.state.rows = []
+    render(<GeneralApprovals />)
+
+    await waitFor(() =>
+      expect(screen.getByTestId('approvals-empty-state')).toBeInTheDocument(),
+    )
+    expect(screen.getByText(/all caught up/i)).toBeInTheDocument()
+    // No count badge when count is zero.
+    expect(
+      screen.queryByTestId('approvals-count-badge'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows the pending count badge in the header', async () => {
+    mock.state.rows = [sampleRow, newCustomerRow]
+    render(<GeneralApprovals />)
+
+    const badge = await screen.findByTestId('approvals-count-badge')
+    expect(badge).toHaveTextContent('2 pending')
+  })
+
+  it('renders the new Activity-date column', async () => {
+    mock.state.rows = [sampleRow]
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+    // The Activity-date column header is sortable; matched via test id.
+    expect(
+      screen.getByTestId('approvals-sort-activity_date'),
+    ).toBeInTheDocument()
+    // The cell renders firstActivityDate formatted as 'Mon 25 May'.
+    expect(screen.getByText(/25 May/)).toBeInTheDocument()
+  })
+
+  it('clicking a row opens the BookingDetailSheet', async () => {
+    mock.state.rows = [sampleRow]
+    const user = userEvent.setup()
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+    // Click the row body (not an Approve/Reject button, which stop
+    // propagation so they don't open the sheet).
+    await user.click(screen.getByTestId('approvals-row-b-abc123'))
+
+    // BookingDetailSheet renders a region named 'Booking' once open.
+    expect(await screen.findByText(/Booking/)).toBeInTheDocument()
+  })
+
+  it('sorts by customer name asc/desc when the column header is clicked', async () => {
+    mock.state.rows = [sampleRow, newCustomerRow]
+    const user = userEvent.setup()
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+
+    // First click → ascending: Adam first.
+    await user.click(screen.getByTestId('approvals-sort-customer'))
+    const rowsAsc = screen.getAllByTestId(/approvals-row-/)
+    expect(rowsAsc[0]).toHaveAttribute(
+      'data-testid',
+      'approvals-row-b-xyz789',
+    )
+    expect(rowsAsc[1]).toHaveAttribute(
+      'data-testid',
+      'approvals-row-b-abc123',
+    )
+
+    // Second click → descending: Carol first.
+    await user.click(screen.getByTestId('approvals-sort-customer'))
+    const rowsDesc = screen.getAllByTestId(/approvals-row-/)
+    expect(rowsDesc[0]).toHaveAttribute(
+      'data-testid',
+      'approvals-row-b-abc123',
+    )
+  })
+
+  it('reason filter narrows the table to matching bookings only', async () => {
+    mock.state.rows = [sampleRow, newCustomerRow]
+    const user = userEvent.setup()
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+    expect(screen.getByText('Adam Adams')).toBeInTheDocument()
+
+    // Open the reason dropdown and select 'New customer'.
+    await user.click(
+      screen.getByTestId('approvals-filters-reason-trigger'),
+    )
+    await user.click(
+      await screen.findByTestId(
+        'approvals-filters-reason-option-new_customer',
+      ),
+    )
+
+    // Carol (capacity reason) is hidden; Adam (new_customer) remains.
+    await waitFor(() =>
+      expect(screen.queryByText('Carol Chen')).not.toBeInTheDocument(),
+    )
+    expect(screen.getByText('Adam Adams')).toBeInTheDocument()
+  })
+
+  it('customer-status filter (new vs returning) filters correctly', async () => {
+    mock.state.rows = [sampleRow, newCustomerRow]
+    const user = userEvent.setup()
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+
+    await user.click(
+      screen.getByTestId('approvals-filters-customer-status-trigger'),
+    )
+    await user.click(
+      await screen.findByTestId(
+        'approvals-filters-customer-status-option-new',
+      ),
+    )
+
+    // Carol has no first_time_customer rule → returning → hidden.
+    await waitFor(() =>
+      expect(screen.queryByText('Carol Chen')).not.toBeInTheDocument(),
+    )
+    expect(screen.getByText('Adam Adams')).toBeInTheDocument()
+  })
+
+  it('price filter buckets gross_total correctly', async () => {
+    mock.state.rows = [sampleRow, newCustomerRow]
+    const user = userEvent.setup()
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+
+    await user.click(screen.getByTestId('approvals-filters-price-trigger'))
+    // Adam = 90€ → 'low' bucket.
+    await user.click(
+      await screen.findByTestId('approvals-filters-price-option-low'),
+    )
+
+    await waitFor(() =>
+      expect(screen.queryByText('Carol Chen')).not.toBeInTheDocument(),
+    )
+    expect(screen.getByText('Adam Adams')).toBeInTheDocument()
   })
 })

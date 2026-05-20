@@ -55,6 +55,26 @@ export type BookingParticipant = {
   pickup_location: { id: string; name: string } | null
 }
 
+// landr-aqn4 — approval_trace shape mirrored from the FastAPI router
+// (`app/routers/public_bookings.py::_serialize_capacity_verdict`) and the
+// pure-Python evaluator (`app/services/approval.py::FiredRule`). The
+// dashboard only reads the fields it needs for filtering / display; the
+// real column is `jsonb` so unknown keys are tolerated.
+export type ApprovalAppliedRule = {
+  rule_id?: string
+  rule_kind?: string
+  rule_code?: string
+  outcome?: string
+  detail?: Record<string, unknown>
+}
+
+export type ApprovalTrace = {
+  outcome?: string
+  applied_rules?: ApprovalAppliedRule[]
+  // Tolerated freeform keys (e.g. capacity_verdict, has_hotel_products):
+  [key: string]: unknown
+}
+
 export type BookingRow = {
   id: string
   created_at: string
@@ -62,6 +82,11 @@ export type BookingRow = {
   current_stage: { code: string } | null
   gross_total: number | string
   currency: string
+  // landr-aqn4 — surfaced for the Approvals queue (reason / capacity /
+  // first-time-customer signals). Nullable for legacy bookings; optional
+  // on the type because existing callers (BookingsTable / Calendar /
+  // reporting) don't depend on it and their fixtures omit the field.
+  approval_trace?: ApprovalTrace | null
   customer: {
     id: string
     first_name: string | null
@@ -80,6 +105,7 @@ const SELECT = `
   current_stage:booking_lifecycle_stages!current_stage_id ( code ),
   gross_total,
   currency,
+  approval_trace,
   customer:contacts!inner ( id, first_name, last_name, email, phone ),
   items:booking_products ( id, date_range_start, date_range_end, selected_days, products ( id, name, product_kind, service_time_shape ) ),
   participants:booking_participants ( id, pickup_location:locations!pickup_location_id ( id, name ) )
@@ -473,6 +499,152 @@ export async function cancelBooking(
   // present, so the FastAPI handler sees the JSON payload.
   await api<unknown>('DELETE', `/api/staff/bookings/${bookingId}`, { reason })
 }
+
+// ----- Approval-queue helpers (landr-aqn4) --------------------------------
+// Pure derivations off BookingRow used by the Approvals page filters +
+// table. Kept here (rather than in src/components/approvals) so the
+// filter-match layer (src/lib/approvals-filter-match.ts) can import them
+// without dragging React in.
+
+export type ApprovalReasonBucket =
+  | 'capacity_warning'
+  | 'new_customer'
+  | 'voucher_invalid'
+  | 'manual_override'
+  | 'other'
+
+export const APPROVAL_REASON_BUCKETS: ReadonlyArray<ApprovalReasonBucket> = [
+  'capacity_warning',
+  'new_customer',
+  'voucher_invalid',
+  'manual_override',
+  'other',
+]
+
+/** Map a single rule_kind to a reason bucket. Unknown / "other" rules
+ *  fall through to `'other'` so the chip still surfaces them. */
+function ruleKindBucket(kind: string | undefined): ApprovalReasonBucket {
+  switch (kind) {
+    case 'capacity_threshold':
+    case 'capacity_percentage':
+      return 'capacity_warning'
+    case 'first_time_customer':
+      return 'new_customer'
+    case 'date_override':
+    case 'product_override':
+      return 'manual_override'
+    default:
+      return 'other'
+  }
+}
+
+/** All reason buckets a booking lands in. A booking can hit multiple
+ *  (e.g. capacity + first-time customer), so we return a Set. If the
+ *  approval_trace declares a `voucher_invalid` flag (jsonb tolerates
+ *  unknown keys; landr-api may add this later) it is added too. */
+export function approvalReasonsOf(row: BookingRow): Set<ApprovalReasonBucket> {
+  const out = new Set<ApprovalReasonBucket>()
+  const trace = row.approval_trace
+  if (!trace) {
+    out.add('other')
+    return out
+  }
+  for (const rule of trace.applied_rules ?? []) {
+    out.add(ruleKindBucket(rule.rule_kind))
+  }
+  // Tolerated freeform flags. Today the FastAPI router doesn't emit
+  // `voucher_invalid`, but the column is jsonb — the bucket is documented
+  // in the bd ticket and we let it light up if/when the router adds it.
+  if ((trace as Record<string, unknown>).voucher_invalid === true) {
+    out.add('voucher_invalid')
+  }
+  if (out.size === 0) out.add('other')
+  return out
+}
+
+/** Was this booking flagged as a first-time customer? Derived from the
+ *  `first_time_customer` rule firing in approval_trace.applied_rules.
+ *  When the trace is missing we default to "returning" (treat older
+ *  bookings as returning rather than mislabel them new). */
+export function isNewCustomer(row: BookingRow): boolean {
+  for (const rule of row.approval_trace?.applied_rules ?? []) {
+    if (rule.rule_kind === 'first_time_customer') return true
+  }
+  return false
+}
+
+/** Earliest activity date across the booking's items. Considers both
+ *  date_range_start AND the first entry in selected_days (for products
+ *  that schedule via day-picker rather than a contiguous range). Returns
+ *  an ISO 'YYYY-MM-DD' string or null. */
+export function firstActivityDate(row: BookingRow): string | null {
+  let best: string | null = null
+  for (const item of row.items) {
+    const candidates: string[] = []
+    if (item.date_range_start) candidates.push(item.date_range_start)
+    if (item.selected_days && item.selected_days.length > 0) {
+      // selected_days come unsorted from the DB; sort defensively.
+      const sorted = [...item.selected_days].sort()
+      candidates.push(sorted[0])
+    }
+    for (const c of candidates) {
+      if (best === null || c < best) best = c
+    }
+  }
+  return best
+}
+
+export type UrgencyBucket = 'urgent' | 'soon' | 'later' | 'unknown'
+
+export const URGENCY_BUCKETS: ReadonlyArray<UrgencyBucket> = [
+  'urgent',
+  'soon',
+  'later',
+  'unknown',
+]
+
+/** Bucket the booking by how soon its activity date falls.
+ *  ≤3 days = urgent, 4-14 = soon, 15+ = later, no activity date = unknown. */
+export function urgencyBucketOf(
+  row: BookingRow,
+  now: Date = new Date(),
+): UrgencyBucket {
+  const iso = firstActivityDate(row)
+  if (!iso) return 'unknown'
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (!m) return 'unknown'
+  const [, y, mo, d] = m
+  const activity = Date.UTC(Number(y), Number(mo) - 1, Number(d))
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  const diffDays = Math.floor((activity - today) / 86400000)
+  if (diffDays <= 3) return 'urgent'
+  if (diffDays <= 14) return 'soon'
+  return 'later'
+}
+
+export type PriceBucket = 'low' | 'mid' | 'high'
+
+export const PRICE_BUCKETS: ReadonlyArray<PriceBucket> = ['low', 'mid', 'high']
+
+/** Bucket the booking's gross_total: <100 = low, 100-500 = mid, >500 = high. */
+export function priceBucketOf(row: BookingRow): PriceBucket {
+  const n =
+    typeof row.gross_total === 'number'
+      ? row.gross_total
+      : Number(row.gross_total)
+  if (!Number.isFinite(n) || n < 100) return 'low'
+  if (n <= 500) return 'mid'
+  return 'high'
+}
+
+/** Format the firstActivityDate as 'Tue 8 Jul' (or null when unscheduled). */
+export function activityDateDisplay(row: BookingRow): string | null {
+  const iso = firstActivityDate(row)
+  if (!iso) return null
+  return _formatServiceDay(iso)
+}
+
+// --------------------------------------------------------------------------
 
 /** Patch a customer contact directly (RLS-gated; supabase write).
  *  Used by the Bookings detail Sheet to keep payer info in sync. */
