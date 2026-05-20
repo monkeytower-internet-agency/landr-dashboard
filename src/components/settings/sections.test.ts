@@ -18,6 +18,15 @@ describe('SETTINGS_SECTIONS', () => {
     expect(entry?.label).toBe('Products')
   })
 
+  // landr-e8jf — Schedule moved from main sidebar into Settings (Calendar
+  // now carries the capacity pills via landr-3uai; Schedule is a setup
+  // tool for availability windows, not a daily-ops surface).
+  it('includes a Schedule entry at /settings/schedule', () => {
+    const entry = SETTINGS_SECTIONS.find((s) => s.to === '/settings/schedule')
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Schedule')
+  })
+
   it('has no duplicate routes', () => {
     const tos = SETTINGS_SECTIONS.map((s) => s.to)
     expect(new Set(tos).size).toBe(tos.length)
@@ -44,13 +53,17 @@ describe('ACCOUNT_SECTIONS (landr-fzcg)', () => {
 })
 
 describe('account/settings grouping (landr-fzcg)', () => {
-  it('settings group contains the seven program subsections', () => {
+  // landr-e8jf — Schedule joined the SETTINGS group between Products and
+  // Email templates (was a top-level sidebar item; capacity pills on the
+  // main Calendar via landr-3uai turned Schedule into a setup tool).
+  it('settings group contains the eight program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
       '/settings/team',
       '/settings/pickup-locations',
       '/settings/products',
+      '/settings/schedule',
       '/settings/email-templates',
       '/settings/pricing',
     ])

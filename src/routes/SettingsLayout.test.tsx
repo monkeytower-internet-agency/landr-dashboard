@@ -167,6 +167,14 @@ function renderSettingsTree(initialPath: string) {
             />
             <Route path="team" element={<Staff />} />
             <Route path="pickup-locations" element={<PickupLocations />} />
+            {/* landr-e8jf — Schedule mounted under Settings now. The
+                component is heavy (FullCalendar + query subtree), so the
+                routing test only needs a placeholder; the Schedule.test
+                file owns the page's behavioural coverage. */}
+            <Route
+              path="schedule"
+              element={<div data-testid="schedule-placeholder" />}
+            />
             <Route path="email-templates" element={<EmailTemplates />} />
             <Route
               path="integrations/gmail"
@@ -241,15 +249,16 @@ describe('SettingsLayout', () => {
 
   it('renders the Settings sub-sidebar when on a settings-group URL (landr-fzcg)', () => {
     renderSettingsTree('/settings/team')
-    // /settings/team belongs to the Settings group → 7 sections shown.
+    // landr-e8jf — Schedule joined Settings → 8 sections (was 7).
     const nav = screen.getByRole('navigation', { name: /settings sections/i })
     const links = nav.querySelectorAll('a')
-    expect(links).toHaveLength(7)
+    expect(links).toHaveLength(8)
     expect(nav).toHaveTextContent(/calendar & display/i)
     expect(nav).toHaveTextContent(/display preferences/i)
     expect(nav).toHaveTextContent(/team/i)
     expect(nav).toHaveTextContent(/pickup locations/i)
     expect(nav).toHaveTextContent(/products/i)
+    expect(nav).toHaveTextContent(/schedule/i)
     expect(nav).toHaveTextContent(/email templates/i)
     expect(nav).toHaveTextContent(/pricing/i)
     // Account-group items must NOT appear here.
@@ -305,6 +314,20 @@ describe('SettingsLayout', () => {
       name: /settings sections/i,
     })
     const link = within(nav).getByRole('link', { name: /email templates/i })
+    expect(link).toHaveClass(/text-foreground/)
+  })
+
+  // landr-e8jf — Schedule now lives at /settings/schedule. Pin both the
+  // route mount + the sub-sidebar link being active.
+  it('mounts the Schedule subsection at /settings/schedule and marks its link active', async () => {
+    renderSettingsTree('/settings/schedule')
+    expect(
+      await screen.findByTestId('schedule-placeholder'),
+    ).toBeInTheDocument()
+    const nav = screen.getByRole('navigation', {
+      name: /settings sections/i,
+    })
+    const link = within(nav).getByRole('link', { name: /schedule/i })
     expect(link).toHaveClass(/text-foreground/)
   })
 })

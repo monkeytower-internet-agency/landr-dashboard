@@ -72,7 +72,6 @@ describe('AppSidebar (landr-sydf)', () => {
     for (const href of [
       '/',
       '/bookings',
-      '/schedule',
       '/calendar',
       '/contacts',
       '/reporting',
@@ -83,6 +82,28 @@ describe('AppSidebar (landr-sydf)', () => {
     ]) {
       expect(hrefs.has(href)).toBe(true)
     }
+  })
+})
+
+// landr-e8jf — Schedule is no longer a top-level sidebar item; it moved
+// into the Settings sub-sidebar at /settings/schedule. The capacity pills
+// now live on the main Calendar (landr-3uai), so Schedule is a setup
+// surface — same pattern as the landr-sydf Products move.
+describe('AppSidebar (landr-e8jf)', () => {
+  it('does NOT render a top-level Schedule entry', () => {
+    renderSidebar()
+    const links = screen.queryAllByRole('link')
+    const hrefs = new Set(
+      links.map((a) => a.getAttribute('href')).filter(Boolean),
+    )
+    expect(hrefs.has('/schedule')).toBe(false)
+    // /settings/schedule must NOT appear in the top-level sidebar — it
+    // lives in the sub-sidebar.
+    expect(hrefs.has('/settings/schedule')).toBe(false)
+    const scheduleLink = links.find(
+      (a) => (a.textContent ?? '').trim().toLowerCase() === 'schedule',
+    )
+    expect(scheduleLink).toBeUndefined()
   })
 })
 

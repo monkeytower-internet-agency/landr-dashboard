@@ -110,6 +110,9 @@ export const t = {
       team: 'Team',
       pickupLocations: 'Pickup locations',
       products: 'Products',
+      // landr-e8jf — Schedule moved from main sidebar into Settings
+      // (capacity pills now on Calendar; Schedule is a setup tool).
+      schedule: 'Schedule',
       emailTemplates: 'Email templates',
       integrationsGmail: 'Gmail',
       connectedAccounts: 'Connected accounts',
