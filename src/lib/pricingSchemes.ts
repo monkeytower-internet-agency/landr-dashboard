@@ -13,6 +13,15 @@ export type PricingSchemeWritePayload = {
   currency: string
 }
 
+export type PricingSchemePatch = {
+  name?: string
+  currency?: string
+  notes?: string | null
+  active?: boolean
+  allow_day_deselection?: boolean
+  sort_order?: number
+}
+
 // ---- Full pricing tree types (landr-bcca) --------------------------------
 
 export type RuleKind =
@@ -202,7 +211,7 @@ export async function createPricingScheme(
 export async function patchPricingScheme(
   operatorId: string,
   schemeId: string,
-  body: Partial<PricingSchemeWritePayload>,
+  body: PricingSchemePatch,
 ): Promise<PricingSchemeRef> {
   return api<PricingSchemeRef>(
     'PATCH',

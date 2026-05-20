@@ -55,12 +55,11 @@ type TierRowProps = {
   tier: PricingTier
   operatorId: string
   ruleKind: RuleKind
-  currency: string
   onDeleted: () => void
   onRefetch: () => void
 }
 
-function TierRow({ tier, operatorId, ruleKind, currency, onDeleted, onRefetch }: TierRowProps) {
+function TierRow({ tier, operatorId, ruleKind, onDeleted, onRefetch }: TierRowProps) {
   const perUnit = usesAmountPerUnit(ruleKind)
 
   const [minVal, setMinVal] = useState(String(tier.threshold_min))
@@ -288,7 +287,6 @@ export function TierTable({
               tier={tier}
               operatorId={operatorId}
               ruleKind={ruleKind}
-              currency={currency}
               onDeleted={onRefetch}
               onRefetch={onRefetch}
             />
