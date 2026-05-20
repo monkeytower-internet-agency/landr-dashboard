@@ -90,9 +90,9 @@ export function Login() {
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_65%_65%_at_80%_20%,_rgba(134,59,255,0.16)_0%,_rgba(134,59,255,0.08)_55%,_transparent_100%)]"
       />
       <img
-        src="/logos/landr-logo.png"
+        src="/logos/landr-logo-hi.webp"
         alt={t.app.name}
-        className="relative z-10 h-24 w-auto"
+        className="relative z-10 w-full max-w-sm h-auto"
       />
       <Card className="relative z-10 w-full max-w-sm">
         <CardHeader>
