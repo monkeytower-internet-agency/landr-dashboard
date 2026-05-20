@@ -93,6 +93,7 @@ export const t = {
       integrationsGmail: 'Gmail',
       connectedAccounts: 'Connected accounts',
       plan: 'Plan',
+      pricing: 'Pricing',
     },
     plan: {
       title: 'Plan',

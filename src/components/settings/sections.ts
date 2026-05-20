@@ -7,6 +7,7 @@ import {
   MapPinIcon,
   MonitorIcon,
   PlugIcon,
+  TagIcon,
   UsersIcon,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -61,6 +62,11 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/connected-accounts',
     label: t.settingsHub.sections.connectedAccounts,
     icon: LinkIcon,
+  },
+  {
+    to: '/settings/pricing',
+    label: t.settingsHub.sections.pricing,
+    icon: TagIcon,
   },
   {
     to: '/settings/plan',
