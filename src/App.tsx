@@ -21,6 +21,7 @@ import { DisplayPreferencesSettings } from '@/routes/settings/DisplayPreferences
 import { IntegrationsGmailSettings } from '@/routes/settings/IntegrationsGmailSettings'
 import { ConnectedAccountsSettings } from '@/routes/settings/ConnectedAccountsSettings'
 import { PlanSettings } from '@/routes/settings/PlanSettings'
+import { PricingSettings } from '@/routes/settings/PricingSettings'
 import { AuthProvider } from '@/lib/auth'
 import { OperatorProvider } from '@/lib/operator'
 import { ProtectedRoute } from '@/lib/ProtectedRoute'
@@ -76,6 +77,7 @@ function App() {
                 <Route path="email-templates" element={<EmailTemplates />} />
                 <Route path="integrations/gmail" element={<IntegrationsGmailSettings />} />
                 <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
+                <Route path="pricing" element={<PricingSettings />} />
                 <Route path="plan" element={<PlanSettings />} />
               </Route>
 
