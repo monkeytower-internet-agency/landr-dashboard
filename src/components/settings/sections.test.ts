@@ -27,6 +27,14 @@ describe('SETTINGS_SECTIONS', () => {
     expect(entry?.label).toBe('Schedule')
   })
 
+  // landr-yp8x — Branding section drives the embedded booking widget's
+  // logo + primary colour.
+  it('includes a Branding entry at /settings/branding', () => {
+    const entry = SETTINGS_SECTIONS.find((s) => s.to === '/settings/branding')
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Branding')
+  })
+
   it('has no duplicate routes', () => {
     const tos = SETTINGS_SECTIONS.map((s) => s.to)
     expect(new Set(tos).size).toBe(tos.length)
@@ -56,10 +64,13 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // landr-e8jf — Schedule joined the SETTINGS group between Products and
   // Email templates (was a top-level sidebar item; capacity pills on the
   // main Calendar via landr-3uai turned Schedule into a setup tool).
-  it('settings group contains the eight program subsections', () => {
+  // landr-yp8x — Branding joined the SETTINGS group next to Display
+  // preferences (logo + primary colour shown in the embedded widget).
+  it('settings group contains the nine program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
+      '/settings/branding',
       '/settings/team',
       '/settings/pickup-locations',
       '/settings/products',

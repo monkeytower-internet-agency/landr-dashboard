@@ -44,6 +44,17 @@ export const OperatorSettingsSchema = z.object({
   first_day_of_week: z.number().int().min(0).max(6).nullable().optional(),
   // landr-c3t — premium-tease opt-in.
   show_premium_teasers: z.boolean().nullable().optional(),
+  // landr-yp8x — operator branding shown in the embedded booking widget.
+  // logo_url is the public URL of an image uploaded to the operator-logos
+  // storage bucket (Settings → Branding handles the upload). primary_color
+  // is the 7-char hex (#RRGGBB) the widget injects as a CSS variable for
+  // the CTA buttons; mirrors the DB operators_primary_color_hex_chk.
+  logo_url: z.string().nullable().optional(),
+  primary_color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour like #FF8800.')
+    .nullable()
+    .optional(),
   // landr-c3t — embedded subscription_package (read-only on Settings; the
   // GET returns it via PostgREST FK join). Drives the disabled-on UX for
   // free-tier operators so they can't opt out of teasers.

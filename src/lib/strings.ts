@@ -120,6 +120,8 @@ export const t = {
       connectedAccounts: 'Connected accounts',
       plan: 'Plan',
       pricing: 'Pricing',
+      // landr-yp8x — operator branding shown in the embedded booking widget.
+      branding: 'Branding',
     },
     plan: {
       title: 'Plan',
@@ -765,6 +767,34 @@ export const t = {
     firstDayOfWeekMonday: 'Monday',
     errorWorkHoursOrder: 'End time must be later than start time.',
     optionNone: '— Select —',
+
+    // landr-yp8x — operator branding (logo + primary colour).
+    sectionBranding: 'Branding',
+    sectionBrandingDesc:
+      'Your logo and primary colour appear in the embedded booking widget on your website.',
+    fieldLogo: 'Logo',
+    fieldLogoHint:
+      'Square PNG or SVG works best (max 2 MB). Shown at the top of every booking step.',
+    fieldLogoNone: 'No logo uploaded yet.',
+    fieldLogoUpload: 'Upload logo',
+    fieldLogoReplace: 'Replace logo',
+    fieldLogoRemove: 'Remove logo',
+    fieldLogoUploading: 'Uploading…',
+    fieldPrimaryColor: 'Primary colour',
+    fieldPrimaryColorHint:
+      'Drives the booking widget’s buttons and accents. Pick any 7-char hex (#RRGGBB).',
+    fieldPrimaryColorReset: 'Reset to default',
+    brandingPreviewTitle: 'Preview',
+    brandingPreviewDesc:
+      'How a CTA in your booking widget will look with these brand settings.',
+    brandingPreviewCta: 'Continue',
+    brandingFileTooLarge: 'File is too large. Max 2 MB.',
+    brandingFileTypeUnsupported: 'Only PNG, JPG, SVG, or WebP files are supported.',
+    brandingUploadError: 'Failed to upload logo.',
+    brandingRemoveError: 'Failed to remove logo.',
+    brandingToastUploaded: 'Logo uploaded.',
+    brandingToastRemoved: 'Logo removed.',
+    brandingToastColorSaved: 'Primary colour saved.',
 
     gmailLoading: 'Loading Gmail status…',
     gmailError: 'Failed to load Gmail status.',

@@ -249,12 +249,13 @@ describe('SettingsLayout', () => {
 
   it('renders the Settings sub-sidebar when on a settings-group URL (landr-fzcg)', () => {
     renderSettingsTree('/settings/team')
-    // landr-e8jf — Schedule joined Settings → 8 sections (was 7).
+    // landr-yp8x — Branding joined Settings → 9 sections (was 8).
     const nav = screen.getByRole('navigation', { name: /settings sections/i })
     const links = nav.querySelectorAll('a')
-    expect(links).toHaveLength(8)
+    expect(links).toHaveLength(9)
     expect(nav).toHaveTextContent(/calendar & display/i)
     expect(nav).toHaveTextContent(/display preferences/i)
+    expect(nav).toHaveTextContent(/branding/i)
     expect(nav).toHaveTextContent(/team/i)
     expect(nav).toHaveTextContent(/pickup locations/i)
     expect(nav).toHaveTextContent(/products/i)

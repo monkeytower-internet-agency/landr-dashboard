@@ -8,6 +8,7 @@ import {
   MapPinIcon,
   MonitorIcon,
   PackageIcon,
+  PaletteIcon,
   PlugIcon,
   TagIcon,
   UsersIcon,
@@ -70,6 +71,14 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/display-preferences',
     label: t.settingsHub.sections.displayPreferences,
     icon: MonitorIcon,
+  },
+  // landr-yp8x — Branding sits next to Display preferences so the
+  // operator can configure all 'how my surfaces look' settings in one
+  // cluster.
+  {
+    to: '/settings/branding',
+    label: t.settingsHub.sections.branding,
+    icon: PaletteIcon,
   },
   {
     to: '/settings/team',
