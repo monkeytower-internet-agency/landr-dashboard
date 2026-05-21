@@ -17,7 +17,7 @@ export function PlanSettings() {
   return (
     <OperatorSection>
       {({ operator }) => {
-        const plan = operator.package
+        const plan = operator.subscription_package
         return (
           <div className="mx-auto max-w-2xl space-y-6">
             <PageTitle

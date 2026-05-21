@@ -95,7 +95,7 @@ function DisplayPreferencesForm({ operator, operatorId, onSaved }: FormProps) {
               control={control}
               name="show_premium_teasers"
               render={({ field }) => {
-                const isFreeTier = operator.package?.slug === 'free'
+                const isFreeTier = operator.subscription_package?.slug === 'free'
                 // Free-tier operators are forced ON visually so they can't
                 // opt out of seeing upgrade prompts; paid tiers can toggle.
                 const checked = isFreeTier ? true : !!field.value

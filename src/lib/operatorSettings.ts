@@ -47,7 +47,9 @@ export const OperatorSettingsSchema = z.object({
   // landr-c3t — embedded subscription_package (read-only on Settings; the
   // GET returns it via PostgREST FK join). Drives the disabled-on UX for
   // free-tier operators so they can't opt out of teasers.
-  package: z
+  // landr-8ey8 — field is `subscription_package` (was `package`) so the
+  // API row shape matches the direct-PostgREST shape in `lib/operator.tsx`.
+  subscription_package: z
     .object({
       slug: z.string(),
       name: z.string(),
@@ -62,8 +64,8 @@ export type OperatorSettings = z.infer<typeof OperatorSettingsSchema>
 const OperatorPatchBaseSchema = OperatorSettingsSchema.omit({
   id: true,
   slug: true,
-  // landr-c3t — package is a read-only PostgREST embed, never patched.
-  package: true,
+  // landr-c3t — subscription_package is a read-only PostgREST embed, never patched.
+  subscription_package: true,
 }).partial()
 
 // landr-f1s — mirrors the API model_validator and the DB CHECK constraint
