@@ -153,6 +153,8 @@ export const t = {
     schedule: 'Schedule',
     // landr-aref — /audit route (audit_log viewer).
     audit: 'Audit log',
+    // landr-4pn1 — /trash route (recently-deleted bin per type).
+    trash: 'Trash',
   },
   // landr-aref — /audit route strings (audit_log viewer).
   audit: {
@@ -186,6 +188,29 @@ export const t = {
     drawerCorrelation: 'External correlation',
     drawerOperator: 'Operator',
     drawerPayload: 'Payload (old_row + new_row)',
+  },
+  // landr-4pn1 — /trash route strings (recently-deleted bin).
+  trash: {
+    title: 'Recently deleted',
+    subtitle:
+      'Soft-deleted items per category. Restore brings the row back. Server-side cleanup eventually empties the bin.',
+    loading: 'Loading…',
+    error: 'Failed to load this category.',
+    empty: 'Nothing in the bin for this category.',
+    columnItem: 'Item',
+    columnDeletedAt: 'Deleted',
+    columnRestore: '',
+    restore: 'Restore',
+    restoring: 'Restoring…',
+    restoreSuccess: 'Restored.',
+    restoreError: 'Failed to restore. Try again.',
+    tabs: {
+      bookings: 'Bookings',
+      contacts: 'Contacts',
+      products: 'Products',
+      operator_tags: 'Tags',
+      pricing_schemes: 'Pricing schemes',
+    },
   },
   // landr-fzcg — sibling of settingsHub for the Account sub-sidebar.
   accountHub: {

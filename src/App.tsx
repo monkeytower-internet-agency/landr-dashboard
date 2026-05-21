@@ -22,6 +22,10 @@ import {
 // extra bytes save.
 const Analytics = lazy(() => import('@/routes/Analytics'))
 const Audit = lazy(() => import('@/routes/Audit'))
+// landr-4pn1 — /trash (recently-deleted bin). Operator-rare surface (only
+// visited to undo an accidental delete); lazy so it doesn't weigh down the
+// initial bundle.
+const Trash = lazy(() => import('@/routes/Trash'))
 const ViewPage = lazy(() => import('@/routes/ViewPage'))
 const ViewsIndex = lazy(() => import('@/routes/ViewsIndex'))
 const ViewsNew = lazy(() => import('@/routes/ViewsNew'))
@@ -138,6 +142,8 @@ function App() {
                   RLS on audit_log; landr staff see cross-tenant rows for
                   fraud/dispute investigation per the existing policy. */}
               <Route path="/audit" element={<Audit />} />
+              {/* landr-4pn1 — /trash (recently-deleted bin per category). */}
+              <Route path="/trash" element={<Trash />} />
               <Route path="/approvals/general" element={<GeneralApprovals />} />
 
               {/* landr-fzcg — Account is a virtual top-level nav item
