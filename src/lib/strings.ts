@@ -744,6 +744,44 @@ export const t = {
       noOfType: (label: string): string =>
         `No contacts of type ${label.toLowerCase()}`,
     },
+    // landr-panu — customer segments (tag-based saved groups). Operators
+    // pick a tag combination once, save it as a named segment, and reuse
+    // it as a one-click chip filter above the table.
+    segments: {
+      label: 'Segments',
+      tagsLabel: 'Tags',
+      addTagPlaceholder: 'Filter by tag…',
+      addTagButton: 'Filter by tag',
+      saveAsSegment: 'Save as segment…',
+      manageButton: 'Manage segments',
+      clearTagFilter: 'Clear tag filter',
+      saveDialogTitle: 'Save segment',
+      saveDialogDescription:
+        'Save the current tag combination as a reusable quick-filter chip.',
+      saveNameLabel: 'Segment name',
+      saveNamePlaceholder: 'e.g. VIP returning customers',
+      saveTagsLabel: 'Tags in this segment',
+      saveColorLabel: 'Chip color',
+      saveSubmit: 'Save segment',
+      saveCancel: 'Cancel',
+      saveValidationName: 'Give the segment a name to save it.',
+      saveValidationTags: 'Pick at least one tag.',
+      toastCreated: (name: string): string => `Segment '${name}' saved.`,
+      toastUpdated: (name: string): string => `Segment '${name}' updated.`,
+      toastDeleted: (name: string): string => `Segment '${name}' deleted.`,
+      manageDialogTitle: 'Manage segments',
+      manageDialogDescription:
+        'Rename, recolor, or delete the segments saved for this operator.',
+      manageEmpty: 'No segments saved yet. Pick tags above and use “Save as segment…”.',
+      manageEdit: 'Edit',
+      manageDelete: 'Delete',
+      manageClose: 'Close',
+      // Aria labels.
+      ariaApply: (name: string): string => `Apply segment ${name}`,
+      ariaActive: (name: string): string => `Segment ${name} is active`,
+      ariaDeleteConfirm: (name: string): string =>
+        `Delete segment '${name}'? This can't be undone.`,
+    },
   },
   customerDetail: {
     title: 'Customer',

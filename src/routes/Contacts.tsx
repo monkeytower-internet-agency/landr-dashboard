@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { DownloadIcon } from 'lucide-react'
 import { ContactAuditSheet } from '@/components/ContactAuditSheet'
 import { ContactsFilters } from '@/components/contacts/ContactsFilters'
+import { SegmentChips } from '@/components/contacts/SegmentChips'
 import { ContactsTable } from '@/components/ContactsTable'
 import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
 import { GdprEraseDialog } from '@/components/GdprEraseDialog'
@@ -28,6 +29,7 @@ import {
 } from '@/lib/contacts-sort'
 import { downloadCsv, todayStampUtc, type CsvColumn } from '@/lib/csv-export'
 import { useOperator } from '@/lib/operator'
+import { filterByTagIds } from '@/lib/segments'
 import { PageTitle } from '@/lib/page-title'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { t } from '@/lib/strings'
@@ -130,11 +132,25 @@ export function Contacts() {
     staleTime: 30_000,
   })
 
-  const rows = query.data ?? []
+  // landr-panu — ad-hoc tag filter (AND-of-tag-ids). Lifted here so the
+  // SegmentChips bar can drive the table's visible row set. Sort + types
+  // + includeErased still go through the server (via the query key); the
+  // tag filter is applied client-side because tags live on a JOIN embed
+  // we already fetch. Empty selection short-circuits to identity in
+  // filterByTagIds, so the case-zero render path is unchanged.
+  //
+  // Note: we feed `query.data` directly into the useMemo (instead of
+  // aliasing as `fetched` first) so the dep is the query reference itself
+  // — same identity stability TanStack Query guarantees — keeping the
+  // react-hooks/exhaustive-deps linter happy without a second useMemo.
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
+  const rows = useMemo(
+    () => filterByTagIds(query.data ?? [], selectedTagIds),
+    [query.data, selectedTagIds],
+  )
 
-  // landr-xnpc — `rows` IS the current filtered view: sort + types +
-  // includeErased are applied server-side via the query key, so we don't
-  // need a second client-side pass before exporting.
+  // landr-xnpc — CSV export mirrors the visible rows so the operator
+  // gets exactly what's on screen (incl. the segment / tag filter pass).
   function onExportCsv() {
     downloadCsv(
       `contacts-${todayStampUtc()}.csv`,
@@ -214,6 +230,14 @@ export function Contacts() {
         sortApi={sortApi}
         filtersApi={filtersApi}
         typeCounts={countsQuery.data}
+      />
+      {/* landr-panu — saved customer segments (tag-AND quick filters)
+          between the primary filter bar and the table so the operator
+          sees both axes (type + segment) at once. */}
+      <SegmentChips
+        operatorId={currentOperatorId}
+        selectedTagIds={selectedTagIds}
+        onSelectedTagIdsChange={setSelectedTagIds}
       />
       {query.isError ? (
         <Card>
