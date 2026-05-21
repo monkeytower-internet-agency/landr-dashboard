@@ -26,6 +26,7 @@ import { ViewPage } from '@/routes/ViewPage'
 import { EmailTemplates } from '@/routes/EmailTemplates'
 import { PickupLocations } from '@/routes/PickupLocations'
 import { SettingsLayout } from '@/routes/SettingsLayout'
+import { BrandingSettings } from '@/routes/settings/BrandingSettings'
 import { CompanySettings } from '@/routes/settings/CompanySettings'
 import { CalendarDisplaySettings } from '@/routes/settings/CalendarDisplaySettings'
 import { DisplayPreferencesSettings } from '@/routes/settings/DisplayPreferencesSettings'
@@ -128,6 +129,9 @@ function App() {
                 <Route path="company" element={<CompanySettings />} />
                 <Route path="calendar-display" element={<CalendarDisplaySettings />} />
                 <Route path="display-preferences" element={<DisplayPreferencesSettings />} />
+                {/* landr-yp8x — Branding (logo + primary colour shown in
+                    the embedded booking widget). */}
+                <Route path="branding" element={<BrandingSettings />} />
                 <Route path="team" element={<Staff />} />
                 <Route path="pickup-locations" element={<PickupLocations />} />
                 {/* landr-sydf — Products lives under Settings now (operators
