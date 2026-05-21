@@ -265,4 +265,19 @@ describe('Bookings route', () => {
     await screen.findByText(/failed to load bookings/i)
     expect(screen.getByText(/boom/i)).toBeInTheDocument()
   })
+
+  // landr-s1mr — friendly empty-state card surfaces when there are zero
+  // bookings (the filter chrome + empty table is suppressed).
+  it('renders the shared EmptyState card when the operator has zero bookings', async () => {
+    mock.state.rows = []
+    render(<Bookings />)
+
+    const empty = await screen.findByTestId('bookings-empty-state')
+    expect(empty).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: /no bookings yet/i }),
+    ).toBeInTheDocument()
+    // The filter search input should be hidden (no rows to filter).
+    expect(screen.queryByLabelText(/search bookings/i)).not.toBeInTheDocument()
+  })
 })

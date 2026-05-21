@@ -278,7 +278,8 @@ describe('AppSidebar — Recently viewed (landr-ne58)', () => {
     renderSidebar()
     const hints = screen.queryAllByTestId('recently-viewed-empty')
     expect(hints.length).toBeGreaterThan(0)
-    expect(hints[0].textContent).toMatch(/items you open/i)
+    // landr-s1mr — copy moved to the shared <EmptyState> compact variant.
+    expect(hints[0].textContent).toMatch(/will land here/i)
   })
 
   it('lists tracked entries newest-first as links', async () => {

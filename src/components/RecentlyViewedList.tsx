@@ -36,6 +36,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
+import { EmptyState } from '@/components/EmptyState'
 import { useAuth } from '@/lib/auth'
 import {
   useRecentlyViewed,
@@ -135,12 +136,16 @@ export function RecentlyViewedList() {
       {open ? (
         <SidebarGroupContent id="recently-viewed-content">
           {entries.length === 0 ? (
-            <p
-              className="text-muted-foreground px-2 py-1.5 text-xs italic"
-              data-testid="recently-viewed-empty"
-            >
-              {t.recentlyViewed.empty}
-            </p>
+            // landr-s1mr — compact EmptyState variant; the full card would
+            // dwarf the sidebar rail.
+            <div className="px-2 py-1.5" data-testid="recently-viewed-empty">
+              <EmptyState
+                icon={ClockIcon}
+                title={t.emptyStates.recentlyViewed.title}
+                description={t.emptyStates.recentlyViewed.description}
+                size="compact"
+              />
+            </div>
           ) : (
             <SidebarMenu>
               {entries.map((entry) => (

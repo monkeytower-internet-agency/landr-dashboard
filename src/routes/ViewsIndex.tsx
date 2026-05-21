@@ -11,8 +11,10 @@
 // /views/new (no ?from=...).
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { LayersIcon } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/EmptyState'
 import { useOperator } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import { listSavedViews } from '@/lib/saved-views'
@@ -56,16 +58,16 @@ export function ViewsIndex() {
         </Card>
       ) : showEmptyState ? (
         <section className="flex flex-col gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t.viewsIndex.emptyTitle}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-sm">
-                {t.viewsIndex.emptyDescription}
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={LayersIcon}
+            title={t.emptyStates.views.title}
+            description={t.emptyStates.views.description}
+            action={{
+              label: t.emptyStates.views.cta,
+              href: '/views/new',
+            }}
+            data-testid="views-empty-state"
+          />
 
           <h2 className="text-sm font-medium text-muted-foreground">
             {t.viewsIndex.templateSectionTitle}

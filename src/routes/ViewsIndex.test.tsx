@@ -94,6 +94,9 @@ describe('ViewsIndex (landr-v0xg)', () => {
     expect(await screen.findByText(/no views yet/i)).toBeInTheDocument()
     expect(screen.getByText(/start with a template/i)).toBeInTheDocument()
 
+    // landr-s1mr — the no-views state uses the shared <EmptyState> card.
+    expect(screen.getByTestId('views-empty-state')).toBeInTheDocument()
+
     // Four template cards
     expect(screen.getByText('All bookings')).toBeInTheDocument()
     expect(screen.getByText('Pending approvals')).toBeInTheDocument()

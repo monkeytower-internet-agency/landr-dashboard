@@ -9,8 +9,16 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table'
-import { ArrowDown, ArrowUp, ArrowUpDown, ClockIcon, Trash2Icon } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ClockIcon,
+  Trash2Icon,
+  UsersIcon,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/EmptyState'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -164,6 +172,19 @@ export function ContactsTable({ rows, onEdit, onErase, onAudit }: Props) {
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { pagination: { pageSize: 25 } },
   })
+
+  // landr-s1mr — When there are zero contacts at all, show the friendly
+  // empty-state card instead of the filter chrome + empty table.
+  if (rows.length === 0) {
+    return (
+      <EmptyState
+        icon={UsersIcon}
+        title={t.emptyStates.contacts.title}
+        description={t.emptyStates.contacts.description}
+        data-testid="contacts-empty-state"
+      />
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4">
