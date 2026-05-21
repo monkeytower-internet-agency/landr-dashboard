@@ -253,6 +253,16 @@ export const t = {
       cancelled: 'Cancelled',
       noShow: 'No-show',
     },
+    // landr-5f8q — Timeline tab: chronological history of booking events
+    // (created, approved, paid, emails sent, cancelled …). Sourced from
+    // audit_log + payments + outbound_emails.
+    timeline: {
+      tabDetails: 'Details',
+      tabTimeline: 'Timeline',
+      loading: 'Loading timeline…',
+      error: 'Failed to load timeline.',
+      empty: 'No timeline events yet.',
+    },
   },
   calendar: {
     title: 'Calendar',

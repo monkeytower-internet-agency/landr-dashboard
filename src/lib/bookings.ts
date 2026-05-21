@@ -719,3 +719,330 @@ export async function patchCustomerContact(
   if (error) throw new Error(error.message)
 }
 
+// ----- Timeline (landr-5f8q) ----------------------------------------------
+// Source-of-truth for the BookingDetailSheet "Timeline" tab. The dashboard
+// has three RLS-queryable sources of historical events tied to a booking:
+//
+//   1. audit_log      — every INSERT/UPDATE/DELETE on the bookings row (the
+//                       audit_trigger added in 20260512215713_bookings.sql).
+//                       We diff old_row.current_stage_id vs new_row to
+//                       surface lifecycle transitions, and detect the
+//                       INSERT row for "created". Soft-cancel surfaces as a
+//                       deleted_at fill.
+//   2. payments       — operator-scoped; presence of a `succeeded` row
+//                       means the booking was paid. We surface
+//                       payments.created_at / paid_at as a single event.
+//   3. outbound_emails — operator-scoped; one event per related row keyed
+//                        by template_kind + sent_at (falls back to
+//                        created_at when still queued).
+//
+// All three tables are operator_id-scoped (audit_log via is_tenant_visible,
+// the other two via apply_tenant_rls), so no extra operator_id filter is
+// needed in the query — Supabase RLS handles tenant isolation.
+
+export type TimelineEventKind =
+  | 'created'
+  | 'stage_changed'
+  | 'approved'
+  | 'rejected'
+  | 'hotel_confirmed'
+  | 'hotel_declined'
+  | 'paid'
+  | 'cancelled'
+  | 'finalised'
+  | 'rescheduled'
+  | 'email_sent'
+
+export type TimelineEvent = {
+  /** Stable id for React keys; not necessarily a uuid. */
+  id: string
+  occurredAt: string
+  kind: TimelineEventKind
+  /** Human-readable summary. The component renders this verbatim. */
+  label: string
+  /** Optional secondary line (operator name, stage code, error, …). */
+  detail?: string | null
+  /** Optional actor kind for badge colouring. */
+  actorKind?: string | null
+}
+
+type AuditLogRowRaw = {
+  id: string
+  occurred_at: string
+  operation: 'INSERT' | 'UPDATE' | 'DELETE'
+  actor_kind: string | null
+  actor_subkind: string | null
+  user_id: string | null
+  old_row: Record<string, unknown> | null
+  new_row: Record<string, unknown> | null
+}
+
+type PaymentRowRaw = {
+  id: string
+  status: string
+  paid_at: string | null
+  created_at: string
+}
+
+type OutboundEmailRowRaw = {
+  id: string
+  template_kind: string
+  status: string
+  created_at: string
+  sent_at: string | null
+  to_address: string | null
+}
+
+type StageRow = { id: string; code: string; label: string | null }
+
+function asString(v: unknown): string | null {
+  return typeof v === 'string' ? v : null
+}
+
+/** Map a stage code to a Timeline event kind. Returns null for codes the
+ *  timeline doesn't surface as a distinct event (those still emit a
+ *  generic `stage_changed`). */
+function kindFromStageCode(code: string | null): TimelineEventKind | null {
+  if (!code) return null
+  if (code === 'cancelled') return 'cancelled'
+  if (code === 'finalised') return 'finalised'
+  if (code === 'awaiting_payment') return 'approved'
+  if (code === 'paid_pending_cutoff') return 'paid'
+  // Hotel approval transitions: the booking leaving awaiting_hotel_approval
+  // into awaiting_payment is the "hotel confirmed" event — handled by the
+  // approved branch above. We can't cleanly distinguish confirmed vs
+  // declined from forward-only stage changes; the stage_changed fallback
+  // covers anything we don't recognise.
+  return null
+}
+
+function eventForStageTransition(
+  fromCode: string | null,
+  toCode: string | null,
+  occurredAt: string,
+  actorLabel: string | null,
+  auditId: string,
+): TimelineEvent | null {
+  if (!toCode || fromCode === toCode) return null
+
+  // Hotel-flow heuristic: leaving awaiting_hotel_approval is a confirm.
+  if (
+    fromCode === 'awaiting_hotel_approval' &&
+    toCode !== 'cancelled' &&
+    toCode !== 'awaiting_hotel_approval'
+  ) {
+    return {
+      id: `stage-${auditId}`,
+      occurredAt,
+      kind: 'hotel_confirmed',
+      label: 'Hotel confirmed',
+      detail: actorLabel,
+    }
+  }
+
+  // General-approval heuristic: leaving awaiting_general_approval into a
+  // non-cancelled stage is an approval.
+  if (
+    fromCode === 'awaiting_general_approval' &&
+    toCode !== 'cancelled' &&
+    toCode !== 'awaiting_general_approval'
+  ) {
+    return {
+      id: `stage-${auditId}`,
+      occurredAt,
+      kind: 'approved',
+      label: 'Approved',
+      detail: actorLabel,
+    }
+  }
+
+  const mapped = kindFromStageCode(toCode)
+  return {
+    id: `stage-${auditId}`,
+    occurredAt,
+    kind: mapped ?? 'stage_changed',
+    label: mapped === 'cancelled'
+      ? 'Cancelled'
+      : mapped === 'finalised'
+        ? 'Finalised'
+        : mapped === 'paid'
+          ? 'Marked paid'
+          : mapped === 'approved'
+            ? 'Approved'
+            : `Stage → ${toCode}`,
+    detail: actorLabel,
+  }
+}
+
+function actorDisplay(row: AuditLogRowRaw): string | null {
+  const subkind = row.actor_subkind
+  const kind = row.actor_kind
+  if (subkind && kind) return `${kind}/${subkind}`
+  return kind ?? null
+}
+
+const EMAIL_TEMPLATE_LABEL: Record<string, string> = {
+  booking_confirmation: 'Confirmation email sent',
+  payment_request: 'Payment request email sent',
+  booking_rejected: 'Rejection email sent',
+  booking_cancelled: 'Cancellation email sent',
+  hotel_request: 'Hotel request email sent',
+  refund_notice: 'Refund notice email sent',
+  reminder: 'Reminder email sent',
+}
+
+function labelForEmail(template: string): string {
+  return (
+    EMAIL_TEMPLATE_LABEL[template] ??
+    `Email sent (${template.replace(/_/g, ' ')})`
+  )
+}
+
+/**
+ * Fetch the chronological timeline for a single booking.
+ *
+ * Returns events ordered oldest → newest. Safe on partial RLS: if any of
+ * the three data sources errors (e.g. audit_log unreadable on a future
+ * partition cutover) the helper synthesises a minimal timeline from the
+ * BookingRow itself (created event + current stage).
+ */
+export async function fetchBookingTimeline(
+  bookingId: string,
+  fallback: BookingRow,
+): Promise<TimelineEvent[]> {
+  // Run the three reads in parallel — none of them depends on the others.
+  const [auditRes, paymentsRes, emailsRes, stagesRes] = await Promise.all([
+    supabase
+      .from('audit_log')
+      .select(
+        'id, occurred_at, operation, actor_kind, actor_subkind, user_id, old_row, new_row',
+      )
+      .eq('table_name', 'bookings')
+      .eq('row_id', bookingId)
+      .order('occurred_at', { ascending: true })
+      .limit(200),
+    supabase
+      .from('payments')
+      .select('id, status, paid_at, created_at')
+      .eq('booking_id', bookingId)
+      .order('created_at', { ascending: true })
+      .limit(20),
+    supabase
+      .from('outbound_emails')
+      .select('id, template_kind, status, created_at, sent_at, to_address')
+      .eq('related_booking_id', bookingId)
+      .order('created_at', { ascending: true })
+      .limit(50),
+    // Resolve stage_id → code so audit_log diffs can label transitions.
+    supabase
+      .from('booking_lifecycle_stages')
+      .select('id, code, label')
+      .limit(200),
+  ])
+
+  const events: TimelineEvent[] = []
+  const stageById = new Map<string, StageRow>()
+  if (!stagesRes.error && stagesRes.data) {
+    for (const s of stagesRes.data as StageRow[]) stageById.set(s.id, s)
+  }
+  const codeFor = (id: string | null): string | null =>
+    id ? stageById.get(id)?.code ?? null : null
+
+  // 1) audit_log: emit created + stage transitions + cancel
+  if (!auditRes.error && auditRes.data) {
+    for (const raw of auditRes.data as AuditLogRowRaw[]) {
+      if (raw.operation === 'INSERT') {
+        const actor = actorDisplay(raw)
+        events.push({
+          id: `created-${raw.id}`,
+          occurredAt: raw.occurred_at,
+          kind: 'created',
+          label: 'Booking created',
+          detail: actor,
+          actorKind: raw.actor_kind,
+        })
+        continue
+      }
+      if (raw.operation === 'UPDATE') {
+        const oldStageId = asString(raw.old_row?.current_stage_id ?? null)
+        const newStageId = asString(raw.new_row?.current_stage_id ?? null)
+        if (newStageId !== oldStageId) {
+          const evt = eventForStageTransition(
+            codeFor(oldStageId),
+            codeFor(newStageId),
+            raw.occurred_at,
+            actorDisplay(raw),
+            raw.id,
+          )
+          if (evt) events.push({ ...evt, actorKind: raw.actor_kind })
+        }
+        // Soft-cancel: deleted_at flips from null → timestamp.
+        const oldDeleted = asString(raw.old_row?.deleted_at ?? null)
+        const newDeleted = asString(raw.new_row?.deleted_at ?? null)
+        if (!oldDeleted && newDeleted) {
+          events.push({
+            id: `cancel-${raw.id}`,
+            occurredAt: raw.occurred_at,
+            kind: 'cancelled',
+            label: 'Booking cancelled',
+            detail: actorDisplay(raw),
+            actorKind: raw.actor_kind,
+          })
+        }
+      }
+    }
+  }
+
+  // 2) payments → paid event (only when succeeded)
+  if (!paymentsRes.error && paymentsRes.data) {
+    for (const p of paymentsRes.data as PaymentRowRaw[]) {
+      if (p.status === 'succeeded' || p.status === 'paid') {
+        events.push({
+          id: `paid-${p.id}`,
+          occurredAt: p.paid_at ?? p.created_at,
+          kind: 'paid',
+          label: 'Payment received',
+          detail: null,
+        })
+      }
+    }
+  }
+
+  // 3) outbound_emails → email_sent event
+  if (!emailsRes.error && emailsRes.data) {
+    for (const e of emailsRes.data as OutboundEmailRowRaw[]) {
+      const occurredAt = e.sent_at ?? e.created_at
+      events.push({
+        id: `email-${e.id}`,
+        occurredAt,
+        kind: 'email_sent',
+        label: labelForEmail(e.template_kind),
+        detail:
+          e.status === 'sent'
+            ? (e.to_address ?? null)
+            : e.status === 'failed'
+              ? 'Failed to send'
+              : 'Queued',
+      })
+    }
+  }
+
+  // Fallback floor: if audit_log returned nothing (e.g. RLS or retention),
+  // synthesise a "created" event from the booking row so the timeline is
+  // never empty for a real booking.
+  if (!events.some((e) => e.kind === 'created')) {
+    events.unshift({
+      id: `created-fallback-${fallback.id}`,
+      occurredAt: fallback.created_at,
+      kind: 'created',
+      label: 'Booking created',
+      detail: fallback.approval_trace?.outcome
+        ? `Approval outcome: ${String(fallback.approval_trace.outcome)}`
+        : null,
+    })
+  }
+
+  events.sort((a, b) => (a.occurredAt < b.occurredAt ? -1 : 1))
+  return events
+}
+
