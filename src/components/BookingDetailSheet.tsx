@@ -171,6 +171,12 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['bookings'] })
+    // landr-parv — the Views layer (Bookings/Reporting/ViewPage) keys its
+    // shared cache under ['views-bookings', operatorId] (see
+    // lib/views-bookings-data.ts:useViewBookings). Without this line, saving
+    // through the detail sheet left the Views layer stale until a manual
+    // refresh because ['bookings'] is a different prefix.
+    queryClient.invalidateQueries({ queryKey: ['views-bookings'] })
     queryClient.invalidateQueries({ queryKey: ['calendar'] })
     queryClient.invalidateQueries({ queryKey: ['contacts'] })
   }
