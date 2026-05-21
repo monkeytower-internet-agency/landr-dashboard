@@ -563,7 +563,7 @@ type LayoutBodyProps = {
 function LayoutBody({ layout, view, setConfig }: LayoutBodyProps) {
   switch (layout) {
     case 'calendar':
-      return <CalendarLayoutBranch view={view} />
+      return <CalendarLayoutBranch view={view} setConfig={setConfig} />
     case 'table':
       return <TableLayoutBranch view={view} setConfig={setConfig} />
     case 'board':
@@ -582,7 +582,16 @@ function LayoutBody({ layout, view, setConfig }: LayoutBodyProps) {
 // Kept in ViewPage (vs inside CalendarLayout) so the layout component stays
 // pure (props in, render out) and the sibling Table / Board branches can
 // follow the same shape without each layout reinventing the fetch.
-function CalendarLayoutBranch({ view }: { view: SavedViewWithState }) {
+//
+// landr-mofm — `setConfig` is threaded so the layout's month/week/day
+// switcher can persist into `calendarConfig.view`.
+function CalendarLayoutBranch({
+  view,
+  setConfig,
+}: {
+  view: SavedViewWithState
+  setConfig: (config: Record<string, unknown>) => void
+}) {
   const { currentOperatorId } = useOperator()
   // landr-m4zq — thread the operator's first_day_of_week into both the
   // resolver (for start_of_week / end_of_week tokens in filters) and the
@@ -626,6 +635,7 @@ function CalendarLayoutBranch({ view }: { view: SavedViewWithState }) {
       view={view}
       items={items}
       firstDayOfWeek={firstDayOfWeek}
+      onConfigChange={setConfig}
     />
   )
 }

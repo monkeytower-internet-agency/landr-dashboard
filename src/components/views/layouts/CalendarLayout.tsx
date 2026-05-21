@@ -6,29 +6,34 @@
 // inclusive; otherwise it renders as a single-day event on dateField.
 //
 // Reuses (deliberately, not crib-pasted):
-//   - FullCalendar + dayGridPlugin: already a dep via BookingsCalendar.tsx.
+//   - FullCalendar + dayGridPlugin / timeGridPlugin: already deps via
+//     BookingsCalendar.tsx.
 //   - BookingDetailSheet: shared detail panel; opened on event click.
 //   - customerDisplay / productDisplay helpers from @/lib/bookings for the
 //     compact event content.
 //
 // Differences from BookingsCalendar.tsx:
-//   - No view switcher (month grid only — week/day views aren't part of the
-//     View Layout abstraction; users who want week-grid pick the legacy
-//     /calendar page).
 //   - No DnD reschedule in v1 (the spec explicitly defers this).
 //   - No capacity pills (those belong to /calendar's daily-ops surface).
 //   - dateField is dynamic — the Views abstraction picks ANY date field on
 //     the entity, not just date_range_start.
+//
+// landr-mofm — view variants: month (default), week, day. Stored on
+// `calendarConfig.view` and persisted via `onConfigChange` when the user
+// picks a different variant. Mirrors the segmented switcher used by the
+// legacy BookingsCalendar.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
+import timeGridPlugin from '@fullcalendar/timegrid'
 import type {
   EventClickArg,
   EventContentArg,
   EventInput,
 } from '@fullcalendar/core'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import {
   customerDisplay,
@@ -41,9 +46,24 @@ import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
 import type { BookingItem } from '@/lib/views-bookings-data'
 
+export type CalendarView = 'month' | 'week' | 'day'
+
+const FC_VIEW_BY_VARIANT: Record<CalendarView, string> = {
+  month: 'dayGridMonth',
+  week: 'timeGridWeek',
+  day: 'timeGridDay',
+}
+
+const VIEW_VARIANTS: ReadonlyArray<CalendarView> = ['month', 'week', 'day']
+
+function isCalendarView(x: unknown): x is CalendarView {
+  return x === 'month' || x === 'week' || x === 'day'
+}
+
 type CalendarConfig = {
   dateField?: string
   dateEndField?: string
+  view?: CalendarView
 }
 
 function readCalendarConfig(
@@ -57,6 +77,7 @@ function readCalendarConfig(
     dateField: typeof c.dateField === 'string' ? c.dateField : undefined,
     dateEndField:
       typeof c.dateEndField === 'string' ? c.dateEndField : undefined,
+    view: isCalendarView(c.view) ? c.view : undefined,
   }
 }
 
@@ -107,6 +128,11 @@ type Props = {
    *  callers that haven't been updated still render the previous
    *  Europe-first calendar. */
   firstDayOfWeek?: number
+  /** landr-mofm — when wired, the view-variant switcher (month/week/day)
+   *  persists into view.config.calendarConfig.view via this callback.
+   *  When omitted the switcher still works locally but won't survive a
+   *  remount. */
+  onConfigChange?: (patch: Record<string, unknown>) => void
 }
 
 export function CalendarLayout({
@@ -114,11 +140,13 @@ export function CalendarLayout({
   items,
   onItemClick,
   firstDayOfWeek = 1,
+  onConfigChange,
 }: Props) {
   const calendarConfig = useMemo(
     () => readCalendarConfig(view.config),
     [view.config],
   )
+  const activeView: CalendarView = calendarConfig.view ?? 'month'
 
   const dateFieldMeta = calendarConfig.dateField
     ? findField(view.entity_type, calendarConfig.dateField)
@@ -137,6 +165,32 @@ export function CalendarLayout({
   // shipped UI uses internal state so the layout drops into ViewPage without
   // a sheet wire-up upstream.
   const [openRow, setOpenRow] = useState<BookingRow | null>(null)
+
+  // landr-mofm — drive FullCalendar's view via a ref. We render our own
+  // segmented switcher (outside FullCalendar's headerToolbar) so we control
+  // the data-testids + can persist the choice into calendarConfig.view.
+  const calendarRef = useRef<FullCalendar | null>(null)
+  useEffect(() => {
+    const api = calendarRef.current?.getApi()
+    const target = FC_VIEW_BY_VARIANT[activeView]
+    if (api && api.view.type !== target) api.changeView(target)
+  }, [activeView])
+
+  function handleSelectView(next: CalendarView) {
+    if (next === activeView) return
+    if (onConfigChange) {
+      const prev = (view.config ?? {}) as Record<string, unknown>
+      const prevCal = (prev.calendarConfig ?? {}) as Record<string, unknown>
+      onConfigChange({
+        ...prev,
+        calendarConfig: { ...prevCal, view: next },
+      })
+    } else {
+      // No persistence wired — still flip FullCalendar locally so the
+      // switcher is functional in tests / standalone usage.
+      calendarRef.current?.getApi().changeView(FC_VIEW_BY_VARIANT[next])
+    }
+  }
 
   const events = useMemo<EventInput[]>(() => {
     if (!validDateField || !validDateEndField || !calendarConfig.dateField) {
@@ -227,10 +281,34 @@ export function CalendarLayout({
 
   return (
     <div className="flex flex-col gap-3" data-testid="view-layout-calendar">
+      <div
+        className="flex items-center justify-end gap-1"
+        data-testid="view-calendar-view-switcher"
+      >
+        {VIEW_VARIANTS.map((variant) => (
+          <Button
+            key={variant}
+            type="button"
+            size="sm"
+            variant={activeView === variant ? 'default' : 'outline'}
+            aria-pressed={activeView === variant}
+            className="h-7 px-2 text-xs"
+            data-testid={`view-calendar-view-${variant}`}
+            onClick={() => handleSelectView(variant)}
+          >
+            {variant === 'month'
+              ? t.calendar.viewMonth
+              : variant === 'week'
+                ? t.calendar.viewWeek
+                : t.calendar.viewDay}
+          </Button>
+        ))}
+      </div>
       <div className="landr-fc rounded-md border p-3">
         <FullCalendar
-          plugins={[dayGridPlugin]}
-          initialView="dayGridMonth"
+          ref={calendarRef}
+          plugins={[dayGridPlugin, timeGridPlugin]}
+          initialView={FC_VIEW_BY_VARIANT[activeView]}
           headerToolbar={{
             left: 'prev,next today',
             center: 'title',
