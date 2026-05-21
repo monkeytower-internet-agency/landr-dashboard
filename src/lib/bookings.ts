@@ -326,8 +326,12 @@ const _serviceDateFormatter = new Intl.DateTimeFormat('en-IE', {
 })
 
 function _formatServiceDay(iso: string): string {
-  // ISO YYYY-MM-DD — anchor at UTC noon to keep weekday stable across TZs.
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  // Accepts either a bare date ('YYYY-MM-DD') or an ISO timestamp; only the
+  // date portion is used for the weekday/day/month label. Anchor at UTC noon
+  // so the weekday stays stable across TZs.
+  const dateOnly = _isoDatePart(iso)
+  if (!dateOnly) return iso
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOnly)
   if (!m) return iso
   const [, y, mo, d] = m
   const date = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d), 12))
@@ -335,14 +339,119 @@ function _formatServiceDay(iso: string): string {
   return _serviceDateFormatter.format(date)
 }
 
-/** "Tue 8 Jul" (single day) or "Tue 8 Jul – Sat 12 Jul" (range). */
+/** Returns the leading 'YYYY-MM-DD' from a date-only or ISO-timestamp string,
+ *  or null if the input doesn't start with a parseable date. */
+function _isoDatePart(iso: string): string | null {
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(iso)
+  return m ? m[1] : null
+}
+
+/** Returns the 'HH:MM:SS(.fff)?(Z|±HH:MM)?' time-of-day portion if the input
+ *  is a full ISO timestamp with a T separator, else null. */
+function _isoTimePart(iso: string): string | null {
+  const m = /^\d{4}-\d{2}-\d{2}T(\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)/.exec(iso)
+  return m ? m[1] : null
+}
+
+/** True when the time portion of `iso` is midnight UTC (00:00:00...Z) — i.e.
+ *  what we treat as "all-day, no meaningful time-of-day". A bare date string
+ *  (no T) also counts as midnight/all-day. */
+function _isMidnightUtc(iso: string): boolean {
+  const time = _isoTimePart(iso)
+  if (time === null) return true // no time component at all
+  // Match '00:00' or '00:00:00(.0+)?'; we only treat the UTC anchor ('Z') as
+  // all-day. A local '00:00:00+02:00' is technically a chosen wall-clock
+  // midnight and we leave it formatted so the operator can spot it.
+  if (!/^00:00(?::00(?:\.0+)?)?$/.test(time)) return false
+  // Must end in Z (or have no offset suffix) to be treated as UTC midnight.
+  const suffix = iso.slice(iso.indexOf('T') + 1 + time.length)
+  return suffix === '' || suffix === 'Z'
+}
+
+/**
+ * Renders the service date for a bookings-table row.
+ *
+ * Date-only inputs (the current `booking_products.date_range_start` SQL
+ * shape — a Postgres `date`) collapse to:
+ *   - "Tue 8 Jul"                          (single day, start === end or no end)
+ *   - "Tue 8 Jul – Sat 12 Jul"             (multi-day range)
+ *
+ * landr-jx4s — when callers eventually pass an ISO timestamp with a
+ * meaningful time-of-day AND the booking is intra-day (start === end on the
+ * calendar AND not all-day midnight UTC), we append the formatted time:
+ *   - "Wed 22 May, 2:30 PM"                (intra-day, opts.hour12=true)
+ *   - "Wed 22 May, 14:30"                  (intra-day, opts.hour12=false)
+ * Multi-day timestamps still render date-only on both ends. Midnight-UTC
+ * timestamps are treated as all-day and render without a time. If `opts` is
+ * omitted the helper preserves the legacy date-only output regardless of any
+ * time component in the input.
+ */
 export function formatServiceDateRange(
   start: string,
   end: string | null,
+  opts?: { hour12: boolean },
 ): string {
-  const s = _formatServiceDay(start)
-  if (!end || end === start) return s
-  return `${s} – ${_formatServiceDay(end)}`
+  const startDate = _isoDatePart(start)
+  const endDate = end ? _isoDatePart(end) : null
+  const sLabel = _formatServiceDay(start)
+  const sameDay =
+    startDate !== null && (endDate === null || endDate === startDate)
+
+  if (!sameDay) {
+    // Multi-day — render date range only on both ends, matching pre-jx4s
+    // behavior. The `end!` is safe because !sameDay implies end is set and
+    // its date differs from start.
+    return `${sLabel} – ${_formatServiceDay(end!)}`
+  }
+
+  // Single day. Append the time-of-day only when the caller opted in AND
+  // start carries a non-midnight-UTC time component.
+  if (opts && !_isMidnightUtc(start)) {
+    const timePart = _isoTimePart(start)
+    if (timePart) {
+      const timeLabel = _formatServiceTime(timePart, opts.hour12)
+      if (timeLabel) return `${sLabel}, ${timeLabel}`
+    }
+  }
+  return sLabel
+}
+
+const _serviceTimeFormatter12 = new Intl.DateTimeFormat('en-IE', {
+  hour: 'numeric',
+  minute: '2-digit',
+  hourCycle: 'h12',
+})
+const _serviceTimeFormatter24 = new Intl.DateTimeFormat('en-IE', {
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
+function _formatServiceTime(timeHHmmss: string, hour12: boolean): string | null {
+  // timeHHmmss is the H:M(:S)? portion already extracted from the ISO.
+  const m = /^(\d{2}):(\d{2})(?::(\d{2}))?/.exec(timeHHmmss)
+  if (!m) return null
+  const [, hStr, mStr, sStr] = m
+  const h = Number(hStr)
+  const min = Number(mStr)
+  const s = sStr ? Number(sStr) : 0
+  if (h > 23 || min > 59 || s > 59) return null
+  // Anchor on a stable arbitrary date — only the time portion is rendered.
+  const d = new Date(Date.UTC(2000, 0, 1, h, min, s))
+  if (Number.isNaN(d.getTime())) return null
+  const fmt = hour12 ? _serviceTimeFormatter12 : _serviceTimeFormatter24
+  // Force UTC interpretation so the wall-clock matches the input regardless
+  // of the host machine's timezone.
+  return fmt.format(
+    new Date(
+      d.getUTCFullYear(),
+      d.getUTCMonth(),
+      d.getUTCDate(),
+      d.getUTCHours(),
+      d.getUTCMinutes(),
+      d.getUTCSeconds(),
+    ),
+  )
 }
 
 // ----- Calendar helpers --------------------------------------------------

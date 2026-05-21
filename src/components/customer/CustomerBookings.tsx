@@ -136,7 +136,7 @@ export function CustomerBookings({ contactId, onBookingClick }: Props) {
               // ("when has this customer flown with us?"); fall back to the
               // booked-on timestamp for rows with no scheduled item.
               const dateLabel = start
-                ? formatServiceDateRange(start, end)
+                ? formatServiceDateRange(start, end, { hour12 })
                 : dateDisplay(row.created_at, { hour12 })
               const label = `${dateLabel} · ${productDisplay(row)}`
               return (
