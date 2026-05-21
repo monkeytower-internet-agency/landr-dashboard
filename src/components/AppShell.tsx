@@ -15,6 +15,7 @@ import {
   SidebarProvider,
 } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/AppSidebar'
+import { NotificationsBell } from '@/components/NotificationsBell'
 import { OnboardingBanner } from '@/components/OnboardingBanner'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -103,6 +104,10 @@ function AppShellInner({
             <PageTitleDisplay />
           </div>
           <div className="flex items-center gap-1">
+            {/* landr-8whx — bell sits next to the theme toggle so the
+                topbar reads left→right as: scope (operator) · title ·
+                quick-actions (notifications · theme · account). */}
+            <NotificationsBell />
             <ThemeToggle />
             <UserMenu onSignOut={onSignOut} />
           </div>
