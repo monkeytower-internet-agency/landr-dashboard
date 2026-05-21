@@ -24,7 +24,7 @@
 // the gate locally lands alongside the public.users.id bridge in a later
 // slice.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -58,21 +58,24 @@ import {
 import { ViewToolbar } from '@/components/views/ViewToolbar'
 import { useViewDirtyState } from '@/components/views/useViewDirtyState'
 import { StarButton } from '@/components/views/StarButton'
+import { CalendarLayout } from '@/components/views/layouts/CalendarLayout'
 import { readFilters } from '@/lib/views-filters'
+import { applyView, useViewBookings } from '@/lib/views-bookings-data'
 
 const LAYOUT_PARAM = 'layout'
 
 // ----------------------------------------------------------------------------
 // Layouts registry — downstream tickets D / E / F mount real renderers here.
-// For now everyone shares LayoutStub.
+// landr-9kbl wired the calendar branch; landr-7w3s / -kjls will replace the
+// table / board stubs with their renderers in the LayoutBody switch below.
 
-type LayoutComponentProps = {
+type LayoutStubProps = {
   layout: ViewLayout
   config: Record<string, unknown>
   entityType: string
 }
 
-function LayoutStub({ layout, config, entityType }: LayoutComponentProps) {
+function LayoutStub({ layout, config, entityType }: LayoutStubProps) {
   const filterCount = readFilters(config).length
   return (
     <Card data-testid={`view-layout-stub-${layout}`}>
@@ -94,12 +97,6 @@ function LayoutStub({ layout, config, entityType }: LayoutComponentProps) {
       </CardContent>
     </Card>
   )
-}
-
-const LAYOUTS: Record<ViewLayout, (props: LayoutComponentProps) => React.ReactElement> = {
-  table: LayoutStub,
-  board: LayoutStub,
-  calendar: LayoutStub,
 }
 
 // ----------------------------------------------------------------------------
@@ -560,8 +557,7 @@ export function ViewPage() {
           />
           <LayoutBody
             layout={effectiveLayout}
-            config={dirty.config}
-            entityType={view.entity_type}
+            view={{ ...view, config: dirty.config }}
           />
         </>
       )}
@@ -569,9 +565,61 @@ export function ViewPage() {
   )
 }
 
-function LayoutBody(props: LayoutComponentProps) {
-  const Component = LAYOUTS[props.layout]
-  return <Component {...props} />
+type LayoutBodyProps = {
+  layout: ViewLayout
+  view: SavedViewWithState
+}
+
+function LayoutBody({ layout, view }: LayoutBodyProps) {
+  switch (layout) {
+    case 'calendar':
+      return <CalendarLayoutBranch view={view} />
+    case 'table':
+    case 'board':
+    default:
+      return (
+        <LayoutStub
+          layout={layout}
+          config={view.config}
+          entityType={view.entity_type}
+        />
+      )
+  }
+}
+
+// landr-9kbl — calendar branch owns its data fetch + view-pipe application.
+// Kept in ViewPage (vs inside CalendarLayout) so the layout component stays
+// pure (props in, render out) and the sibling Table / Board branches can
+// follow the same shape without each layout reinventing the fetch.
+function CalendarLayoutBranch({ view }: { view: SavedViewWithState }) {
+  const { currentOperatorId } = useOperator()
+  const bookings = useViewBookings(currentOperatorId)
+  const items = useMemo(
+    () => applyView(bookings.data ?? [], view.config, view.entity_type),
+    [bookings.data, view.config, view.entity_type],
+  )
+  if (bookings.isPending) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        {t.views.body.calendar.loading}
+      </p>
+    )
+  }
+  if (bookings.isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.views.body.calendar.loadError}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-sm">
+            {bookings.error instanceof Error ? bookings.error.message : ''}
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+  return <CalendarLayout view={view} items={items} />
 }
 
 function readConfigLayout(config: Record<string, unknown>): ViewLayout {

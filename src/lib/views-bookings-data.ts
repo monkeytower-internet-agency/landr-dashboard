@@ -1,0 +1,224 @@
+// landr-9kbl / -7w3s / -kjls — shared data source for the Views v1 layouts.
+//
+// A View's "Item" (CONTEXT.md term) for entity_type='booking' is a BookingRow.
+// All three layout renderers (Table / Board / Calendar) need the same pipe:
+//   fetch operator bookings → apply View filters → apply View sort → render.
+//
+// The helpers live here (not in BookingsLayout / TableLayout / etc) so the
+// three siblings share one implementation and don't drift on filter semantics.
+// Filter matching mirrors `bookings-filter-match.ts` but is driven by the
+// generic `Filter[]` shape stored in saved_views.config (see views-filters.ts)
+// rather than the hardcoded BookingsFilters dimensions.
+
+import { useQuery, type UseQueryResult } from '@tanstack/react-query'
+import {
+  fetchBookings,
+  stageCode,
+  type BookingRow,
+} from '@/lib/bookings'
+import {
+  readFilters,
+  type Filter,
+  type FilterOp,
+  type FilterValue,
+} from '@/lib/views-filters'
+import { findField } from '@/lib/views-entity-fields'
+
+// Alias matching CONTEXT.md "Item" language so the layout components can read
+// `items: BookingItem[]` rather than `rows: BookingRow[]`. Different name,
+// same shape — keeps the View layer's vocabulary consistent.
+export type BookingItem = BookingRow
+
+// ---------------------------------------------------------------------------
+// Field extraction — maps a system-field key to a comparable JS value on the
+// booking row. Multi-item / multi-participant traversal is field-specific
+// (an item-level field matches if ANY item satisfies it).
+
+type FieldExtract =
+  | { kind: 'scalar'; get: (row: BookingRow) => FilterValue | null | undefined }
+  | { kind: 'multi'; get: (row: BookingRow) => Array<FilterValue | null | undefined> }
+
+function extractor(fieldKey: string): FieldExtract | null {
+  switch (fieldKey) {
+    case 'customer_first_name':
+      return { kind: 'scalar', get: (r) => r.customer?.first_name ?? null }
+    case 'customer_last_name':
+      return { kind: 'scalar', get: (r) => r.customer?.last_name ?? null }
+    case 'customer_email':
+      return { kind: 'scalar', get: (r) => r.customer?.email ?? null }
+    case 'current_stage':
+      return { kind: 'scalar', get: (r) => stageCode(r) }
+    case 'date_range_start':
+      return {
+        kind: 'multi',
+        get: (r) => r.items.map((it) => it.date_range_start ?? null),
+      }
+    case 'date_range_end':
+      return {
+        kind: 'multi',
+        get: (r) => r.items.map((it) => it.date_range_end ?? null),
+      }
+    case 'booking_total':
+      return {
+        kind: 'scalar',
+        get: (r) => {
+          const n =
+            typeof r.gross_total === 'number'
+              ? r.gross_total
+              : Number(r.gross_total)
+          return Number.isFinite(n) ? n : null
+        },
+      }
+    default:
+      return null
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Operator predicates over a single comparable value.
+
+function compareScalar(
+  op: FilterOp,
+  actual: FilterValue | null | undefined,
+  filter: Filter,
+): boolean {
+  if (op === 'is_null') return actual === null || actual === undefined
+  if (op === 'is_not_null') return actual !== null && actual !== undefined
+  if (actual === null || actual === undefined) return false
+
+  switch (op) {
+    case 'eq':
+      return filter.values.some((v) => v === actual)
+    case 'in':
+      return filter.values.includes(actual)
+    case 'contains': {
+      const needle = String(filter.values[0] ?? '').toLowerCase()
+      if (!needle) return true
+      return String(actual).toLowerCase().includes(needle)
+    }
+    case 'gt':
+      return filter.values.some((v) => actual > v)
+    case 'lt':
+      return filter.values.some((v) => actual < v)
+    case 'gte':
+      return filter.values.some((v) => actual >= v)
+    case 'lte':
+      return filter.values.some((v) => actual <= v)
+    case 'within': {
+      // [from, to] inclusive — value count tolerant of either or both bounds.
+      const from = filter.values[0]
+      const to = filter.values[1]
+      if (from !== undefined && actual < from) return false
+      if (to !== undefined && actual > to) return false
+      return true
+    }
+    default:
+      return false
+  }
+}
+
+function matchesOneFilter(row: BookingRow, filter: Filter): boolean {
+  const ext = extractor(filter.field)
+  if (!ext) return true // unknown field — don't filter (forward-compat)
+  if (ext.kind === 'scalar') {
+    return compareScalar(filter.op, ext.get(row), filter)
+  }
+  const vals = ext.get(row)
+  if (vals.length === 0) {
+    // No items contribute — null/not-null still answerable.
+    return compareScalar(filter.op, null, filter)
+  }
+  return vals.some((v) => compareScalar(filter.op, v, filter))
+}
+
+/** AND across chips. Each chip is its own predicate; missing values short-
+ *  circuit per `compareScalar`. */
+export function matchesViewFilters(
+  row: BookingRow,
+  filters: Filter[],
+): boolean {
+  for (const f of filters) {
+    if (!matchesOneFilter(row, f)) return false
+  }
+  return true
+}
+
+// ---------------------------------------------------------------------------
+// Sort — driven by config.sort, an ordered list of {key, dir}. Only system
+// fields the registry knows about are sortable; unknown keys fall back to
+// the input order.
+
+type SortEntry = { source?: 'system' | 'custom'; key: string; dir: 'asc' | 'desc' }
+
+function readSort(config: Record<string, unknown> | undefined | null): SortEntry[] {
+  if (!config) return []
+  const raw = (config as { sort?: unknown }).sort
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return []
+    const e = entry as Partial<SortEntry>
+    if (typeof e.key !== 'string') return []
+    if (e.dir !== 'asc' && e.dir !== 'desc') return []
+    return [{ source: e.source, key: e.key, dir: e.dir }]
+  })
+}
+
+function compareForSort(
+  a: BookingRow,
+  b: BookingRow,
+  entry: SortEntry,
+  entityType: string,
+): number {
+  if (!findField(entityType, entry.key)) return 0
+  const ext = extractor(entry.key)
+  if (!ext) return 0
+  const av = ext.kind === 'scalar' ? ext.get(a) : ext.get(a)[0] ?? null
+  const bv = ext.kind === 'scalar' ? ext.get(b) : ext.get(b)[0] ?? null
+  // Nulls last regardless of direction (UX convention).
+  if (av === null || av === undefined) return bv === null || bv === undefined ? 0 : 1
+  if (bv === null || bv === undefined) return -1
+  const cmp = av < bv ? -1 : av > bv ? 1 : 0
+  return entry.dir === 'asc' ? cmp : -cmp
+}
+
+/** Apply the view's sort entries in order. Items are not mutated. */
+export function applyViewSort(
+  rows: BookingRow[],
+  config: Record<string, unknown> | undefined | null,
+  entityType: string,
+): BookingRow[] {
+  const sort = readSort(config)
+  if (sort.length === 0) return rows
+  return [...rows].sort((a, b) => {
+    for (const entry of sort) {
+      const c = compareForSort(a, b, entry, entityType)
+      if (c !== 0) return c
+    }
+    return 0
+  })
+}
+
+/** Full pipe: filter + sort. Pure — safe to call inside useMemo. */
+export function applyView(
+  rows: BookingRow[],
+  config: Record<string, unknown> | undefined | null,
+  entityType: string,
+): BookingRow[] {
+  const filters = readFilters(config)
+  const filtered = filters.length === 0 ? rows : rows.filter((r) => matchesViewFilters(r, filters))
+  return applyViewSort(filtered, config, entityType)
+}
+
+// ---------------------------------------------------------------------------
+// React Query hook — shared cache key so a Table → Board → Calendar layout
+// switch on the same operator doesn't refetch.
+
+export function useViewBookings(
+  operatorId: string | null | undefined,
+): UseQueryResult<BookingRow[], Error> {
+  return useQuery<BookingRow[], Error>({
+    queryKey: ['views-bookings', operatorId ?? 'none'],
+    queryFn: () => fetchBookings(operatorId as string),
+    enabled: !!operatorId,
+  })
+}
