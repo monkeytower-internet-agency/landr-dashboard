@@ -1476,4 +1476,31 @@ export const t = {
       groupExpand: (label: string): string => `Expand ${label}`,
     },
   },
+  // landr-p600 — Dashboard home revamp. Daily-ops view with today's
+  // bookings list, this-week summary cards (revenue + spark, bookings,
+  // new contacts), pending-approvals badge, and a recent-activity feed.
+  dashboard: {
+    title: 'Dashboard',
+    loading: 'Loading dashboard…',
+    error: 'Failed to load dashboard data.',
+    todayHeading: "Today's bookings",
+    todayEmpty: 'No bookings scheduled for today.',
+    todayCount: (n: number): string =>
+      n === 1 ? '1 booking' : `${n} bookings`,
+    weekRevenueLabel: 'Revenue this week',
+    weekBookingsLabel: 'Bookings this week',
+    weekContactsLabel: 'New contacts this week',
+    weekRevenueEmpty: 'No revenue yet.',
+    pendingApprovalsLabel: 'Pending approvals',
+    pendingApprovalsCta: 'Review queue',
+    pendingApprovalsEmpty: 'All caught up.',
+    pendingApprovalsCount: (n: number): string =>
+      n === 1 ? '1 awaiting' : `${n} awaiting`,
+    activityHeading: 'Recent activity',
+    activityEmpty: 'No activity yet.',
+    activityBookingCreated: 'New booking',
+    activityContactCreated: 'New contact',
+    activityApprovalPending: 'Awaiting approval',
+    customerFallback: 'Unknown customer',
+  },
 } as const

@@ -58,7 +58,22 @@ const { mock } = vi.hoisted(() => {
       },
     }) as Session
 
+  // landr-p600 — Dashboard home revamp now uses useRealtimeQuery which
+  // expects `supabase.channel(...)` + `supabase.removeChannel(...)`.
+  // Stub both so the home route renders cleanly even though this
+  // App-level test doesn't assert on realtime behaviour.
+  const channel: {
+    on: ReturnType<typeof vi.fn>
+    subscribe: ReturnType<typeof vi.fn>
+  } = {
+    on: vi.fn(),
+    subscribe: vi.fn(),
+  }
+  channel.on.mockImplementation(() => channel)
+
   const supabase = {
+    channel: vi.fn(() => channel),
+    removeChannel: vi.fn(),
     auth: {
       getSession: vi.fn(async () => ({ data: { session: state.session } })),
       onAuthStateChange: vi.fn(
@@ -99,9 +114,20 @@ const { mock } = vi.hoisted(() => {
     // terminal `maybeSingle()` to a stub row.
     from: vi.fn((table: string) => {
       const builder: Record<string, unknown> = {}
+      // landr-p600 — Dashboard home revamp added new fetchers
+      // (fetchBookings / fetchContacts / fetchPendingGeneralApprovals).
+      // Extend the builder so chained calls don't throw; the terminal
+      // `limit()` resolves to empty data and the thenable dispatches
+      // by table name so only `operator_memberships` returns the
+      // FakeRow operatorRows fixture.
       Object.assign(builder, {
         select: vi.fn(() => builder),
         eq: vi.fn(() => builder),
+        is: vi.fn(() => builder),
+        order: vi.fn(() => builder),
+        filter: vi.fn(() => builder),
+        overlaps: vi.fn(() => builder),
+        limit: vi.fn(async () => ({ data: [], error: null })),
         maybeSingle: vi.fn(async () => {
           if (table === 'users') {
             // Resolve the supabase_auth_id → public.users.id bridge so the
@@ -113,10 +139,12 @@ const { mock } = vi.hoisted(() => {
           return { data: null, error: null }
         }),
         then: (
-          resolve: (v: { data: FakeRow[]; error: null }) => void,
+          resolve: (v: { data: unknown[]; error: null }) => void,
         ) => {
-          resolve({ data: state.operatorRows, error: null })
-          return Promise.resolve({ data: state.operatorRows, error: null })
+          const data =
+            table === 'operator_memberships' ? state.operatorRows : []
+          resolve({ data, error: null })
+          return Promise.resolve({ data, error: null })
         },
       })
       return builder
@@ -178,7 +206,10 @@ describe('App routing', () => {
     expect(
       await screen.findByRole('heading', { name: /Para42/i }),
     ).toBeInTheDocument()
-    expect(screen.getByText(/scaffold ready/i)).toBeInTheDocument()
+    // landr-p600 — Dashboard home revamp. The scaffold copy is gone; the
+    // home page now renders the daily-ops widgets. Assert on the
+    // today's-bookings card heading as a stable shell-rendered marker.
+    expect(screen.getByText(/today's bookings/i)).toBeInTheDocument()
   })
 
   it('renders the not-found screen for unknown routes', async () => {
