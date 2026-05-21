@@ -434,24 +434,38 @@ export function ProductForm({
   // shape so the DB CHECK ((kind='service') = (shape IS NOT NULL)) is
   // satisfied. When they switch back, default to days_range.
   //
-  // landr-ssrx — also flip RFTO and clear hotel_offering when entering
-  // 'hotel_room', and clear hotel_location_id when leaving it. The DB CHECK
-  //   (product_kind='hotel_room') = (hotel_location_id IS NOT NULL)
-  // would otherwise reject the row.
+  // landr-ssrx — also flip RFTO when entering 'hotel_room' on a FRESH
+  // product (existing rows keep their stored value).
+  //
+  // landr-8bq9 — DATA-LOSS GUARD: this effect must only SEED defaults for
+  // empty fields, never overwrite a value the operator already entered.
+  // Earlier revisions unconditionally cleared hotel_location_id and
+  // capacity_per_unit when leaving hotel_room and forced hotel_offering to
+  // 'none' when entering it. That meant a "flip kind to peek, flip back"
+  // round trip silently wiped operator edits. The DB CHECKs those clears
+  // were defending against are already mirrored in handleSubmit (lines
+  // ~534–548), which collapses each field to null/'none' based on the
+  // CURRENT kind at submit time — so stale-but-hidden values never reach
+  // the API. Stale values therefore live harmlessly in form state until
+  // the operator either flips back to the relevant kind (and sees their
+  // edits intact) or submits (and the collapse step nulls them).
   useEffect(() => {
     if (productKind === 'service' && !serviceTimeShape) {
       form.setValue('service_time_shape', 'days_range')
     } else if (productKind !== 'service' && serviceTimeShape) {
+      // service_time_shape has no operator-edited "preserve" semantics —
+      // it is an internal discriminator the operator can re-pick from the
+      // shape select on the way back into 'service'.
       form.setValue('service_time_shape', '')
     }
     if (productKind === 'hotel_room') {
       // RFTO defaults to false for hotel rooms — guests pay the hotel directly.
       // We only flip it for fresh products; existing rows keep whatever the
       // operator stored. The defaultValues() seed handles the create path.
-      if (!product) form.setValue('revenue_flows_through_operator', false)
-      // hotel_offering on non-service rows must be 'none' (DB CHECK).
-      if (form.getValues('hotel_offering') !== 'none') {
-        form.setValue('hotel_offering', 'none')
+      // landr-8bq9 — also skip if the operator already touched RFTO this
+      // session, so a peek-and-flip-back keeps their choice intact.
+      if (!product && !form.formState.dirtyFields.revenue_flows_through_operator) {
+        form.setValue('revenue_flows_through_operator', false)
       }
       // landr-knm0 — when entering hotel_room on a fresh product, seed a
       // capacity default if the field is empty. The name-based heuristic
@@ -460,6 +474,10 @@ export function ProductForm({
       // starts in a valid state. For existing products that arrive with
       // capacity_per_unit=NULL we ALSO apply the heuristic on entry so
       // the operator isn't forced to invent a number from scratch.
+      //
+      // landr-8bq9 — the empty-only guard below is load-bearing: a non-empty
+      // capacity means the operator either loaded a stored value or already
+      // typed one. Either way, preserve it.
       const currentCap = (form.getValues('capacity_per_unit') ?? '').trim()
       if (!currentCap) {
         const nameOrSlug =
@@ -467,25 +485,19 @@ export function ProductForm({
         const suggested = suggestRoomCapacity(nameOrSlug) ?? 1
         form.setValue('capacity_per_unit', String(suggested))
       }
-    } else {
-      // Leaving hotel_room → drop the hotel link to satisfy the biconditional,
-      // and clear the capacity input so the submit payload sends null.
-      if (form.getValues('hotel_location_id')) {
-        form.setValue('hotel_location_id', '')
-      }
-      if (form.getValues('capacity_per_unit')) {
-        form.setValue('capacity_per_unit', '')
-      }
+      // hotel_offering on non-service rows must be 'none' per DB CHECK, but
+      // we no longer clobber an operator-edited value on entry — handleSubmit
+      // collapses to 'none' for non-service kinds. Leaving the form state
+      // alone here means a service→hotel_room→service round trip preserves
+      // the operator's hotel_offering choice.
     }
-    if (productKind !== 'service') {
-      // hotel_offering only makes sense on service products; collapse to 'none'
-      // for anything else so the DB CHECK
-      //   product_kind = 'service' OR hotel_offering = 'none'
-      // holds.
-      if (form.getValues('hotel_offering') !== 'none') {
-        form.setValue('hotel_offering', 'none')
-      }
-    }
+    // landr-8bq9 — REMOVED: the previous "leaving hotel_room" branch cleared
+    // hotel_location_id and capacity_per_unit unconditionally. Both are now
+    // preserved in form state; handleSubmit nulls them at submit time when
+    // the current kind isn't 'hotel_room'. Same story for hotel_offering on
+    // entering non-service kinds — handleSubmit collapses to 'none' at
+    // submit, the in-form state stays put so the operator can flip back
+    // without losing their choice.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productKind])
 
