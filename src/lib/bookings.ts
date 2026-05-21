@@ -321,7 +321,7 @@ export type BookingCalendarEvent = {
   raw: BookingRow
 }
 
-function earliestScheduledItem(row: BookingRow): BookingProduct | null {
+export function earliestScheduledItem(row: BookingRow): BookingProduct | null {
   let best: BookingProduct | null = null
   for (const item of row.items) {
     if (!item.date_range_start) continue
