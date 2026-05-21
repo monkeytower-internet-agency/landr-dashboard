@@ -68,6 +68,67 @@ describe('ViewFilterChips (landr-hgtv)', () => {
     })
   })
 
+  // landr-1zxt — relative-date chip labels surface the preset name.
+  it('shows the preset label for a within() chip with relative tokens', () => {
+    const filters: Filter[] = [
+      {
+        field: 'date_range_start',
+        op: 'within',
+        values: ['start_of_week', 'end_of_week'],
+      },
+    ]
+    render(
+      <ViewFilterChips
+        entityType="booking"
+        filters={filters}
+        onChange={() => {}}
+      />,
+    )
+    expect(
+      screen.getByTestId('view-filters-chip-0-trigger').textContent ?? '',
+    ).toMatch(/Start date is in This week/i)
+  })
+
+  it('shows the single token label for a non-within relative chip', () => {
+    const filters: Filter[] = [
+      { field: 'date_range_start', op: 'eq', values: ['today'] },
+    ]
+    render(
+      <ViewFilterChips
+        entityType="booking"
+        filters={filters}
+        onChange={() => {}}
+      />,
+    )
+    expect(
+      screen.getByTestId('view-filters-chip-0-trigger').textContent ?? '',
+    ).toMatch(/Start date is Today/i)
+  })
+
+  it('opens the Relative tab on a date filter and commits a preset', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    const filters: Filter[] = [
+      { field: 'date_range_start', op: 'within', values: [] },
+    ]
+    render(
+      <ViewFilterChips
+        entityType="booking"
+        filters={filters}
+        onChange={onChange}
+      />,
+    )
+    await user.click(screen.getByTestId('view-filters-chip-0-trigger'))
+    await screen.findByTestId('filter-editor')
+    await user.click(screen.getByTestId('filter-editor-relative-tab'))
+    await user.click(screen.getByTestId('filter-editor-preset-this-week'))
+    await user.click(screen.getByTestId('filter-editor-apply'))
+
+    expect(onChange).toHaveBeenCalledTimes(1)
+    const next = onChange.mock.calls[0][0] as Filter[]
+    expect(next[0].values).toEqual(['start_of_week', 'end_of_week'])
+  })
+
   it('removes a chip when its X button is clicked', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()

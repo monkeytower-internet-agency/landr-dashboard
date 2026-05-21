@@ -36,6 +36,14 @@ import {
   valueLabel,
   type ViewField,
 } from '@/lib/views-entity-fields'
+import {
+  RELATIVE_PRESETS,
+  describeRelativeToken,
+  findRangePreset,
+  findSinglePreset,
+  isRelativeToken,
+  type RelativePreset,
+} from '@/lib/views-relative-dates'
 import { t } from '@/lib/strings'
 
 type Props = {
@@ -164,6 +172,29 @@ function renderChipLabel(entityType: string, f: Filter): string {
   const op = FILTER_OP_LABELS[f.op]
   if (VALUELESS_OPS.has(f.op)) return `${label} ${op}`
   if (f.values.length === 0) return `${label} ${op} …`
+
+  const field = findField(entityType, f.field)
+  // landr-1zxt — date fields with relative tokens show the human label
+  // ("This week") instead of resolved dates. For 'within' with two
+  // relative tokens that match a known preset pair, compress to that
+  // preset's label ("Start date is in This week").
+  if (field?.type === 'date') {
+    const allRelative = f.values.every((v) => isRelativeToken(v))
+    if (allRelative) {
+      if (f.op === 'within' && f.values.length === 2) {
+        const preset = findRangePreset(String(f.values[0]), String(f.values[1]))
+        if (preset) return `${label} is in ${preset.label}`
+        return `${label} is in ${describeRelativeToken(String(f.values[0]))} → ${describeRelativeToken(String(f.values[1]))}`
+      }
+      const tokens = f.values
+        .slice(0, 3)
+        .map((v) => describeRelativeToken(String(v)))
+        .join(', ')
+      const more = f.values.length > 3 ? ` +${f.values.length - 3}` : ''
+      return `${label} ${op} ${tokens}${more}`
+    }
+  }
+
   const vals = f.values
     .slice(0, 3)
     .map((v) => valueLabel(entityType, f.field, v))
@@ -388,12 +419,14 @@ function ValueEditor({ field, op, values, onChange }: ValueEditorProps) {
     )
   }
 
-  const inputType =
-    field.type === 'number'
-      ? 'number'
-      : field.type === 'date'
-        ? 'date'
-        : 'text'
+  // landr-1zxt — date fields get a two-tab editor: literal ISO date vs
+  // relative-token presets. The Relative tab writes tokens like
+  // 'today' or ['start_of_week','end_of_week'] depending on the op.
+  if (field.type === 'date') {
+    return <DateValueEditor op={op} values={values} onChange={onChange} />
+  }
+
+  const inputType = field.type === 'number' ? 'number' : 'text'
 
   return (
     <label className="text-xs font-medium">
@@ -410,6 +443,198 @@ function ValueEditor({ field, op, values, onChange }: ValueEditorProps) {
           const parsed: FilterValue =
             field.type === 'number' ? Number(raw) : raw
           onChange([parsed])
+        }}
+        data-testid="filter-editor-value"
+        className="mt-1 w-full"
+      />
+    </label>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// landr-1zxt — date value editor with Date / Relative tabs.
+
+type DateValueEditorProps = {
+  op: FilterOp
+  values: FilterValue[]
+  onChange: (next: FilterValue[]) => void
+}
+
+type DateMode = 'date' | 'relative'
+
+function inferInitialMode(values: FilterValue[]): DateMode {
+  if (values.length === 0) return 'date'
+  return values.some((v) => isRelativeToken(v)) ? 'relative' : 'date'
+}
+
+function DateValueEditor({ op, values, onChange }: DateValueEditorProps) {
+  const [mode, setMode] = useState<DateMode>(() => inferInitialMode(values))
+  const isWithin = op === 'within'
+
+  function selectPreset(preset: RelativePreset) {
+    if (preset.kind === 'single') {
+      // Single-token preset: works for any op. For 'within', mirror the
+      // token to both bounds so a "Today" pick means just that day.
+      onChange(isWithin ? [preset.token, preset.token] : [preset.token])
+    } else {
+      // Range preset: writes [from, to]. For non-within ops we apply the
+      // 'from' end only (best-effort fallback — UI usually shows ranges
+      // for 'within').
+      onChange(isWithin ? [preset.from, preset.to] : [preset.from])
+    }
+  }
+
+  const currentPresetKey = (() => {
+    if (values.length === 0) return null
+    if (isWithin && values.length === 2) {
+      const range = findRangePreset(String(values[0]), String(values[1]))
+      if (range) return range.key
+      // Single token mirrored to both bounds (e.g. ['today','today']).
+      if (values[0] === values[1]) {
+        const single = findSinglePreset(String(values[0]))
+        if (single) return single.key
+      }
+      return null
+    }
+    if (values.length === 1) {
+      const single = findSinglePreset(String(values[0]))
+      if (single) return single.key
+    }
+    return null
+  })()
+
+  return (
+    <div className="flex flex-col gap-2" data-testid="filter-editor-date">
+      <div
+        className="flex gap-1 text-xs"
+        role="tablist"
+        aria-label={t.views.filters.valueLabel}
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'date'}
+          onClick={() => setMode('date')}
+          className={`rounded border px-2 py-1 ${mode === 'date' ? 'bg-accent border-input' : 'border-transparent'}`}
+          data-testid="filter-editor-date-tab"
+        >
+          Date
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'relative'}
+          onClick={() => setMode('relative')}
+          className={`rounded border px-2 py-1 ${mode === 'relative' ? 'bg-accent border-input' : 'border-transparent'}`}
+          data-testid="filter-editor-relative-tab"
+        >
+          Relative
+        </button>
+      </div>
+
+      {mode === 'date' ? (
+        <DateLiteralInputs op={op} values={values} onChange={onChange} />
+      ) : (
+        <fieldset
+          className="flex flex-wrap gap-1"
+          data-testid="filter-editor-relative-presets"
+        >
+          <legend className="sr-only">Relative presets</legend>
+          {RELATIVE_PRESETS.map((preset) => {
+            const selected = currentPresetKey === preset.key
+            return (
+              <button
+                key={preset.key}
+                type="button"
+                onClick={() => selectPreset(preset)}
+                className={`rounded border px-2 py-1 text-xs ${selected ? 'bg-accent border-input' : 'border-input bg-background'}`}
+                data-testid={`filter-editor-preset-${preset.key}`}
+                aria-pressed={selected}
+              >
+                {preset.label}
+              </button>
+            )
+          })}
+        </fieldset>
+      )}
+    </div>
+  )
+}
+
+type DateLiteralInputsProps = {
+  op: FilterOp
+  values: FilterValue[]
+  onChange: (next: FilterValue[]) => void
+}
+
+function DateLiteralInputs({ op, values, onChange }: DateLiteralInputsProps) {
+  const isWithin = op === 'within'
+  // If any current value is a relative token, treat it as empty for the
+  // literal input so the date picker doesn't render garbage.
+  const literal = (v: FilterValue | undefined): string => {
+    if (v === undefined || v === null) return ''
+    if (typeof v === 'string' && isRelativeToken(v)) return ''
+    return String(v)
+  }
+
+  if (isWithin) {
+    return (
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium">
+          From
+          <Input
+            type="date"
+            value={literal(values[0])}
+            onChange={(e) => {
+              const next = [...values]
+              if (e.target.value === '') {
+                next[0] = ''
+              } else {
+                next[0] = e.target.value
+              }
+              if (next[1] === undefined) next[1] = ''
+              onChange(next.filter((_v, i) => i < 2))
+            }}
+            data-testid="filter-editor-value-from"
+            className="mt-1 w-full"
+          />
+        </label>
+        <label className="text-xs font-medium">
+          To
+          <Input
+            type="date"
+            value={literal(values[1])}
+            onChange={(e) => {
+              const next = [...values]
+              if (next[0] === undefined) next[0] = ''
+              if (e.target.value === '') {
+                next[1] = ''
+              } else {
+                next[1] = e.target.value
+              }
+              onChange(next.filter((_v, i) => i < 2))
+            }}
+            data-testid="filter-editor-value-to"
+            className="mt-1 w-full"
+          />
+        </label>
+      </div>
+    )
+  }
+
+  return (
+    <label className="text-xs font-medium">
+      {t.views.filters.valueLabel}
+      <Input
+        type="date"
+        value={literal(values[0])}
+        onChange={(e) => {
+          const raw = e.target.value
+          if (raw === '') {
+            onChange([])
+            return
+          }
+          onChange([raw])
         }}
         data-testid="filter-editor-value"
         className="mt-1 w-full"

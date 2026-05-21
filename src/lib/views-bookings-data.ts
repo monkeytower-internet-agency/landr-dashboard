@@ -23,6 +23,10 @@ import {
   type FilterValue,
 } from '@/lib/views-filters'
 import { findField } from '@/lib/views-entity-fields'
+import {
+  isRelativeToken,
+  resolveRelativeDate,
+} from '@/lib/views-relative-dates'
 
 // Alias matching CONTEXT.md "Item" language so the layout components can read
 // `items: BookingItem[]` rather than `rows: BookingRow[]`. Different name,
@@ -85,7 +89,7 @@ function extractor(fieldKey: string): FieldExtract | null {
 function compareScalar(
   op: FilterOp,
   actual: FilterValue | null | undefined,
-  filter: Filter,
+  values: ReadonlyArray<FilterValue>,
 ): boolean {
   if (op === 'is_null') return actual === null || actual === undefined
   if (op === 'is_not_null') return actual !== null && actual !== undefined
@@ -93,26 +97,26 @@ function compareScalar(
 
   switch (op) {
     case 'eq':
-      return filter.values.some((v) => v === actual)
+      return values.some((v) => v === actual)
     case 'in':
-      return filter.values.includes(actual)
+      return values.includes(actual)
     case 'contains': {
-      const needle = String(filter.values[0] ?? '').toLowerCase()
+      const needle = String(values[0] ?? '').toLowerCase()
       if (!needle) return true
       return String(actual).toLowerCase().includes(needle)
     }
     case 'gt':
-      return filter.values.some((v) => actual > v)
+      return values.some((v) => actual > v)
     case 'lt':
-      return filter.values.some((v) => actual < v)
+      return values.some((v) => actual < v)
     case 'gte':
-      return filter.values.some((v) => actual >= v)
+      return values.some((v) => actual >= v)
     case 'lte':
-      return filter.values.some((v) => actual <= v)
+      return values.some((v) => actual <= v)
     case 'within': {
       // [from, to] inclusive — value count tolerant of either or both bounds.
-      const from = filter.values[0]
-      const to = filter.values[1]
+      const from = values[0]
+      const to = values[1]
       if (from !== undefined && actual < from) return false
       if (to !== undefined && actual > to) return false
       return true
@@ -122,28 +126,49 @@ function compareScalar(
   }
 }
 
-function matchesOneFilter(row: BookingRow, filter: Filter): boolean {
+/**
+ * Resolve any relative-date tokens in the filter's values to ISO dates,
+ * using a stable `now`. Non-token values pass through unchanged.
+ * landr-1zxt — keeps saved Views live without rewriting filter shape.
+ */
+function resolveFilterValues(
+  values: ReadonlyArray<FilterValue>,
+  now: Date,
+): FilterValue[] {
+  return values.map((v) => {
+    if (isRelativeToken(v)) {
+      const iso = resolveRelativeDate(v, now)
+      return iso ?? v
+    }
+    return v
+  })
+}
+
+function matchesOneFilter(row: BookingRow, filter: Filter, now: Date): boolean {
   const ext = extractor(filter.field)
   if (!ext) return true // unknown field — don't filter (forward-compat)
+  const resolvedValues = resolveFilterValues(filter.values, now)
   if (ext.kind === 'scalar') {
-    return compareScalar(filter.op, ext.get(row), filter)
+    return compareScalar(filter.op, ext.get(row), resolvedValues)
   }
   const vals = ext.get(row)
   if (vals.length === 0) {
     // No items contribute — null/not-null still answerable.
-    return compareScalar(filter.op, null, filter)
+    return compareScalar(filter.op, null, resolvedValues)
   }
-  return vals.some((v) => compareScalar(filter.op, v, filter))
+  return vals.some((v) => compareScalar(filter.op, v, resolvedValues))
 }
 
 /** AND across chips. Each chip is its own predicate; missing values short-
- *  circuit per `compareScalar`. */
+ *  circuit per `compareScalar`. `now` (default: new Date()) anchors any
+ *  relative-date tokens (landr-1zxt). */
 export function matchesViewFilters(
   row: BookingRow,
   filters: Filter[],
+  now: Date = new Date(),
 ): boolean {
   for (const f of filters) {
-    if (!matchesOneFilter(row, f)) return false
+    if (!matchesOneFilter(row, f, now)) return false
   }
   return true
 }
@@ -203,14 +228,20 @@ export function applyViewSort(
   })
 }
 
-/** Full pipe: filter + sort. Pure — safe to call inside useMemo. */
+/** Full pipe: filter + sort. Pure — safe to call inside useMemo. `now`
+ *  (default: new Date()) anchors any relative-date tokens (landr-1zxt) so
+ *  every comparison in a single render uses the same wall-clock instant. */
 export function applyView(
   rows: BookingRow[],
   config: Record<string, unknown> | undefined | null,
   entityType: string,
+  now: Date = new Date(),
 ): BookingRow[] {
   const filters = readFilters(config)
-  const filtered = filters.length === 0 ? rows : rows.filter((r) => matchesViewFilters(r, filters))
+  const filtered =
+    filters.length === 0
+      ? rows
+      : rows.filter((r) => matchesViewFilters(r, filters, now))
   return applyViewSort(filtered, config, entityType)
 }
 

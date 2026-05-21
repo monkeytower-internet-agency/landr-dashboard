@@ -187,13 +187,25 @@ describe('setViewUserState', () => {
 })
 
 describe('VIEW_TEMPLATES', () => {
-  it('has 4 entries', () => {
-    expect(VIEW_TEMPLATES).toHaveLength(4)
+  // landr-1zxt added three relative-date starters (next-7-days, this-month,
+  // past-due) on top of the original four.
+  const EXPECTED_KEYS = [
+    'all-bookings',
+    'pending-approvals',
+    'this-week',
+    'todays-pickups',
+    'next-7-days',
+    'this-month',
+    'past-due',
+  ] as const
+
+  it('has the expected number of entries', () => {
+    expect(VIEW_TEMPLATES).toHaveLength(EXPECTED_KEYS.length)
   })
 
   it('each template has a unique key + booking entity_type + config object', () => {
     const keys = new Set(VIEW_TEMPLATES.map((t) => t.key))
-    expect(keys.size).toBe(4)
+    expect(keys.size).toBe(EXPECTED_KEYS.length)
     for (const tpl of VIEW_TEMPLATES) {
       expect(tpl.entity_type).toBe('booking')
       expect(typeof tpl.config).toBe('object')
@@ -203,11 +215,9 @@ describe('VIEW_TEMPLATES', () => {
     }
   })
 
-  it('exposes the four expected starter keys', () => {
+  it('exposes the expected starter keys', () => {
     const keys = VIEW_TEMPLATES.map((t) => t.key).sort()
-    expect(keys).toEqual(
-      ['all-bookings', 'pending-approvals', 'this-week', 'todays-pickups'].sort(),
-    )
+    expect(keys).toEqual([...EXPECTED_KEYS].sort())
   })
 
   it('findTemplateByKey returns the matching template or undefined', () => {
