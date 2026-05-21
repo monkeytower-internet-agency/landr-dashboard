@@ -95,8 +95,24 @@ export function Schedule() {
     }
   }, [])
 
-  const today = useMemo(() => new Date(), [])
-  const calendarWindow = useMemo(() => widenForCalendar(today), [today])
+  // landr-0195 — track the visible calendar window in state so prev/next
+  // month navigation refetches availability. Previously memoised on
+  // mount, which froze the query key to whichever month happened to be
+  // current at first paint. AvailabilityCalendar drives updates via the
+  // `onVisibleRangeChange` prop (FullCalendar's `datesSet` hook).
+  // Initial value uses `widenForCalendar(new Date())` so the first fetch
+  // covers the same window as the legacy behaviour; `datesSet` then
+  // overwrites it on first paint and on every month nav.
+  const [calendarWindow, setCalendarWindow] = useState<{
+    from: string
+    to: string
+  }>(() => widenForCalendar(new Date()))
+
+  const handleVisibleRangeChange = useCallback((from: string, to: string) => {
+    setCalendarWindow((prev) =>
+      prev.from === from && prev.to === to ? prev : { from, to },
+    )
+  }, [])
 
   const productsQuery = useQuery<ProductForSchedule[]>({
     queryKey: ['schedulable-products', currentOperatorId ?? 'none'],
@@ -357,6 +373,7 @@ export function Schedule() {
           onRangeSelect={handleRangeSelect}
           onDayClick={handleDayClick}
           onPillClick={handleDayClick}
+          onVisibleRangeChange={handleVisibleRangeChange}
         />
       )}
 
