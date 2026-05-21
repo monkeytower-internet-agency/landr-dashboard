@@ -679,6 +679,100 @@ describe('ProductForm — room capacity (landr-knm0)', () => {
       capacity_per_unit: null,
     })
   })
+
+  // landr-8bq9 — DATA-LOSS GUARD: flipping product_kind to peek at another
+  // branch and flipping back must NOT wipe operator-edited values. Before
+  // the fix, the kind-switch useEffect unconditionally cleared
+  // capacity_per_unit, hotel_location_id, and hotel_offering when leaving
+  // (or re-entering) hotel_room — so a curious operator lost their work.
+  it('preserves operator-edited capacity_per_unit across a kind round trip (landr-8bq9)', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.type(screen.getByLabelText(/^name$/i), 'Suite Royale')
+    await user.selectOptions(kind, 'hotel_room')
+
+    const capacity = screen.getByLabelText(
+      /room capacity \(people\)/i,
+    ) as HTMLInputElement
+    await user.clear(capacity)
+    await user.type(capacity, '5')
+    await user.selectOptions(screen.getByLabelText(/^hotel$/i), 'hotel-1')
+
+    // Peek at service, then flip back. The operator-edited 5 must survive.
+    await user.selectOptions(kind, 'service')
+    await user.selectOptions(kind, 'hotel_room')
+
+    const capacityAfter = screen.getByLabelText(
+      /room capacity \(people\)/i,
+    ) as HTMLInputElement
+    expect(capacityAfter.value).toBe('5')
+
+    // hotel_location_id also preserved (the picker re-renders on re-entry).
+    const hotelPicker = screen.getByLabelText(/^hotel$/i) as HTMLSelectElement
+    expect(hotelPicker.value).toBe('hotel-1')
+
+    await user.click(screen.getByRole('button', { name: /create product/i }))
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      product_kind: 'hotel_room',
+      capacity_per_unit: 5,
+      hotel_location_id: 'hotel-1',
+    })
+  })
+
+  it('preserves operator-edited hotel_offering across a service → hotel_room → service round trip (landr-8bq9)', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+
+    await user.type(screen.getByLabelText(/^name$/i), 'Guided Dive')
+    await user.selectOptions(
+      screen.getByLabelText(/includes accommodation/i),
+      'optional',
+    )
+
+    // Peek at hotel_room, then flip back to service.
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'hotel_room')
+    await user.selectOptions(kind, 'service')
+
+    const offering = screen.getByLabelText(
+      /includes accommodation/i,
+    ) as HTMLSelectElement
+    expect(offering.value).toBe('optional')
+
+    await user.click(screen.getByRole('button', { name: /create product/i }))
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      product_kind: 'service',
+      hotel_offering: 'optional',
+    })
+  })
 })
 
 // landr-u34k — is_addon_only checkbox + Add-ons section gating. The
