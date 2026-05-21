@@ -1,6 +1,6 @@
 import { render as rtlRender, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
@@ -144,6 +144,7 @@ vi.mock('@/components/schedule/AvailabilityCalendar', () => ({
     onDayClick,
     onRangeSelect,
     onVisibleRangeChange,
+    initialDate,
   }: {
     rows: AvailabilityFixture[]
     onDayClick?: (
@@ -152,8 +153,12 @@ vi.mock('@/components/schedule/AvailabilityCalendar', () => ({
     ) => void
     onRangeSelect?: (fromDate: string, toDate: string) => void
     onVisibleRangeChange?: (from: string, to: string) => void
+    initialDate?: string
   }) => (
-    <div data-testid="availability-calendar">
+    <div
+      data-testid="availability-calendar"
+      data-initial-date={initialDate ?? ''}
+    >
       <span data-testid="row-count">{rows.length}</span>
       <button
         type="button"
@@ -224,17 +229,52 @@ function makeAvailability(
   }
 }
 
-function render(ui: React.ReactElement) {
+function render(ui: React.ReactElement, options?: { initialEntry?: string }) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   return rtlRender(ui, {
     wrapper: ({ children }) => (
       <QueryClientProvider client={client}>
-        <MemoryRouter>{children}</MemoryRouter>
+        <MemoryRouter initialEntries={[options?.initialEntry ?? '/']}>
+          {children}
+        </MemoryRouter>
       </QueryClientProvider>
     ),
   })
+}
+
+// landr-jzc0 — captures the current `?…` so tests can assert on the
+// post-mount URL state pushed by the route's URL-sync effect.
+function LocationProbe() {
+  const { search } = useLocation()
+  return <div data-testid="location-search">{search}</div>
+}
+
+function renderWithRouteAt(
+  initialEntry: string,
+  ui: React.ReactElement,
+) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return rtlRender(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route
+            path="/settings/schedule"
+            element={
+              <>
+                {ui}
+                <LocationProbe />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
 }
 
 beforeEach(() => {
@@ -503,6 +543,176 @@ describe('Schedule route', () => {
       render(<Schedule />)
       await screen.findByTestId('availability-list')
       expect(screen.queryByTestId('availability-calendar')).not.toBeInTheDocument()
+    })
+  })
+
+  // landr-jzc0 — `?date=&product=` deep-link wiring. The Calendar
+  // page's capacity pills (landr-3uai) navigate to
+  // /settings/schedule?date=…&product=… expecting Schedule to
+  // preselect that product + anchor the calendar on that month.
+  describe('?date= + ?product= URL params (landr-jzc0)', () => {
+    beforeEach(() => {
+      // Sibling describe ('Month/List view toggle') flips localStorage
+      // to 'list' — reset here so the calendar view is the one the
+      // URL-params tests inspect via data-testid="availability-calendar".
+      window.localStorage.clear()
+    })
+
+    it('preselects the product from `?product=` on mount', async () => {
+      mock.state.products = [
+        makeProduct({ id: 'prod-1', name: 'Hotel package' }),
+        makeProduct({ id: 'prod-2', name: 'Tandem' }),
+      ]
+      renderWithRouteAt(
+        '/settings/schedule?product=prod-2',
+        <Schedule />,
+      )
+
+      const select = await screen.findByLabelText(/^product$/i)
+      await waitFor(() => {
+        expect((select as HTMLSelectElement).value).toBe('prod-2')
+      })
+    })
+
+    it('anchors the calendar on the `?date=` month via initialDate', async () => {
+      mock.state.products = [makeProduct()]
+      renderWithRouteAt(
+        '/settings/schedule?date=2026-09-15',
+        <Schedule />,
+      )
+
+      const calendar = await screen.findByTestId('availability-calendar')
+      expect(calendar.getAttribute('data-initial-date')).toBe('2026-09-15')
+    })
+
+    it('seeds the initial availability fetch around the `?date=` month', async () => {
+      mock.state.products = [makeProduct()]
+      const availability = await import('@/lib/availability')
+      const fetchSpy = availability.fetchAvailability as unknown as ReturnType<
+        typeof vi.fn
+      >
+      renderWithRouteAt(
+        '/settings/schedule?date=2026-09-15&product=prod-1',
+        <Schedule />,
+      )
+
+      await waitFor(() => {
+        expect(fetchSpy).toHaveBeenCalled()
+      })
+      const firstCall = fetchSpy.mock.calls[0]
+      // (operatorId, productId, from, to) — window widens by ~7 days
+      // on each side of the month containing `?date=`, so the first
+      // fetch's `from` should land in late August and `to` in early
+      // October.
+      expect(firstCall[1]).toBe('prod-1')
+      expect(firstCall[2].startsWith('2026-08')).toBe(true)
+      expect(firstCall[3].startsWith('2026-10')).toBe(true)
+    })
+
+    it('silently falls back to default when `?date=` is malformed', async () => {
+      mock.state.products = [makeProduct()]
+      renderWithRouteAt(
+        '/settings/schedule?date=not-a-date',
+        <Schedule />,
+      )
+
+      const calendar = await screen.findByTestId('availability-calendar')
+      // Invalid → no initialDate forwarded → FullCalendar uses today.
+      expect(calendar.getAttribute('data-initial-date')).toBe('')
+    })
+
+    it('silently falls back to default when `?date=` is an impossible calendar date', async () => {
+      mock.state.products = [makeProduct()]
+      renderWithRouteAt(
+        '/settings/schedule?date=2026-02-31',
+        <Schedule />,
+      )
+
+      const calendar = await screen.findByTestId('availability-calendar')
+      expect(calendar.getAttribute('data-initial-date')).toBe('')
+    })
+
+    it('silently drops `?product=` that does not match any schedulable product', async () => {
+      mock.state.products = [makeProduct({ id: 'prod-1' })]
+      renderWithRouteAt(
+        '/settings/schedule?product=ghost-id',
+        <Schedule />,
+      )
+
+      // Falls back to products[0] (the default-first behaviour
+      // pre-jzc0). The URL is also cleaned up.
+      const select = await screen.findByLabelText(/^product$/i)
+      await waitFor(() => {
+        expect((select as HTMLSelectElement).value).toBe('prod-1')
+      })
+      await waitFor(() => {
+        expect(screen.getByTestId('location-search').textContent).not.toContain(
+          'ghost-id',
+        )
+      })
+    })
+
+    it('pushes `?product=` to the URL when the user changes the product', async () => {
+      mock.state.products = [
+        makeProduct({ id: 'prod-1', name: 'Hotel package' }),
+        makeProduct({ id: 'prod-2', name: 'Tandem' }),
+      ]
+      const user = userEvent.setup()
+      renderWithRouteAt('/settings/schedule', <Schedule />)
+
+      // Wait for the products to populate the select before changing
+      // its value (selectOptions requires the target option to exist).
+      await screen.findByText('Tandem')
+      const select = screen.getByLabelText(/^product$/i)
+      await user.selectOptions(select, 'prod-2')
+
+      await waitFor(() => {
+        expect(screen.getByTestId('location-search').textContent).toContain(
+          'product=prod-2',
+        )
+      })
+    })
+
+    it('pushes `?date=` to the URL when month nav changes the visible window', async () => {
+      mock.state.products = [makeProduct()]
+      mock.state.rows = [makeAvailability()]
+      const user = userEvent.setup()
+      renderWithRouteAt('/settings/schedule', <Schedule />)
+
+      // Wait for products + availability to land so the calendar mock
+      // is mounted with the route's real handlers attached.
+      await screen.findByText('Hotel package')
+      await screen.findByTestId('availability-calendar')
+      await user.click(screen.getByTestId('trigger-visible-range-change'))
+
+      // The mock dispatches (`2026-08-01`, `2026-09-12`); the route
+      // snaps to the visible month's 1st → `2026-08-01`.
+      await waitFor(() => {
+        expect(screen.getByTestId('location-search').textContent).toContain(
+          'date=2026-08-01',
+        )
+      })
+    })
+
+    it('preserves the deep-linked exact `?date=` after the first paint', async () => {
+      mock.state.products = [makeProduct()]
+      renderWithRouteAt(
+        '/settings/schedule?date=2026-09-15',
+        <Schedule />,
+      )
+
+      const calendar = await screen.findByTestId('availability-calendar')
+      expect(calendar.getAttribute('data-initial-date')).toBe('2026-09-15')
+      // After mount the URL must still say `2026-09-15` — the no-snap
+      // guard inside handleVisibleRangeChange preserves the original
+      // deep-linked exact day when the visible month already contains
+      // it (otherwise pill nav from Calendar would silently round to
+      // the 1st of the month and obscure the target).
+      await waitFor(() => {
+        expect(screen.getByTestId('location-search').textContent).toContain(
+          'date=2026-09-15',
+        )
+      })
     })
   })
 })

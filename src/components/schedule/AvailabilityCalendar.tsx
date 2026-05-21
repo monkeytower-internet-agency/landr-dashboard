@@ -31,6 +31,12 @@ type Props = {
   // already in BookingsCalendar.tsx's `handleDatesSet` so the availability
   // query can be re-keyed on month navigation instead of frozen at mount.
   onVisibleRangeChange?: (from: string, to: string) => void
+  // landr-jzc0 — anchors the dayGridMonth view on a deep-linked date
+  // (`/settings/schedule?date=YYYY-MM-DD`). FullCalendar reads this
+  // once on mount — subsequent month nav still drives `datesSet`. We
+  // accept the raw ISO string the URL gives us; FullCalendar parses
+  // it as a UTC date.
+  initialDate?: string
 }
 
 function groupByDate(rows: AvailabilityRow[]): Map<string, DaySummary> {
@@ -65,6 +71,7 @@ export function AvailabilityCalendar({
   onPillClick,
   onRangeSelect,
   onVisibleRangeChange,
+  initialDate,
 }: Props) {
   const calendarRef = useRef<FullCalendar | null>(null)
   const byDate = useMemo(() => groupByDate(rows), [rows])
@@ -178,6 +185,7 @@ export function AvailabilityCalendar({
         ref={calendarRef}
         plugins={[dayGridPlugin, interactionPlugin]}
         initialView="dayGridMonth"
+        initialDate={initialDate}
         headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
         height="auto"
         firstDay={1}

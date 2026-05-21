@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -53,6 +54,36 @@ function readStoredScheduleView(): ScheduleView {
   }
 }
 
+// landr-jzc0 — `?date=YYYY-MM-DD` deep-link param. Must be both the right
+// shape AND a real calendar date (so `?date=2026-02-31` is rejected, not
+// silently rolled forward). Returns the parsed UTC date for downstream
+// use as the calendar's anchor, or null on any validation failure.
+const DATE_PARAM_RE = /^\d{4}-\d{2}-\d{2}$/
+function parseDateParam(raw: string | null): { iso: string; date: Date } | null {
+  if (!raw) return null
+  if (!DATE_PARAM_RE.test(raw)) return null
+  const [y, m, d] = raw.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  if (
+    dt.getUTCFullYear() !== y ||
+    dt.getUTCMonth() !== m - 1 ||
+    dt.getUTCDate() !== d
+  ) {
+    return null
+  }
+  return { iso: raw, date: dt }
+}
+
+// landr-jzc0 — `?product=` accepts any non-empty trimmed string. The
+// briefing spec is "uuid OR string id"; we don't enforce uuid shape
+// because operator-side product ids are free-form. Invalid (empty after
+// trim) silently falls back to the default-selected first product.
+function parseProductParam(raw: string | null): string | null {
+  if (!raw) return null
+  const trimmed = raw.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
 function widenForCalendar(d: Date): { from: string; to: string } {
   // FullCalendar dayGrid month shows trailing/leading days from neighbouring
   // months, so widen the fetch window a week on each side.
@@ -70,7 +101,29 @@ export function Schedule() {
   const { currentOperatorId } = useOperator()
   const queryClient = useQueryClient()
 
-  const [productId, setProductId] = useState<string | null>(null)
+  // landr-jzc0 — `?date=YYYY-MM-DD&product=<id>` deep-link params. The
+  // URL is the source of truth for the INITIAL state only; subsequent
+  // user interactions (product picker, month nav) drive the state, and
+  // an effect pushes back to the URL with { replace: true } so the
+  // back button doesn't fill with noise. Captured once via a useState
+  // initializer so later setSearchParams writes don't re-trigger the
+  // URL→state sync (which would create infinite loops).
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [initialUrlParams] = useState(() => ({
+    date: parseDateParam(searchParams.get('date'))?.iso ?? null,
+    product: parseProductParam(searchParams.get('product')),
+  }))
+
+  const [productId, setProductId] = useState<string | null>(
+    initialUrlParams.product,
+  )
+  // landr-jzc0 — the deep-linked anchor date. Used as FullCalendar's
+  // `initialDate` and to seed `calendarWindow` so the first fetch
+  // covers that month. Subsequent month nav updates this via
+  // `onVisibleRangeChange` and pushes it back to the URL.
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    initialUrlParams.date,
+  )
   const [formOpen, setFormOpen] = useState(false)
   const [formRange, setFormRange] = useState<{
     from?: string
@@ -106,12 +159,38 @@ export function Schedule() {
   const [calendarWindow, setCalendarWindow] = useState<{
     from: string
     to: string
-  }>(() => widenForCalendar(new Date()))
+  }>(() => {
+    // landr-jzc0 — when a deep-link `?date=` is present, seed the first
+    // fetch window around that date so the initial load already covers
+    // the right month (avoids a default-month flash → re-fetch after
+    // FullCalendar's `datesSet` reports the real window).
+    const parsed = parseDateParam(initialUrlParams.date)
+    return widenForCalendar(parsed?.date ?? new Date())
+  })
 
   const handleVisibleRangeChange = useCallback((from: string, to: string) => {
     setCalendarWindow((prev) =>
       prev.from === from && prev.to === to ? prev : { from, to },
     )
+    // landr-jzc0 — pick a representative date inside the visible month
+    // for the deep-link param. The window starts ~7 days before the
+    // visible month (FullCalendar's trailing-days padding) so we step
+    // in 10 days to reliably land inside it, then snap to the 1st.
+    // This gives a stable `?date=` that survives prev/next nav without
+    // thrashing the URL with cell-level precision.
+    const [y, m, d] = from.split('-').map(Number)
+    const probe = new Date(Date.UTC(y, m - 1, d + 10))
+    const anchor = `${probe.getUTCFullYear()}-${String(
+      probe.getUTCMonth() + 1,
+    ).padStart(2, '0')}-01`
+    setSelectedDate((prev) => {
+      // Preserve the originally deep-linked exact date if it's inside
+      // this visible month — otherwise the URL would snap from e.g.
+      // `?date=2026-05-15` (incoming pill nav) to `?date=2026-05-01`
+      // on first paint, which obscures the link target.
+      if (prev && prev.slice(0, 7) === anchor.slice(0, 7)) return prev
+      return prev === anchor ? prev : anchor
+    })
   }, [])
 
   const productsQuery = useQuery<ProductForSchedule[]>({
@@ -120,9 +199,66 @@ export function Schedule() {
     enabled: !!currentOperatorId,
   })
 
-  const products = productsQuery.data ?? []
+  // Memoise the empty-array fallback so the URL-sync effect below isn't
+  // re-keyed on every render (lint: react-hooks/exhaustive-deps).
+  const products = useMemo<ProductForSchedule[]>(
+    () => productsQuery.data ?? [],
+    [productsQuery.data],
+  )
+
+  // landr-jzc0 — once the schedulable-products list lands, drop a
+  // deep-linked `?product=` that doesn't match any row. Without this
+  // the select renders empty (no option matches) and downstream
+  // availability fetches hit a nonexistent product. Silently fall back
+  // to the default-first-product behaviour that pre-jzc0 was always
+  // the case. URL-param → local-state sync is one of the documented
+  // exceptions to the set-state-in-effect rule (see Bookings.tsx).
+  useEffect(() => {
+    if (!productsQuery.isSuccess) return
+    if (!productId) return
+    if (products.some((p) => p.id === productId)) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setProductId(null)
+  }, [productsQuery.isSuccess, productId, products])
+
   const resolvedProductId = productId ?? products[0]?.id ?? null
   const selectedProduct = products.find((p) => p.id === resolvedProductId) ?? null
+
+  // landr-jzc0 — push the current (productId, selectedDate) to the URL
+  // so the page is bookmarkable / shareable. `{ replace: true }` keeps
+  // the back button useful (prev/next month nav doesn't pile history
+  // entries). The effect compares against current URL params before
+  // writing to avoid setSearchParams → re-render loops with no real
+  // change.
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    let dirty = false
+    if (productId) {
+      if (next.get('product') !== productId) {
+        next.set('product', productId)
+        dirty = true
+      }
+    } else if (next.has('product')) {
+      next.delete('product')
+      dirty = true
+    }
+    if (selectedDate) {
+      if (next.get('date') !== selectedDate) {
+        next.set('date', selectedDate)
+        dirty = true
+      }
+    } else if (next.has('date')) {
+      next.delete('date')
+      dirty = true
+    }
+    if (dirty) {
+      setSearchParams(next, { replace: true })
+    }
+    // setSearchParams identity is unstable across renders; intentionally
+    // omitted to keep the effect from re-running after we just wrote
+    // (mirrors Bookings.tsx / Contacts.tsx URL-state convention).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId, selectedDate])
 
   const availabilityQuery = useQuery<AvailabilityRow[]>({
     queryKey: [
@@ -374,6 +510,10 @@ export function Schedule() {
           onDayClick={handleDayClick}
           onPillClick={handleDayClick}
           onVisibleRangeChange={handleVisibleRangeChange}
+          // landr-jzc0 — anchors the dayGridMonth view on the deep-linked
+          // date so a pill click from the Calendar page lands on the
+          // right month. Falls back to today when no `?date=` was given.
+          initialDate={initialUrlParams.date ?? undefined}
         />
       )}
 
