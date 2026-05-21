@@ -151,6 +151,27 @@ export async function fetchBookings(operatorId: string): Promise<BookingRow[]> {
   return (data ?? []) as unknown as BookingRow[]
 }
 
+// landr-7o2a — Customer 360 "Bookings" tab in CustomerDetailSheet. Scopes
+// the standard SELECT by customer_contact_id so the sheet can render every
+// booking (past + upcoming) the contact has placed. Mirrors fetchBookings
+// in shape so all existing display helpers (priceDisplay, productDisplay,
+// stageCode, earliestServiceDate, …) work without translation. Ordered
+// most-recent-first so the operator sees the latest activity at a glance.
+export async function fetchBookingsForContact(
+  contactId: string,
+): Promise<BookingRow[]> {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select(SELECT)
+    .eq('customer_contact_id', contactId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(500)
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as BookingRow[]
+}
+
 export function customerDisplay(row: BookingRow): string {
   const c = row.customer
   if (!c) return '—'
