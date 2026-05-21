@@ -5,7 +5,7 @@ import {
   act,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactElement, ReactNode } from 'react'
@@ -420,5 +420,33 @@ describe('Onboarding wizard', () => {
     renderRoute()
     await screen.findByText(/step 1 of 9/i)
     await act(async () => { /* allow effects to settle */ })
+  })
+
+  it('reacts to in-SPA navigation to ?step=N (e.g. the resume banner Link)', async () => {
+    // Regression for landr-1tag: previously initialStep was memoized into
+    // useState once, so clicking a Link to /onboarding/start?step=3 from
+    // within the SPA did not reset the wizard — only a full reload worked.
+    const user = userEvent.setup()
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const ui: ReactElement = (
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/start-here']}>
+          <Routes>
+            <Route
+              path="/start-here"
+              element={
+                <Link to="/onboarding/start?step=3">resume at step 3</Link>
+              }
+            />
+            <Route path="/onboarding/start" element={<Onboarding />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+    rtlRender(ui)
+
+    await user.click(screen.getByRole('link', { name: /resume at step 3/i }))
+    // Wizard must render step 3, not step 1.
+    await screen.findByText(/step 3 of 9/i)
   })
 })
