@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmailTemplateForm } from '@/components/EmailTemplateForm'
 import { EmailTemplatePreview } from '@/components/EmailTemplatePreview'
 import { useOperator } from '@/lib/operator'
+import { PageTitle } from '@/lib/page-title'
 import {
   TEMPLATE_KINDS,
   OPERATOR_LOCALES,
@@ -104,6 +105,12 @@ export function EmailTemplates() {
 
   return (
     <div className="flex flex-col gap-6">
+      <PageTitle
+        crumbs={[
+          { label: t.app.settings, to: '/settings' },
+          { label: t.settingsHub.sections.emailTemplates },
+        ]}
+      />
       <header>
         <h1 className="text-xl font-semibold">{t.emailTemplates.title}</h1>
         <p className="text-muted-foreground text-sm">{t.emailTemplates.subtitle}</p>

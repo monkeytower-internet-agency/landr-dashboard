@@ -15,6 +15,7 @@ import {
   fetchGmailInstallUrl,
   disconnectGmail,
 } from '@/lib/operatorSettings'
+import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
 
 // Gmail integration subsection. Lives in its own route so the OAuth
@@ -22,13 +23,21 @@ import { t } from '@/lib/strings'
 export function IntegrationsGmailSettings() {
   const { currentOperatorId } = useOperator()
 
-  if (!currentOperatorId) {
-    return (
-      <div className="text-muted-foreground p-6">{t.settings.noOperator}</div>
-    )
-  }
-
-  return <GmailCard operatorId={currentOperatorId} />
+  return (
+    <>
+      <PageTitle
+        crumbs={[
+          { label: t.app.settings, to: '/settings' },
+          { label: t.settingsHub.sections.integrationsGmail },
+        ]}
+      />
+      {currentOperatorId ? (
+        <GmailCard operatorId={currentOperatorId} />
+      ) : (
+        <div className="text-muted-foreground p-6">{t.settings.noOperator}</div>
+      )}
+    </>
+  )
 }
 
 function GmailCard({ operatorId }: { operatorId: string }) {

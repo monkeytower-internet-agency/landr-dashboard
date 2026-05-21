@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { fetchBookings, type BookingRow } from '@/lib/bookings'
 import { useOperator } from '@/lib/operator'
+import { PageTitle } from '@/lib/page-title'
 import {
   buildBookingsCsv,
   computeKpis,
@@ -135,6 +136,7 @@ export function Reporting() {
 
   return (
     <div className="flex flex-col gap-6">
+      <PageTitle title={t.reporting.title} />
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-xl font-semibold">{t.reporting.title}</h1>

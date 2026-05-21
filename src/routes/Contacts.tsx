@@ -14,6 +14,7 @@ import {
 import { useContactsFilters } from '@/lib/contacts-filters'
 import { useContactsSort } from '@/lib/contacts-sort'
 import { useOperator } from '@/lib/operator'
+import { PageTitle } from '@/lib/page-title'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { t } from '@/lib/strings'
 
@@ -76,6 +77,7 @@ export function Contacts() {
 
   return (
     <div className="flex flex-col gap-6">
+      <PageTitle title={t.contacts.title} />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">{t.contacts.title}</h1>
       </header>

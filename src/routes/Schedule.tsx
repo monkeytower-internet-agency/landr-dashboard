@@ -28,6 +28,7 @@ import {
   type ProductForSchedule,
 } from '@/lib/availability'
 import { useOperator } from '@/lib/operator'
+import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
 import { cn } from '@/lib/utils'
 
@@ -231,6 +232,12 @@ export function Schedule() {
 
   return (
     <div className="flex flex-col gap-6">
+      <PageTitle
+        crumbs={[
+          { label: t.app.settings, to: '/settings' },
+          { label: t.settingsHub.sections.schedule },
+        ]}
+      />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">{t.schedule.title}</h1>

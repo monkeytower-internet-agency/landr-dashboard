@@ -18,7 +18,9 @@ import { AppSidebar } from '@/components/AppSidebar'
 import { OnboardingBanner } from '@/components/OnboardingBanner'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { PageTitleDisplay } from '@/components/topbar/PageTitleDisplay'
 import { useAuth } from '@/lib/auth'
+import { PageTitleProvider } from '@/lib/page-title'
 import { SidebarModeProvider } from '@/lib/sidebar-mode-context'
 import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
 import { openFor } from '@/lib/sidebar-mode'
@@ -90,9 +92,17 @@ function AppShellInner({
     <SidebarProvider open={open} onOpenChange={() => { /* mode-driven */ }}>
       <AppSidebar />
       <SidebarInset>
-        <header className="bg-background sticky top-0 z-10 flex h-14 items-center gap-2 border-b px-4">
+        {/* landr-fx2i — topbar layout: OperatorSwitcher (collapses to a
+            static label when the user only has 1 operator), then the
+            current page title or breadcrumb (declared by each route via
+            <PageTitle/> from src/lib/page-title), then the right-aligned
+            ThemeToggle + UserMenu cluster. */}
+        <header className="bg-background sticky top-0 z-10 flex h-14 items-center gap-3 border-b px-4">
           <OperatorSwitcher />
-          <div className="ml-auto flex items-center gap-1">
+          <div className="min-w-0 flex-1">
+            <PageTitleDisplay />
+          </div>
+          <div className="flex items-center gap-1">
             <ThemeToggle />
             <UserMenu onSignOut={onSignOut} />
           </div>
@@ -115,7 +125,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <SidebarModeProvider>
-      <AppShellInner onSignOut={onSignOut}>{children}</AppShellInner>
+      <PageTitleProvider>
+        <AppShellInner onSignOut={onSignOut}>{children}</AppShellInner>
+      </PageTitleProvider>
     </SidebarModeProvider>
   )
 }

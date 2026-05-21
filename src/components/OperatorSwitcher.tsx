@@ -25,10 +25,26 @@ export function OperatorSwitcher() {
     )
   }
 
+  // landr-fx2i — single-operator accounts get no switcher dropdown
+  // (dead UI), but we still render a small read-only label so the
+  // topbar reveals which org the user is currently scoped into. This
+  // matters for staff who occasionally get added to a second org later
+  // — the label they were used to seeing remains, but as plain text.
   if (operators.length === 0) {
     return (
       <span className="text-muted-foreground text-sm">
         {t.operator.noOperators}
+      </span>
+    )
+  }
+  if (operators.length === 1) {
+    const only = operators[0]
+    return (
+      <span
+        className="text-foreground text-sm font-medium truncate"
+        aria-label={t.operator.switcherLabel}
+      >
+        {displayName(only.name, only.slug)}
       </span>
     )
   }

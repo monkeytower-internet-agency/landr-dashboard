@@ -328,7 +328,11 @@ describe('Sign out', () => {
     )
 
     await screen.findByRole('heading', { name: /Para42/i })
-    await user.click(screen.getByRole('button', { name: /sign out/i }))
+    // landr-fx2i — Sign out lives inside the UserMenu dropdown (commit
+    // f7b790b dropped the redundant standalone button). Open the menu
+    // first, then click the menuitem.
+    await user.click(screen.getByRole('button', { name: /user menu/i }))
+    await user.click(await screen.findByRole('menuitem', { name: /sign out/i }))
 
     expect(mock.supabase.auth.signOut).toHaveBeenCalled()
     expect(

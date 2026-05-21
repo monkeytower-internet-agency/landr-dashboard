@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
 import { OperatorSection } from './_shared'
 
@@ -19,6 +20,12 @@ export function PlanSettings() {
         const plan = operator.package
         return (
           <div className="mx-auto max-w-2xl space-y-6">
+            <PageTitle
+              crumbs={[
+                { label: t.app.settings, to: '/settings' },
+                { label: t.settingsHub.sections.plan },
+              ]}
+            />
             <h1 className="text-2xl font-semibold">
               {t.settingsHub.plan.title}
             </h1>

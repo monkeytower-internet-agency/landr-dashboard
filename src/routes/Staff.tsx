@@ -8,6 +8,7 @@ import { StaffInviteSheet } from '@/components/StaffInviteSheet'
 import { StaffRevokeDialog } from '@/components/StaffRevokeDialog'
 import { StaffTable } from '@/components/StaffTable'
 import { useOperator } from '@/lib/operator'
+import { PageTitle } from '@/lib/page-title'
 import { fetchStaff, type StaffRow } from '@/lib/staff'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { t } from '@/lib/strings'
@@ -34,6 +35,12 @@ export function Staff() {
 
   return (
     <div className="flex flex-col gap-6">
+      <PageTitle
+        crumbs={[
+          { label: t.app.settings, to: '/settings' },
+          { label: t.settingsHub.sections.team },
+        ]}
+      />
       <header className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold">{t.staff.title}</h1>

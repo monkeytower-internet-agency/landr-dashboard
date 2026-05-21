@@ -39,6 +39,7 @@ import {
   type Location,
   type LocationRoleType,
 } from '@/lib/locations'
+import { PageTitle } from '@/lib/page-title'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { t } from '@/lib/strings'
 
@@ -450,8 +451,33 @@ export function ProductsManager({
     </div>
   )
 
+  // landr-fx2i — drive the topbar breadcrumb from the active selection.
+  // Three states: list (Settings › Products), new (… › New product),
+  // detail (… › <productName>). Onboarding embed (hideHeader=true,
+  // routed=false) does NOT push a breadcrumb because it's inside a
+  // multi-step wizard that owns its own header.
+  const pageCrumbs = routed
+    ? resolvedSelection === NEW_PRODUCT
+      ? [
+          { label: t.app.settings, to: '/settings' },
+          { label: t.products.title, to: '/settings/products' },
+          { label: t.products.headingNew },
+        ]
+      : selectedProduct
+        ? [
+            { label: t.app.settings, to: '/settings' },
+            { label: t.products.title, to: '/settings/products' },
+            { label: selectedProduct.name },
+          ]
+        : [
+            { label: t.app.settings, to: '/settings' },
+            { label: t.products.title },
+          ]
+    : null
+
   return (
     <div className="flex flex-col gap-6">
+      {pageCrumbs ? <PageTitle crumbs={pageCrumbs} /> : null}
       {hideHeader ? null : (
         <header className="flex items-center justify-between gap-4">
           <h1 className="text-xl font-semibold">{t.products.title}</h1>
