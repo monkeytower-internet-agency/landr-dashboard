@@ -291,6 +291,34 @@ describe('CalendarLayout (landr-9kbl)', () => {
     ).toBe('row-a')
   })
 
+  // landr-m4zq — firstDayOfWeek prop is forwarded to FullCalendar.
+  it('default firstDayOfWeek=1 renders Mon as the first column header', () => {
+    const view = makeView({
+      layout: 'calendar',
+      calendarConfig: { dateField: 'date_range_start' },
+    })
+    render(<CalendarLayout view={view} items={[makeRow()]} />)
+
+    const headers = document.querySelectorAll('.fc-col-header-cell-cushion')
+    // FullCalendar renders 7 day-of-week headers in dayGridMonth.
+    expect(headers).toHaveLength(7)
+    expect(headers[0].textContent?.trim()).toMatch(/^Mon/i)
+  })
+
+  it('firstDayOfWeek=0 renders Sun as the first column header (landr-m4zq)', () => {
+    const view = makeView({
+      layout: 'calendar',
+      calendarConfig: { dateField: 'date_range_start' },
+    })
+    render(
+      <CalendarLayout view={view} items={[makeRow()]} firstDayOfWeek={0} />,
+    )
+
+    const headers = document.querySelectorAll('.fc-col-header-cell-cushion')
+    expect(headers).toHaveLength(7)
+    expect(headers[0].textContent?.trim()).toMatch(/^Sun/i)
+  })
+
   it('honours an onItemClick override (used by tests / future composition)', async () => {
     const items = [makeRow({ id: 'row-a' })]
     const view = makeView({

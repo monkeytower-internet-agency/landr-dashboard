@@ -69,6 +69,10 @@ function CalendarDisplayForm({ operator, operatorId, onSaved }: FormProps) {
       work_hours_start: (operator.work_hours_start ?? '08:00:00').slice(0, 5),
       work_hours_end: (operator.work_hours_end ?? '20:00:00').slice(0, 5),
       time_format_24h: operator.time_format_24h ?? true,
+      // landr-m4zq — DB default is 1 (Monday). The Select only exposes the
+      // two common values (0 = Sunday, 1 = Monday) but the column accepts
+      // 0..6 so other values can land later without a migration.
+      first_day_of_week: operator.first_day_of_week ?? 1,
     },
   })
 
@@ -153,6 +157,30 @@ function CalendarDisplayForm({ operator, operatorId, onSaved }: FormProps) {
                   </NativeSelect>
                 )}
               />
+            </div>
+            {/* landr-m4zq — first day of week. Sunday / Monday only in v1. */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="settings-first-day-of-week">
+                {t.settings.fieldFirstDayOfWeek}
+              </Label>
+              <Controller
+                control={control}
+                name="first_day_of_week"
+                render={({ field }) => (
+                  <NativeSelect
+                    id="settings-first-day-of-week"
+                    value={String(field.value ?? 1)}
+                    onChange={(e) => field.onChange(Number(e.target.value))}
+                    disabled={mutation.isPending}
+                  >
+                    <option value="0">{t.settings.firstDayOfWeekSunday}</option>
+                    <option value="1">{t.settings.firstDayOfWeekMonday}</option>
+                  </NativeSelect>
+                )}
+              />
+              <p className="text-muted-foreground text-xs">
+                {t.settings.fieldFirstDayOfWeekHint}
+              </p>
             </div>
           </CardContent>
         </Card>

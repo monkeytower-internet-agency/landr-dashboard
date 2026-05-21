@@ -20,7 +20,8 @@ import { t } from '@/lib/strings'
 
 export function Calendar() {
   const { currentOperatorId } = useOperator()
-  const { workHoursStart, workHoursEnd, hour12 } = useOperatorCalendarPrefs()
+  const { workHoursStart, workHoursEnd, hour12, firstDayOfWeek } =
+    useOperatorCalendarPrefs()
   const [active, setActive] = useState<BookingRow | null>(null)
   const [openCustomerId, setOpenCustomerId] = useState<string | null>(null)
   const [rescheduleError, setRescheduleError] = useState<string | null>(null)
@@ -116,6 +117,7 @@ export function Calendar() {
             workHoursStart={workHoursStart}
             workHoursEnd={workHoursEnd}
             hour12={hour12}
+            firstDayOfWeek={firstDayOfWeek}
             view={calendarView.view}
             onViewChange={calendarView.setView}
             operatorId={currentOperatorId}

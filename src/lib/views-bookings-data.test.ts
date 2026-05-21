@@ -393,3 +393,59 @@ describe('applyView (filter + sort composition)', () => {
     expect(out.map((r) => r.id)).toEqual(['c', 'b'])
   })
 })
+
+// landr-m4zq — weekStartsOn flows through applyView and matchesViewFilters
+// to the resolver so 'This week' chips honour the operator's setting.
+describe('applyView / matchesViewFilters — weekStartsOn (landr-m4zq)', () => {
+  // 2026-05-21 = Thursday. Mon-first week = 2026-05-18..24; Sun-first
+  // week = 2026-05-17..23. 2026-05-24 is Sunday → in Mon-first week,
+  // outside Sun-first week.
+  const thursday = new Date(2026, 4, 21, 12, 0, 0)
+  const thisWeekFilter: Filter = {
+    field: 'date_range_start',
+    op: 'within',
+    values: ['start_of_week', 'end_of_week'],
+  }
+  function rowOnSunday24() {
+    return row({
+      items: [
+        {
+          id: 'a',
+          date_range_start: '2026-05-24',
+          date_range_end: null,
+          selected_days: null,
+          products: null,
+        },
+      ],
+    })
+  }
+
+  it('Mon-first (default 1): Sunday May 24 is inside this week', () => {
+    expect(
+      matchesViewFilters(rowOnSunday24(), [thisWeekFilter], thursday, 1),
+    ).toBe(true)
+  })
+
+  it('Sun-first (0): Sunday May 24 is OUTSIDE this week (next week starts)', () => {
+    expect(
+      matchesViewFilters(rowOnSunday24(), [thisWeekFilter], thursday, 0),
+    ).toBe(false)
+  })
+
+  it('applyView forwards weekStartsOn to the matcher', () => {
+    const r = rowOnSunday24()
+    const config = { filters: [thisWeekFilter] }
+    expect(applyView([r], config, 'booking', thursday, 1)).toHaveLength(1)
+    expect(applyView([r], config, 'booking', thursday, 0)).toHaveLength(0)
+  })
+
+  it('default weekStartsOn is 1 when omitted', () => {
+    // Backwards-compatible signature: callers that don't pass weekStartsOn
+    // still get Monday-first behaviour.
+    expect(
+      matchesViewFilters(rowOnSunday24(), [thisWeekFilter], thursday),
+    ).toBe(true)
+    const config = { filters: [thisWeekFilter] }
+    expect(applyView([rowOnSunday24()], config, 'booking', thursday)).toHaveLength(1)
+  })
+})

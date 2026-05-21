@@ -33,6 +33,12 @@ export type Operator = {
   work_hours_start?: string | null
   work_hours_end?: string | null
   time_format_24h?: boolean | null
+  // landr-m4zq — 0=Sunday..6=Saturday. NOT NULL DEFAULT 1 in the DB but
+  // optional/nullable here for the same stale-cache + test-fixture reason
+  // as the prefs above. Consumers should funnel through
+  // useOperatorCalendarPrefs() which converges null/undefined onto
+  // DEFAULT_FIRST_DAY_OF_WEEK.
+  first_day_of_week?: number | null
   // landr-5eb — embed of the operator's subscription_package row. Optional
   // for the same reason as the calendar prefs (older test fixtures).
   // Consumers should use useOperatorAllowedProductKinds() which falls back
@@ -51,6 +57,10 @@ export type Operator = {
 export const DEFAULT_WORK_HOURS_START = '08:00'
 export const DEFAULT_WORK_HOURS_END = '20:00'
 export const DEFAULT_TIME_FORMAT_24H = true
+// landr-m4zq — fallback default matches the DB default (1 = Monday).
+// Consumed by useOperatorCalendarPrefs() so the calendar surfaces never
+// render with an undefined first-day-of-week.
+export const DEFAULT_FIRST_DAY_OF_WEEK = 1
 
 type OperatorContextValue = {
   operators: Operator[]
@@ -127,6 +137,7 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
         .select(
           'operator_id, operators!inner ( id, slug, name, onboarded_at, ' +
             'work_hours_start, work_hours_end, time_format_24h, ' +
+            'first_day_of_week, ' +
             'show_premium_teasers, ' +
             'subscription_package:subscription_packages ( slug, name, allowed_product_kinds ) )',
         )
@@ -220,6 +231,8 @@ export function useOperatorCalendarPrefs(): {
   workHoursStart: string
   workHoursEnd: string
   hour12: boolean
+  /** landr-m4zq — 0=Sunday..6=Saturday. Defaults to 1 (Monday). */
+  firstDayOfWeek: number
 } {
   const { currentOperator } = useOperator()
   return {
@@ -230,6 +243,11 @@ export function useOperatorCalendarPrefs(): {
       currentOperator?.time_format_24h !== undefined
         ? !currentOperator.time_format_24h
         : !DEFAULT_TIME_FORMAT_24H,
+    firstDayOfWeek:
+      currentOperator?.first_day_of_week !== null &&
+      currentOperator?.first_day_of_week !== undefined
+        ? currentOperator.first_day_of_week
+        : DEFAULT_FIRST_DAY_OF_WEEK,
   }
 }
 

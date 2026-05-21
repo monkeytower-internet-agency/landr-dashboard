@@ -36,6 +36,15 @@ vi.mock('@/lib/operator', () => ({
     loading: false,
     switchOperator: () => {},
   }),
+  // landr-m4zq — ViewPage's layout branches read first_day_of_week via
+  // this hook to drive the resolver + FullCalendar. Mock returns the
+  // defaults so existing assertions stay invariant.
+  useOperatorCalendarPrefs: () => ({
+    workHoursStart: '08:00',
+    workHoursEnd: '20:00',
+    hour12: false,
+    firstDayOfWeek: 1,
+  }),
   OperatorProvider: ({ children }: { children: ReactElement }) => children,
 }))
 

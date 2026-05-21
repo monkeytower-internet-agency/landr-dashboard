@@ -130,24 +130,32 @@ function compareScalar(
  * Resolve any relative-date tokens in the filter's values to ISO dates,
  * using a stable `now`. Non-token values pass through unchanged.
  * landr-1zxt — keeps saved Views live without rewriting filter shape.
+ * landr-m4zq — `weekStartsOn` is forwarded to the resolver so the
+ * start_of_week / end_of_week anchors honour the operator's setting.
  */
 function resolveFilterValues(
   values: ReadonlyArray<FilterValue>,
   now: Date,
+  weekStartsOn: number,
 ): FilterValue[] {
   return values.map((v) => {
     if (isRelativeToken(v)) {
-      const iso = resolveRelativeDate(v, now)
+      const iso = resolveRelativeDate(v, now, weekStartsOn)
       return iso ?? v
     }
     return v
   })
 }
 
-function matchesOneFilter(row: BookingRow, filter: Filter, now: Date): boolean {
+function matchesOneFilter(
+  row: BookingRow,
+  filter: Filter,
+  now: Date,
+  weekStartsOn: number,
+): boolean {
   const ext = extractor(filter.field)
   if (!ext) return true // unknown field — don't filter (forward-compat)
-  const resolvedValues = resolveFilterValues(filter.values, now)
+  const resolvedValues = resolveFilterValues(filter.values, now, weekStartsOn)
   if (ext.kind === 'scalar') {
     return compareScalar(filter.op, ext.get(row), resolvedValues)
   }
@@ -161,14 +169,16 @@ function matchesOneFilter(row: BookingRow, filter: Filter, now: Date): boolean {
 
 /** AND across chips. Each chip is its own predicate; missing values short-
  *  circuit per `compareScalar`. `now` (default: new Date()) anchors any
- *  relative-date tokens (landr-1zxt). */
+ *  relative-date tokens (landr-1zxt). `weekStartsOn` (default 1 = Monday,
+ *  landr-m4zq) drives the start_of_week / end_of_week anchors. */
 export function matchesViewFilters(
   row: BookingRow,
   filters: Filter[],
   now: Date = new Date(),
+  weekStartsOn: number = 1,
 ): boolean {
   for (const f of filters) {
-    if (!matchesOneFilter(row, f, now)) return false
+    if (!matchesOneFilter(row, f, now, weekStartsOn)) return false
   }
   return true
 }
@@ -230,18 +240,21 @@ export function applyViewSort(
 
 /** Full pipe: filter + sort. Pure — safe to call inside useMemo. `now`
  *  (default: new Date()) anchors any relative-date tokens (landr-1zxt) so
- *  every comparison in a single render uses the same wall-clock instant. */
+ *  every comparison in a single render uses the same wall-clock instant.
+ *  `weekStartsOn` (default 1 = Monday, landr-m4zq) drives the
+ *  start_of_week / end_of_week anchors in the resolver. */
 export function applyView(
   rows: BookingRow[],
   config: Record<string, unknown> | undefined | null,
   entityType: string,
   now: Date = new Date(),
+  weekStartsOn: number = 1,
 ): BookingRow[] {
   const filters = readFilters(config)
   const filtered =
     filters.length === 0
       ? rows
-      : rows.filter((r) => matchesViewFilters(r, filters, now))
+      : rows.filter((r) => matchesViewFilters(r, filters, now, weekStartsOn))
   return applyViewSort(filtered, config, entityType)
 }
 

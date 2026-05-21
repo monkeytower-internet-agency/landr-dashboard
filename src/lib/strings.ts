@@ -756,6 +756,13 @@ export const t = {
     fieldTimeFormat: 'Time format',
     timeFormat24h: '24-hour (13:05)',
     timeFormat12h: '12-hour AM/PM (1:05 PM)',
+    // landr-m4zq — first day of week. v1 exposes Sunday / Monday; the DB
+    // column accepts 0..6 so other anchors can land without a migration.
+    fieldFirstDayOfWeek: 'First day of week',
+    fieldFirstDayOfWeekHint:
+      'Drives the calendar column order and the start of relative-date ranges like "This week".',
+    firstDayOfWeekSunday: 'Sunday',
+    firstDayOfWeekMonday: 'Monday',
     errorWorkHoursOrder: 'End time must be later than start time.',
     optionNone: '— Select —',
 

@@ -103,9 +103,18 @@ type Props = {
   /** Optional override for layout-internal testing — defaults to
    *  manage-its-own-sheet behaviour. */
   onItemClick?: (item: BookingItem) => void
+  /** landr-m4zq — 0=Sunday..6=Saturday. Defaults to 1 (Monday) so
+   *  callers that haven't been updated still render the previous
+   *  Europe-first calendar. */
+  firstDayOfWeek?: number
 }
 
-export function CalendarLayout({ view, items, onItemClick }: Props) {
+export function CalendarLayout({
+  view,
+  items,
+  onItemClick,
+  firstDayOfWeek = 1,
+}: Props) {
   const calendarConfig = useMemo(
     () => readCalendarConfig(view.config),
     [view.config],
@@ -228,7 +237,7 @@ export function CalendarLayout({ view, items, onItemClick }: Props) {
             right: '',
           }}
           height="auto"
-          firstDay={1}
+          firstDay={firstDayOfWeek}
           weekNumbers={false}
           editable={false}
           events={events}
