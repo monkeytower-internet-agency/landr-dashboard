@@ -37,6 +37,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { CustomerBookings } from '@/components/customer/CustomerBookings'
 import { invalidateBookingCaches, type BookingRow } from '@/lib/bookings'
@@ -47,7 +48,6 @@ import {
   type ContactRow,
 } from '@/lib/contacts'
 import { t } from '@/lib/strings'
-import { cn } from '@/lib/utils'
 
 type Props = {
   contactId: string | null
@@ -167,45 +167,31 @@ function CustomerDetailBody({ contactId, onClose }: BodyProps) {
       </SheetHeader>
 
       {hasData ? (
-        // landr-7o2a — Details / Bookings tab strip. Inline tablist mirrors
-        // the codebase convention (see BookingDetailSheet.tsx — landr-5f8q
-        // — and Schedule.tsx).
-        <div
-          role="tablist"
-          aria-label={t.customerDetail.title}
-          className="border-input bg-background mx-4 mt-2 inline-flex w-fit shrink-0 self-start rounded-md border p-0.5"
+        // landr-7o2a — Details / Bookings tab strip. Built on the shared
+        // shadcn Tabs primitive (landr-maat). Panels render conditionally
+        // below so the form/sheet flex layout stays intact.
+        <Tabs
+          value={activeTab}
+          onValueChange={(next) => setActiveTab(next as ActiveTab)}
+          className="mx-4 mt-2 w-fit shrink-0 self-start"
         >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'details'}
-            data-testid="customer-tab-details"
-            onClick={() => setActiveTab('details')}
-            className={cn(
-              'cursor-pointer rounded-sm px-3 py-1.5 text-xs font-medium transition-colors',
-              activeTab === 'details'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-            )}
-          >
-            {t.customerDetail.bookings.tabDetails}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'bookings'}
-            data-testid="customer-tab-bookings"
-            onClick={() => setActiveTab('bookings')}
-            className={cn(
-              'cursor-pointer rounded-sm px-3 py-1.5 text-xs font-medium transition-colors',
-              activeTab === 'bookings'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-            )}
-          >
-            {t.customerDetail.bookings.tabBookings}
-          </button>
-        </div>
+          <TabsList variant="pill" aria-label={t.customerDetail.title}>
+            <TabsTrigger
+              variant="pill"
+              value="details"
+              data-testid="customer-tab-details"
+            >
+              {t.customerDetail.bookings.tabDetails}
+            </TabsTrigger>
+            <TabsTrigger
+              variant="pill"
+              value="bookings"
+              data-testid="customer-tab-bookings"
+            >
+              {t.customerDetail.bookings.tabBookings}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       ) : null}
 
       {query.isPending ? (

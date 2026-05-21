@@ -20,6 +20,7 @@ import {
 import { NativeSelect } from '@/components/ui/native-select'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   FILTER_OP_LABELS,
   MULTI_VALUE_OPS,
@@ -564,32 +565,27 @@ function DateValueEditor({ op, values, onChange }: DateValueEditorProps) {
 
   return (
     <div className="flex flex-col gap-2" data-testid="filter-editor-date">
-      <div
-        className="flex gap-1 text-xs"
-        role="tablist"
-        aria-label={t.views.filters.valueLabel}
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'date'}
-          onClick={() => setMode('date')}
-          className={`rounded border px-2 py-1 ${mode === 'date' ? 'bg-accent border-input' : 'border-transparent'}`}
-          data-testid="filter-editor-date-tab"
+      <Tabs value={mode} onValueChange={(next) => setMode(next as DateMode)}>
+        <TabsList
+          aria-label={t.views.filters.valueLabel}
+          className="flex gap-1 border-0 bg-transparent p-0 text-xs"
         >
-          Date
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'relative'}
-          onClick={() => setMode('relative')}
-          className={`rounded border px-2 py-1 ${mode === 'relative' ? 'bg-accent border-input' : 'border-transparent'}`}
-          data-testid="filter-editor-relative-tab"
-        >
-          Relative
-        </button>
-      </div>
+          <TabsTrigger
+            value="date"
+            data-testid="filter-editor-date-tab"
+            className="data-[state=active]:bg-accent data-[state=active]:border-input rounded border border-transparent px-2 py-1 data-[state=active]:shadow-none"
+          >
+            Date
+          </TabsTrigger>
+          <TabsTrigger
+            value="relative"
+            data-testid="filter-editor-relative-tab"
+            className="data-[state=active]:bg-accent data-[state=active]:border-input rounded border border-transparent px-2 py-1 data-[state=active]:shadow-none"
+          >
+            Relative
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {mode === 'date' ? (
         <DateLiteralInputs op={op} values={values} onChange={onChange} />
