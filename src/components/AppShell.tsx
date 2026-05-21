@@ -13,6 +13,7 @@ import {
 import {
   SidebarInset,
   SidebarProvider,
+  SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/AppSidebar'
 import { CommandPalette } from '@/components/CommandPalette'
@@ -102,12 +103,19 @@ function AppShellInner({
             current page title or breadcrumb (declared by each route via
             <PageTitle/> from src/lib/page-title), then the right-aligned
             ThemeToggle + UserMenu cluster. */}
-        <header className="bg-background sticky top-0 z-10 flex h-14 items-center gap-3 border-b px-4">
+        <header className="bg-background sticky top-0 z-10 flex h-14 items-center gap-2 border-b px-3 sm:gap-3 sm:px-4">
+          {/* landr-gu14 — mobile-only sidebar opener. The shadcn Sidebar
+              renders as a slide-in Sheet on viewports below md (768px);
+              without this trigger the operator has no way to reach the
+              nav on a phone (the desktop rail is hidden via md:block in
+              the Sidebar component). md:hidden keeps the topbar clean on
+              desktop, where the persistent rail is always visible. */}
+          <SidebarTrigger className="md:hidden" />
           <OperatorSwitcher />
           <div className="min-w-0 flex-1">
             <PageTitleDisplay />
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 sm:gap-1">
             {/* landr-8whx — bell sits next to the theme toggle so the
                 topbar reads left→right as: scope (operator) · title ·
                 quick-actions (notifications · theme · account). */}

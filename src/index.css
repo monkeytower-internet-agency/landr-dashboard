@@ -257,3 +257,35 @@
   background: transparent;
   border: none;
 }
+/* landr-gu14 — phone (375px) overrides. The default FullCalendar toolbar
+   keeps prev/next + today + title on one row, which overflows below ~480px.
+   Stack the toolbar vertically and shrink the title so the calendar header
+   no longer eats horizontal scroll. Day-grid cells already flex, so the
+   grid itself fits as long as the toolbar isn't forcing a wider box. */
+@media (max-width: 640px) {
+  .landr-fc .fc-toolbar.fc-header-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .landr-fc .fc-toolbar-chunk {
+    display: flex;
+    justify-content: center;
+  }
+  .landr-fc .fc-toolbar-title {
+    font-size: 0.9375rem;
+  }
+  .landr-fc .fc-button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  .landr-fc .fc-daygrid-day-number {
+    font-size: 0.75rem;
+    padding: 0.125rem;
+  }
+  .landr-fc .fc-col-header-cell-cushion {
+    font-size: 0.6875rem;
+    padding: 0.25rem 0.125rem;
+  }
+}
