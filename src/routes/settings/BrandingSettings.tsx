@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
@@ -61,6 +61,14 @@ export function BrandingSettings() {
       <OperatorSection>
         {({ operator, operatorId, invalidate }) => (
           <BrandingForm
+            // Re-mount the form when the persisted colour changes (e.g. after
+            // a successful save → invalidate → refetch) so the local picker
+            // / hex inputs re-seed from props. This replaces a useEffect that
+            // synchronously called setState on prop change — flagged by the
+            // react-hooks/set-state-in-effect lint rule as a source of
+            // cascading renders. `key` is the React-canonical pattern for
+            // "reset local state when this prop changes".
+            key={operator.primary_color ?? DEFAULT_PRIMARY_COLOR}
             operator={operator}
             operatorId={operatorId}
             onSaved={invalidate}
@@ -86,14 +94,8 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
   const [colorInput, setColorInput] = useState(initialColor)
   const [isUploading, setIsUploading] = useState(false)
 
-  // Re-seed local state whenever the operator row reloads (e.g. after
-  // a successful save → invalidate → refetch) so the controls stay in
-  // sync with the persisted value.
-  useEffect(() => {
-    const next = operator.primary_color ?? DEFAULT_PRIMARY_COLOR
-    setColor(next)
-    setColorInput(next)
-  }, [operator.primary_color])
+  // Re-seeding from props on refetch happens via the `key` prop on
+  // <BrandingForm> in the parent — see BrandingSettings above.
 
   const patchMutation = useMutation({
     mutationFn: (patch: OperatorPatch) => patchOperator(operatorId, patch),

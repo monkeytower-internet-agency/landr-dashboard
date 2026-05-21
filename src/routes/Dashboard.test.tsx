@@ -135,6 +135,19 @@ vi.mock('@/lib/supabase', () => ({
   getSupabase: () => mock.supabase,
 }))
 
+// landr-ne58 — BookingDetailSheet (rendered when a today-row is clicked)
+// records each open in the user-scoped "Recently viewed" trail via useAuth().
+// Stub the auth module so the Dashboard test render doesn't need an
+// AuthProvider wrapper. Mirrors the stub used in BookingDetailSheet.test.tsx.
+vi.mock('@/lib/auth', () => ({
+  useAuth: () => ({
+    session: null,
+    user: { id: 'test-user', email: 'test@example.com' },
+    loading: false,
+    signOut: async () => {},
+  }),
+}))
+
 vi.mock('@/lib/operator', () => ({
   useOperator: () => ({
     operators: [{ id: 'op-1', slug: 'para42', name: 'Para42' }],
