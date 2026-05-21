@@ -62,6 +62,20 @@ vi.mock('@/lib/auth', () => ({
   }),
 }))
 
+// landr-84n1 — the Checklist tab reads currentOperatorId via useOperator
+// to scope its localStorage. Stub here so tests don't need an
+// OperatorProvider wrapper.
+vi.mock('@/lib/operator', () => ({
+  useOperator: () => ({
+    operators: [],
+    currentOperator: null,
+    currentOperatorId: 'op-test',
+    loading: false,
+    switchOperator: () => {},
+    refreshOperators: () => {},
+  }),
+}))
+
 const fetchSpy = vi.fn()
 vi.stubGlobal('fetch', fetchSpy)
 
@@ -325,6 +339,46 @@ describe('BookingDetailSheet', () => {
     )
     // Start was already 06-01 so it's unchanged; only end gets PATCHed.
     expect(body.date_range_end).toBe('2026-06-07')
+  })
+
+  // landr-84n1 — Checklist tab wires the BookingChecklist component into
+  // the existing inline tablist. Smoke test only — the storage/hook
+  // contract is covered exhaustively in lib/booking-checklist.test.ts.
+  it('exposes a Checklist tab that toggles a default item and persists per (operator, booking)', async () => {
+    const user = userEvent.setup()
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    await user.click(
+      screen.getByRole('tab', { name: /^checklist$/i }),
+    )
+
+    // Default item shows up.
+    const calledCheckbox = screen.getByRole('checkbox', {
+      name: /toggle "called customer"/i,
+    })
+    expect(calledCheckbox).not.toBeChecked()
+    await user.click(calledCheckbox)
+    expect(calledCheckbox).toBeChecked()
+
+    // Persisted under the (operator, booking) key.
+    const raw = window.localStorage.getItem(
+      'landr.dashboard.booking-checklist.op-test.b-12345678-aaaa-bbbb-cccc-dddddddddddd',
+    )
+    expect(raw).not.toBeNull()
+    const parsed = JSON.parse(raw as string)
+    const calledItem = parsed.items.find(
+      (i: { id: string; done: boolean }) => i.id === 'default-called-customer',
+    )
+    expect(calledItem.done).toBe(true)
+
+    // Custom items add + remove.
+    const addInput = screen.getByTestId('booking-checklist-add-input')
+    await user.type(addInput, 'Sign waiver')
+    await user.click(screen.getByTestId('booking-checklist-add-submit'))
+    const waiverCheckbox = screen.getByRole('checkbox', {
+      name: /toggle "sign waiver"/i,
+    })
+    expect(waiverCheckbox).toBeInTheDocument()
   })
 
   it('invalidates both [bookings] and [views-bookings] on save (landr-parv)', async () => {
