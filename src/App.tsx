@@ -6,6 +6,7 @@ import {
   useLocation,
   useParams,
 } from 'react-router-dom'
+import { Analytics } from '@/routes/Analytics'
 import { AuthCallback } from '@/routes/AuthCallback'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
@@ -101,6 +102,10 @@ function App() {
               <Route path="/views/:viewId" element={<ViewPage />} />
               <Route path="/bookings" element={<Bookings />} />
               <Route path="/calendar" element={<Calendar />} />
+              {/* landr-af6c — Analytics dashboard. Sits between Calendar
+                  and Contacts in the sidebar (operational-insight surface
+                  next to the day-to-day surfaces). */}
+              <Route path="/analytics" element={<Analytics />} />
               <Route path="/contacts" element={<Contacts />} />
               <Route path="/reporting" element={<Reporting />} />
               <Route path="/approvals/general" element={<GeneralApprovals />} />

@@ -1,4 +1,5 @@
 import {
+  ChartColumnIcon,
   CalendarIcon,
   CalendarRangeIcon,
   ChartAreaIcon,
@@ -88,6 +89,16 @@ const primaryItems: NavItem[] = [
     to: '/calendar',
     label: t.nav.calendar,
     icon: CalendarIcon,
+    exact: false,
+  },
+  // landr-af6c — Analytics surface (operational insight dashboard).
+  // Sits between Calendar and Contacts per the briefing: keeps the
+  // daily-use cluster intact while putting the insight surface next to
+  // the data the operator just scanned.
+  {
+    to: '/analytics',
+    label: t.nav.analytics,
+    icon: ChartColumnIcon,
     exact: false,
   },
   {
