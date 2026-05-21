@@ -183,12 +183,41 @@ export function invalidateBookingCaches(qc: QueryClient): Promise<void> {
   ]).then(() => undefined)
 }
 
-export async function fetchBookings(operatorId: string): Promise<BookingRow[]> {
-  const { data, error } = await supabase
+// landr-rcmy — when `query` is a non-empty string we add a server-side
+// ILIKE against bookings.search_text (denormalised customer name + email
+// + product names, backed by a pg_trgm GIN index). The dashboard's old
+// global-search filter ran client-side over the first 500 rows; with the
+// indexed column we can keep the same 500-row cap but actually find
+// matches further down the tail (and large operators no longer silently
+// miss matches past row 500). Trims + lower-cases the input — the column
+// is already lower-cased by the migration's trigger — and escapes the
+// three PostgREST LIKE wildcards (`%`, `_`, `\`) so a literal "50%" in
+// the search input doesn't degenerate into "match anything".
+//
+// Client-side filtering still applies on top via BookingsTable's
+// globalFilter (which also covers fields NOT in search_text — status,
+// dates, tags — keeping the existing UX of typing a status word like
+// "pending" and seeing matches).
+function escapeLikePattern(s: string): string {
+  return s.replace(/[\\%_]/g, (ch) => `\\${ch}`)
+}
+
+export async function fetchBookings(
+  operatorId: string,
+  query?: string,
+): Promise<BookingRow[]> {
+  let req = supabase
     .from('bookings')
     .select(SELECT)
     .eq('operator_id', operatorId)
     .is('deleted_at', null)
+
+  const trimmed = query?.trim().toLowerCase() ?? ''
+  if (trimmed) {
+    req = req.ilike('search_text', `%${escapeLikePattern(trimmed)}%`)
+  }
+
+  const { data, error } = await req
     .order('created_at', { ascending: false })
     .limit(500)
 

@@ -74,9 +74,27 @@ export function Bookings() {
   // it to the URL. The table accepts controlled globalFilter props now.
   const [globalQuery, setGlobalQuery] = useState<string>(initialUrlQuery)
 
+  // landr-rcmy — debounced mirror of globalQuery used by the data fetch so
+  // every keystroke doesn't hit Supabase. Highlighting + client-side
+  // filtering still react instantly to globalQuery; only the network read
+  // waits for the user to stop typing for 250ms. The mirror also starts
+  // populated from initialUrlQuery so a `?q=…` deep-link issues a
+  // single-shot search without an extra empty fetch first.
+  const [debouncedQuery, setDebouncedQuery] = useState<string>(initialUrlQuery)
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setDebouncedQuery(globalQuery.trim())
+    }, 250)
+    return () => window.clearTimeout(t)
+  }, [globalQuery])
+
   const query = useRealtimeQuery<BookingRow[]>({
-    queryKey: ['bookings', currentOperatorId ?? 'none'],
-    queryFn: () => fetchBookings(currentOperatorId as string),
+    // landr-rcmy — debouncedQuery is part of the key so a new search term
+    // triggers a fresh server fetch (and TanStack can keep separate
+    // cache entries per query — back/forward navigation feels instant).
+    queryKey: ['bookings', currentOperatorId ?? 'none', debouncedQuery],
+    queryFn: () =>
+      fetchBookings(currentOperatorId as string, debouncedQuery || undefined),
     enabled: !!currentOperatorId,
     realtime: currentOperatorId
       ? {

@@ -42,12 +42,21 @@ const { mock } = vi.hoisted(() => {
     return channel
   })
 
+  // landr-rcmy — fetchBookings adds .ilike('search_text', '%query%') when
+  // a search term is set; record every .ilike() call so tests can assert
+  // the server-side search is wired (and keep the chain alive — without
+  // this stub the request would throw `TypeError: req.ilike is not a fn`).
+  const ilikeCalls: Array<{ column: string; pattern: string }> = []
   const fromBuilder = () => {
     const builder: Record<string, unknown> = {}
     Object.assign(builder, {
       select: vi.fn(() => builder),
       eq: vi.fn(() => builder),
       is: vi.fn(() => builder),
+      ilike: vi.fn((column: string, pattern: string) => {
+        ilikeCalls.push({ column, pattern })
+        return builder
+      }),
       order: vi.fn(() => builder),
       limit: vi.fn(async () => ({ data: state.rows, error: state.error })),
     })
@@ -67,7 +76,7 @@ const { mock } = vi.hoisted(() => {
       })),
     },
   }
-  return { mock: { state, supabase, channel, realtimeHandlers } }
+  return { mock: { state, supabase, channel, realtimeHandlers, ilikeCalls } }
 })
 
 vi.mock('@/lib/supabase', () => ({
@@ -164,6 +173,7 @@ beforeEach(() => {
   mock.state.rows = []
   mock.state.error = null
   mock.realtimeHandlers.length = 0
+  mock.ilikeCalls.length = 0
   fetchSpy.mockReset()
   toastCalls.success.length = 0
   toastCalls.warning.length = 0
@@ -239,6 +249,45 @@ describe('Bookings route', () => {
     expect(bobMark).toBeDefined()
     expect(bobMark?.className).toContain('bg-yellow-200/40')
     expect(bobMark?.parentElement?.textContent).toBe('Bob Brown')
+  })
+
+  // landr-rcmy — server-side global search via the indexed search_text
+  // column. Typing in the bar should (after debounce) issue a Supabase
+  // request with .ilike('search_text', '%term%'); the client-side
+  // highlight + filter still narrows on top.
+  it('issues a server-side ilike against search_text after the debounce', async () => {
+    mock.state.rows = sampleRows
+    const user = userEvent.setup()
+    render(<Bookings />)
+
+    await screen.findByText('Alice Anderson')
+    // Initial fetch happens with no query — no ilike call yet.
+    expect(mock.ilikeCalls).toEqual([])
+
+    await user.type(screen.getByLabelText(/search bookings/i), 'Bob')
+
+    await waitFor(() => {
+      expect(mock.ilikeCalls).toHaveLength(1)
+    })
+    expect(mock.ilikeCalls[0].column).toBe('search_text')
+    expect(mock.ilikeCalls[0].pattern).toBe('%bob%')
+  })
+
+  // landr-rcmy — defensive escaping: the three PostgREST LIKE wildcards
+  // (\ % _) in the user's input must be escaped so a literal "50%" doesn't
+  // degenerate into "match anything".
+  it('escapes %, _ and \\ in the search pattern', async () => {
+    mock.state.rows = sampleRows
+    const user = userEvent.setup()
+    render(<Bookings />)
+
+    await screen.findByText('Alice Anderson')
+    await user.type(screen.getByLabelText(/search bookings/i), '50%_x\\y')
+
+    await waitFor(() => {
+      expect(mock.ilikeCalls).toHaveLength(1)
+    })
+    expect(mock.ilikeCalls[0].pattern).toBe('%50\\%\\_x\\\\y%')
   })
 
   it('opens the booking detail sheet when a row is clicked', async () => {
