@@ -11,10 +11,23 @@ import {
 } from '@tanstack/react-table'
 import { ArrowDown, ArrowUp, ArrowUpDown, CalendarRangeIcon } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { EmptyState } from '@/components/EmptyState'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 import {
   Table,
   TableBody,
@@ -29,7 +42,9 @@ import {
   dateDisplay,
   earliestScheduledItem,
   earliestServiceDate,
+  effectiveGrossOf,
   formatServiceDateRange,
+  hasPriceOverride,
   matchingServiceEnd,
   priceDisplay,
   productDisplay,
@@ -135,6 +150,17 @@ export function BookingsTable({
   // landr-lbbj — bulk-select state. Set<id> keeps the selection compact
   // and lets us O(1) check from the header / row checkboxes.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  // landr-puix — price-override dialog state. The inline-edit price cell
+  // captures the new gross_total from the numeric editor, then asks the
+  // operator for a required reason via the dialog before firing the
+  // server write. Holding the prospective value here (instead of
+  // per-row state) keeps the BookingsTable column memo stable.
+  const [pricePrompt, setPricePrompt] = useState<{
+    bookingId: string
+    previousGross: number | string | null | undefined
+    newGross: number
+  } | null>(null)
+  const [priceReason, setPriceReason] = useState<string>('')
   // landr-vaob — disables the toolbar while bulkSendReminder is in flight.
   const [bulkBusy, setBulkBusy] = useState(false)
   // landr-f1s — respect the operator's time_format_24h preference for the
@@ -392,12 +418,69 @@ export function BookingsTable({
         },
       },
       {
+        // landr-puix — inline-edit price cell. The numeric editor commits
+        // the prospective gross_total to local state and pops the
+        // reason-required dialog below; the dialog's Confirm fires the
+        // server write through inlineEdit.overridePrice. Overridden rows
+        // render italic + amber to flag the manual deviation from the
+        // engine-computed price.
         id: 'price',
         header: t.bookings.columnPrice,
-        accessorFn: (row) => Number(row.gross_total) || 0,
-        cell: ({ row }) => (
-          <span className="font-medium">{priceDisplay(row.original)}</span>
-        ),
+        // Sort + filter against the effective (override-aware) value so
+        // BookingsTable.sort-by-price respects the operator's adjustment.
+        accessorFn: (row) => effectiveGrossOf(row) || 0,
+        cell: ({ row }) => {
+          const r = row.original
+          const overridden = hasPriceOverride(r)
+          const formatted = priceDisplay(r)
+          const display = (
+            <span
+              className={cn(
+                'font-medium',
+                overridden && 'text-amber-700 italic',
+              )}
+              title={
+                overridden ? t.bookings.inlineEdit.priceOverrideTooltip : undefined
+              }
+              data-testid={`bookings-cell-price-${r.id}`}
+            >
+              {formatted}
+            </span>
+          )
+          // Initial editor value = the current effective gross with two
+          // decimal places. If neither parses, fall back to empty.
+          const eff = effectiveGrossOf(r)
+          const initial = Number.isFinite(eff) ? eff.toFixed(2) : ''
+          return (
+            <InlineEditCell
+              kind="number"
+              value={initial}
+              ariaLabel={t.bookings.inlineEdit.priceAria(formatted)}
+              display={display}
+              testId={`bookings-cell-price-${r.id}`}
+              onCommit={(next) => {
+                const parsed = Number(next)
+                if (!Number.isFinite(parsed) || parsed < 0) {
+                  toast.error(t.bookings.inlineEdit.priceUpdateError, {
+                    description: t.bookings.inlineEdit.priceInvalidValue,
+                  })
+                  return
+                }
+                // No-op if the value didn't change; InlineEditCell's
+                // commit already short-circuits identical strings, but
+                // we also guard the parsed value here for parity with
+                // overridden-then-re-typed cases.
+                if (parsed === eff) return
+                setPricePrompt({
+                  bookingId: r.id,
+                  previousGross: r.override_gross_total ?? r.gross_total,
+                  newGross: parsed,
+                })
+                setPriceReason('')
+              }}
+            />
+          )
+        },
       },
     ],
     [onCustomerClick, hour12, selectedIds, globalFilter, inlineEdit],
@@ -677,6 +760,102 @@ export function BookingsTable({
         busy={bulkBusy}
         testIdPrefix="bookings-bulk-toolbar"
       />
+
+      {/* landr-puix — price-override confirmation dialog. The numeric
+          cell editor captures the prospective gross_total and pops this
+          dialog to collect the required reason. Confirm fires the
+          server write through inlineEdit.overridePrice (operator-scoped
+          POST). The dialog opens only when pricePrompt is non-null;
+          clearing it on close releases the prompt + draft reason. */}
+      <AlertDialog
+        open={pricePrompt !== null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setPricePrompt(null)
+            setPriceReason('')
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t.bookings.inlineEdit.priceDialogTitle}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.bookings.inlineEdit.priceDialogDescription}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="bk-price-override-amount">
+                {t.bookings.inlineEdit.priceNewAmountLabel}
+              </Label>
+              <Input
+                id="bk-price-override-amount"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                value={
+                  pricePrompt
+                    ? Number.isFinite(pricePrompt.newGross)
+                      ? pricePrompt.newGross.toFixed(2)
+                      : ''
+                    : ''
+                }
+                onChange={(e) => {
+                  const v = Number(e.currentTarget.value)
+                  if (!pricePrompt) return
+                  setPricePrompt({
+                    ...pricePrompt,
+                    newGross: Number.isFinite(v) ? v : 0,
+                  })
+                }}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="bk-price-override-reason">
+                {t.bookings.inlineEdit.priceReasonLabel}
+              </Label>
+              <Textarea
+                id="bk-price-override-reason"
+                value={priceReason}
+                onChange={(e) => setPriceReason(e.target.value)}
+                placeholder={t.bookings.inlineEdit.priceReasonPlaceholder}
+                rows={3}
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t.bookings.inlineEdit.priceDialogCancel}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={
+                !pricePrompt ||
+                !Number.isFinite(pricePrompt.newGross) ||
+                pricePrompt.newGross < 0 ||
+                priceReason.trim().length === 0
+              }
+              onClick={(e) => {
+                e.preventDefault()
+                if (!pricePrompt) return
+                inlineEdit.overridePrice({
+                  bookingId: pricePrompt.bookingId,
+                  operatorId: currentOperatorId,
+                  newGrossTotal: pricePrompt.newGross,
+                  reason: priceReason,
+                  previousGrossTotal: pricePrompt.previousGross,
+                })
+                setPricePrompt(null)
+                setPriceReason('')
+              }}
+            >
+              {t.bookings.inlineEdit.priceDialogConfirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

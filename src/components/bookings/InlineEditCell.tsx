@@ -60,7 +60,24 @@ type DateProps = CommonProps & {
   max?: string
 }
 
-export type InlineEditCellProps = SelectProps | DateProps
+// landr-puix — numeric editor used for the price-override cell. The kind
+// keeps responsibility split: this primitive owns the view↔edit toggle +
+// keyboard contract, the caller (BookingsTable price cell) wraps onCommit
+// with a confirmation dialog so the operator can supply the required
+// reason before the API call. min defaults to "0" so the native input
+// also rejects negatives; step controls the keyboard arrows / spinner
+// granularity (defaults to "0.01" — currency).
+type NumberProps = CommonProps & {
+  kind: 'number'
+  /** String form so empty input maps to ''. */
+  value: string
+  onCommit: (next: string) => void | Promise<void>
+  min?: string
+  max?: string
+  step?: string
+}
+
+export type InlineEditCellProps = SelectProps | DateProps | NumberProps
 
 /**
  * View / edit toggle for a single table cell.
@@ -204,6 +221,43 @@ export function InlineEditCell(props: InlineEditCellProps): ReactElement {
             </option>
           ))}
         </NativeSelect>
+      </span>
+    )
+  }
+
+  if (props.kind === 'number') {
+    // landr-puix — numeric editor for the price-override cell. We do NOT
+    // commit on blur the way the date editor does, because the caller
+    // (BookingsTable price cell) opens a confirmation dialog with a
+    // required reason — committing on blur would race the dialog open
+    // and lose focus context. Enter commits; Escape reverts; click-away
+    // reverts. The caller's onCommit fires the dialog flow.
+    return (
+      <span
+        className="inline-block"
+        onClick={(e) => e.stopPropagation()}
+        data-testid={testId ? `${testId}-edit` : undefined}
+      >
+        <Input
+          ref={inputRef}
+          type="number"
+          inputMode="decimal"
+          value={draft}
+          min={props.min ?? '0'}
+          max={props.max}
+          step={props.step ?? '0.01'}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => {
+            setDraft(e.currentTarget.value)
+          }}
+          onBlur={() => {
+            // Drop back to display mode on blur without committing —
+            // the caller-side dialog is the canonical commit gate.
+            cancelEdit()
+          }}
+          onKeyDown={onKeyDownEditor}
+          aria-label={ariaLabel}
+          className="h-8 w-[7rem] text-sm"
+        />
       </span>
     )
   }

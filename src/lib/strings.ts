@@ -425,6 +425,27 @@ export const t = {
       datesUpdateError: 'Could not update dates.',
       datesUpdated: 'Dates updated.',
       datesNoItem: 'No scheduled line item to edit.',
+      // landr-puix — manual price override on the Bookings table cell.
+      priceAria: (current: string): string => `Edit price (currently ${current})`,
+      priceUpdated: 'Price override applied.',
+      priceUpdateError: 'Could not apply price override.',
+      priceNoOperator: 'Select an operator before overriding the price.',
+      priceInvalidValue: 'Enter a non-negative number.',
+      priceReasonRequired: 'A reason is required for a manual price override.',
+      priceOverrideTooltip:
+        'Manual override — click "Clear override" in the booking sheet to revert.',
+      priceDialogTitle: 'Override booking price',
+      priceDialogDescription:
+        'Enter the new gross total and a short reason. The override replaces the engine-computed price until you clear it.',
+      priceNewAmountLabel: 'New gross total',
+      priceReasonLabel: 'Reason',
+      priceReasonPlaceholder:
+        'e.g. Loyalty discount, voucher comp, hand-shake deal',
+      priceDialogConfirm: 'Apply override',
+      priceDialogCancel: 'Cancel',
+      priceClearAction: 'Clear override',
+      priceClearedToast: 'Price override cleared.',
+      priceClearError: 'Could not clear price override.',
     },
     detail: {
       sectionStatus: 'Status',

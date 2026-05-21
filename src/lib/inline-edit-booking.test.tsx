@@ -16,6 +16,7 @@ import type { ReactNode } from 'react'
 
 import {
   applyApprovalToCache,
+  applyPriceOverrideToCache,
   decisionFromSelection,
   statusOptionsFor,
   useInlineEditBooking,
@@ -423,6 +424,195 @@ describe('useInlineEditBooking.applyApprovalDecision', () => {
     expect(toastMock.error).toHaveBeenCalledOnce()
     expect(toastMock.error.mock.calls[0][1]).toMatchObject({
       description: expect.stringMatching(/no status change/i),
+    })
+  })
+})
+
+// --- landr-puix: price-override op ---------------------------------------
+
+describe('applyPriceOverrideToCache', () => {
+  it('stamps override_gross_total + reason + balance_due on the matching row', () => {
+    const rows = [makeRow()]
+    const out = applyPriceOverrideToCache(rows, 'b-1', 75, 'loyalty discount')
+    expect(out?.[0].override_gross_total).toBe(75)
+    expect(out?.[0].override_reason).toBe('loyalty discount')
+    expect(out?.[0].balance_due).toBe(75)
+    expect(out?.[0].override_applied_at).toBeTypeOf('string')
+    // Engine gross is left untouched.
+    expect(out?.[0].gross_total).toBe(100)
+  })
+
+  it('returns the original array when no row matches', () => {
+    const rows = [makeRow()]
+    const out = applyPriceOverrideToCache(rows, 'nope', 50, 'x')
+    expect(out).toBe(rows)
+  })
+
+  it('returns undefined when the cache is undefined', () => {
+    expect(
+      applyPriceOverrideToCache(undefined, 'b-1', 50, 'x'),
+    ).toBeUndefined()
+  })
+})
+
+describe('useInlineEditBooking.overridePrice', () => {
+  it('optimistically writes the cache and POSTs the override + reason', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response('{}', { status: 200 }))
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    client.setQueryData(['bookings', 'op-1'], [makeRow()])
+
+    const { result } = renderHook(
+      () => useInlineEditBooking({ queryKeys: [['bookings', 'op-1']] }),
+      { wrapper: makeWrapper(client) },
+    )
+
+    result.current.overridePrice({
+      bookingId: 'b-1',
+      operatorId: 'op-1',
+      newGrossTotal: 75,
+      reason: 'loyalty discount',
+      previousGrossTotal: 100,
+    })
+
+    // Cache flips before fetch resolves — override + balance_due both pre-stamped.
+    const cached = client.getQueryData<BookingRow[]>(['bookings', 'op-1'])
+    expect(cached?.[0].override_gross_total).toBe(75)
+    expect(cached?.[0].override_reason).toBe('loyalty discount')
+    expect(cached?.[0].balance_due).toBe(75)
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [url, opts] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toContain(
+      '/api/staff/operators/op-1/bookings/b-1/price-override',
+    )
+    expect(opts.method).toBe('POST')
+    expect(JSON.parse(opts.body as string)).toEqual({
+      override_gross_total: 75,
+      reason: 'loyalty discount',
+    })
+
+    await waitFor(() => expect(toastMock.success).toHaveBeenCalledOnce())
+    expect(toastMock.success.mock.calls[0][0]).toMatch(/override applied/i)
+  })
+
+  it('rolls back the optimistic cache and fires an error toast when the POST fails', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ detail: 'booking cancelled' }), {
+        status: 409,
+      }),
+    )
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    client.setQueryData(['bookings', 'op-1'], [makeRow()])
+
+    const { result } = renderHook(
+      () => useInlineEditBooking({ queryKeys: [['bookings', 'op-1']] }),
+      { wrapper: makeWrapper(client) },
+    )
+
+    result.current.overridePrice({
+      bookingId: 'b-1',
+      operatorId: 'op-1',
+      newGrossTotal: 75,
+      reason: 'comp',
+      previousGrossTotal: 100,
+    })
+
+    // Optimistic stamp.
+    expect(
+      client.getQueryData<BookingRow[]>(['bookings', 'op-1'])?.[0]
+        .override_gross_total,
+    ).toBe(75)
+
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledOnce())
+
+    // Rolled back — override_gross_total returns to undefined.
+    expect(
+      client.getQueryData<BookingRow[]>(['bookings', 'op-1'])?.[0]
+        .override_gross_total,
+    ).toBeUndefined()
+  })
+
+  it('bails with an error toast when no operatorId is supplied', () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    client.setQueryData(['bookings', 'op-1'], [makeRow()])
+
+    const { result } = renderHook(
+      () => useInlineEditBooking({ queryKeys: [['bookings', 'op-1']] }),
+      { wrapper: makeWrapper(client) },
+    )
+
+    result.current.overridePrice({
+      bookingId: 'b-1',
+      operatorId: null,
+      newGrossTotal: 75,
+      reason: 'comp',
+      previousGrossTotal: 100,
+    })
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(toastMock.error).toHaveBeenCalledOnce()
+    expect(toastMock.error.mock.calls[0][1]).toMatchObject({
+      description: expect.stringMatching(/select an operator/i),
+    })
+  })
+
+  it('bails when reason is whitespace-only', () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    client.setQueryData(['bookings', 'op-1'], [makeRow()])
+
+    const { result } = renderHook(
+      () => useInlineEditBooking({ queryKeys: [['bookings', 'op-1']] }),
+      { wrapper: makeWrapper(client) },
+    )
+
+    result.current.overridePrice({
+      bookingId: 'b-1',
+      operatorId: 'op-1',
+      newGrossTotal: 75,
+      reason: '   ',
+      previousGrossTotal: 100,
+    })
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(toastMock.error).toHaveBeenCalledOnce()
+    expect(toastMock.error.mock.calls[0][1]).toMatchObject({
+      description: expect.stringMatching(/reason is required/i),
+    })
+  })
+
+  it('bails when newGrossTotal is negative', () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    client.setQueryData(['bookings', 'op-1'], [makeRow()])
+
+    const { result } = renderHook(
+      () => useInlineEditBooking({ queryKeys: [['bookings', 'op-1']] }),
+      { wrapper: makeWrapper(client) },
+    )
+
+    result.current.overridePrice({
+      bookingId: 'b-1',
+      operatorId: 'op-1',
+      newGrossTotal: -5,
+      reason: 'oops',
+      previousGrossTotal: 100,
+    })
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(toastMock.error).toHaveBeenCalledOnce()
+    expect(toastMock.error.mock.calls[0][1]).toMatchObject({
+      description: expect.stringMatching(/non-negative/i),
     })
   })
 })

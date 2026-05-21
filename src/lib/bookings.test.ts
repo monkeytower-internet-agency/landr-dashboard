@@ -8,7 +8,10 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  effectiveGrossOf,
+  hasPriceOverride,
   isPastBooking,
+  priceDisplay,
   toDateOnlyIso,
   type BookingProduct,
   type BookingRow,
@@ -150,5 +153,62 @@ describe('isPastBooking (landr-qhi0)', () => {
     // Just exercise the default-arg branch; assertion is shape-only.
     const r = row([item({ date_range_end: '1900-01-01' })])
     expect(isPastBooking(r)).toBe(true)
+  })
+})
+
+// --- landr-puix: price-override helpers ----------------------------------
+
+describe('hasPriceOverride / effectiveGrossOf / priceDisplay (landr-puix)', () => {
+  it('hasPriceOverride is false when override_gross_total is undefined', () => {
+    expect(hasPriceOverride(row([item({})]))).toBe(false)
+  })
+
+  it('hasPriceOverride is true when override_gross_total is set (number or string)', () => {
+    expect(
+      hasPriceOverride({ ...row([item({})]), override_gross_total: 50 }),
+    ).toBe(true)
+    expect(
+      hasPriceOverride({ ...row([item({})]), override_gross_total: '50.00' }),
+    ).toBe(true)
+  })
+
+  it('hasPriceOverride is false when override_gross_total is explicitly null', () => {
+    expect(
+      hasPriceOverride({ ...row([item({})]), override_gross_total: null }),
+    ).toBe(false)
+  })
+
+  it('effectiveGrossOf returns gross_total when no override is set', () => {
+    expect(effectiveGrossOf(row([item({})]))).toBe(100)
+  })
+
+  it('effectiveGrossOf prefers override_gross_total when set', () => {
+    expect(
+      effectiveGrossOf({
+        ...row([item({})]),
+        override_gross_total: 42,
+      }),
+    ).toBe(42)
+  })
+
+  it('effectiveGrossOf accepts string override (numeric string from REST)', () => {
+    expect(
+      effectiveGrossOf({
+        ...row([item({})]),
+        override_gross_total: '42.50',
+      }),
+    ).toBe(42.5)
+  })
+
+  it('priceDisplay reflects the override-aware value', () => {
+    const r = { ...row([item({})]), override_gross_total: 42.5 }
+    // Intl currency formatting includes a symbol + (locale-dependent) NBSP;
+    // we just assert the numeric piece appears.
+    expect(priceDisplay(r)).toMatch(/42\.50/)
+  })
+
+  it('priceDisplay falls back to gross_total when override is null', () => {
+    const r = { ...row([item({})]), override_gross_total: null }
+    expect(priceDisplay(r)).toMatch(/100\.00/)
   })
 })

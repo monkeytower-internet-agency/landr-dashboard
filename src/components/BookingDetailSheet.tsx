@@ -48,7 +48,9 @@ import {
   canMarkAsNoShow,
   canMarkAsPaid,
   cancelBooking,
+  clearBookingPriceOverride,
   customerDisplay,
+  hasPriceOverride,
   invalidateBookingCaches,
   markBookingAsNoShow,
   markBookingAsPaid,
@@ -398,6 +400,30 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     },
   })
 
+  // landr-puix — clear an operator-set price override. Only shown when
+  // hasPriceOverride(row) is true (the footer hides the button
+  // otherwise so canCancel logic stays simple). Operator-scoped DELETE
+  // route; the server-side trigger recomputes balance_due against the
+  // engine gross_total so a subsequent refresh shows the engine price
+  // back in the table cell.
+  const clearOverrideMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentOperatorId) {
+        throw new Error('No operator selected.')
+      }
+      await clearBookingPriceOverride(currentOperatorId, row.id)
+    },
+    onSuccess: () => {
+      toast.success(t.bookings.inlineEdit.priceClearedToast)
+      invalidateAll()
+    },
+    onError: (err: Error) => {
+      toast.error(t.bookings.inlineEdit.priceClearError, {
+        description: err.message,
+      })
+    },
+  })
+
   // landr-irds — server-rendered invoice PDF download. Requires
   // currentOperatorId because the endpoint is operator-scoped
   // (/api/staff/operators/{op}/bookings/{id}/invoice.pdf). Cache
@@ -423,7 +449,14 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     unblockMutation.isPending ||
     noShowMutation.isPending ||
     markPaidMutation.isPending ||
+    clearOverrideMutation.isPending ||
     invoiceMutation.isPending
+
+  // landr-puix — Clear-override visibility. Gated on currentOperatorId
+  // too (the DELETE route is operator-scoped), mirroring the no-show /
+  // mark-paid buttons. When no operator is selected the button stays
+  // hidden rather than rendering disabled — same UX pattern.
+  const showClearOverride = hasPriceOverride(row) && !!currentOperatorId
 
   function updateItem(itemId: string, updater: (it: ItemDraft) => ItemDraft) {
     setItems((prev) => prev.map((it) => (it.id === itemId ? updater(it) : it)))
@@ -811,6 +844,22 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
             >
               <BadgeEuro className="size-4" />
               {t.bookings.markPaid.action}
+            </Button>
+          ) : null}
+          {/* landr-puix — clear an operator-set price override. Visible
+              only when the booking has a current override AND an
+              operator is selected (the DELETE endpoint is path-scoped). */}
+          {showClearOverride ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => clearOverrideMutation.mutate()}
+              disabled={busy}
+              data-testid="booking-clear-price-override-btn"
+            >
+              {clearOverrideMutation.isPending
+                ? t.bookings.detail.saving
+                : t.bookings.inlineEdit.priceClearAction}
             </Button>
           ) : null}
         </div>
