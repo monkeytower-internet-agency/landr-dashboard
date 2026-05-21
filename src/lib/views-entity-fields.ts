@@ -79,6 +79,13 @@ export const BOOKING_FIELDS: readonly ViewField[] = [
     default_visible_in_table: true,
   },
   {
+    key: 'product_name',
+    label: 'Product',
+    type: 'text',
+    filterable: true,
+    sortable: true,
+  },
+  {
     key: 'current_stage',
     label: 'Stage',
     type: 'enum',

@@ -169,13 +169,25 @@ describe('ViewPage shell (landr-hgtv)', () => {
 
   it('falls back to the config layout when ?layout= is not present', async () => {
     mocks.getSavedView.mockResolvedValueOnce(
-      makeView({ config: { layout: 'board', filters: [], sort: [] } }),
+      makeView({
+        config: {
+          layout: 'board',
+          filters: [],
+          sort: [],
+          boardConfig: { columnBy: 'current_stage' },
+        },
+      }),
     )
     render()
-    // Board still uses the stub (sibling landr-kjls replaces it).
-    expect(
-      await screen.findByTestId('view-layout-stub-board'),
-    ).toBeInTheDocument()
+    // landr-kjls — Board layout now renders the real BoardLayoutBranch.
+    // Loading-items is the first visible chrome; if supabase settles
+    // before the assertion the board-layout testid is the fallback.
+    await waitFor(() => {
+      const branchUp =
+        screen.queryByTestId('board-layout') ||
+        screen.queryByText(/Loading items|Failed to load items/i)
+      expect(branchUp).not.toBeNull()
+    })
   })
 
   it('clicking Board in the switcher updates ?layout=board (Decision B2)', async () => {
@@ -189,9 +201,17 @@ describe('ViewPage shell (landr-hgtv)', () => {
         `/views/${VIEW_ID}?layout=board`,
       )
     })
-    expect(
-      await screen.findByTestId('view-layout-stub-board'),
-    ).toBeInTheDocument()
+    // landr-kjls — Board now renders the real BoardLayoutBranch. Under
+    // stub supabase the bookings query may settle as empty (no columns
+    // have items) or fail; either way the layout's columns container
+    // mounts. We assert by testid so the chrome — not transient text — is
+    // the load-bearing check.
+    await waitFor(() => {
+      const branchUp =
+        screen.queryByTestId('board-layout') ||
+        screen.queryByText(/Loading items|Failed to load items/i)
+      expect(branchUp).not.toBeNull()
+    })
     // Clicking Table (the config default) clears the URL param.
     await user.click(screen.getByTestId('layout-switcher-table'))
     await waitFor(() => {

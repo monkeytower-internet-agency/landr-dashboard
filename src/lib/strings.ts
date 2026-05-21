@@ -1223,6 +1223,17 @@ export const t = {
         loadError: 'Failed to load items.',
         empty: 'No items to display.',
       },
+      board: {
+        loading: 'Loading items…',
+        loadError: 'Failed to load items.',
+        mustBeEnum: 'Column-by must be an enum field.',
+        unknownField: (key: string) => `Unknown column-by field: ${key}.`,
+        unsupportedField: (label: string) =>
+          `Column-by on “${label}” is not wired up yet — only Stage is supported in v1.`,
+        emptyColumn: 'No items',
+        disallowedTarget: 'No supported transition into this column.',
+        mutateError: 'Could not move card — change reverted.',
+      },
     },
     // landr-7w3s — Table layout copy.
     table: {
