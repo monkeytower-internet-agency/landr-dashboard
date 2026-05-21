@@ -27,6 +27,10 @@ import type {
   BookingDayProviderAssignmentRow,
   ProviderRow,
 } from '@/lib/assignments'
+import type {
+  VoucherRedemptionRow,
+  VoucherRow,
+} from '@/lib/vouchers-analytics'
 
 // ---------------------------------------------------------------------------
 // Range presets — drive both the data window AND the bucket granularity.
@@ -694,4 +698,152 @@ export function shapePerStaffRevenue(
     return a.providerName.localeCompare(b.providerName)
   })
   return out
+}
+
+// ---------------------------------------------------------------------------
+// Voucher performance (landr-1jgr).
+//
+// Aggregates per-voucher redemption stats for the "Voucher performance"
+// card on /analytics. There is no dedicated voucher_redemptions table today
+// — voucher consumption is recorded via bookings.voucher_id_applied (set by
+// the public_submit_booking RPC after the atomic max_uses guard, decremented
+// on reject). So the shaper takes:
+//
+//   - redemptions: bookings (in the analytics window) with
+//     voucher_id_applied IS NOT NULL — one row per redemption.
+//   - vouchers: the operator's voucher roster, so we can resolve code/kind/
+//     amount/currency for each redemption.
+//
+// Output: one row per voucher that has at least one redemption in the
+// window. Sorted by redemption count desc (the headline question the card
+// answers is "which vouchers get used"), with discount total as the
+// secondary signal.
+//
+// Discount approximation: there is no per-redemption persisted discount
+// amount in the current schema (the rule entry lives inside the
+// booking_products.computed_price_breakdown jsonb, which would force a
+// per-line-item fetch + parse). For a card-level overview we approximate
+// from voucher metadata + the booking's gross_total (which is post-discount
+// because the RPC writes the discounted total). The maths:
+//
+//   - kind=flat:    discount ≈ voucher.amount (per redemption, capped at the
+//                   booking's gross_total + flat amount — but we don't have
+//                   the pre-discount value, so we just count the voucher's
+//                   flat amount per redemption).
+//   - kind=percent: voucher.amount is the percentage (10.00 = 10%). The
+//                   booking's gross_total is the post-discount value, so
+//                   pre_discount = gross / (1 - p/100); discount = pre × p/100
+//                   = gross × p / (100 - p). When p = 100 (free) we fall
+//                   back to gross_total since the formula is undefined.
+//
+// Cancelled bookings still count as redemptions (the voucher's used_count
+// is decremented on reject by the lifecycle trigger, so a cancelled booking
+// only appears here when it was approved-then-cancelled or the lifecycle
+// path didn't decrement). They contribute 0 to discount_total — consistent
+// with the rest of analytics, which excludes cancelled from revenue maths.
+// ---------------------------------------------------------------------------
+
+export type VoucherPerformanceRow = {
+  voucherId: string
+  /** Voucher code (uppercase per the schema CHECK constraint), or a
+   *  synthetic "(deleted voucher · <id8>)" fallback when the voucher was
+   *  soft-deleted after redemptions landed. */
+  code: string
+  kind: 'percent' | 'flat' | 'unknown'
+  /** Number of bookings that consumed this voucher in the window. */
+  redemptions: number
+  /** Sum of approximated discount given across non-cancelled redemptions.
+   *  See module comment for the approximation formula. */
+  discountTotal: number
+  /** Currency of the voucher (mirrors the voucher row when known, else
+   *  falls back to the first redemption's currency). */
+  currency: string
+}
+
+export type VoucherPerformanceInput = {
+  redemptions: VoucherRedemptionRow[]
+  vouchers: VoucherRow[]
+}
+
+const CANCELLED_STATES = new Set<string>(['cancelled'])
+
+function unknownVoucherCode(voucherId: string): string {
+  return `(deleted voucher · ${voucherId.slice(0, 8)})`
+}
+
+function voucherDiscountFor(
+  voucher: VoucherRow | undefined,
+  grossTotal: number,
+): number {
+  if (!voucher) return 0
+  const amount = toNumber(voucher.amount)
+  if (voucher.kind === 'flat') return amount
+  // percent
+  if (amount <= 0) return 0
+  if (amount >= 100) return grossTotal // 100% off — discount equals what was paid (gross is 0 in practice).
+  return (grossTotal * amount) / (100 - amount)
+}
+
+export function shapeVoucherPerformance(
+  input: VoucherPerformanceInput,
+): VoucherPerformanceRow[] {
+  const { redemptions, vouchers } = input
+
+  // Voucher lookup table — only resolves live (non-soft-deleted) vouchers
+  // because the fetcher excludes deleted_at IS NOT NULL. Redemptions
+  // pointing at a now-deleted voucher fall through to the synthetic display.
+  const voucherById = new Map<string, VoucherRow>()
+  for (const v of vouchers) voucherById.set(v.id, v)
+
+  type Acc = {
+    voucherId: string
+    code: string
+    kind: 'percent' | 'flat' | 'unknown'
+    redemptions: number
+    discountTotal: number
+    currency: string
+  }
+  const acc = new Map<string, Acc>()
+
+  for (const r of redemptions) {
+    const voucher = voucherById.get(r.voucher_id)
+    const cur =
+      acc.get(r.voucher_id) ??
+      ({
+        voucherId: r.voucher_id,
+        code: voucher?.code ?? unknownVoucherCode(r.voucher_id),
+        kind: voucher?.kind ?? 'unknown',
+        redemptions: 0,
+        discountTotal: 0,
+        currency: (voucher?.currency || r.currency || 'EUR').toUpperCase(),
+      } satisfies Acc)
+    cur.redemptions += 1
+    if (!CANCELLED_STATES.has(r.current_semantic_state)) {
+      const gross = toNumber(r.gross_total)
+      cur.discountTotal += voucherDiscountFor(voucher, gross)
+    }
+    acc.set(r.voucher_id, cur)
+  }
+
+  const rows: VoucherPerformanceRow[] = []
+  for (const v of acc.values()) {
+    rows.push({
+      voucherId: v.voucherId,
+      code: v.code,
+      kind: v.kind,
+      redemptions: v.redemptions,
+      discountTotal: round2(v.discountTotal),
+      currency: v.currency,
+    })
+  }
+  // Sort by redemption count desc (the headline question), then discount
+  // total desc, then code asc for stability.
+  rows.sort((a, b) => {
+    if (b.redemptions !== a.redemptions) return b.redemptions - a.redemptions
+    if (b.discountTotal !== a.discountTotal) {
+      return b.discountTotal - a.discountTotal
+    }
+    return a.code.localeCompare(b.code)
+  })
+  return rows
 }

@@ -1662,6 +1662,24 @@ export const t = {
     perStaffColumnAverage: 'Avg / booking',
     perStaffEmpty:
       'No provider assignments in the selected range yet.',
+
+    // landr-1jgr — voucher performance card. Counts bookings with
+    // voucher_id_applied per voucher; discount totals are approximated
+    // from voucher metadata (no per-redemption persisted discount column
+    // today — see lib/analytics.shapeVoucherPerformance for the formula).
+    voucherPerformanceTitle: 'Voucher performance',
+    voucherPerformanceDescription:
+      'Top vouchers by redemption count. Discount totals are approximated ' +
+      'from voucher kind + amount; cancelled bookings contribute 0.',
+    voucherPerformanceColumnCode: 'Code',
+    voucherPerformanceColumnKind: 'Kind',
+    voucherPerformanceColumnRedemptions: 'Redemptions',
+    voucherPerformanceColumnDiscount: 'Discount given',
+    voucherPerformanceEmpty:
+      'No voucher redemptions in the selected range.',
+    voucherKindPercent: 'Percent',
+    voucherKindFlat: 'Flat',
+    voucherKindUnknown: 'Unknown',
   },
   emailTemplates: {
     title: 'Email templates',

@@ -40,6 +40,7 @@ import {
   shapePerStaffRevenue,
   shapeRevenueOverTime,
   shapeTopCustomers,
+  shapeVoucherPerformance,
   todayUtcIso,
   type ProductBreakdownPoint,
   type RangePresetKey,
@@ -50,12 +51,19 @@ import {
   type BookingDayProviderAssignmentRow,
   type ProviderRow,
 } from '@/lib/assignments'
+import {
+  fetchVoucherRedemptions,
+  fetchVouchers,
+  type VoucherRedemptionRow,
+  type VoucherRow,
+} from '@/lib/vouchers-analytics'
 import { RevenueLineChart } from '@/components/analytics/RevenueLineChart'
 import { ProductBarChart } from '@/components/analytics/ProductBarChart'
 import { ConversionFunnel } from '@/components/analytics/ConversionFunnel'
 import { TopCustomersTable } from '@/components/analytics/TopCustomersTable'
 import { OccupancyHeatmap } from '@/components/analytics/OccupancyHeatmap'
 import { RevenuePerStaff } from '@/components/analytics/RevenuePerStaff'
+import { VoucherPerformance } from '@/components/analytics/VoucherPerformance'
 
 const PRODUCT_TOP_N = 10
 
@@ -135,6 +143,30 @@ export function Analytics() {
     enabled: !!currentOperatorId,
   })
 
+  // landr-1jgr — voucher performance card. Two fetches: the operator's
+  // voucher roster (rare reads, cached without window) + the redemption
+  // bookings (windowed by created_at to align with the rest of the page).
+  const vouchersQuery = useQuery<VoucherRow[]>({
+    queryKey: ['vouchers', currentOperatorId ?? 'none'],
+    queryFn: () => fetchVouchers(currentOperatorId as string),
+    enabled: !!currentOperatorId,
+  })
+  const voucherRedemptionsQuery = useQuery<VoucherRedemptionRow[]>({
+    queryKey: [
+      'voucher-redemptions',
+      currentOperatorId ?? 'none',
+      window.from,
+      window.to,
+    ],
+    queryFn: () =>
+      fetchVoucherRedemptions(
+        currentOperatorId as string,
+        window.from,
+        window.to,
+      ),
+    enabled: !!currentOperatorId,
+  })
+
   const filtered = useMemo(
     () => filterByCreatedAt(rows, window.from, window.to),
     [rows, window.from, window.to],
@@ -163,6 +195,14 @@ export function Analytics() {
         bookings: rows,
       }),
     [assignmentsQuery.data, providersQuery.data, rows],
+  )
+  const voucherPerformance = useMemo(
+    () =>
+      shapeVoucherPerformance({
+        redemptions: voucherRedemptionsQuery.data ?? [],
+        vouchers: vouchersQuery.data ?? [],
+      }),
+    [voucherRedemptionsQuery.data, vouchersQuery.data],
   )
 
   return (
@@ -351,6 +391,32 @@ export function Analytics() {
                   columnRevenue: t.analytics.perStaffColumnRevenue,
                   columnAverage: t.analytics.perStaffColumnAverage,
                   empty: t.analytics.perStaffEmpty,
+                }}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.analytics.voucherPerformanceTitle}</CardTitle>
+              <p className="text-muted-foreground text-xs">
+                {t.analytics.voucherPerformanceDescription}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <VoucherPerformance
+                rows={voucherPerformance}
+                labels={{
+                  columnCode: t.analytics.voucherPerformanceColumnCode,
+                  columnKind: t.analytics.voucherPerformanceColumnKind,
+                  columnRedemptions:
+                    t.analytics.voucherPerformanceColumnRedemptions,
+                  columnDiscount:
+                    t.analytics.voucherPerformanceColumnDiscount,
+                  empty: t.analytics.voucherPerformanceEmpty,
+                  kindPercent: t.analytics.voucherKindPercent,
+                  kindFlat: t.analytics.voucherKindFlat,
+                  kindUnknown: t.analytics.voucherKindUnknown,
                 }}
               />
             </CardContent>

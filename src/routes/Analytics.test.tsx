@@ -39,6 +39,9 @@ const { mock } = vi.hoisted(() => {
   // landr-ce45 — providers + booking_day_provider_assignments are queried
   // by the Analytics route for the "Revenue per staff" card. We route the
   // mock by table so each fetcher gets the right shape.
+  // landr-1jgr — vouchers is queried for the "Voucher performance" card;
+  // voucher redemptions reuse the bookings table with a .not(...) filter
+  // so the bookings projection covers both reads.
   const state = {
     rows: [] as Row[],
     providers: [] as Array<{
@@ -55,6 +58,17 @@ const { mock } = vi.hoisted(() => {
       provider_id: string
       assignment_date: string
     }>,
+    vouchers: [] as Array<{
+      id: string
+      operator_id: string
+      code: string
+      kind: 'percent' | 'flat'
+      amount: number
+      currency: string
+      used_count: number
+      max_uses: number | null
+      active: boolean
+    }>,
     error: null as { message: string } | null,
   }
 
@@ -68,6 +82,7 @@ const { mock } = vi.hoisted(() => {
     const dataFor = () => {
       if (table === 'providers') return state.providers
       if (table === 'booking_day_provider_assignments') return state.assignments
+      if (table === 'vouchers') return state.vouchers
       return state.rows
     }
     const builder: Record<string, unknown> = {}
@@ -75,6 +90,7 @@ const { mock } = vi.hoisted(() => {
       select: vi.fn(() => builder),
       eq: vi.fn(() => builder),
       is: vi.fn(() => builder),
+      not: vi.fn(() => builder),
       gte: vi.fn(() => builder),
       lte: vi.fn(() => builder),
       order: vi.fn(() => builder),
@@ -200,6 +216,7 @@ beforeEach(() => {
   ]
   mock.state.providers = []
   mock.state.assignments = []
+  mock.state.vouchers = []
   mock.state.error = null
 })
 
@@ -233,6 +250,7 @@ describe('Analytics route', () => {
     expect(screen.getByText(/conversion funnel/i)).toBeInTheDocument()
     expect(screen.getByText(/top customers/i)).toBeInTheDocument()
     expect(screen.getByText(/revenue per staff/i)).toBeInTheDocument()
+    expect(screen.getByText(/voucher performance/i)).toBeInTheDocument()
     expect(screen.getByText(/occupancy heatmap/i)).toBeInTheDocument()
 
     // Funnel stages render their labels.
