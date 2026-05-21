@@ -125,7 +125,7 @@ describe('ViewsIndex (landr-v0xg)', () => {
     expect(await screen.findByText(/no views yet/i)).toBeInTheDocument()
   })
 
-  it('shows the pick-from-sidebar helper when the user has at least one visible view', async () => {
+  it('renders a card grid when the user has at least one visible view (landr-8ou3)', async () => {
     mocks.listSavedViews.mockResolvedValueOnce([
       {
         id: '99999999-9999-4999-8999-999999999999',
@@ -134,7 +134,7 @@ describe('ViewsIndex (landr-v0xg)', () => {
         entity_type: 'booking',
         visibility: 'personal',
         name: 'My view',
-        config: {},
+        config: { layout: 'board', filters: [] },
         sort_order: 0,
         created_at: '2026-05-21T10:00:00Z',
         updated_at: '2026-05-21T10:00:00Z',
@@ -143,10 +143,62 @@ describe('ViewsIndex (landr-v0xg)', () => {
     ])
 
     render()
-    expect(
-      await screen.findByText(/pick a view from the sidebar/i),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('My view')).toBeInTheDocument()
+    expect(screen.getByTestId('views-grid')).toBeInTheDocument()
     expect(screen.queryByText(/no views yet/i)).not.toBeInTheDocument()
+    // The grid replaces the pre-landr-8ou3 helper text.
+    expect(
+      screen.queryByText(/pick a view from the sidebar/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('renders one ViewCard per visible view and skips hidden rows (landr-8ou3)', async () => {
+    mocks.listSavedViews.mockResolvedValueOnce([
+      {
+        id: '11111111-1111-4111-8111-111111111111',
+        operator_id: 'op-1',
+        creator_user_id: 'user-1',
+        entity_type: 'booking',
+        visibility: 'personal',
+        name: 'Visible A',
+        config: { layout: 'table', filters: [] },
+        sort_order: 0,
+        created_at: '2026-05-21T10:00:00Z',
+        updated_at: '2026-05-21T10:00:00Z',
+        user_state: { pinned: false, hidden: false, sort_order: 0 },
+      },
+      {
+        id: '22222222-2222-4222-8222-222222222222',
+        operator_id: 'op-1',
+        creator_user_id: 'user-1',
+        entity_type: 'booking',
+        visibility: 'personal',
+        name: 'Visible B',
+        config: { layout: 'calendar', filters: [] },
+        sort_order: 1,
+        created_at: '2026-05-21T10:00:00Z',
+        updated_at: '2026-05-21T10:00:00Z',
+        user_state: { pinned: false, hidden: false, sort_order: 0 },
+      },
+      {
+        id: '33333333-3333-4333-8333-333333333333',
+        operator_id: 'op-1',
+        creator_user_id: 'user-1',
+        entity_type: 'booking',
+        visibility: 'personal',
+        name: 'Hidden view',
+        config: { layout: 'table', filters: [] },
+        sort_order: 2,
+        created_at: '2026-05-21T10:00:00Z',
+        updated_at: '2026-05-21T10:00:00Z',
+        user_state: { pinned: false, hidden: true, sort_order: 0 },
+      },
+    ])
+
+    render()
+    expect(await screen.findByText('Visible A')).toBeInTheDocument()
+    expect(screen.getByText('Visible B')).toBeInTheDocument()
+    expect(screen.queryByText('Hidden view')).not.toBeInTheDocument()
   })
 
   it('clicking a template card navigates to /views/new?from=template:<key>', async () => {

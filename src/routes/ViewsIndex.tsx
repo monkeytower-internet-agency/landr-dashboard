@@ -1,11 +1,11 @@
-// landr-v0xg — Views index page.
+// landr-v0xg / landr-8ou3 — Views index page.
 //
 // Two modes:
 //   - User has 0 visible Views → empty-state with template cards.
-//   - User has ≥1 visible View → helper text pointing to the sidebar
-//     (the sidebar listing comes in Phase 6 / landr-c58d; for now the
-//     sidebar entry is just a link to /views, so the help string is
-//     temporary scaffolding).
+//   - User has ≥1 visible View → responsive grid of <ViewCard>s (one per
+//     visible view, hidden rows excluded — those stay reachable via the
+//     sidebar's Hidden expander). Replaces the landr-v0xg "pick a view
+//     from the sidebar" placeholder text.
 //
 // `+ New view` always creates an Untitled Personal View via
 // /views/new (no ?from=...).
@@ -19,6 +19,7 @@ import { useOperator } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import { listSavedViews } from '@/lib/saved-views'
 import { VIEW_TEMPLATES } from '@/lib/views-templates'
+import { ViewCard } from '@/components/views/ViewCard'
 import { t } from '@/lib/strings'
 
 export function ViewsIndex() {
@@ -32,8 +33,8 @@ export function ViewsIndex() {
   })
 
   const views = query.data ?? []
-  const visibleCount = views.filter((v) => !v.user_state.hidden).length
-  const showEmptyState = !query.isPending && visibleCount === 0
+  const visibleViews = views.filter((v) => !v.user_state.hidden)
+  const showEmptyState = !query.isPending && visibleViews.length === 0
 
   return (
     <div className="flex flex-col gap-6">
@@ -102,9 +103,18 @@ export function ViewsIndex() {
           </div>
         </section>
       ) : (
-        <p className="text-muted-foreground text-sm">
-          {t.viewsIndex.pickViewHelp}
-        </p>
+        <section
+          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+          data-testid="views-grid"
+        >
+          {visibleViews.map((view) => (
+            <ViewCard
+              key={view.id}
+              view={view}
+              operatorId={currentOperatorId as string}
+            />
+          ))}
+        </section>
       )}
     </div>
   )

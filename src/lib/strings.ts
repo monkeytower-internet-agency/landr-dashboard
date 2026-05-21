@@ -1549,7 +1549,6 @@ export const t = {
       'Create your first view or pick a template to get started.',
     newButton: '+ New view',
     templateSectionTitle: 'Start with a template',
-    pickViewHelp: 'Pick a view from the sidebar to get started.',
   },
   // landr-ne58 — Recently-viewed section in the app sidebar (last 5
   // detail surfaces the operator opened — bookings, contacts, products,
