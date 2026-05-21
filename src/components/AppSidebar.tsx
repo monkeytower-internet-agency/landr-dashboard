@@ -9,6 +9,7 @@ import {
   MousePointerClickIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
+  ScrollTextIcon,
   SettingsIcon,
   UserCircleIcon,
   UsersIcon,
@@ -120,6 +121,14 @@ const primaryItems: NavItem[] = [
     to: '/approvals/general',
     label: t.nav.generalApprovals,
     icon: CheckCircleIcon,
+    exact: false,
+  },
+  // landr-aref — Audit log viewer. Sits at the end of the primary nav
+  // (compliance/forensics surface, used less than the daily-ops items).
+  {
+    to: '/audit',
+    label: t.nav.audit,
+    icon: ScrollTextIcon,
     exact: false,
   },
 ]

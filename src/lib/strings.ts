@@ -151,6 +151,41 @@ export const t = {
     emailTemplates: 'Email templates',
     pickupLocations: 'Pickup locations',
     schedule: 'Schedule',
+    // landr-aref — /audit route (audit_log viewer).
+    audit: 'Audit log',
+  },
+  // landr-aref — /audit route strings (audit_log viewer).
+  audit: {
+    title: 'Audit log',
+    subtitle:
+      'Tenant-scoped audit trail of INSERT / UPDATE / DELETE on operator data. Click a row to inspect the full payload.',
+    filtersTitle: 'Filters',
+    filterAllOption: 'All',
+    filterEntityTypeLabel: 'Entity type',
+    filterOperationLabel: 'Operation',
+    filterActorLabel: 'Actor user ID',
+    filterActorPlaceholder: 'auth.users UUID (exact match)',
+    filterFromLabel: 'From',
+    filterToLabel: 'To',
+    filterResetLabel: 'Reset filters',
+    columnOccurredAt: 'Occurred at',
+    columnEntityType: 'Entity',
+    columnOperation: 'Op',
+    columnActor: 'Actor',
+    columnRowId: 'Row ID',
+    loading: 'Loading audit log…',
+    error: 'Failed to load audit log.',
+    empty: 'No audit entries match the current filters.',
+    prevPage: 'Previous',
+    nextPage: 'Next',
+    pageLabel: (page: number, count: number) =>
+      `Page ${page} · ${count} ${count === 1 ? 'entry' : 'entries'}`,
+    drawerTitle: 'Audit entry',
+    drawerRowId: 'Row ID',
+    drawerActor: 'Actor',
+    drawerCorrelation: 'External correlation',
+    drawerOperator: 'Operator',
+    drawerPayload: 'Payload (old_row + new_row)',
   },
   // landr-fzcg — sibling of settingsHub for the Account sub-sidebar.
   accountHub: {
