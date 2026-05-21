@@ -1155,4 +1155,66 @@ export const t = {
     hideError: 'Failed to update visibility.',
     rowMenuLabel: (name: string): string => `More actions for ${name}`,
   },
+  // landr-hgtv — per-view ViewPage chrome (toolbar, layout switcher,
+  // filter chips, dirty-state save UX). Layout body strings only describe
+  // the placeholder; the real layouts (D Table, E Board, F Calendar) ship
+  // their own copy in landr-7w3s / landr-kjls / landr-9kbl.
+  views: {
+    star: 'Star this view',
+    unstar: 'Unstar this view',
+    rename: 'Rename view',
+    renameSave: 'Save name',
+    renameCancel: 'Cancel rename',
+    setDefaultLayout: 'Set as default layout',
+    duplicate: 'Duplicate',
+    duplicating: 'Duplicating…',
+    duplicateError: 'Failed to duplicate view.',
+    delete: 'Delete view',
+    deleting: 'Deleting…',
+    deleteConfirm: 'Delete this view? This cannot be undone.',
+    deleteError: 'Failed to delete view.',
+    notFoundTitle: 'View not found',
+    loadError: 'Failed to load view.',
+    loading: 'Loading view…',
+    unsavedTitle: 'Unsaved changes',
+    unsavedBody: 'Save or discard your changes before navigating away.',
+    save: 'Save',
+    saving: 'Saving…',
+    discard: 'Discard',
+    saved: 'Saved',
+    saveError: 'Save failed',
+    leaveConfirm: 'You have unsaved changes — leave anyway?',
+    layout: {
+      groupLabel: 'View layout',
+      table: 'Table',
+      board: 'Board',
+      calendar: 'Calendar',
+    },
+    toolbar: {
+      sortLabel: 'Sort:',
+      sortNone: 'No sort',
+      sortAsc: 'Ascending',
+      sortDesc: 'Descending',
+      columns: 'Columns',
+      columnsPlaceholderTip: 'Column picker arrives with the Table layout.',
+    },
+    filters: {
+      addFilter: '+ Filter',
+      remove: 'Remove filter',
+      fieldLabel: 'Field',
+      opLabel: 'Operator',
+      valueLabel: 'Value',
+      apply: 'Apply',
+      cancel: 'Cancel',
+    },
+    body: {
+      stubHeading: (layout: string) =>
+        `${layout.charAt(0).toUpperCase() + layout.slice(1)} layout (placeholder)`,
+      stubBody:
+        'Layout components plug in here. The real Table / Board / Calendar renderers ship as the [D] / [E] / [F] views v1 tickets land.',
+      stubConfigHeading: 'Current view config',
+      stubFilterCount: (n: number) =>
+        `${n} filter${n === 1 ? '' : 's'} active`,
+    },
+  },
 } as const
