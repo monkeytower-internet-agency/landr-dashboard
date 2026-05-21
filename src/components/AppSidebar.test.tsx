@@ -1,7 +1,32 @@
 import { render, screen, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+// landr-c58d — the Views sub-list (ViewsSidebar) now mounts under the
+// /views primary nav row and reads useOperator() + lists saved views.
+// Stub both so the AppSidebar tests don't need a full app shell.
+vi.mock('@/lib/operator', () => ({
+  useOperator: () => ({
+    operators: [{ id: 'op-1', slug: 'para42', name: 'Para42' }],
+    currentOperator: { id: 'op-1', slug: 'para42', name: 'Para42' },
+    currentOperatorId: 'op-1',
+    loading: false,
+    switchOperator: () => {},
+  }),
+}))
+
+vi.mock('@/lib/saved-views', async () => {
+  const actual =
+    await vi.importActual<typeof import('@/lib/saved-views')>(
+      '@/lib/saved-views',
+    )
+  return {
+    ...actual,
+    listSavedViews: vi.fn(async () => []),
+  }
+})
 
 import { AppSidebar } from './AppSidebar'
 import { SidebarProvider } from '@/components/ui/sidebar'
@@ -21,14 +46,21 @@ import {
 // bottom of the sidebar. AppSidebar now consumes SidebarModeProvider
 // alongside SidebarProvider, so the renderer wraps both.
 function renderSidebar(initialPath: string = '/') {
+  // landr-c58d — fresh QueryClient per render so the mocked
+  // listSavedViews() promise can resolve independently per test.
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
   return render(
-    <MemoryRouter initialEntries={[initialPath]}>
-      <SidebarModeProvider>
-        <SidebarProvider>
-          <AppSidebar />
-        </SidebarProvider>
-      </SidebarModeProvider>
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[initialPath]}>
+        <SidebarModeProvider>
+          <SidebarProvider>
+            <AppSidebar />
+          </SidebarProvider>
+        </SidebarModeProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 

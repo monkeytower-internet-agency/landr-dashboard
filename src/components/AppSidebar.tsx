@@ -35,6 +35,9 @@ import { groupForPath } from '@/components/settings/sections'
 import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
 import type { SidebarMode } from '@/lib/sidebar-mode'
 import { t } from '@/lib/strings'
+// landr-c58d — Views sub-list (star + hide) rendered under the
+// top-level "Views" primary nav entry.
+import { ViewsSidebar } from '@/components/views/ViewsSidebar'
 
 type NavItem = {
   to: string
@@ -165,6 +168,14 @@ function NavMenu({ items, pathname }: { items: NavItem[]; pathname: string }) {
                 <span>{item.label}</span>
               </Link>
             </SidebarMenuButton>
+            {/* landr-c58d — render the Views sub-list directly under the
+                top-level "Views" primary nav entry. Always shown (option
+                (b) from the briefing) so users can jump straight to a
+                saved view without first clicking through /views. The
+                sub-list is hidden by SidebarMenuSub's own CSS when the
+                sidebar collapses to the icon rail, matching the rest of
+                the secondary nav. */}
+            {item.to === '/views' ? <ViewsSidebar /> : null}
           </SidebarMenuItem>
         )
       })}
