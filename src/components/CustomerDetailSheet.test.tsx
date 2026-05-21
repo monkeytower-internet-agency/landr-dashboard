@@ -13,6 +13,7 @@ type ContactFixture = {
   phone: string | null
   preferred_locale: string | null
   preferred_timezone: string | null
+  do_not_contact: boolean
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -143,6 +144,7 @@ function makeContact(overrides: Partial<ContactFixture> = {}): ContactFixture {
     phone: '+34600111222',
     preferred_locale: 'en',
     preferred_timezone: null,
+    do_not_contact: false,
     created_at: '2026-05-10T09:00:00.000Z',
     updated_at: '2026-05-10T09:00:00.000Z',
     deleted_at: null,
@@ -293,6 +295,44 @@ describe('CustomerDetailSheet', () => {
     render(<CustomerDetailSheet contactId="c-1" onOpenChange={() => {}} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/no row/i)
+  })
+
+  // ----- landr-h46a — do_not_contact opt-out checkbox --------------------
+
+  it('seeds the do_not_contact checkbox from the contact row', async () => {
+    mock.state.contact = makeContact({ do_not_contact: true })
+    render(<CustomerDetailSheet contactId="c-1" onOpenChange={() => {}} />)
+    const checkbox = (await screen.findByTestId(
+      'do-not-contact-checkbox',
+    )) as HTMLInputElement
+    expect(checkbox.checked).toBe(true)
+  })
+
+  it('toggles do_not_contact and persists it in the PATCH payload', async () => {
+    const user = userEvent.setup()
+    render(<CustomerDetailSheet contactId="c-1" onOpenChange={() => {}} />)
+
+    const checkbox = (await screen.findByTestId(
+      'do-not-contact-checkbox',
+    )) as HTMLInputElement
+    expect(checkbox.checked).toBe(false)
+    await user.click(checkbox)
+    await waitFor(() => expect(checkbox.checked).toBe(true))
+
+    // Touch a text field so RHF's mode:'onChange' state subscription
+    // re-renders the Save button (Controller-on-native-checkbox change
+    // alone can lag the re-render in JSDOM). Save then enables and we
+    // assert the checkbox value survives the round-trip through the
+    // form submit handler.
+    const phoneInput = screen.getByLabelText(/phone/i) as HTMLInputElement
+    await user.type(phoneInput, '0')
+    const saveBtn = screen.getByRole('button', { name: /save changes/i })
+    await waitFor(() => expect(saveBtn).toBeEnabled())
+    await user.click(saveBtn)
+
+    await waitFor(() => {
+      expect(mock.state.updatePatch).toMatchObject({ do_not_contact: true })
+    })
   })
 
   // ----- landr-7o2a — Customer 360 "Bookings" tab ------------------------

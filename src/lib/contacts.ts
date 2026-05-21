@@ -19,6 +19,13 @@ export type ContactRow = {
   phone: string | null
   preferred_locale: string | null
   preferred_timezone: string | null
+  /**
+   * landr-h46a — when true the API suppresses non-transactional
+   * outbound emails (reminders, marketing) for this contact.
+   * Transactional kinds (booking_received, booking_confirmation,
+   * hotel_request, no_show*) ignore the flag.
+   */
+  do_not_contact: boolean
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -48,6 +55,7 @@ const CONTACT_SELECT = `
   phone,
   preferred_locale,
   preferred_timezone,
+  do_not_contact,
   created_at,
   updated_at,
   deleted_at,
@@ -235,6 +243,8 @@ export type ContactPatch = {
   email?: string | null
   phone?: string | null
   preferred_locale?: string | null
+  /** landr-h46a — opt-out flag for non-transactional outbound emails. */
+  do_not_contact?: boolean
 }
 
 /** PATCH a contact row via Supabase REST direct (RLS-gated, no side effects). */
