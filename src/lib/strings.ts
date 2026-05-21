@@ -357,6 +357,11 @@ export const t = {
       save: 'Save changes',
       saving: 'Saving…',
       cancel: 'Cancel',
+      // landr-pztv — explicit print button in the sheet footer. The @media
+      // print stylesheet in src/index.css strips chrome and renders only
+      // the [data-print-target="booking-detail"] subtree so Ctrl+P or this
+      // button produces a clean receipt.
+      print: 'Print',
       noChanges: 'No changes to save.',
       saveToastSuccess: 'Booking updated.',
       saveToastError: 'Failed to save booking.',

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Unlock, UserX } from 'lucide-react'
+import { Printer, Unlock, UserX } from 'lucide-react'
 
 import { useAuth } from '@/lib/auth'
 import { useOperator } from '@/lib/operator'
@@ -75,7 +75,13 @@ export function BookingDetailSheet({
           sideways. Keep w-full on mobile (the sm: breakpoint kicks in
           ≥640px) and stay as a Sheet (not modal) so the underlying list
           stays visible. */}
-      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-[60vw]">
+      {/* landr-pztv — data-print-target marks the @media print scope so
+          Ctrl+P (or the explicit Print button in the footer) prints the
+          open booking detail as a clean receipt. See src/index.css. */}
+      <SheetContent
+        data-print-target="booking-detail"
+        className="flex w-full flex-col gap-0 sm:max-w-[60vw]"
+      >
         {row ? (
           <BookingDetailBody
             key={row.id}
@@ -671,6 +677,22 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           ) : null}
         </div>
         <div className="flex items-center gap-2">
+          {/* landr-pztv — explicit print trigger. Ctrl+P already works
+              thanks to the @media print stylesheet in src/index.css; this
+              button surfaces the affordance for operators who don't know
+              the shortcut. */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => window.print()}
+            disabled={busy}
+            aria-label={t.bookings.detail.print}
+            title={t.bookings.detail.print}
+            data-testid="booking-print-btn"
+          >
+            <Printer className="size-4" />
+            {t.bookings.detail.print}
+          </Button>
           <Button
             type="button"
             variant="outline"
