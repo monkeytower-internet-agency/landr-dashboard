@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   flexRender,
   getCoreRowModel,
@@ -48,6 +48,13 @@ type Props = {
   // landr-sj2z — render skeleton placeholder rows while the parent's
   // query is still pending. Mirrors BookingsTable's loading-state prop.
   isLoading?: boolean
+  /**
+   * landr-j57l — when both are passed, the search input is controlled by
+   * the parent so it can persist to the URL (`?q=…`). Omitting them keeps
+   * the legacy uncontrolled behaviour.
+   */
+  globalFilter?: string
+  onGlobalFilterChange?: (next: string) => void
 }
 
 export function ContactsTable({
@@ -56,11 +63,29 @@ export function ContactsTable({
   onErase,
   onAudit,
   isLoading = false,
+  globalFilter: controlledGlobalFilter,
+  onGlobalFilterChange,
 }: Props) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'created_at', desc: true },
   ])
-  const [globalFilter, setGlobalFilter] = useState('')
+  // landr-j57l — controlled-or-uncontrolled search. See BookingsTable for
+  // the full rationale.
+  const [internalGlobalFilter, setInternalGlobalFilter] = useState('')
+  const isGlobalFilterControlled = controlledGlobalFilter !== undefined
+  const globalFilter = isGlobalFilterControlled
+    ? controlledGlobalFilter
+    : internalGlobalFilter
+  const setGlobalFilter = useCallback(
+    (next: string) => {
+      if (isGlobalFilterControlled) {
+        onGlobalFilterChange?.(next)
+      } else {
+        setInternalGlobalFilter(next)
+      }
+    },
+    [isGlobalFilterControlled, onGlobalFilterChange],
+  )
 
   const columns = useMemo<ColumnDef<ContactRow>[]>(
     () => [

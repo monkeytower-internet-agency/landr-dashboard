@@ -5,10 +5,10 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ReactElement } from 'react'
+import { useEffect, type ReactElement } from 'react'
 
 type ChannelHandle = {
   on: ReturnType<typeof vi.fn>
@@ -134,17 +134,30 @@ vi.mock('@/lib/operator', () => ({
 
 import { Bookings } from './Bookings'
 
-function render(ui: ReactElement) {
+function render(ui: ReactElement, { initialEntry = '/' }: { initialEntry?: string } = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   return rtlRender(ui, {
     wrapper: ({ children }) => (
       <QueryClientProvider client={client}>
-        <MemoryRouter>{children}</MemoryRouter>
+        <MemoryRouter initialEntries={[initialEntry]}>{children}</MemoryRouter>
       </QueryClientProvider>
     ),
   })
+}
+
+// landr-j57l — captures current location so tests can assert URL pushes
+// from filter / search interactions. We mutate a module-scope object via
+// useEffect (not during render) so React's strict mode and the
+// react-hooks/globals lint rule stay happy.
+const probe = { search: '' }
+function LocationProbe() {
+  const loc = useLocation()
+  useEffect(() => {
+    probe.search = loc.search
+  }, [loc.search])
+  return null
 }
 
 beforeEach(() => {
@@ -155,6 +168,10 @@ beforeEach(() => {
   toastCalls.success.length = 0
   toastCalls.warning.length = 0
   toastCalls.error.length = 0
+  // landr-j57l — clear per-test localStorage so URL-vs-storage assertions
+  // start from a known baseline.
+  window.localStorage.clear()
+  probe.search = ''
 })
 
 afterEach(() => {
@@ -377,5 +394,116 @@ describe('Bookings route', () => {
     ).toBeInTheDocument()
     // The filter search input should be hidden (no rows to filter).
     expect(screen.queryByLabelText(/search bookings/i)).not.toBeInTheDocument()
+  })
+
+  // ---- landr-j57l — URL ⇄ filter round-trip ---------------------------
+
+  describe('URL deep-linking (landr-j57l)', () => {
+    function renderWithProbe(initialEntry: string) {
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      })
+      return rtlRender(<Bookings />, {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={client}>
+            <MemoryRouter initialEntries={[initialEntry]}>
+              {children}
+              <LocationProbe />
+            </MemoryRouter>
+          </QueryClientProvider>
+        ),
+      })
+    }
+
+    it('mount with ?q= deep-links the search input', async () => {
+      mock.state.rows = sampleRows
+      renderWithProbe('/?q=Bob')
+
+      // The URL value seeds the input on first paint.
+      await waitFor(() =>
+        expect(screen.getByLabelText(/search bookings/i)).toHaveValue('Bob'),
+      )
+      // 'Bob' is wrapped in <mark> when the search matches — the text
+      // is split across nodes — assert via the <mark> element.
+      await waitFor(() => {
+        const bobMark = Array.from(document.querySelectorAll('mark')).find(
+          (m) => m.textContent === 'Bob',
+        )
+        expect(bobMark).toBeDefined()
+        expect(bobMark?.parentElement?.textContent).toBe('Bob Brown')
+      })
+      expect(screen.queryByText('Alice Anderson')).not.toBeInTheDocument()
+    })
+
+    it('mount with ?dateRange= preselects the quick-filter pill', async () => {
+      mock.state.rows = sampleRows
+      renderWithProbe('/?dateRange=this_week')
+
+      await screen.findByTestId('bookings-quick-filters-this_week')
+      const pill = screen.getByTestId('bookings-quick-filters-this_week')
+      expect(pill).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('mount URL params win over stored localStorage selection', async () => {
+      // Pre-seed localStorage with a DIFFERENT preset…
+      window.localStorage.setItem(
+        'landr.dashboard.bookingsFilters.user-test',
+        JSON.stringify({
+          lifecycleStates: ['cancelled'],
+          productIds: [],
+          pickupLocationIds: [],
+          productKinds: [],
+          serviceTimeShapes: [],
+          showPast: false,
+          serviceDateRange: 'next_30d',
+        }),
+      )
+      mock.state.rows = sampleRows
+      // …mount with a URL pointing at a different preset.
+      renderWithProbe('/?dateRange=this_week')
+
+      // Wait for the quick-filter strip to render (route mounted).
+      await screen.findByTestId('bookings-quick-filters-bar')
+      expect(
+        screen.getByTestId('bookings-quick-filters-this_week'),
+      ).toHaveAttribute('aria-pressed', 'true')
+      expect(
+        screen.getByTestId('bookings-quick-filters-upcoming'),
+      ).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('typing in the search input pushes ?q= to the URL', async () => {
+      mock.state.rows = sampleRows
+      const user = userEvent.setup()
+      renderWithProbe('/')
+
+      await screen.findByText('Alice Anderson')
+      await user.type(screen.getByLabelText(/search bookings/i), 'Bob')
+      await waitFor(() => expect(probe.search).toContain('q=Bob'))
+    })
+
+    it('clicking a quick-filter pill pushes ?dateRange= to the URL', async () => {
+      mock.state.rows = sampleRows
+      const user = userEvent.setup()
+      renderWithProbe('/')
+
+      await screen.findByText('Alice Anderson')
+      await user.click(screen.getByTestId('bookings-quick-filters-this_week'))
+      await waitFor(() => expect(probe.search).toContain('dateRange=this_week'))
+    })
+
+    it('clearing the search drops ?q= from the URL', async () => {
+      mock.state.rows = sampleRows
+      const user = userEvent.setup()
+      renderWithProbe('/?q=Bob')
+
+      // Wait for the URL-derived value to seed the input.
+      await waitFor(() =>
+        expect(screen.getByLabelText(/search bookings/i)).toHaveValue('Bob'),
+      )
+      const input = screen.getByLabelText(/search bookings/i) as HTMLInputElement
+      await user.clear(input)
+      await waitFor(() => expect(probe.search).not.toContain('q='))
+    })
   })
 })

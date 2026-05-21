@@ -18,6 +18,8 @@ vi.mock('@/lib/auth', () => ({
 
 import {
   DEFAULT_CONTACTS_SORT,
+  parseContactsSortFromUrl,
+  serialiseContactsSortToUrl,
   storageKey,
   useContactsSort,
 } from './contacts-sort'
@@ -75,5 +77,61 @@ describe('useContactsSort', () => {
     expect(window.localStorage.getItem(storageKey('user-2'))).toBe(
       'updated_at_desc',
     )
+  })
+
+  // ----- landr-j57l — URL parse/serialise + initialOverride ------------
+  describe('URL round-trip (landr-j57l)', () => {
+    it('parseContactsSortFromUrl returns null on missing/invalid', () => {
+      expect(parseContactsSortFromUrl(new URLSearchParams(''))).toBeNull()
+      expect(
+        parseContactsSortFromUrl(new URLSearchParams('?sort=bogus')),
+      ).toBeNull()
+    })
+
+    it('parses each valid sort value', () => {
+      expect(
+        parseContactsSortFromUrl(new URLSearchParams('?sort=name_asc')),
+      ).toBe('name_asc')
+      expect(
+        parseContactsSortFromUrl(new URLSearchParams('?sort=updated_at_desc')),
+      ).toBe('updated_at_desc')
+    })
+
+    it('serialise omits the default sort to keep the URL short', () => {
+      const params = new URLSearchParams('?sort=name_asc')
+      const dirty = serialiseContactsSortToUrl(params, DEFAULT_CONTACTS_SORT)
+      expect(dirty).toBe(true)
+      expect(params.has('sort')).toBe(false)
+    })
+
+    it('serialise writes a non-default sort', () => {
+      const params = new URLSearchParams()
+      const dirty = serialiseContactsSortToUrl(params, 'name_asc')
+      expect(dirty).toBe(true)
+      expect(params.get('sort')).toBe('name_asc')
+    })
+
+    it('serialise is a no-op when URL already matches', () => {
+      const params = new URLSearchParams('?sort=name_asc')
+      expect(serialiseContactsSortToUrl(params, 'name_asc')).toBe(false)
+    })
+
+    it('initialOverride wins over localStorage on first mount', () => {
+      window.localStorage.setItem(storageKey('user-1'), 'updated_at_desc')
+      const { result } = renderHook(() =>
+        useContactsSort({ initialOverride: 'name_asc' }),
+      )
+      expect(result.current.sort).toBe('name_asc')
+      // Persisted so a reload-without-URL still reflects the deep-link.
+      expect(window.localStorage.getItem(storageKey('user-1'))).toBe('name_asc')
+    })
+
+    it('with no override, falls back to localStorage as before', () => {
+      window.localStorage.setItem(storageKey('user-1'), 'name_asc')
+      const { result } = renderHook(() =>
+        useContactsSort({ initialOverride: null }),
+      )
+      expect(result.current.sort).toBe('name_asc')
+    })
   })
 })

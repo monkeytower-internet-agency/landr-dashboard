@@ -19,9 +19,13 @@ vi.mock('@/lib/auth', () => ({
 
 import {
   activeFilterCount,
+  EMPTY_FILTERS,
   isEmptyFilters,
+  parseBookingsFiltersFromUrl,
+  serialiseBookingsFiltersToUrl,
   storageKey,
   useBookingsFilters,
+  type BookingsFilters,
 } from './bookings-filters'
 
 beforeEach(() => {
@@ -262,6 +266,146 @@ describe('useBookingsFilters', () => {
       const { result } = renderHook(() => useBookingsFilters())
       expect(result.current.filters.serviceDateRange).toBeNull()
       expect(result.current.filters.lifecycleStates).toEqual(['cancelled'])
+    })
+  })
+
+  // ----- landr-j57l — URL parse/serialise + initialOverride ------------
+  describe('URL round-trip (landr-j57l)', () => {
+    it('parseBookingsFiltersFromUrl returns null when no filter params present', () => {
+      const out = parseBookingsFiltersFromUrl(new URLSearchParams('?open=abc'))
+      expect(out).toBeNull()
+    })
+
+    it('parses status/product/location/kind/shape CSVs', () => {
+      const params = new URLSearchParams(
+        '?status=confirmed_paid,cancelled&product=p-1,p-2&location=loc-a&kind=service,gift_card&shape=time_slot',
+      )
+      const out = parseBookingsFiltersFromUrl(params)
+      expect(out).not.toBeNull()
+      expect(out!.lifecycleStates).toEqual(['confirmed_paid', 'cancelled'])
+      expect(out!.productIds).toEqual(['p-1', 'p-2'])
+      expect(out!.pickupLocationIds).toEqual(['loc-a'])
+      expect(out!.productKinds).toEqual(['service', 'gift_card'])
+      expect(out!.serviceTimeShapes).toEqual(['time_slot'])
+      expect(out!.serviceDateRange).toBeNull()
+      expect(out!.showPast).toBe(false)
+    })
+
+    it('parses dateRange enum + past flag', () => {
+      const out = parseBookingsFiltersFromUrl(
+        new URLSearchParams('?dateRange=this_week&past=1'),
+      )!
+      expect(out.serviceDateRange).toBe('this_week')
+      expect(out.showPast).toBe(true)
+    })
+
+    it('rejects unknown enum values silently', () => {
+      const out = parseBookingsFiltersFromUrl(
+        new URLSearchParams('?kind=service,bogus&shape=hocuspocus&dateRange=eternity'),
+      )!
+      expect(out.productKinds).toEqual(['service'])
+      expect(out.serviceTimeShapes).toEqual([])
+      expect(out.serviceDateRange).toBeNull()
+    })
+
+    it('dedupes + trims CSV entries and skips empties', () => {
+      const out = parseBookingsFiltersFromUrl(
+        new URLSearchParams('?status=,a,, b ,a,c'),
+      )!
+      expect(out.lifecycleStates).toEqual(['a', 'b', 'c'])
+    })
+
+    it('serialiseBookingsFiltersToUrl writes non-empty dimensions', () => {
+      const filters: BookingsFilters = {
+        ...EMPTY_FILTERS,
+        lifecycleStates: ['confirmed_paid', 'cancelled'],
+        productIds: ['p-1'],
+        productKinds: ['service'],
+        serviceDateRange: 'today',
+        showPast: true,
+      }
+      const params = new URLSearchParams()
+      const dirty = serialiseBookingsFiltersToUrl(params, filters)
+      expect(dirty).toBe(true)
+      expect(params.get('status')).toBe('confirmed_paid,cancelled')
+      expect(params.get('product')).toBe('p-1')
+      expect(params.get('kind')).toBe('service')
+      expect(params.get('dateRange')).toBe('today')
+      expect(params.get('past')).toBe('1')
+      expect(params.has('location')).toBe(false)
+      expect(params.has('shape')).toBe(false)
+    })
+
+    it('serialise drops keys when their dimension is empty', () => {
+      const params = new URLSearchParams(
+        '?status=old&product=x&dateRange=today&past=1',
+      )
+      const dirty = serialiseBookingsFiltersToUrl(params, EMPTY_FILTERS)
+      expect(dirty).toBe(true)
+      expect(params.has('status')).toBe(false)
+      expect(params.has('product')).toBe(false)
+      expect(params.has('dateRange')).toBe(false)
+      expect(params.has('past')).toBe(false)
+    })
+
+    it('serialise is a no-op when URL already matches state', () => {
+      const filters: BookingsFilters = {
+        ...EMPTY_FILTERS,
+        lifecycleStates: ['confirmed_paid'],
+      }
+      const params = new URLSearchParams('?status=confirmed_paid')
+      expect(serialiseBookingsFiltersToUrl(params, filters)).toBe(false)
+    })
+
+    it('initialOverride wins over localStorage on first mount', () => {
+      // Seed localStorage with one selection…
+      window.localStorage.setItem(
+        storageKey('user-1'),
+        JSON.stringify({
+          lifecycleStates: ['cancelled'],
+          productIds: [],
+          pickupLocationIds: [],
+          productKinds: [],
+          serviceTimeShapes: [],
+          showPast: false,
+          serviceDateRange: null,
+        }),
+      )
+      // …then mount with an override (URL-derived). The override should
+      // win on first paint AND get persisted so a reload-without-URL still
+      // reflects it.
+      const override: BookingsFilters = {
+        ...EMPTY_FILTERS,
+        lifecycleStates: ['confirmed_paid'],
+        productKinds: ['service'],
+      }
+      const { result } = renderHook(() =>
+        useBookingsFilters({ initialOverride: override }),
+      )
+      expect(result.current.filters.lifecycleStates).toEqual(['confirmed_paid'])
+      expect(result.current.filters.productKinds).toEqual(['service'])
+      const persisted = JSON.parse(
+        window.localStorage.getItem(storageKey('user-1'))!,
+      )
+      expect(persisted.lifecycleStates).toEqual(['confirmed_paid'])
+      expect(persisted.productKinds).toEqual(['service'])
+    })
+
+    it('with no override, falls back to localStorage as before', () => {
+      window.localStorage.setItem(
+        storageKey('user-1'),
+        JSON.stringify({
+          lifecycleStates: ['pending'],
+          productIds: [],
+          pickupLocationIds: [],
+          productKinds: [],
+          serviceTimeShapes: [],
+        }),
+      )
+      const { result } = renderHook(() =>
+        useBookingsFilters({ initialOverride: null }),
+      )
+      expect(result.current.filters.lifecycleStates).toEqual(['pending'])
     })
   })
 })

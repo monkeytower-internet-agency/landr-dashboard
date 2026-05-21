@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { DownloadIcon } from 'lucide-react'
@@ -16,8 +16,16 @@ import {
   fetchContactTypeCounts,
   type ContactRow,
 } from '@/lib/contacts'
-import { useContactsFilters } from '@/lib/contacts-filters'
-import { useContactsSort } from '@/lib/contacts-sort'
+import {
+  parseContactsFiltersFromUrl,
+  serialiseContactsFiltersToUrl,
+  useContactsFilters,
+} from '@/lib/contacts-filters'
+import {
+  parseContactsSortFromUrl,
+  serialiseContactsSortToUrl,
+  useContactsSort,
+} from '@/lib/contacts-sort'
 import { downloadCsv, todayStampUtc, type CsvColumn } from '@/lib/csv-export'
 import { useOperator } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
@@ -56,11 +64,34 @@ export function Contacts() {
   // landr-dp45 — `includeErased` is also part of the key so flipping the
   // "Show erased contacts" toggle re-runs the fetch with/without the
   // `gdpr_erased_at IS NULL` filter.
-  const sortApi = useContactsSort()
-  const filtersApi = useContactsFilters()
+  //
+  // landr-j57l — URL deep-link parses (?type=…&erased=…&sort=…&q=…) are
+  // captured once via useState initializer and passed into the hooks as
+  // `initialOverride`. URL > localStorage on first mount; subsequent state
+  // changes push back to the URL via the effect below ({ replace: true }).
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [initialUrlFilters] = useState(() =>
+    parseContactsFiltersFromUrl(searchParams),
+  )
+  const [initialUrlSort] = useState(() =>
+    parseContactsSortFromUrl(searchParams),
+  )
+  const [initialUrlQuery] = useState(
+    () => searchParams.get('q')?.trim() ?? '',
+  )
+  const sortApi = useContactsSort({ initialOverride: initialUrlSort })
+  const filtersApi = useContactsFilters({ initialOverride: initialUrlFilters })
   const { sort } = sortApi
   const { filters } = filtersApi
   const typesKey = filters.types.slice().sort().join(',') || 'all'
+
+  // landr-j57l — `?q=` deep-links the global search input. Controlled by
+  // the route so the value can sync to the URL; ContactsTable accepts
+  // controlled globalFilter props now.
+  const [globalQuery, setGlobalQuery] = useState<string>(initialUrlQuery)
+  const handleGlobalQueryChange = useCallback((next: string) => {
+    setGlobalQuery(next)
+  }, [])
 
   const query = useRealtimeQuery<ContactRow[]>({
     queryKey: [
@@ -120,7 +151,8 @@ export function Contacts() {
   //
   // URL-param → local-state sync is one of the documented exceptions to
   // the set-state-in-effect rule; see the matching comment in Bookings.tsx.
-  const [searchParams, setSearchParams] = useSearchParams()
+  // (searchParams/setSearchParams are declared at the top of the component
+  // now — landr-j57l also needs them for filter URL round-tripping.)
   const openContactId = searchParams.get('open')
   useEffect(() => {
     if (!openContactId) return
@@ -132,6 +164,31 @@ export function Contacts() {
     // setSearchParams identity intentionally excluded — see Bookings.tsx.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openContactId])
+
+  // landr-j57l — state → URL sync. Mirrors the Bookings effect: on every
+  // change of filters / sort / search push the merged params back to the
+  // URL with { replace: true } so the link is bookmarkable without piling
+  // up history entries. Compare-before-write inside the serialise helpers
+  // means no-op renders don't re-trigger the router.
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    let dirty = serialiseContactsFiltersToUrl(next, filters)
+    if (serialiseContactsSortToUrl(next, sort)) dirty = true
+    const trimmedQuery = globalQuery.trim()
+    if (trimmedQuery) {
+      if (next.get('q') !== trimmedQuery) {
+        next.set('q', trimmedQuery)
+        dirty = true
+      }
+    } else if (next.has('q')) {
+      next.delete('q')
+      dirty = true
+    }
+    if (dirty) setSearchParams(next, { replace: true })
+    // setSearchParams identity intentionally excluded; same pattern as
+    // the `?open=` effect above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, sort, globalQuery])
 
   return (
     <div className="flex flex-col gap-6">
@@ -180,6 +237,8 @@ export function Contacts() {
           onErase={(row) => setEraseTarget(row)}
           onAudit={(row) => setAuditTarget(row)}
           isLoading={query.isPending && !!currentOperatorId}
+          globalFilter={globalQuery}
+          onGlobalFilterChange={handleGlobalQueryChange}
         />
       )}
       <CustomerDetailSheet
