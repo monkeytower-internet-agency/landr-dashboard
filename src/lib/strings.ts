@@ -832,7 +832,15 @@ export const t = {
     toastRejected: (n: number) =>
       n === 1 ? 'Rejected 1 booking' : `Rejected ${n} bookings`,
     toastReminderSent: (n: number) =>
-      n === 1 ? 'Reminder sent for 1 booking' : `Reminders sent for ${n} bookings`,
+      n === 1 ? '1 reminder sent' : `${n} reminders sent`,
+    // landr-vaob — partial-failure variant for the bulk-reminder endpoint
+    // (POST /api/staff/operators/{op}/bookings/bulk-reminder, landr-s0wo).
+    // The endpoint is best-effort per booking — cross-tenant ids and
+    // template/enqueue failures both surface in `failed` rather than
+    // aborting the batch, so the toast must distinguish "N sent, M failed"
+    // from the all-success and all-fail paths.
+    toastReminderPartial: (ok: number, fail: number) =>
+      `${ok} sent, ${fail} failed`,
     toastExported: (n: number) =>
       n === 1 ? 'Exported 1 booking to CSV' : `Exported ${n} bookings to CSV`,
     // Partial failure: some rows succeeded, some didn't.

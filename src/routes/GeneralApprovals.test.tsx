@@ -633,6 +633,79 @@ describe('GeneralApprovals route', () => {
     expect(String(message)).not.toMatch(/undo/i)
   })
 
+  // ---- landr-vaob (bulk-reminder wiring) ------------------------------
+
+  it('bulk-send-reminder POSTs to the operator-scoped endpoint and toasts on full success', async () => {
+    mock.state.rows = [sampleRow, newCustomerRow]
+    // landr-vaob — the bulk-reminder endpoint is a SINGLE POST per click
+    // (not Promise.all like approve/reject), but use mockImplementation
+    // anyway per fetch-spy-response-mockResolvedValue-footgun: cheaper to
+    // be defensive than to debug a body-already-read regression later.
+    fetchSpy.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ sent: 2, failed: [] }), { status: 200 }),
+    )
+    const user = userEvent.setup()
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+    await user.click(screen.getByTestId('approvals-select-all'))
+    await user.click(screen.getByTestId('approvals-bulk-toolbar-send-reminder'))
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/staff/operators/op-1/bookings/bulk-reminder')
+    expect(opts.method).toBe('POST')
+    const body = JSON.parse(opts.body as string) as { booking_ids: string[] }
+    expect(body.booking_ids).toEqual(
+      expect.arrayContaining(['b-abc123', 'b-xyz789']),
+    )
+
+    await waitFor(() => expect(toastCalls.success).toHaveLength(1))
+    expect(String(toastCalls.success[0].message)).toBe('2 reminders sent')
+  })
+
+  it('bulk-send-reminder surfaces a partial-failure toast when failed[] is non-empty', async () => {
+    mock.state.rows = [sampleRow, newCustomerRow]
+    fetchSpy.mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({ sent: 1, failed: ['b-xyz789'] }),
+          { status: 200 },
+        ),
+    )
+    const user = userEvent.setup()
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+    await user.click(screen.getByTestId('approvals-select-all'))
+    await user.click(screen.getByTestId('approvals-bulk-toolbar-send-reminder'))
+
+    await waitFor(() => expect(toastCalls.warning).toHaveLength(1))
+    expect(String(toastCalls.warning[0].message)).toBe('1 sent, 1 failed')
+    expect(toastCalls.success).toHaveLength(0)
+  })
+
+  it('bulk-send-reminder surfaces an error toast when every booking failed', async () => {
+    mock.state.rows = [sampleRow, newCustomerRow]
+    fetchSpy.mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({ sent: 0, failed: ['b-abc123', 'b-xyz789'] }),
+          { status: 200 },
+        ),
+    )
+    const user = userEvent.setup()
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+    await user.click(screen.getByTestId('approvals-select-all'))
+    await user.click(screen.getByTestId('approvals-bulk-toolbar-send-reminder'))
+
+    await waitFor(() => expect(toastCalls.error).toHaveLength(1))
+    expect(String(toastCalls.error[0].message)).toBe('Bulk action failed')
+  })
+
   it('Awaiting filter narrows the table to the selected stage(s)', async () => {
     const hotelRow = {
       ...newCustomerRow,
