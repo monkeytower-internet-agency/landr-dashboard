@@ -438,7 +438,10 @@ export function BookingsCalendar({
           </Button>
         </div>
       ) : null}
-      <div className="landr-fc rounded-md border p-3">
+      {/* landr-gu14 — tighter padding on phone so the FullCalendar grid
+          has more width to render day cells; desktop keeps the original
+          p-3 breathing room. */}
+      <div className="landr-fc rounded-md border p-1 sm:p-3">
         <FullCalendar
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}

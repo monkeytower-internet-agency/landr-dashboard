@@ -41,7 +41,7 @@ export function OperatorSwitcher() {
     const only = operators[0]
     return (
       <span
-        className="text-foreground text-sm font-medium truncate"
+        className="text-foreground max-w-[8rem] truncate text-sm font-medium sm:max-w-[16rem]"
         aria-label={t.operator.switcherLabel}
       >
         {displayName(only.name, only.slug)}
@@ -60,7 +60,10 @@ export function OperatorSwitcher() {
           variant="outline"
           size="sm"
           aria-label={t.operator.switcherLabel}
-          className="justify-between gap-2"
+          // landr-gu14 — cap the trigger width on phone so a long operator
+          // name can't push the page title clean off the topbar. Desktop
+          // keeps the original auto-width behaviour.
+          className="max-w-[8rem] justify-between gap-2 sm:max-w-none"
         >
           <span className="truncate">{label}</span>
           <ChevronsUpDown className="size-4 opacity-60" />
