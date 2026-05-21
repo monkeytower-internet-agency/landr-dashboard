@@ -542,6 +542,32 @@ export async function cancelBooking(
   await api<unknown>('DELETE', `/api/staff/bookings/${bookingId}`, { reason })
 }
 
+// ----- Bulk reminder (landr-vaob) -----------------------------------------
+// Backs the Send-reminder action in BulkActionToolbar. The endpoint
+// landed in landr-s0wo:
+//   POST /api/staff/operators/{operator_id}/bookings/bulk-reminder
+//   { booking_ids: string[] }  ->  { sent: number, failed: string[] }
+// The endpoint is best-effort per booking — cross-tenant ids and email
+// enqueue/template failures both surface in `failed` rather than aborting
+// the batch. Empty input is rejected by the server (422); callers should
+// not invoke this with an empty list.
+
+export type BulkReminderResult = {
+  sent: number
+  failed: string[]
+}
+
+export async function bulkSendReminder(
+  operatorId: string,
+  bookingIds: string[],
+): Promise<BulkReminderResult> {
+  return api<BulkReminderResult>(
+    'POST',
+    `/api/staff/operators/${operatorId}/bookings/bulk-reminder`,
+    { booking_ids: bookingIds },
+  )
+}
+
 // ----- Approval-queue helpers (landr-aqn4) --------------------------------
 // Pure derivations off BookingRow used by the Approvals page filters +
 // table. Kept here (rather than in src/components/approvals) so the

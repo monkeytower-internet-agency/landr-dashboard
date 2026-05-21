@@ -56,6 +56,7 @@ import {
 } from '@/components/ui/table'
 import {
   activityDateDisplay,
+  bulkSendReminder,
   customerDisplay,
   dateDisplay,
   fetchPendingGeneralApprovals,
@@ -396,12 +397,31 @@ export function GeneralApprovals() {
     setSelectedIds(new Set())
   }
 
-  function runBulkSendReminder(ids: string[]): void {
-    // landr-lbbj — stub action. The reminder-email endpoint doesn't exist
-    // yet (filed as follow-up). Surface a success toast so the UX is
-    // wired end-to-end; once the endpoint lands swap in the real call.
-    toast.success(t.bulkActions.toastReminderSent(ids.length))
-    setSelectedIds(new Set())
+  // landr-vaob — bulk send-reminder wired to the real endpoint
+  // (POST /api/staff/operators/{op}/bookings/bulk-reminder, landr-s0wo).
+  // The endpoint is best-effort per booking — cross-tenant ids and
+  // enqueue/template failures land in `failed` rather than aborting the
+  // batch, so we surface a partial-success toast when failed.length > 0.
+  async function runBulkSendReminder(ids: string[]): Promise<void> {
+    if (!currentOperatorId) return
+    setBulkBusy(true)
+    try {
+      const { sent, failed } = await bulkSendReminder(currentOperatorId, ids)
+      setSelectedIds(new Set())
+      if (failed.length === 0) {
+        toast.success(t.bulkActions.toastReminderSent(sent))
+      } else if (sent > 0) {
+        toast.warning(t.bulkActions.toastReminderPartial(sent, failed.length))
+      } else {
+        toast.error(t.bulkActions.toastError)
+      }
+    } catch (err) {
+      toast.error(t.bulkActions.toastError, {
+        description: err instanceof Error ? err.message : undefined,
+      })
+    } finally {
+      setBulkBusy(false)
+    }
   }
 
   return (

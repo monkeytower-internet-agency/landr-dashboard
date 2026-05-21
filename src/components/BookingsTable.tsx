@@ -24,6 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
+  bulkSendReminder,
   customerDisplay,
   dateDisplay,
   earliestScheduledItem,
@@ -103,6 +104,8 @@ export function BookingsTable({
   // landr-lbbj — bulk-select state. Set<id> keeps the selection compact
   // and lets us O(1) check from the header / row checkboxes.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  // landr-vaob — disables the toolbar while bulkSendReminder is in flight.
+  const [bulkBusy, setBulkBusy] = useState(false)
   // landr-f1s — respect the operator's time_format_24h preference for the
   // Created column.
   const { hour12 } = useOperatorCalendarPrefs()
@@ -383,11 +386,30 @@ export function BookingsTable({
     setSelectedIds(new Set())
   }
 
-  function runBulkSendReminder(ids: string[]): void {
-    // landr-lbbj — stub action. Same as Approvals — wire to the real
-    // reminder endpoint once it exists.
-    toast.success(t.bulkActions.toastReminderSent(ids.length))
-    setSelectedIds(new Set())
+  // landr-vaob — bulk send-reminder wired to the real endpoint
+  // (POST /api/staff/operators/{op}/bookings/bulk-reminder, landr-s0wo).
+  // Mirrors GeneralApprovals.runBulkSendReminder so the two surfaces
+  // share toast semantics: full success / partial / total failure.
+  async function runBulkSendReminder(ids: string[]): Promise<void> {
+    if (!currentOperatorId) return
+    setBulkBusy(true)
+    try {
+      const { sent, failed } = await bulkSendReminder(currentOperatorId, ids)
+      setSelectedIds(new Set())
+      if (failed.length === 0) {
+        toast.success(t.bulkActions.toastReminderSent(sent))
+      } else if (sent > 0) {
+        toast.warning(t.bulkActions.toastReminderPartial(sent, failed.length))
+      } else {
+        toast.error(t.bulkActions.toastError)
+      }
+    } catch (err) {
+      toast.error(t.bulkActions.toastError, {
+        description: err instanceof Error ? err.message : undefined,
+      })
+    } finally {
+      setBulkBusy(false)
+    }
   }
 
   // landr-s1mr / landr-sj2z — When there are zero bookings at all AND we
@@ -525,6 +547,7 @@ export function BookingsTable({
         actions={['exportCsv', 'sendReminder']}
         onExportCsv={(ids) => runBulkExportCsv(ids)}
         onSendReminder={(ids) => runBulkSendReminder(ids)}
+        busy={bulkBusy}
         testIdPrefix="bookings-bulk-toolbar"
       />
     </div>
