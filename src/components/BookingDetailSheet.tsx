@@ -62,6 +62,7 @@ import {
 } from '@/lib/bookings'
 import { downloadInvoicePdf } from '@/lib/invoice-download'
 import { t } from '@/lib/strings'
+import { showDeleteUndoToast } from '@/lib/undo-toast'
 
 type Props = {
   row: BookingRow | null
@@ -299,7 +300,23 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
       await cancelBooking(row.id, cancelReason.trim())
     },
     onSuccess: () => {
-      toast.success(t.bookings.cancel.toastSuccess)
+      // landr-v6aq — replace the plain success toast with the undo flow
+      // (calendar-reschedule pattern). The 5s window calls the staff_trash
+      // restore router on Undo, which flips deleted_at back to NULL.
+      // Falls back to the plain toast when no operator is selected (rare
+      // outside tests; restore is operator-scoped on the server).
+      if (currentOperatorId) {
+        showDeleteUndoToast({
+          operatorId: currentOperatorId,
+          kind: 'bookings',
+          rowId: row.id,
+          message: t.undo.deletedBooking(customerDisplay(row)),
+          queryClient,
+          invalidateQueryKeys: [['bookings'], ['views-bookings']],
+        })
+      } else {
+        toast.success(t.bookings.cancel.toastSuccess)
+      }
       setShowCancel(false)
       setCancelReason('')
       invalidateAll()
