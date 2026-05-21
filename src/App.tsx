@@ -13,11 +13,15 @@ import {
 //     +interaction) and @dnd-kit via CalendarLayout / BoardLayout
 //   - /views and /views/new ride along so the whole Views family
 //     lives in its own chunk.
+//   - /audit (landr-aref) is operator-rare (fraud/dispute lookups)
+//     so it rides the same lazy pattern to avoid weighing down the
+//     initial bundle for everyone.
 // AuthCallback / Login / Dashboard / Bookings / Calendar / etc stay
 // eagerly imported because the operator hits them within seconds of
 // landing and the network round-trip would feel laggier than the
 // extra bytes save.
 const Analytics = lazy(() => import('@/routes/Analytics'))
+const Audit = lazy(() => import('@/routes/Audit'))
 const ViewPage = lazy(() => import('@/routes/ViewPage'))
 const ViewsIndex = lazy(() => import('@/routes/ViewsIndex'))
 const ViewsNew = lazy(() => import('@/routes/ViewsNew'))
@@ -129,6 +133,10 @@ function App() {
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/contacts" element={<Contacts />} />
               <Route path="/reporting" element={<Reporting />} />
+              {/* landr-aref — /audit (audit_log viewer). Tenant-scoped via
+                  RLS on audit_log; landr staff see cross-tenant rows for
+                  fraud/dispute investigation per the existing policy. */}
+              <Route path="/audit" element={<Audit />} />
               <Route path="/approvals/general" element={<GeneralApprovals />} />
 
               {/* landr-fzcg — Account is a virtual top-level nav item
