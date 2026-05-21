@@ -6,10 +6,22 @@
 //     will likely upgrade this to multi-key when columns land).
 //   - Column picker placeholder (disabled until landr-7w3s Table layout).
 //
+// landr-1ztq — Toolbar also exposes a "Group:" dropdown that writes to
+// `config.groupBy` (used by the Table layout; other layouts ignore it).
+//
+// landr-4cwh — Board layouts also get a "Swimlanes" dropdown that writes
+// to `boardConfig.swimlaneBy` (any enum or id field of the entity).
+//
 // State lives in the parent (ViewPage owns the View's config). The toolbar
 // is a controlled component over the in-memory config blob.
 
-import { Filter as FilterIcon, ArrowUpDown, Columns3, Layers } from 'lucide-react'
+import {
+  Filter as FilterIcon,
+  ArrowUpDown,
+  Columns3,
+  Layers,
+  Rows3,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 import { ViewFilterChips } from '@/components/views/ViewFilterChips'
@@ -28,16 +40,22 @@ type Props = {
   entityType: string
   config: Record<string, unknown>
   onChange: (next: Record<string, unknown>) => void
+  /** landr-4cwh — Effective layout (URL override or config). The Swimlanes
+   *  control only renders when this is 'board' since it writes a
+   *  Board-only config key. */
+  layout?: 'table' | 'board' | 'calendar'
   testIdPrefix?: string
 }
 
 const NO_SORT_VALUE = '__none__'
 const NO_GROUP_VALUE = '__none__'
+const NO_SWIMLANE_VALUE = '__none__'
 
 export function ViewToolbar({
   entityType,
   config,
   onChange,
+  layout,
   testIdPrefix = 'view-toolbar',
 }: Props) {
   const filters = readFilters(config)
@@ -45,6 +63,13 @@ export function ViewToolbar({
   const groupBy = readGroupBy(entityType, config)
   const sortableFields = fieldsFor(entityType).filter((f) => f.sortable)
   const groupableFields = groupableFieldsFor(entityType)
+  // landr-4cwh — swimlanes can group by any enum or id field. We exclude
+  // free-text / date / number / boolean — they don't yield discrete rows.
+  const swimlaneFields = fieldsFor(entityType).filter(
+    (f) => f.type === 'enum' || f.type === 'id',
+  )
+  const swimlaneBy = readSwimlaneBy(config)
+  const activeSwimlaneKey = swimlaneBy ?? NO_SWIMLANE_VALUE
 
   function setFilters(next: Filter[]) {
     onChange({ ...config, filters: next })
@@ -81,6 +106,19 @@ export function ViewToolbar({
     }
     const next: GroupByRef = { source: 'system', key }
     onChange({ ...config, groupBy: next })
+  }
+
+  // landr-4cwh — write boardConfig.swimlaneBy. Selecting "None" persists
+  // an explicit null (keeps the key in place so a future diff shows the
+  // operator opted out, vs. it just being unset by an older write).
+  function setSwimlaneBy(key: string) {
+    const prevBoard =
+      (config as { boardConfig?: Record<string, unknown> }).boardConfig ?? {}
+    const nextBoard: Record<string, unknown> = {
+      ...prevBoard,
+      swimlaneBy: key === NO_SWIMLANE_VALUE ? null : key,
+    }
+    onChange({ ...config, boardConfig: nextBoard })
   }
 
   const activeSortKey = sort[0]?.key ?? NO_SORT_VALUE
@@ -170,6 +208,36 @@ export function ViewToolbar({
         </div>
       ) : null}
 
+      {layout === 'board' ? (
+        <div
+          className="flex items-center gap-1.5"
+          data-testid={`${testIdPrefix}-swimlane`}
+        >
+          <Rows3
+            className="text-muted-foreground size-4"
+            aria-hidden="true"
+          />
+          <span className="text-muted-foreground text-xs">
+            {t.views.toolbar.swimlaneLabel}
+          </span>
+          <NativeSelect
+            value={activeSwimlaneKey}
+            onChange={(e) => setSwimlaneBy(e.target.value)}
+            data-testid={`${testIdPrefix}-swimlane-key`}
+            className="h-7 w-auto text-xs"
+          >
+            <option value={NO_SWIMLANE_VALUE}>
+              {t.views.toolbar.swimlaneNone}
+            </option>
+            {swimlaneFields.map((f) => (
+              <option key={f.key} value={f.key}>
+                {f.label}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+      ) : null}
+
       <Button
         type="button"
         size="sm"
@@ -200,4 +268,13 @@ function isSortEntry(x: unknown): x is SortEntry {
     typeof s.key === 'string' &&
     (s.dir === 'asc' || s.dir === 'desc')
   )
+}
+
+// landr-4cwh — Read boardConfig.swimlaneBy, tolerating string / null /
+// missing alike. Anything else collapses to null so the Swimlanes dropdown
+// shows "None" instead of crashing on a malformed config.
+function readSwimlaneBy(config: Record<string, unknown>): string | null {
+  const bc = (config as { boardConfig?: { swimlaneBy?: unknown } }).boardConfig
+  const raw = bc?.swimlaneBy
+  return typeof raw === 'string' ? raw : null
 }

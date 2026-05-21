@@ -210,6 +210,171 @@ describe('BoardLayout (landr-kjls)', () => {
   })
 })
 
+describe('BoardLayout swimlanes (landr-4cwh)', () => {
+  it('renders the flat single-axis Board when swimlaneBy is null', () => {
+    render(
+      <BoardLayout
+        view={makeView({
+          config: {
+            layout: 'board',
+            filters: [],
+            sort: [],
+            boardConfig: { columnBy: 'current_stage', swimlaneBy: null },
+          },
+        })}
+        items={[makeRow({ id: 'book-1' })]}
+        onItemMutate={vi.fn()}
+      />,
+    )
+    // Flat board chrome (no matrix-only test ids).
+    expect(screen.getByTestId('board-layout')).not.toHaveAttribute(
+      'data-board-swimlane-by',
+    )
+    expect(
+      screen.queryByTestId('board-matrix-header-confirmed'),
+    ).not.toBeInTheDocument()
+    // Card lives in the flat column, not in a (col, lane) cell.
+    expect(
+      screen.getByTestId('board-column-awaiting_general_approval'),
+    ).toContainElement(screen.getByTestId('board-card-book-1'))
+  })
+
+  it('renders a 2D matrix when swimlaneBy is an enum field', () => {
+    render(
+      <BoardLayout
+        view={makeView({
+          config: {
+            layout: 'board',
+            filters: [],
+            sort: [],
+            boardConfig: {
+              columnBy: 'current_stage',
+              swimlaneBy: 'current_semantic_state',
+            },
+          },
+        })}
+        items={[
+          makeRow({
+            id: 'book-1',
+            current_semantic_state: 'pending',
+            current_stage: { code: 'awaiting_general_approval' },
+          }),
+          makeRow({
+            id: 'book-2',
+            current_semantic_state: 'confirmed',
+            current_stage: { code: 'confirmed' },
+          }),
+        ]}
+        onItemMutate={vi.fn()}
+      />,
+    )
+    // Matrix-only chrome: data attr + per-column header + per-swimlane row.
+    expect(screen.getByTestId('board-layout')).toHaveAttribute(
+      'data-board-swimlane-by',
+      'current_semantic_state',
+    )
+    expect(
+      screen.getByTestId('board-matrix-header-confirmed'),
+    ).toBeInTheDocument()
+    expect(screen.getByTestId('board-swimlane-pending')).toBeInTheDocument()
+    expect(screen.getByTestId('board-swimlane-confirmed')).toBeInTheDocument()
+
+    // Cards land in the correct (col, lane) cells.
+    expect(
+      screen.getByTestId('board-cell-awaiting_general_approval-pending'),
+    ).toContainElement(screen.getByTestId('board-card-book-1'))
+    expect(
+      screen.getByTestId('board-cell-confirmed-confirmed'),
+    ).toContainElement(screen.getByTestId('board-card-book-2'))
+  })
+
+  it('renders empty cells without cards', () => {
+    render(
+      <BoardLayout
+        view={makeView({
+          config: {
+            layout: 'board',
+            filters: [],
+            sort: [],
+            boardConfig: {
+              columnBy: 'current_stage',
+              swimlaneBy: 'current_semantic_state',
+            },
+          },
+        })}
+        items={[
+          makeRow({
+            id: 'book-1',
+            current_semantic_state: 'pending',
+            current_stage: { code: 'awaiting_general_approval' },
+          }),
+        ]}
+        onItemMutate={vi.fn()}
+      />,
+    )
+    // (confirmed × pending) cell has no card.
+    const cell = screen.getByTestId('board-cell-confirmed-pending')
+    expect(cell).not.toContainElement(screen.queryByTestId('board-card-book-1'))
+    // Empty-column placeholder still renders inside the cell via BoardColumn.
+    expect(
+      cell.querySelector('[data-testid^="board-column-empty-"]'),
+    ).not.toBeNull()
+  })
+
+  it('shows an inline warning when swimlaneBy points at an unknown field', () => {
+    render(
+      <BoardLayout
+        view={makeView({
+          config: {
+            layout: 'board',
+            filters: [],
+            sort: [],
+            boardConfig: {
+              columnBy: 'current_stage',
+              swimlaneBy: 'no_such_field',
+            },
+          },
+        })}
+        items={[makeRow({ id: 'book-1' })]}
+        onItemMutate={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('board-swimlane-warning')).toHaveTextContent(
+      /no_such_field/i,
+    )
+    // Falls back to flat layout — the matrix chrome must not render.
+    expect(
+      screen.queryByTestId('board-matrix-header-confirmed'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByTestId('board-column-awaiting_general_approval'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows an inline warning when swimlaneBy points at a non-groupable field', () => {
+    render(
+      <BoardLayout
+        view={makeView({
+          config: {
+            layout: 'board',
+            filters: [],
+            sort: [],
+            boardConfig: {
+              columnBy: 'current_stage',
+              swimlaneBy: 'customer_first_name', // text — not enum/id
+            },
+          },
+        })}
+        items={[]}
+        onItemMutate={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('board-swimlane-warning')).toHaveTextContent(
+      /enum or id/i,
+    )
+  })
+})
+
 describe('resolveBoardDrop (landr-kjls)', () => {
   const items = [
     makeRow({ id: 'a' }),
@@ -283,6 +448,21 @@ describe('resolveBoardDrop (landr-kjls)', () => {
       columnBy: 'current_stage',
     })
     expect(out?.newValue).toBe('confirmed')
+  })
+
+  it('strips the matrix `::<lane>` suffix from compound column drop ids (landr-4cwh)', () => {
+    const out = resolveBoardDrop({
+      activeId: 'a',
+      overId: 'column:confirmed::pending',
+      items,
+      columnBy: 'current_stage',
+    })
+    // The transition gate sees `confirmed` — the lane suffix is ignored.
+    expect(out).toEqual({
+      itemId: 'a',
+      fieldKey: 'current_stage',
+      newValue: 'confirmed',
+    })
   })
 })
 

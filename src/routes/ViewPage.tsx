@@ -542,6 +542,7 @@ export function ViewPage() {
             entityType={view.entity_type}
             config={dirty.config}
             onChange={dirty.setConfig}
+            layout={effectiveLayout}
           />
           <LayoutBody
             layout={effectiveLayout}
