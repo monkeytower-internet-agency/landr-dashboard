@@ -4,6 +4,10 @@ import type {
   BookingDayProviderAssignmentRow,
   ProviderRow,
 } from '@/lib/assignments'
+import type {
+  VoucherRedemptionRow,
+  VoucherRow,
+} from '@/lib/vouchers-analytics'
 import {
   bucketForRange,
   computeAnalyticsKpis,
@@ -16,6 +20,7 @@ import {
   shapePerStaffRevenue,
   shapeRevenueOverTime,
   shapeTopCustomers,
+  shapeVoucherPerformance,
   todayUtcIso,
 } from './analytics'
 
@@ -657,5 +662,183 @@ describe('shapePerStaffRevenue', () => {
     expect(out.every((r) => r.bookings === 1)).toBe(true)
     expect(out.every((r) => r.revenue === 200)).toBe(true)
     expect(out.every((r) => r.averagePerBooking === 200)).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// shapeVoucherPerformance — landr-1jgr
+// ---------------------------------------------------------------------------
+
+function makeVoucher(over: Partial<VoucherRow> & { id: string }): VoucherRow {
+  return {
+    id: over.id,
+    operator_id: over.operator_id ?? 'op-1',
+    code: over.code ?? `CODE-${over.id}`,
+    kind: over.kind ?? 'percent',
+    amount: over.amount ?? 10,
+    currency: over.currency ?? 'EUR',
+    used_count: over.used_count ?? 0,
+    max_uses: over.max_uses ?? null,
+    active: over.active ?? true,
+  }
+}
+
+function makeRedemption(
+  over: Partial<VoucherRedemptionRow> & {
+    booking_id: string
+    voucher_id: string
+  },
+): VoucherRedemptionRow {
+  return {
+    booking_id: over.booking_id,
+    voucher_id: over.voucher_id,
+    created_at: over.created_at ?? '2026-05-01T10:00:00.000Z',
+    gross_total: over.gross_total ?? 90,
+    currency: over.currency ?? 'EUR',
+    current_semantic_state: over.current_semantic_state ?? 'confirmed',
+  }
+}
+
+describe('shapeVoucherPerformance', () => {
+  it('returns empty when there are no redemptions', () => {
+    expect(
+      shapeVoucherPerformance({ redemptions: [], vouchers: [] }),
+    ).toEqual([])
+  })
+
+  it('aggregates flat-voucher discount as amount × redemption count', () => {
+    const vouchers = [
+      makeVoucher({ id: 'v1', code: 'FLAT5', kind: 'flat', amount: 5 }),
+    ]
+    const redemptions = [
+      makeRedemption({ booking_id: 'b1', voucher_id: 'v1' }),
+      makeRedemption({ booking_id: 'b2', voucher_id: 'v1' }),
+      makeRedemption({ booking_id: 'b3', voucher_id: 'v1' }),
+    ]
+    const out = shapeVoucherPerformance({ redemptions, vouchers })
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({
+      voucherId: 'v1',
+      code: 'FLAT5',
+      kind: 'flat',
+      redemptions: 3,
+      discountTotal: 15,
+      currency: 'EUR',
+    })
+  })
+
+  it('approximates percent-voucher discount from post-discount gross', () => {
+    // 10% off; gross_total is post-discount → discount = gross × 10 / 90.
+    const vouchers = [
+      makeVoucher({ id: 'v1', code: 'TEN', kind: 'percent', amount: 10 }),
+    ]
+    const redemptions = [
+      makeRedemption({
+        booking_id: 'b1',
+        voucher_id: 'v1',
+        gross_total: 90, // pre-discount 100 → 10 off.
+      }),
+      makeRedemption({
+        booking_id: 'b2',
+        voucher_id: 'v1',
+        gross_total: 180, // pre-discount 200 → 20 off.
+      }),
+    ]
+    const out = shapeVoucherPerformance({ redemptions, vouchers })
+    expect(out).toHaveLength(1)
+    expect(out[0].redemptions).toBe(2)
+    expect(out[0].discountTotal).toBe(30) // 10 + 20.
+  })
+
+  it('excludes cancelled bookings from discount total but counts the redemption', () => {
+    const vouchers = [
+      makeVoucher({ id: 'v1', code: 'FLAT5', kind: 'flat', amount: 5 }),
+    ]
+    const redemptions = [
+      makeRedemption({
+        booking_id: 'b1',
+        voucher_id: 'v1',
+        current_semantic_state: 'confirmed',
+      }),
+      makeRedemption({
+        booking_id: 'b2',
+        voucher_id: 'v1',
+        current_semantic_state: 'cancelled',
+      }),
+    ]
+    const out = shapeVoucherPerformance({ redemptions, vouchers })
+    expect(out[0].redemptions).toBe(2)
+    expect(out[0].discountTotal).toBe(5)
+  })
+
+  it('falls back to a synthetic label when the voucher row is missing', () => {
+    const redemptions = [
+      makeRedemption({
+        booking_id: 'b1',
+        voucher_id: '12345678-aaaa-bbbb-cccc-deletedvoucher',
+      }),
+    ]
+    const out = shapeVoucherPerformance({ redemptions, vouchers: [] })
+    expect(out).toHaveLength(1)
+    expect(out[0].code).toMatch(/deleted voucher/)
+    expect(out[0].kind).toBe('unknown')
+    expect(out[0].discountTotal).toBe(0)
+  })
+
+  it('handles 100% vouchers as full gross discount', () => {
+    const vouchers = [
+      makeVoucher({ id: 'v1', code: 'FREE', kind: 'percent', amount: 100 }),
+    ]
+    const redemptions = [
+      makeRedemption({
+        booking_id: 'b1',
+        voucher_id: 'v1',
+        gross_total: 0,
+      }),
+    ]
+    const out = shapeVoucherPerformance({ redemptions, vouchers })
+    // 100% off → gross is 0 in practice; discount falls back to gross_total.
+    expect(out[0].discountTotal).toBe(0)
+  })
+
+  it('sorts by redemption count desc, then discount desc, then code asc', () => {
+    const vouchers = [
+      makeVoucher({ id: 'va', code: 'AAA', kind: 'flat', amount: 5 }),
+      makeVoucher({ id: 'vb', code: 'BBB', kind: 'flat', amount: 5 }),
+      makeVoucher({ id: 'vc', code: 'CCC', kind: 'flat', amount: 10 }),
+    ]
+    const redemptions = [
+      // vc: 1 redemption × $10 discount
+      makeRedemption({ booking_id: 'b1', voucher_id: 'vc' }),
+      // va: 2 redemptions × $5 discount = $10 total
+      makeRedemption({ booking_id: 'b2', voucher_id: 'va' }),
+      makeRedemption({ booking_id: 'b3', voucher_id: 'va' }),
+      // vb: 2 redemptions × $5 discount = $10 total (tie with va — code asc wins).
+      makeRedemption({ booking_id: 'b4', voucher_id: 'vb' }),
+      makeRedemption({ booking_id: 'b5', voucher_id: 'vb' }),
+    ]
+    const out = shapeVoucherPerformance({ redemptions, vouchers })
+    expect(out.map((r) => r.code)).toEqual(['AAA', 'BBB', 'CCC'])
+  })
+
+  it('prefers voucher currency over redemption currency for the row', () => {
+    const vouchers = [
+      makeVoucher({
+        id: 'v1',
+        code: 'USD5',
+        kind: 'flat',
+        amount: 5,
+        currency: 'USD',
+      }),
+    ]
+    const redemptions = [
+      makeRedemption({
+        booking_id: 'b1',
+        voucher_id: 'v1',
+        currency: 'EUR',
+      }),
+    ]
+    const out = shapeVoucherPerformance({ redemptions, vouchers })
+    expect(out[0].currency).toBe('USD')
   })
 })
