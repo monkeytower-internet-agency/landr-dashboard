@@ -1,4 +1,4 @@
-// landr-f18d — Quick-capture floating action button.
+// landr-f18d (UI) + landr-eaqr (Save wire-up) — Quick-capture FAB.
 //
 // Globally-visible FAB (bottom-right corner, mounted by AppShell) that lets
 // an operator capture a phone-call booking in 3 fields without leaving the
@@ -12,27 +12,27 @@
 //     case of a one-day booking; multi-day capture stays in the full
 //     BookingDetailSheet flow)
 //
-// SCOPE-CUT (Save is a stub).
-// The ticket described "POST /api/staff/operators/{op}/bookings/draft (if
-// exists) OR existing draft-creation path". Investigation found neither:
-//   - app/routers/staff_bookings.py exposes /approval, PATCH /{id},
-//     DELETE /{id}, PATCH /{id}/products/{bp} — no create endpoint.
-//   - app/routers/public_bookings.py exposes POST /api/public/bookings but
-//     that route requires the full pricing payload (gross_total, computed
-//     breakdown), runs the customer-facing email pipeline, and is keyed by
-//     operator_slug rather than the staff bearer.
-//   - No BookingForm wizard exists today (the CommandPalette's "New
-//     booking" action just navigates to /bookings).
-// Per the ticket's scope-cut guidance ("scope-cut to a UI-only stub …, file
-// a follow-up"), Save shows a toast pointing at landr-rgvc (the API
-// follow-up) and landr-eaqr (the wire-up follow-up). The FAB + Dialog ship
-// today so the surface area is in place; once landr-rgvc lands, only the
-// onSubmit handler changes.
+// On Save (landr-eaqr):
+//   1. POST /api/staff/operators/{operatorId}/bookings/quick-create with
+//      the 4 fields (see @/lib/booking-create). The endpoint upserts the
+//      contact by email, drafts the booking + line at price, and returns
+//      { booking_id, contact_id }.
+//   2. Invalidate the ['bookings', operatorId] query so the bookings table
+//      and notifications counter pick up the new row immediately.
+//   3. Navigate to /bookings?open=<booking_id> — the landr-ne58
+//      deep-link effect on the Bookings route picks the param up and
+//      opens BookingDetailSheet for the new row, where the operator
+//      can fill in participants, addons, and any pricing overrides.
+//   4. On error (422/400 from the endpoint) surface a toast carrying
+//      the server's `detail.error` code so the operator sees
+//      "product_not_found" / "drafted_stage_missing" rather than a
+//      generic HTTP code.
 
 import { useMemo, useState } from 'react'
 import { PlusIcon } from 'lucide-react'
 import { toast } from 'sonner'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -46,6 +46,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
+import {
+  quickCreateBooking,
+  type QuickCreateBookingResult,
+} from '@/lib/booking-create'
 import { fetchProducts, type ProductRow } from '@/lib/products'
 import { useOperator } from '@/lib/operator'
 
@@ -131,9 +135,45 @@ function QuickCaptureBody({ operatorId, onClose }: BodyProps) {
   const [productId, setProductId] = useState('')
   const [date, setDate] = useState(() => todayIsoDate())
 
+  const qc = useQueryClient()
+  const navigate = useNavigate()
+
   const productsQuery = useQuery<ProductRow[]>({
     queryKey: ['quick-capture-products', operatorId],
     queryFn: () => fetchProducts(operatorId),
+  })
+
+  const createMutation = useMutation<
+    QuickCreateBookingResult,
+    Error,
+    {
+      customer_name: string
+      customer_email: string
+      product_id: string
+      date: string
+    }
+  >({
+    mutationFn: (payload) => quickCreateBooking(operatorId, payload),
+    onSuccess: (result) => {
+      // Refresh the bookings table + notifications counter so the new
+      // row is visible the moment the detail sheet opens. We invalidate
+      // the broad ['bookings'] prefix to catch both the operator-scoped
+      // list and the approvals counter (mirrors useRealtimeQuery's
+      // realtime-tick behaviour for a parity-flush after a mutation).
+      void qc.invalidateQueries({ queryKey: ['bookings'] })
+      onClose()
+      // Deep-link to the new booking — Bookings.tsx's `?open=` effect
+      // (landr-ne58) reads the param and pops the detail sheet for
+      // result.booking_id once the bookings query resolves.
+      navigate(`/bookings?open=${result.booking_id}`)
+    },
+    onError: (err) => {
+      // The api() helper unwraps FastAPI's `detail.error` strings into
+      // the thrown Error's message — surface verbatim so the operator
+      // sees `product_not_found` or `drafted_stage_missing` rather than
+      // a generic HTTP code.
+      toast.error(`Couldn't create booking: ${err.message}`)
+    },
   })
 
   // Same filter the public widget applies: only active, publicly-listed,
@@ -170,19 +210,18 @@ function QuickCaptureBody({ operatorId, onClose }: BodyProps) {
     emailValid &&
     productId !== '' &&
     dateValid &&
-    !productsQuery.isPending
+    !productsQuery.isPending &&
+    !createMutation.isPending
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canSubmit) return
-    // SCOPE-CUT: the staff-side quick-create endpoint doesn't exist yet
-    // (landr-rgvc). Acknowledge the capture so the operator knows the
-    // surface works, point them at the follow-up, and close. landr-eaqr
-    // tracks swapping this for a real POST + BookingDetailSheet handoff.
-    toast.info(
-      'Quick capture is queued — backend support pending (landr-rgvc / landr-eaqr).',
-    )
-    onClose()
+    createMutation.mutate({
+      customer_name: trimmedName,
+      customer_email: trimmedEmail,
+      product_id: productId,
+      date,
+    })
   }
 
   return (
@@ -265,11 +304,16 @@ function QuickCaptureBody({ operatorId, onClose }: BodyProps) {
       </div>
 
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          disabled={createMutation.isPending}
+        >
           Cancel
         </Button>
         <Button type="submit" disabled={!canSubmit}>
-          Save
+          {createMutation.isPending ? 'Saving…' : 'Save'}
         </Button>
       </DialogFooter>
     </form>
