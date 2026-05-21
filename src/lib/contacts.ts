@@ -1,7 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { CONTACT_TYPES, type ContactType } from '@/lib/contacts-filters'
 import type { ContactsSort } from '@/lib/contacts-sort'
-import { currentPublicUserId } from '@/lib/user-bridge'
 
 // landr-iz58 — operator-scoped tag projected through contact_tags JOIN
 // operator_tags. Same shape as BookingTagRef in lib/bookings.ts.
@@ -290,25 +289,23 @@ export async function fetchContactAuditLog(
 
 /**
  * Trigger the server-side GDPR erase procedure for a contact.
- * Wraps the `gdpr_erase_contact(p_contact_id, p_requested_by_user_id,
- * p_jurisdiction_note)` plpgsql function (Decision #69, 5-step PII scrub).
+ * Wraps the `gdpr_erase_contact(p_contact_id, p_jurisdiction_note)` plpgsql
+ * function (Decision #69, 5-step PII scrub).
+ *
+ * landr-mk8o — the RPC now resolves auth.uid() → public.users.id
+ * server-side, so the caller no longer passes a user id. Removed the
+ * client-side currentPublicUserId() bridge; the SECURITY DEFINER body
+ * reads the session's auth.uid directly and raises if it has no
+ * matching public.users row.
  *
  * Idempotent server-side: a second call is a no-op once gdpr_erased_at is set.
  */
 export async function gdprEraseContact(args: {
   contactId: string
-  /** Caller passes the supabase auth.uid; we bridge to public.users.id here. */
-  requestedByUserId: string
   jurisdictionNote: string
 }): Promise<void> {
-  // contacts.gdpr_erased_by_user_id FKs public.users(id), not auth.users(id).
-  // Resolve via the supabase_auth_id bridge (see lib/user-bridge.ts and the
-  // rls-bridge-supabase-auth-id memory).
-  const publicUserId = await currentPublicUserId(args.requestedByUserId)
-
   const { error } = await supabase.rpc('gdpr_erase_contact', {
     p_contact_id: args.contactId,
-    p_requested_by_user_id: publicUserId,
     p_jurisdiction_note: args.jurisdictionNote,
   })
   if (error) throw new Error(error.message)

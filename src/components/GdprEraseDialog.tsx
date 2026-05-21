@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useAuth } from '@/lib/auth'
 import {
   contactNameDisplay,
   gdprEraseContact,
@@ -29,7 +28,9 @@ type Props = {
 const CONFIRM_PHRASE = 'ERASE'
 
 export function GdprEraseDialog({ contact, onOpenChange }: Props) {
-  const { user } = useAuth()
+  // landr-mk8o — gdpr_erase_contact now resolves auth.uid() → public.users.id
+  // server-side, so we no longer need to read the session here. A missing
+  // session surfaces as the RPC's 'auth.uid() is NULL' error toast.
   const queryClient = useQueryClient()
   const [confirmText, setConfirmText] = useState('')
   const [reason, setReason] = useState('')
@@ -37,10 +38,8 @@ export function GdprEraseDialog({ contact, onOpenChange }: Props) {
   const mutation = useMutation({
     mutationFn: async () => {
       if (!contact) throw new Error('No contact selected')
-      if (!user) throw new Error('Not signed in')
       await gdprEraseContact({
         contactId: contact.id,
-        requestedByUserId: user.id,
         jurisdictionNote: reason.trim(),
       })
     },
