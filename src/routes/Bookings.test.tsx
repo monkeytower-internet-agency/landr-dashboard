@@ -373,6 +373,63 @@ describe('Bookings route', () => {
     expect(toastCalls.success).toHaveLength(0)
   })
 
+  // ---- landr-uqr2 — bulk-apply tags ------------------------------------
+
+  it('bulk-apply tag fans setBookingTags out per selected row and toasts on success', async () => {
+    mock.state.rows = sampleRows
+    // First call: fetchTags (TagPicker loads operator tag list).
+    // Subsequent calls: setBookingTags per selected row.
+    // landr-uqr2 / fetch-spy-response-mockResolvedValue-footgun — use
+    // mockImplementation so each parallel POST gets a fresh Response
+    // (Response bodies can only be consumed once).
+    const tagListBody = JSON.stringify([
+      {
+        id: 't1',
+        operator_id: 'op-1',
+        name: 'VIP',
+        color: '#3b82f6',
+        created_at: '2026-05-21T00:00:00Z',
+        updated_at: '2026-05-21T00:00:00Z',
+      },
+    ])
+    fetchSpy.mockImplementation(async (url: string) => {
+      if (url.endsWith('/tags') && !url.includes('/bookings/')) {
+        return new Response(tagListBody, { status: 200 })
+      }
+      // setBookingTags returns { tag_ids: [...] }
+      return new Response(JSON.stringify({ tag_ids: ['t1'] }), { status: 200 })
+    })
+    const user = userEvent.setup()
+    render(<Bookings />)
+
+    await screen.findByText('Alice Anderson')
+    await user.click(screen.getByTestId('bookings-select-all'))
+    // Open the toolbar Apply-tag popover, then the picker, then tick a tag.
+    await user.click(screen.getByTestId('bookings-bulk-toolbar-tag'))
+    await user.click(
+      screen.getByTestId('bookings-bulk-toolbar-tag-picker-trigger'),
+    )
+    await screen.findByTestId('bookings-bulk-toolbar-tag-picker-option-t1')
+    await user.click(
+      screen.getByTestId('bookings-bulk-toolbar-tag-picker-option-t1'),
+    )
+    await user.click(screen.getByTestId('bookings-bulk-toolbar-tag-confirm'))
+
+    // setBookingTags should have been POSTed once per selected row.
+    await waitFor(() => {
+      const setCalls = fetchSpy.mock.calls.filter((c) =>
+        String((c as [string])[0]).match(
+          /\/api\/staff\/operators\/op-1\/bookings\/[^/]+\/tags$/,
+        ),
+      )
+      expect(setCalls.length).toBe(2)
+    })
+    await waitFor(() => expect(toastCalls.success).toHaveLength(1))
+    expect(String(toastCalls.success[0].message)).toMatch(
+      /^Applied 1 tag to 2 rows$/,
+    )
+  })
+
   it('shows an error card when the query fails', async () => {
     mock.state.error = { message: 'boom' }
     render(<Bookings />)

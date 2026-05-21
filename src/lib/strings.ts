@@ -931,6 +931,25 @@ export const t = {
     toastPartial: (ok: number, fail: number) =>
       `${ok} succeeded, ${fail} failed`,
     toastError: 'Bulk action failed',
+    // landr-uqr2 — "Apply tag" action surfaced on Bookings + Contacts.
+    // Clicking the toolbar button reveals a TagPicker; submit fans the
+    // chosen tags out to every selected row via bulkApplyTagsTo{...}.
+    applyTags: 'Apply tag',
+    applyTagsPopoverTitle: 'Apply tags to selection',
+    applyTagsPopoverHint: (n: number) =>
+      n === 1
+        ? 'Pick one or more tags to add to the selected row.'
+        : `Pick one or more tags to add to the ${n} selected rows.`,
+    applyTagsConfirm: 'Apply',
+    applyTagsConfirmBusy: 'Applying…',
+    applyTagsPickPrompt: 'Pick at least one tag to apply.',
+    toastTagsApplied: (rows: number, tags: number) => {
+      const rowLabel = rows === 1 ? '1 row' : `${rows} rows`
+      const tagLabel = tags === 1 ? '1 tag' : `${tags} tags`
+      return `Applied ${tagLabel} to ${rowLabel}`
+    },
+    toastTagsPartial: (ok: number, fail: number) =>
+      `${ok} tagged, ${fail} failed`,
   },
   staff: {
     title: 'Staff',

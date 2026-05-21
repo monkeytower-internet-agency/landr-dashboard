@@ -71,6 +71,7 @@ import {
 import { filterApprovals } from '@/lib/approvals-filter-match'
 import { useApprovalsFilters } from '@/lib/approvals-filters'
 import { downloadCsv, todayStampUtc, type CsvColumn } from '@/lib/csv-export'
+import { bulkApplyTagsToBookings } from '@/lib/tags'
 import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
@@ -422,6 +423,46 @@ export function GeneralApprovals() {
     setSelectedIds(new Set())
   }
 
+  // landr-uqr2 — bulk-apply tags. Same shape as BookingsTable's handler:
+  // read each selected row's current tag ids off the in-memory row set
+  // and POST the UNION (current ∪ chosen) via setBookingTags per row.
+  async function runBulkApplyTags(
+    ids: string[],
+    tagIds: string[],
+  ): Promise<void> {
+    if (!currentOperatorId || tagIds.length === 0 || ids.length === 0) return
+    setBulkBusy(true)
+    try {
+      const items = ids.map((id) => {
+        const row = rows.find((r) => r.id === id)
+        return {
+          id,
+          currentTagIds: (row?.tags ?? []).map((tagRef) => tagRef.id),
+        }
+      })
+      const { ok, failed } = await bulkApplyTagsToBookings(
+        currentOperatorId,
+        items,
+        tagIds,
+      )
+      void invalidateBookingCaches(queryClient)
+      setSelectedIds(new Set())
+      if (failed.length === 0) {
+        toast.success(t.bulkActions.toastTagsApplied(ok, tagIds.length))
+      } else if (ok > 0) {
+        toast.warning(t.bulkActions.toastTagsPartial(ok, failed.length))
+      } else {
+        toast.error(t.bulkActions.toastError)
+      }
+    } catch (err) {
+      toast.error(t.bulkActions.toastError, {
+        description: err instanceof Error ? err.message : undefined,
+      })
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
   // landr-vaob — bulk send-reminder wired to the real endpoint
   // (POST /api/staff/operators/{op}/bookings/bulk-reminder, landr-s0wo).
   // The endpoint is best-effort per booking — cross-tenant ids and
@@ -614,11 +655,13 @@ export function GeneralApprovals() {
       <BulkActionToolbar
         selectedIds={[...selectedIds]}
         onClear={() => setSelectedIds(new Set())}
-        actions={['approve', 'reject', 'exportCsv', 'sendReminder']}
+        actions={['approve', 'reject', 'tag', 'exportCsv', 'sendReminder']}
         onApprove={(ids) => runBulkDecision(ids, 'approve')}
         onReject={(ids) => runBulkDecision(ids, 'reject')}
         onExportCsv={(ids) => runBulkExportCsv(ids)}
         onSendReminder={(ids) => runBulkSendReminder(ids)}
+        onApplyTags={(ids, tagIds) => runBulkApplyTags(ids, tagIds)}
+        operatorId={currentOperatorId ?? undefined}
         busy={bulkBusy}
         testIdPrefix="approvals-bulk-toolbar"
       />

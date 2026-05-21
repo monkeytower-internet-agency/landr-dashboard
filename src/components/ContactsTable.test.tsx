@@ -7,11 +7,38 @@
 // erase / audit / sort flows through the supabase mock; this file
 // focuses on the loading-state branch the table itself owns.
 
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { render as rtlRender, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactElement } from 'react'
+import { describe, expect, it, vi } from 'vitest'
+
+// landr-uqr2 — ContactsTable now reads useOperator() so the bulk-apply
+// handler can resolve the operator id for setContactTags calls. Stub
+// it so the table can mount outside an OperatorProvider.
+vi.mock('@/lib/operator', () => ({
+  useOperator: () => ({
+    currentOperatorId: 'op-test',
+    loading: false,
+    switchOperator: () => {},
+  }),
+}))
 
 import { ContactsTable } from './ContactsTable'
 import type { ContactRow } from '@/lib/contacts'
+
+// landr-uqr2 — the BulkActionToolbar embedded in ContactsTable renders a
+// TagPicker which uses @tanstack/react-query. Provide a fresh client per
+// render so the table can initialise without an ancestor provider.
+function render(ui: ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return rtlRender(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  })
+}
 
 function makeRow(overrides: Partial<ContactRow> = {}): ContactRow {
   return {

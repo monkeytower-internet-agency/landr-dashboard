@@ -138,6 +138,102 @@ export async function setContactTags(
   )
 }
 
+// ---- bulk assignment (landr-uqr2) ----------------------------------
+//
+// "Apply tags to N rows" wired from BulkActionToolbar on Bookings +
+// Contacts. Per row we union the desired tag ids with the row's CURRENT
+// tag ids (so bulk-apply ADDS tags rather than replacing the set) and
+// POST the union via setBookingTags / setContactTags. Each row fires
+// in parallel; partial failures are surfaced to the caller for toasting.
+//
+// The full-replace semantics of setBookingTags / setContactTags are
+// intentional — the FastAPI router enforces tag ownership server-side
+// against the resolved operator. Computing the union on the client
+// keeps the existing row-scoped endpoint contract intact (no new
+// bulk endpoint needed).
+
+/** Row payload for bulk-apply: the row id plus its already-attached tag
+ *  ids (typically read off `BookingRow.tags` / `ContactRow.tags`). */
+export type BulkApplyItem = {
+  id: string
+  currentTagIds: string[]
+}
+
+/** Outcome of a bulk-apply call. `ok` is the count of rows whose POST
+ *  resolved; `failed` carries the row ids that rejected so the toast can
+ *  surface partial-failure detail. */
+export type BulkApplyResult = {
+  ok: number
+  failed: string[]
+}
+
+/** Union two id lists with stable order — keeps the row's existing tag
+ *  order and appends any new ids that weren't already present. Pulled out
+ *  so both bulk helpers + tests can exercise the merge logic directly. */
+export function unionTagIds(currentIds: string[], addIds: string[]): string[] {
+  const seen = new Set(currentIds)
+  const next = [...currentIds]
+  for (const id of addIds) {
+    if (!seen.has(id)) {
+      seen.add(id)
+      next.push(id)
+    }
+  }
+  return next
+}
+
+/** Apply `tagIds` to every booking in `items`, unioning with each row's
+ *  existing tags. Fires in parallel via Promise.allSettled so a single
+ *  row failure does not abort the batch. */
+export async function bulkApplyTagsToBookings(
+  operatorId: string,
+  items: BulkApplyItem[],
+  tagIds: string[],
+): Promise<BulkApplyResult> {
+  const results = await Promise.allSettled(
+    items.map((item) =>
+      setBookingTags(
+        operatorId,
+        item.id,
+        unionTagIds(item.currentTagIds, tagIds),
+      ),
+    ),
+  )
+  const failed: string[] = []
+  let ok = 0
+  results.forEach((r, idx) => {
+    if (r.status === 'fulfilled') ok += 1
+    else failed.push(items[idx].id)
+  })
+  return { ok, failed }
+}
+
+/** Apply `tagIds` to every contact in `items`, unioning with each row's
+ *  existing tags. Mirrors {@link bulkApplyTagsToBookings} so the toolbar
+ *  can dispatch by surface without branching on contact-vs-booking. */
+export async function bulkApplyTagsToContacts(
+  operatorId: string,
+  items: BulkApplyItem[],
+  tagIds: string[],
+): Promise<BulkApplyResult> {
+  const results = await Promise.allSettled(
+    items.map((item) =>
+      setContactTags(
+        operatorId,
+        item.id,
+        unionTagIds(item.currentTagIds, tagIds),
+      ),
+    ),
+  )
+  const failed: string[] = []
+  let ok = 0
+  results.forEach((r, idx) => {
+    if (r.status === 'fulfilled') ok += 1
+    else failed.push(items[idx].id)
+  })
+  return { ok, failed }
+}
+
 // ---- reads (Supabase REST embeds) ------------------------------------
 //
 // These power "list everything tagged X" queries and pre-fetch the
