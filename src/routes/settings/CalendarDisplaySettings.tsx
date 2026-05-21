@@ -35,6 +35,7 @@ export function CalendarDisplaySettings() {
           { label: t.app.settings, to: '/settings' },
           { label: t.settingsHub.sections.calendarDisplay },
         ]}
+        subtitle={t.settingsHub.sectionDescriptions.calendarDisplay}
       />
       <OperatorSection>
         {({ operator, operatorId, invalidate }) => (

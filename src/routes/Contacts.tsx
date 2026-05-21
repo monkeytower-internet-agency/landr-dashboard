@@ -135,7 +135,10 @@ export function Contacts() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle title={t.contacts.title} />
+      <PageTitle
+        title={t.contacts.title}
+        subtitle={t.contacts.subtitleCount(rows.length)}
+      />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">{t.contacts.title}</h1>
         <Button

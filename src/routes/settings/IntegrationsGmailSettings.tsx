@@ -30,6 +30,7 @@ export function IntegrationsGmailSettings() {
           { label: t.app.settings, to: '/settings' },
           { label: t.settingsHub.sections.integrationsGmail },
         ]}
+        subtitle={t.settingsHub.sectionDescriptions.integrationsGmail}
       />
       {currentOperatorId ? (
         <GmailCard operatorId={currentOperatorId} />

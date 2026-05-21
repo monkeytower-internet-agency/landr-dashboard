@@ -36,6 +36,7 @@ export function TagsSettings() {
         { label: t.app.settings, to: '/settings' },
         { label: t.settingsHub.sections.tags },
       ]}
+      subtitle={t.settingsHub.sectionDescriptions.tags}
     />
   )
 

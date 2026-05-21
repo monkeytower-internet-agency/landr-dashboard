@@ -14,6 +14,7 @@ export function PickupLocations() {
         { label: t.app.settings, to: '/settings' },
         { label: t.settingsHub.sections.pickupLocations },
       ]}
+      subtitle={t.settingsHub.sectionDescriptions.pickupLocations}
     />
   )
 

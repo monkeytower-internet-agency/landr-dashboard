@@ -451,7 +451,10 @@ export function GeneralApprovals() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle title={t.generalApprovals.title} />
+      <PageTitle
+        title={t.generalApprovals.title}
+        subtitle={t.generalApprovals.subtitleCount(pendingCount)}
+      />
       <header className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">{t.generalApprovals.title}</h1>

@@ -37,6 +37,7 @@ export function Products() {
             { label: t.app.settings, to: '/settings' },
             { label: t.products.title },
           ]}
+          subtitle={t.settingsHub.sectionDescriptions.products}
         />
         <header>
           <h1 className="text-xl font-semibold">{t.products.title}</h1>

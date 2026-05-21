@@ -389,6 +389,7 @@ export function Schedule() {
           { label: t.app.settings, to: '/settings' },
           { label: t.settingsHub.sections.schedule },
         ]}
+        subtitle={t.settingsHub.sectionDescriptions.schedule}
       />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>

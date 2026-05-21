@@ -178,6 +178,29 @@ export const t = {
       // landr-iz58 — operator-scoped tags applied to bookings + contacts.
       tags: 'Tags',
     },
+    // landr-fnhz — one-line description for each settings subsection,
+    // rendered as the PageTitle subtitle on the matching sub-page so the
+    // topbar gives operators at-a-glance context about what the section
+    // controls.
+    sectionDescriptions: {
+      company: 'Legal entity, tax ID, and contact details on invoices.',
+      calendarDisplay: 'Default work hours and time format.',
+      displayPreferences: 'Toggles for dashboard hints and teasers.',
+      team: 'Add and remove operator staff members.',
+      pickupLocations: 'Manage pickup sites and sub-points for bookings.',
+      products: 'Configure bookable products and their availability rules.',
+      schedule: 'Plan capacity windows and one-off closures.',
+      emailTemplates:
+        'Customise transactional emails sent to customers for each booking event.',
+      integrationsGmail:
+        'Send outbound booking emails from your Gmail account via OAuth.',
+      connectedAccounts:
+        'Identity links (Google, Apple, GitHub) for this operator.',
+      plan: 'Your current subscription plan.',
+      pricing: 'Discounts, surcharges, and pricing modifiers.',
+      branding: 'Apply your logo and brand colour to the booking widget.',
+      tags: 'Define operator-scoped tags to apply to bookings and contacts.',
+    },
     plan: {
       title: 'Plan',
       description: 'Your current subscription plan.',
@@ -223,6 +246,11 @@ export const t = {
   },
   bookings: {
     title: 'Bookings',
+    // landr-fnhz — topbar subtitle. Shows the current filtered count and
+    // gross revenue total so operators see the at-a-glance shape of what
+    // they're looking at without scanning the table.
+    subtitleSummary: (count: number, revenue: string): string =>
+      `${count} ${count === 1 ? 'booking' : 'bookings'} · ${revenue}`,
     empty: 'No bookings yet.',
     loading: 'Loading bookings…',
     error: 'Failed to load bookings.',
@@ -425,6 +453,10 @@ export const t = {
   },
   contacts: {
     title: 'Contacts',
+    // landr-fnhz — topbar subtitle. Shows total contact count so the
+    // operator can eyeball list size without scrolling.
+    subtitleCount: (n: number): string =>
+      `${n} ${n === 1 ? 'contact' : 'contacts'}`,
     empty: 'No contacts yet.',
     loading: 'Loading contacts…',
     error: 'Failed to load contacts.',
@@ -747,6 +779,11 @@ export const t = {
   },
   generalApprovals: {
     title: 'Pending approvals',
+    // landr-fnhz — topbar subtitle. Mirrors the pendingCount badge in
+    // the page header so the count is also visible when the user has
+    // scrolled the page down.
+    subtitleCount: (n: number): string =>
+      n === 0 ? 'No pending approvals' : `${n} pending`,
     // landr-aqn4 — friendlier empty state ('All caught up').
     empty: 'All caught up — no pending approvals.',
     emptyEmoji: '🎉',
