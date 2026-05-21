@@ -521,6 +521,47 @@ export const t = {
       working: 'Generating…',
       toastError: 'Failed to download invoice.',
     },
+    // landr-uzup — Payments tab inside BookingDetailSheet. Lists every
+    // payments + payment_refunds row with a Refund button on succeeded
+    // payments. Hits POST /api/staff/operators/{op}/bookings/{bid}/
+    // payments/{pid}/refund which inserts a payment_refunds row.
+    payments: {
+      tabPayments: 'Payments',
+      loading: 'Loading payments…',
+      error: 'Could not load payments.',
+      empty: 'No payments recorded yet.',
+      providerStripe: 'Stripe',
+      providerCash: 'Cash',
+      providerTransfer: 'Bank transfer',
+      providerCard: 'Card',
+      providerImported: 'Imported',
+      statusSucceeded: 'Succeeded',
+      statusPending: 'Pending',
+      statusFailed: 'Failed',
+      statusRefunded: 'Refunded',
+      statusPartiallyRefunded: 'Partially refunded',
+      refundStatusSucceeded: 'Refunded',
+      refundStatusPending: 'Refund pending',
+      refundStatusFailed: 'Refund failed',
+      refundAction: 'Refund',
+      refundDialogTitle: 'Refund this payment?',
+      refundDialogDescription: (remaining: string, provider: string): string =>
+        `Up to ${remaining} can be refunded on this ${provider} payment. ` +
+        `Refunds are recorded immediately — make sure the money has already ` +
+        `been returned to the customer.`,
+      refundAmountLabel: 'Refund amount',
+      refundAmountHint:
+        'Defaults to the full refundable remaining. Lower it for a partial refund.',
+      refundReasonLabel: 'Reason (optional)',
+      refundReasonPlaceholder: 'e.g. cancelled half-day; cash returned at desk',
+      refundCancel: 'Cancel',
+      refundConfirm: 'Record refund',
+      refundWorking: 'Recording…',
+      refundToastSuccess: 'Refund recorded.',
+      refundToastError: 'Failed to record refund.',
+      refundedSoFar: (refunded: string, remaining: string): string =>
+        `${refunded} refunded · ${remaining} remaining refundable.`,
+    },
     // landr-okxm — manual "mark as paid" for payments taken outside
     // Stripe (cash, bank transfer, other). Only shown when the booking
     // is in stage code 'awaiting_payment' with a positive balance_due.

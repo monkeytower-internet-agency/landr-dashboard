@@ -39,6 +39,7 @@ import { CopyLinkButton } from '@/components/CopyLinkButton'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { BookingChecklist } from '@/components/booking/BookingChecklist'
 import { BookingNotes } from '@/components/booking/BookingNotes'
+import { BookingPayments } from '@/components/booking/BookingPayments'
 import { BookingTimeline } from '@/components/booking/BookingTimeline'
 import { DayChips } from '@/components/booking/DayChips'
 import { MultiDayPicker } from '@/components/booking/MultiDayPicker'
@@ -166,7 +167,7 @@ function formatRangeLabel(days: string[]): string | null {
   return `${start} → ${end}`
 }
 
-type ActiveTab = 'details' | 'timeline' | 'checklist' | 'notes'
+type ActiveTab = 'details' | 'timeline' | 'checklist' | 'notes' | 'payments'
 
 function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const queryClient = useQueryClient()
@@ -519,6 +520,16 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           >
             {t.bookings.notes.tabNotes}
           </TabsTrigger>
+          {/* landr-uzup — Payments tab. Lists every payments +
+              payment_refunds row for the booking and offers a Refund
+              action on succeeded payments. */}
+          <TabsTrigger
+            variant="pill"
+            value="payments"
+            data-testid="booking-tab-payments"
+          >
+            {t.bookings.payments.tabPayments}
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -557,6 +568,18 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
               {t.bookings.notes.loading}
             </p>
           )}
+        </div>
+      ) : activeTab === 'payments' ? (
+        <div
+          role="tabpanel"
+          aria-label={t.bookings.payments.tabPayments}
+          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3"
+        >
+          <BookingPayments
+            operatorId={currentOperatorId}
+            bookingId={row.id}
+            bookingCurrency={row.currency ?? null}
+          />
         </div>
       ) : (
       <form
