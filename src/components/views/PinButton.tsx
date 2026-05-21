@@ -1,18 +1,23 @@
-// landr-c58d — reusable star toggle for saved views.
+// landr-c58d / landr-45pb — reusable pin toggle for saved views.
+//
+// (Renamed from StarButton in landr-45pb to match the Gmail-style sidebar
+// IA: pinned views live in the Primary bucket; unpinned views live under
+// "More". Same data, sharper name — see migration
+// 20260521090000_view_user_state_pinned_and_sort_order.sql.)
 //
 // Used by:
-//   - <ViewsSidebar> rows (small inline star prefix)
-//   - <ViewPage> header (larger affordance; landr-hgtv wires this in)
+//   - <ViewsSidebar> rows (small inline pin prefix)
+//   - <ViewPage> header (larger affordance)
 //
 // Behaviour:
-//   - Renders a filled star when starred, outline star otherwise.
-//   - Click: optimistic flip + PUT setViewUserState({ starred: !starred }).
+//   - Renders a filled pin when pinned, outline pin otherwise.
+//   - Click: optimistic flip + PUT setViewUserState({ pinned: !pinned }).
 //   - On error: revert + toast.error.
 //   - Cache: invalidates the `['saved-views', operatorId]` query so the
-//     sidebar prefix + ordering reflect immediately. We also patch the
-//     cache optimistically so the UI doesn't flash even before the
-//     refetch resolves.
-import { StarIcon } from 'lucide-react'
+//     sidebar prefix + bucket placement reflect immediately. We also
+//     patch the cache optimistically so the UI doesn't flash even before
+//     the refetch resolves.
+import { PinIcon } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -22,9 +27,9 @@ import {
 } from '@/lib/saved-views'
 import { t } from '@/lib/strings'
 
-export type StarButtonProps = {
+export type PinButtonProps = {
   viewId: string
-  starred: boolean
+  pinned: boolean
   operatorId: string
   /** Visual size. `sm` for sidebar inline, `md` for page headers. */
   size?: 'sm' | 'md'
@@ -32,22 +37,22 @@ export type StarButtonProps = {
   className?: string
 }
 
-export function StarButton({
+export function PinButton({
   viewId,
-  starred,
+  pinned,
   operatorId,
   size = 'sm',
   className,
-}: StarButtonProps) {
+}: PinButtonProps) {
   const qc = useQueryClient()
   const listKey = ['saved-views', operatorId] as const
 
   const mutation = useMutation({
-    mutationFn: async (nextStarred: boolean) => {
-      await setViewUserState(operatorId, viewId, { starred: nextStarred })
-      return nextStarred
+    mutationFn: async (nextPinned: boolean) => {
+      await setViewUserState(operatorId, viewId, { pinned: nextPinned })
+      return nextPinned
     },
-    onMutate: async (nextStarred) => {
+    onMutate: async (nextPinned) => {
       await qc.cancelQueries({ queryKey: listKey })
       const previous = qc.getQueryData<SavedViewWithState[]>(listKey)
       if (previous) {
@@ -55,7 +60,7 @@ export function StarButton({
           listKey,
           previous.map((v) =>
             v.id === viewId
-              ? { ...v, user_state: { ...v.user_state, starred: nextStarred } }
+              ? { ...v, user_state: { ...v.user_state, pinned: nextPinned } }
               : v,
           ),
         )
@@ -67,7 +72,7 @@ export function StarButton({
       if (ctx?.previous) {
         qc.setQueryData(listKey, ctx.previous)
       }
-      toast.error(t.viewsSidebar.starError)
+      toast.error(t.viewsSidebar.pinError)
     },
     onSettled: () => {
       // Refetch to reconcile with server truth (e.g. updated_at).
@@ -75,17 +80,17 @@ export function StarButton({
     },
   })
 
-  const next = !starred
-  const label = starred ? t.viewsSidebar.unstarView : t.viewsSidebar.starView
+  const next = !pinned
+  const label = pinned ? t.viewsSidebar.unpinView : t.viewsSidebar.pinView
 
   return (
     <button
       type="button"
       aria-label={label}
-      aria-pressed={starred}
+      aria-pressed={pinned}
       title={label}
       onClick={(e) => {
-        // When nested inside a Link/row, don't navigate on star toggle.
+        // When nested inside a Link/row, don't navigate on pin toggle.
         e.preventDefault()
         e.stopPropagation()
         mutation.mutate(next)
@@ -97,14 +102,14 @@ export function StarButton({
         'focus-visible:outline-2 focus-visible:outline-sidebar-ring',
         size === 'sm' && 'h-5 w-5 p-0.5',
         size === 'md' && 'h-8 w-8 p-1',
-        starred && 'text-amber-500 hover:text-amber-500',
+        pinned && 'text-amber-500 hover:text-amber-500',
         className,
       )}
     >
-      <StarIcon
+      <PinIcon
         className={cn(
           size === 'sm' ? 'size-3.5' : 'size-5',
-          starred && 'fill-current',
+          pinned && 'fill-current',
         )}
         aria-hidden
       />

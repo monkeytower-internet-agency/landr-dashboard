@@ -1,8 +1,8 @@
-// landr-c58d — StarButton tests.
+// landr-c58d / landr-45pb — PinButton tests (renamed from StarButton).
 //
 // Covers:
 //   - renders a button with the correct aria-label + aria-pressed for both states
-//   - click toggles starred + calls setViewUserState
+//   - click toggles pinned + calls setViewUserState({pinned})
 //   - on API error: reverts the optimistic cache patch + toasts
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -35,7 +35,7 @@ vi.mock('sonner', () => ({
   },
 }))
 
-import { StarButton } from './StarButton'
+import { PinButton } from './PinButton'
 import type { SavedViewWithState } from '@/lib/saved-views'
 
 const OP_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
@@ -53,14 +53,14 @@ function makeView(overrides: Partial<SavedViewWithState> = {}): SavedViewWithSta
     sort_order: 0,
     created_at: '2026-05-21T10:00:00Z',
     updated_at: '2026-05-21T10:00:00Z',
-    user_state: { starred: false, hidden: false },
+    user_state: { pinned: false, hidden: false, sort_order: 0 },
     ...overrides,
   }
 }
 
 function renderWithClient(
   initial: SavedViewWithState[],
-  starred: boolean,
+  pinned: boolean,
 ): { client: QueryClient } {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -68,7 +68,7 @@ function renderWithClient(
   client.setQueryData(['saved-views', OP_ID], initial)
   render(
     <QueryClientProvider client={client}>
-      <StarButton viewId={VIEW_ID} starred={starred} operatorId={OP_ID} />
+      <PinButton viewId={VIEW_ID} pinned={pinned} operatorId={OP_ID} />
     </QueryClientProvider>,
   )
   return { client }
@@ -83,18 +83,21 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe('StarButton (landr-c58d)', () => {
-  it('renders the unstarred aria-label by default', () => {
+describe('PinButton (landr-45pb)', () => {
+  it('renders the unpinned aria-label by default', () => {
     renderWithClient([makeView()], false)
     expect(
-      screen.getByRole('button', { name: /star this view/i }),
+      screen.getByRole('button', { name: /pin this view/i }),
     ).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('renders the starred aria-label when starred', () => {
-    renderWithClient([makeView({ user_state: { starred: true, hidden: false } })], true)
+  it('renders the pinned aria-label when pinned', () => {
+    renderWithClient(
+      [makeView({ user_state: { pinned: true, hidden: false, sort_order: 0 } })],
+      true,
+    )
     expect(
-      screen.getByRole('button', { name: /unstar this view/i }),
+      screen.getByRole('button', { name: /unpin this view/i }),
     ).toHaveAttribute('aria-pressed', 'true')
   })
 
@@ -103,11 +106,11 @@ describe('StarButton (landr-c58d)', () => {
     renderWithClient([makeView()], false)
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: /star this view/i }))
+    await user.click(screen.getByRole('button', { name: /pin this view/i }))
 
     await waitFor(() => {
       expect(mocks.setViewUserState).toHaveBeenCalledWith(OP_ID, VIEW_ID, {
-        starred: true,
+        pinned: true,
       })
     })
   })
@@ -121,14 +124,14 @@ describe('StarButton (landr-c58d)', () => {
     const { client } = renderWithClient([makeView()], false)
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: /star this view/i }))
+    await user.click(screen.getByRole('button', { name: /pin this view/i }))
 
     await waitFor(() => {
       const cached = client.getQueryData<SavedViewWithState[]>([
         'saved-views',
         OP_ID,
       ])
-      expect(cached?.[0].user_state.starred).toBe(true)
+      expect(cached?.[0].user_state.pinned).toBe(true)
     })
 
     resolve()
@@ -139,7 +142,7 @@ describe('StarButton (landr-c58d)', () => {
     const { client } = renderWithClient([makeView()], false)
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: /star this view/i }))
+    await user.click(screen.getByRole('button', { name: /pin this view/i }))
 
     await waitFor(() => {
       expect(mocks.toastError).toHaveBeenCalled()
@@ -148,6 +151,6 @@ describe('StarButton (landr-c58d)', () => {
       'saved-views',
       OP_ID,
     ])
-    expect(cached?.[0].user_state.starred).toBe(false)
+    expect(cached?.[0].user_state.pinned).toBe(false)
   })
 })

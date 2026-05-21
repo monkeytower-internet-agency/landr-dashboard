@@ -1384,17 +1384,22 @@ export const t = {
     typeProduct: 'Product',
     typeView: 'View',
   },
-  // landr-c58d — Views sub-list in the app sidebar (star + hide).
+  // landr-c58d / landr-45pb — Views sub-list in the app sidebar
+  // (Gmail-style Primary / More / Hidden buckets + DnD pin).
   viewsSidebar: {
     showHidden: 'Show hidden views',
     hideHidden: 'Hide hidden views',
     hideFromSidebar: 'Hide from sidebar',
     unhide: 'Unhide',
-    starView: 'Star this view',
-    unstarView: 'Unstar this view',
+    pinView: 'Pin this view',
+    unpinView: 'Unpin this view',
     emptyHint: 'No views yet — create one →',
-    starError: 'Failed to update star.',
+    primaryEmptyHint: 'Drag a view here to pin it',
+    moreLabel: 'More',
+    hiddenLabel: 'Hidden',
+    pinError: 'Failed to update pin.',
     hideError: 'Failed to update visibility.',
+    reorderError: 'Failed to reorder views.',
     rowMenuLabel: (name: string): string => `More actions for ${name}`,
   },
   // landr-hgtv — per-view ViewPage chrome (toolbar, layout switcher,

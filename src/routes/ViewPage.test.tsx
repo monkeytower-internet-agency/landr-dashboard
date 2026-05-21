@@ -124,7 +124,7 @@ function makeView(overrides: Record<string, unknown> = {}) {
     sort_order: 0,
     created_at: '2026-05-21T10:00:00Z',
     updated_at: '2026-05-21T10:00:00Z',
-    user_state: { starred: false, hidden: false, updated_at: null },
+    user_state: { pinned: false, hidden: false, sort_order: 0, updated_at: null },
     ...overrides,
   }
 }

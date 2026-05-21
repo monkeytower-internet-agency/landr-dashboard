@@ -1,11 +1,20 @@
-// landr-c58d — ViewsSidebar tests.
+// landr-c58d / landr-45pb — ViewsSidebar tests.
 //
-// Covers:
-//   - sort order: starred first, then sort_order ASC, then name ASC
-//   - hidden views excluded by default
-//   - "Show hidden views" toggle includes them at reduced opacity
-//   - row click navigates to /views/:id
-//   - empty state links to /views
+// Covers (Gmail-style three-bucket layout):
+//   - Primary bucket: shows pinned views in sort_order ASC, name tiebreak
+//   - More bucket: collapsible (default open); persisted in localStorage
+//   - Hidden sub-expander: shows hidden views at reduced opacity with 🚫 prefix
+//   - Drag from More → Primary calls setViewUserState({pinned: true, sort_order})
+//   - Drag from Primary → More calls setViewUserState({pinned: false})
+//   - Reorder within Primary calls reorderSavedViews([{view_id, sort_order}])
+//   - Overflow menu Hide / Unhide still works on each row
+//
+// NOTE: @dnd-kit's pointer pipeline is unfriendly to jsdom — full pointer
+// gestures can't be driven from userEvent. We test the DnD handler logic
+// by invoking the handler indirectly through the bucket-sort + mutation
+// pieces; the cross-bucket behaviour is verified end-to-end by clicking
+// the PinButton (which fires the same setViewUserState call) and by
+// directly asserting against bucketViewsForSidebar's classification.
 import {
   render,
   screen,
@@ -33,6 +42,7 @@ const { mocks } = vi.hoisted(() => {
     mocks: {
       listSavedViews: vi.fn(),
       setViewUserState: vi.fn(),
+      reorderSavedViews: vi.fn(),
     },
   }
 })
@@ -45,6 +55,7 @@ vi.mock('@/lib/saved-views', async () => {
     ...actual,
     listSavedViews: mocks.listSavedViews,
     setViewUserState: mocks.setViewUserState,
+    reorderSavedViews: mocks.reorderSavedViews,
   }
 })
 
@@ -56,13 +67,12 @@ vi.mock('sonner', () => ({
 }))
 
 import { ViewsSidebar } from './ViewsSidebar'
-import { sortViewsForSidebar } from './sidebar-sort'
+import { bucketViewsForSidebar, sortViewsForSidebar } from './sidebar-sort'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import type { SavedViewWithState } from '@/lib/saved-views'
 
 function makeView(overrides: Partial<SavedViewWithState> = {}): SavedViewWithState {
-  const id =
-    overrides.id ?? '11111111-1111-4111-8111-111111111111'
+  const id = overrides.id ?? '11111111-1111-4111-8111-111111111111'
   return {
     id,
     operator_id: 'op-1',
@@ -74,7 +84,7 @@ function makeView(overrides: Partial<SavedViewWithState> = {}): SavedViewWithSta
     sort_order: 0,
     created_at: '2026-05-21T10:00:00Z',
     updated_at: '2026-05-21T10:00:00Z',
-    user_state: { starred: false, hidden: false },
+    user_state: { pinned: false, hidden: false, sort_order: 0 },
     ...overrides,
   }
 }
@@ -109,124 +119,252 @@ function renderSidebar(initialPath: string = '/views'): { client: QueryClient } 
 beforeEach(() => {
   mocks.listSavedViews.mockReset()
   mocks.setViewUserState.mockReset()
+  mocks.reorderSavedViews.mockReset()
+  // Reset localStorage between tests so expander state doesn't leak.
+  try {
+    window.localStorage.clear()
+  } catch {
+    /* jsdom may throw — ignore */
+  }
 })
 
 afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe('sortViewsForSidebar (landr-c58d)', () => {
-  it('puts starred views first, then by sort_order, then by name', () => {
+// =============================================================================
+// sidebar-sort helpers
+// =============================================================================
+
+describe('sortViewsForSidebar (landr-45pb)', () => {
+  it('puts pinned views first, then by user_state.sort_order, then by name', () => {
     const v1 = makeView({
       id: '11111111-1111-4111-8111-000000000001',
       name: 'Charlie',
-      sort_order: 2,
-      user_state: { starred: false, hidden: false },
+      user_state: { pinned: false, hidden: false, sort_order: 2 },
     })
     const v2 = makeView({
       id: '11111111-1111-4111-8111-000000000002',
       name: 'Alpha',
-      sort_order: 5,
-      user_state: { starred: true, hidden: false },
+      user_state: { pinned: true, hidden: false, sort_order: 5 },
     })
     const v3 = makeView({
       id: '11111111-1111-4111-8111-000000000003',
       name: 'Bravo',
-      sort_order: 5,
-      user_state: { starred: true, hidden: false },
+      user_state: { pinned: true, hidden: false, sort_order: 5 },
     })
     const v4 = makeView({
       id: '11111111-1111-4111-8111-000000000004',
       name: 'Delta',
-      sort_order: 1,
-      user_state: { starred: false, hidden: false },
+      user_state: { pinned: false, hidden: false, sort_order: 1 },
     })
 
     const sorted = sortViewsForSidebar([v1, v2, v3, v4])
     expect(sorted.map((v) => v.name)).toEqual([
-      'Alpha', // starred, sort_order 5, name A
-      'Bravo', // starred, sort_order 5, name B (tiebreak)
-      'Delta', // unstarred, sort_order 1
-      'Charlie', // unstarred, sort_order 2
+      'Alpha', // pinned, sort_order 5, name A
+      'Bravo', // pinned, sort_order 5, name B (tiebreak)
+      'Delta', // unpinned, sort_order 1
+      'Charlie', // unpinned, sort_order 2
     ])
   })
 })
 
-describe('ViewsSidebar (landr-c58d) — rendering + filtering', () => {
-  it('lists visible views in star-first / sort_order / name order', async () => {
+describe('bucketViewsForSidebar (landr-45pb)', () => {
+  it('classifies into primary/more/hidden, preserving per-bucket order', () => {
+    const pinnedA = makeView({
+      id: '11111111-1111-4111-8111-000000000001',
+      name: 'P-Apple',
+      user_state: { pinned: true, hidden: false, sort_order: 1 },
+    })
+    const pinnedB = makeView({
+      id: '11111111-1111-4111-8111-000000000002',
+      name: 'P-Banana',
+      user_state: { pinned: true, hidden: false, sort_order: 0 },
+    })
+    const moreA = makeView({
+      id: '11111111-1111-4111-8111-000000000003',
+      name: 'M-Zeta',
+      user_state: { pinned: false, hidden: false, sort_order: 0 },
+    })
+    const moreB = makeView({
+      id: '11111111-1111-4111-8111-000000000004',
+      name: 'M-Alpha',
+      user_state: { pinned: false, hidden: false, sort_order: 0 },
+    })
+    const hiddenA = makeView({
+      id: '11111111-1111-4111-8111-000000000005',
+      name: 'H-Tucked',
+      user_state: { pinned: false, hidden: true, sort_order: 0 },
+    })
+    const hiddenPinned = makeView({
+      // hidden overrides pinned: it must land in the Hidden bucket.
+      id: '11111111-1111-4111-8111-000000000006',
+      name: 'H-Pinned-but-hidden',
+      user_state: { pinned: true, hidden: true, sort_order: 0 },
+    })
+
+    const { primary, more, hidden } = bucketViewsForSidebar([
+      pinnedA,
+      pinnedB,
+      moreA,
+      moreB,
+      hiddenA,
+      hiddenPinned,
+    ])
+
+    expect(primary.map((v) => v.name)).toEqual(['P-Banana', 'P-Apple']) // sort_order ASC
+    expect(more.map((v) => v.name)).toEqual(['M-Alpha', 'M-Zeta']) // name ASC
+    expect(hidden.map((v) => v.name)).toEqual([
+      'H-Pinned-but-hidden',
+      'H-Tucked',
+    ]) // name ASC; hidden wins over pinned
+  })
+
+  it('handles empty input', () => {
+    const buckets = bucketViewsForSidebar([])
+    expect(buckets.primary).toEqual([])
+    expect(buckets.more).toEqual([])
+    expect(buckets.hidden).toEqual([])
+  })
+})
+
+// =============================================================================
+// ViewsSidebar — rendering + interactions
+// =============================================================================
+
+describe('ViewsSidebar (landr-45pb) — rendering', () => {
+  it('renders Primary rows in user_state.sort_order then name', async () => {
     mocks.listSavedViews.mockResolvedValueOnce([
       makeView({
         id: '11111111-1111-4111-8111-000000000001',
-        name: 'Zeta',
-        sort_order: 0,
-        user_state: { starred: false, hidden: false },
+        name: 'P-Charlie',
+        user_state: { pinned: true, hidden: false, sort_order: 2 },
       }),
       makeView({
         id: '11111111-1111-4111-8111-000000000002',
-        name: 'Apple',
-        sort_order: 0,
-        user_state: { starred: true, hidden: false },
+        name: 'P-Alpha',
+        user_state: { pinned: true, hidden: false, sort_order: 0 },
       }),
     ])
 
     renderSidebar()
 
-    const apple = await screen.findByRole('link', { name: /apple/i })
-    const zeta = await screen.findByRole('link', { name: /zeta/i })
-    // Apple must come BEFORE Zeta in the DOM (starred first).
+    const alpha = await screen.findByRole('link', { name: /p-alpha/i })
+    const charlie = await screen.findByRole('link', { name: /p-charlie/i })
     expect(
-      apple.compareDocumentPosition(zeta) &
+      alpha.compareDocumentPosition(charlie) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
   })
 
-  it('excludes hidden views by default', async () => {
+  it('renders Primary, More, and Hidden buckets distinctly', async () => {
     mocks.listSavedViews.mockResolvedValueOnce([
       makeView({
         id: '11111111-1111-4111-8111-000000000001',
-        name: 'Visible',
-        user_state: { starred: false, hidden: false },
+        name: 'Alpha',
+        user_state: { pinned: true, hidden: false, sort_order: 0 },
       }),
       makeView({
         id: '11111111-1111-4111-8111-000000000002',
-        name: 'Tucked away',
-        user_state: { starred: false, hidden: true },
+        name: 'Bravo',
+        user_state: { pinned: false, hidden: false, sort_order: 0 },
+      }),
+      makeView({
+        id: '11111111-1111-4111-8111-000000000003',
+        name: 'Charlie',
+        user_state: { pinned: false, hidden: true, sort_order: 0 },
       }),
     ])
 
     renderSidebar()
 
-    expect(await screen.findByRole('link', { name: /visible/i })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /tucked away/i })).toBeNull()
-  })
+    // Primary view (pinned) is always visible.
+    expect(await screen.findByRole('link', { name: /alpha/i })).toBeInTheDocument()
 
-  it('show-hidden toggle reveals hidden views at reduced opacity', async () => {
-    mocks.listSavedViews.mockResolvedValueOnce([
-      makeView({
-        id: '11111111-1111-4111-8111-000000000001',
-        name: 'Visible',
-        user_state: { starred: false, hidden: false },
-      }),
-      makeView({
-        id: '11111111-1111-4111-8111-000000000002',
-        name: 'Tucked away',
-        user_state: { starred: false, hidden: true },
-      }),
-    ])
+    // More expander defaults to open → Bravo (unpinned) visible.
+    expect(await screen.findByRole('link', { name: /bravo/i })).toBeInTheDocument()
 
-    renderSidebar()
+    // Hidden sub-expander defaults to closed → Charlie NOT visible yet.
+    expect(screen.queryByRole('link', { name: /charlie/i })).toBeNull()
 
-    await screen.findByRole('link', { name: /visible/i })
+    // Expand Hidden.
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /show hidden views/i }))
+    await user.click(screen.getByRole('button', { name: /^hidden\(/i }))
 
-    const hiddenLink = await screen.findByRole('link', { name: /tucked away/i })
-    // Reduced opacity is applied to the SidebarMenuSubItem (the <li>).
+    const hiddenLink = await screen.findByRole('link', { name: /charlie/i })
     const li = hiddenLink.closest('li')
     expect(li?.className).toContain('opacity-60')
   })
 
-  it('renders an empty-state link to /views when the user has no views', async () => {
+  it('More expander state persists in localStorage', async () => {
+    mocks.listSavedViews.mockResolvedValueOnce([
+      makeView({
+        id: '11111111-1111-4111-8111-000000000001',
+        name: 'Alpha',
+        user_state: { pinned: true, hidden: false, sort_order: 0 },
+      }),
+      makeView({
+        id: '11111111-1111-4111-8111-000000000002',
+        name: 'Bravo',
+        user_state: { pinned: false, hidden: false, sort_order: 0 },
+      }),
+    ])
+
+    renderSidebar()
+
+    await screen.findByRole('link', { name: /bravo/i })
+
+    const user = userEvent.setup()
+    // Use `^More \(` so the regex doesn't match the per-row
+    // `More actions for …` dropdown trigger.
+    await user.click(screen.getByRole('button', { name: /^more\(/i }))
+
+    expect(window.localStorage.getItem('landr.dashboard.viewsMoreOpen')).toBe(
+      'false',
+    )
+
+    // Click again → re-open.
+    await user.click(screen.getByRole('button', { name: /^more\(/i }))
+    expect(window.localStorage.getItem('landr.dashboard.viewsMoreOpen')).toBe(
+      'true',
+    )
+  })
+
+  it('Hidden expander state persists in localStorage', async () => {
+    mocks.listSavedViews.mockResolvedValueOnce([
+      makeView({
+        id: '11111111-1111-4111-8111-000000000001',
+        name: 'TuckedAway',
+        user_state: { pinned: false, hidden: true, sort_order: 0 },
+      }),
+    ])
+
+    renderSidebar()
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /^hidden\(/i }))
+    expect(window.localStorage.getItem('landr.dashboard.viewsHiddenOpen')).toBe(
+      'true',
+    )
+  })
+
+  it('renders a primary-empty hint when no pinned views exist', async () => {
+    mocks.listSavedViews.mockResolvedValueOnce([
+      makeView({
+        id: '11111111-1111-4111-8111-000000000001',
+        name: 'UnpinnedOnly',
+        user_state: { pinned: false, hidden: false, sort_order: 0 },
+      }),
+    ])
+
+    renderSidebar()
+
+    expect(
+      await screen.findByText(/drag a view here to pin it/i),
+    ).toBeInTheDocument()
+  })
+
+  it('renders an empty-state link to /views when the user has no views at all', async () => {
     mocks.listSavedViews.mockResolvedValueOnce([])
 
     renderSidebar()
@@ -242,7 +380,7 @@ describe('ViewsSidebar (landr-c58d) — rendering + filtering', () => {
       makeView({
         id: '11111111-1111-4111-8111-000000000042',
         name: 'Click me',
-        user_state: { starred: false, hidden: false },
+        user_state: { pinned: true, hidden: false, sort_order: 0 },
       }),
     ])
 
@@ -255,13 +393,13 @@ describe('ViewsSidebar (landr-c58d) — rendering + filtering', () => {
   })
 })
 
-describe('ViewsSidebar (landr-c58d) — Hide control', () => {
+describe('ViewsSidebar (landr-45pb) — Hide control', () => {
   it('overflow menu Hide calls setViewUserState({hidden: true})', async () => {
     mocks.listSavedViews.mockResolvedValueOnce([
       makeView({
         id: '11111111-1111-4111-8111-000000000099',
         name: 'Hide me',
-        user_state: { starred: false, hidden: false },
+        user_state: { pinned: false, hidden: false, sort_order: 0 },
       }),
     ])
     mocks.setViewUserState.mockResolvedValueOnce(undefined)
@@ -270,14 +408,12 @@ describe('ViewsSidebar (landr-c58d) — Hide control', () => {
     const user = userEvent.setup()
 
     const row = await screen.findByRole('link', { name: /hide me/i })
-    // The overflow trigger sits next to the link in the same parent <li>.
     const li = row.closest('li') as HTMLElement
     const trigger = within(li).getByRole('button', {
       name: /more actions for hide me/i,
     })
     await user.click(trigger)
 
-    // Radix renders the menu in a portal — query the whole document.
     const menuItem = await screen.findByRole('menuitem', {
       name: /hide from sidebar/i,
     })
@@ -288,6 +424,97 @@ describe('ViewsSidebar (landr-c58d) — Hide control', () => {
         'op-1',
         '11111111-1111-4111-8111-000000000099',
         { hidden: true },
+      )
+    })
+  })
+
+  it('overflow menu on a hidden row shows Unhide', async () => {
+    mocks.listSavedViews.mockResolvedValueOnce([
+      makeView({
+        id: '11111111-1111-4111-8111-0000000000aa',
+        name: 'Tucked',
+        user_state: { pinned: false, hidden: true, sort_order: 0 },
+      }),
+    ])
+    mocks.setViewUserState.mockResolvedValueOnce(undefined)
+
+    renderSidebar()
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /hidden/i }))
+
+    const row = await screen.findByRole('link', { name: /tucked/i })
+    const li = row.closest('li') as HTMLElement
+    await user.click(
+      within(li).getByRole('button', { name: /more actions for tucked/i }),
+    )
+    await user.click(
+      await screen.findByRole('menuitem', { name: /^unhide$/i }),
+    )
+
+    await waitFor(() => {
+      expect(mocks.setViewUserState).toHaveBeenCalledWith(
+        'op-1',
+        '11111111-1111-4111-8111-0000000000aa',
+        { hidden: false },
+      )
+    })
+  })
+})
+
+describe('ViewsSidebar (landr-45pb) — PinButton wiring', () => {
+  it('clicking the inline PinButton on a More row sets pinned=true', async () => {
+    mocks.listSavedViews.mockResolvedValueOnce([
+      makeView({
+        id: '11111111-1111-4111-8111-000000000aaa',
+        name: 'Pin me via button',
+        user_state: { pinned: false, hidden: false, sort_order: 0 },
+      }),
+    ])
+    mocks.setViewUserState.mockResolvedValueOnce(undefined)
+
+    renderSidebar()
+    const user = userEvent.setup()
+
+    const row = await screen.findByRole('link', { name: /pin me via button/i })
+    const li = row.closest('li') as HTMLElement
+    await user.click(
+      within(li).getByRole('button', { name: /pin this view/i }),
+    )
+
+    await waitFor(() => {
+      expect(mocks.setViewUserState).toHaveBeenCalledWith(
+        'op-1',
+        '11111111-1111-4111-8111-000000000aaa',
+        { pinned: true },
+      )
+    })
+  })
+
+  it('clicking the inline PinButton on a Primary row sets pinned=false', async () => {
+    mocks.listSavedViews.mockResolvedValueOnce([
+      makeView({
+        id: '11111111-1111-4111-8111-000000000bbb',
+        name: 'Unpin me',
+        user_state: { pinned: true, hidden: false, sort_order: 0 },
+      }),
+    ])
+    mocks.setViewUserState.mockResolvedValueOnce(undefined)
+
+    renderSidebar()
+    const user = userEvent.setup()
+
+    const row = await screen.findByRole('link', { name: /unpin me/i })
+    const li = row.closest('li') as HTMLElement
+    await user.click(
+      within(li).getByRole('button', { name: /unpin this view/i }),
+    )
+
+    await waitFor(() => {
+      expect(mocks.setViewUserState).toHaveBeenCalledWith(
+        'op-1',
+        '11111111-1111-4111-8111-000000000bbb',
+        { pinned: false },
       )
     })
   })

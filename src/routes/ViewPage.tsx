@@ -2,7 +2,7 @@
 //
 // Replaces the landr-v0xg stub. Phase 2 ships:
 //   - Header: inline-editable name (creator / owner-only — see permission
-//     gate below), Star toggle (StarButton from landr-c58d), layout
+//     gate below), Pin toggle (PinButton from landr-45pb), layout
 //     switcher, "Set as default layout" affordance, Duplicate, Delete,
 //     Hide/Unhide overflow menu (landr-c58d), and dirty-state indicator
 //     with Save / Discard.
@@ -59,7 +59,7 @@ import {
 } from '@/components/views/LayoutSwitcher'
 import { ViewToolbar } from '@/components/views/ViewToolbar'
 import { useViewDirtyState } from '@/components/views/useViewDirtyState'
-import { StarButton } from '@/components/views/StarButton'
+import { PinButton } from '@/components/views/PinButton'
 import { CalendarLayout } from '@/components/views/layouts/CalendarLayout'
 import { useDragReschedule } from '@/lib/calendar-reschedule'
 import { TableLayout } from '@/components/views/layouts/TableLayout'
@@ -410,11 +410,11 @@ export function ViewPage() {
             </Button>
           ) : null}
 
-          {/* Star toggle (landr-c58d StarButton) — md size for the page header. */}
+          {/* Pin toggle (landr-45pb PinButton) — md size for the page header. */}
           {view && currentOperatorId ? (
-            <StarButton
+            <PinButton
               viewId={view.id}
-              starred={view.user_state.starred}
+              pinned={view.user_state.pinned}
               operatorId={currentOperatorId}
               size="md"
               className="text-foreground/70 hover:bg-accent hover:text-foreground"
