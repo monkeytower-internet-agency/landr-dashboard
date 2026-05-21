@@ -23,9 +23,9 @@ export const ENTITY_TYPES = ['booking'] as const
 export const VISIBILITIES = ['personal', 'shared'] as const
 
 export const SavedViewSchema = z.object({
-  id: z.string().uuid(),
-  operator_id: z.string().uuid(),
-  creator_user_id: z.string().uuid(),
+  id: z.string().min(1),
+  operator_id: z.string().min(1),
+  creator_user_id: z.string().min(1),
   entity_type: z.enum(ENTITY_TYPES),
   visibility: z.enum(VISIBILITIES),
   name: z.string(),
