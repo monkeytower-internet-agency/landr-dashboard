@@ -47,6 +47,7 @@ import { EmailLog } from '@/routes/settings/EmailLog'
 import { PlanSettings } from '@/routes/settings/PlanSettings'
 import { PricingSettings } from '@/routes/settings/PricingSettings'
 import { TagsSettings } from '@/routes/settings/TagsSettings'
+import { OperationsSettings } from '@/routes/settings/OperationsSettings'
 import { AuthProvider } from '@/lib/auth'
 import { OperatorProvider } from '@/lib/operator'
 import { ProtectedRoute } from '@/lib/ProtectedRoute'
@@ -171,6 +172,9 @@ function App() {
                 <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
                 <Route path="pricing" element={<PricingSettings />} />
                 <Route path="tags" element={<TagsSettings />} />
+                {/* landr-r87i — Settings → Operations: operator-customisable
+                    default booking-checklist items (v2 of landr-84n1). */}
+                <Route path="operations" element={<OperationsSettings />} />
                 <Route path="plan" element={<PlanSettings />} />
               </Route>
 

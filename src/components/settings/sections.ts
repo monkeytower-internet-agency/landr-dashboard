@@ -2,6 +2,7 @@ import {
   BuildingIcon,
   CalendarClockIcon,
   CalendarDaysIcon,
+  CheckSquareIcon,
   CreditCardIcon,
   LinkIcon,
   MailIcon,
@@ -125,6 +126,14 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/tags',
     label: t.settingsHub.sections.tags,
     icon: TagsIcon,
+  },
+  // landr-r87i — operator-customisable default per-booking checklist
+  // (v2 of landr-84n1). Sits at the bottom of SETTINGS because it
+  // configures a workflow detail rather than a primary domain object.
+  {
+    to: '/settings/operations',
+    label: t.settingsHub.sections.operations,
+    icon: CheckSquareIcon,
   },
 ]
 

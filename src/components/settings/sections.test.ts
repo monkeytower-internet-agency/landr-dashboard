@@ -70,7 +70,7 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // scoped labels for bookings + contacts).
   // landr-qg4q — Email log joined the SETTINGS group between Email
   // templates and Pricing (outbound_emails viewer for operator debug).
-  it('settings group contains the eleven program subsections', () => {
+  it('settings group contains the twelve program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -83,7 +83,19 @@ describe('account/settings grouping (landr-fzcg)', () => {
       '/settings/email-log',
       '/settings/pricing',
       '/settings/tags',
+      // landr-r87i — Settings → Operations: operator-customisable
+      // default per-booking checklist items (v2 of landr-84n1).
+      '/settings/operations',
     ])
+  })
+
+  // landr-r87i — pin the Operations entry shape.
+  it('includes an Operations entry at /settings/operations', () => {
+    const entry = SETTINGS_SECTIONS.find(
+      (s) => s.to === '/settings/operations',
+    )
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Operations')
   })
 
   // landr-qg4q — pin the Email log entry shape.
