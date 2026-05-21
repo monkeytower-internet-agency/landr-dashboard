@@ -424,6 +424,35 @@ describe('BookingDetailSheet', () => {
     expect(invalidatedKeys).toContainEqual(['views-bookings'])
   })
 
+  // landr-pztv — print stylesheet wiring. The @media print CSS in
+  // src/index.css can't be exercised in jsdom (no print preview), so
+  // these tests verify the two wiring points: (1) SheetContent exposes
+  // data-print-target="booking-detail" so the stylesheet's "show only
+  // this subtree" rules match, and (2) the explicit Print button in the
+  // footer calls window.print() — Ctrl+P also works thanks to the
+  // stylesheet, the button surfaces the affordance for discoverability.
+  it('exposes data-print-target="booking-detail" on the sheet content (landr-pztv)', () => {
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    const content = document.querySelector('[data-slot="sheet-content"]')
+    expect(content).not.toBeNull()
+    expect(content?.getAttribute('data-print-target')).toBe('booking-detail')
+  })
+
+  it('Print button in the footer calls window.print() (landr-pztv)', async () => {
+    const user = userEvent.setup()
+    const printSpy = vi.fn()
+    const original = window.print
+    window.print = printSpy
+    try {
+      render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+      const btn = screen.getByTestId('booking-print-btn')
+      await user.click(btn)
+      expect(printSpy).toHaveBeenCalledOnce()
+    } finally {
+      window.print = original
+    }
+  })
+
   // landr-a8fg — copy-link button in the sheet header. Mirrors the
   // EmailTemplatePreview clipboard pattern (landr-7tyo): install the
   // navigator.clipboard stub via Object.defineProperty BEFORE rendering and

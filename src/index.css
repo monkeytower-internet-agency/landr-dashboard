@@ -199,6 +199,68 @@
   }
 }
 
+/* landr-pztv — print stylesheet for BookingDetailSheet.
+   Ctrl+P (or the explicit print button in the sheet footer) produces a
+   clean receipt: customer + service date + line items + total. App chrome
+   (sidebar, sticky topbar, bulk-action toolbar, tab strip, action buttons)
+   is hidden; only the element marked [data-print-target="booking-detail"]
+   is rendered. Note: we hide everything via visibility (not display) on
+   the body so the Sheet's portal positioning + dialog scrim collapse
+   gracefully — display:none on the Sheet's parents would force the
+   tablist + close button into the print flow before our targeted hides
+   could take effect. */
+@media print {
+  /* Hide app chrome (sidebar, sticky topbar, floating bulk toolbar, sheet
+     tab strip, in-sheet copy-link / print buttons). Selectors mirror the
+     concrete data-slot / class names emitted by the shadcn primitives and
+     the BookingDetailSheet body. */
+  [data-slot="sidebar"],
+  [data-slot="sidebar-wrapper"] > [data-slot="sidebar"],
+  header.sticky,
+  header[class*="sticky"],
+  .bulk-action-toolbar,
+  [data-slot="sheet-overlay"],
+  [data-print-target="booking-detail"] [role="tablist"],
+  [data-print-target="booking-detail"] [data-print-hide],
+  [data-slot="sheet-footer"] {
+    display: none !important;
+  }
+
+  /* Two-stage visibility: hide everything, then re-show the print target
+     and its descendants. This keeps the printed page focused on the open
+     booking detail even when other surfaces (lists, dialogs) are in the
+     DOM. */
+  body * {
+    visibility: hidden;
+  }
+  [data-print-target="booking-detail"],
+  [data-print-target="booking-detail"] * {
+    visibility: visible;
+  }
+  [data-print-target="booking-detail"] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    box-shadow: none;
+    border: none;
+  }
+
+  /* Clean receipt typography — force white background + black ink, drop
+     link decoration (URLs are noise on paper). */
+  html,
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt;
+  }
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+}
+
 /* FullCalendar theming — scope all overrides under .landr-fc so the
    library only inherits shadcn tokens where we render it. */
 .landr-fc {
