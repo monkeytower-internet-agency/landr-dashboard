@@ -143,6 +143,7 @@ vi.mock('@/components/schedule/AvailabilityCalendar', () => ({
     rows,
     onDayClick,
     onRangeSelect,
+    onVisibleRangeChange,
   }: {
     rows: AvailabilityFixture[]
     onDayClick?: (
@@ -150,6 +151,7 @@ vi.mock('@/components/schedule/AvailabilityCalendar', () => ({
       date: string,
     ) => void
     onRangeSelect?: (fromDate: string, toDate: string) => void
+    onVisibleRangeChange?: (from: string, to: string) => void
   }) => (
     <div data-testid="availability-calendar">
       <span data-testid="row-count">{rows.length}</span>
@@ -173,6 +175,16 @@ vi.mock('@/components/schedule/AvailabilityCalendar', () => ({
         onClick={() => onRangeSelect?.('2026-06-01', '2026-06-07')}
       >
         range
+      </button>
+      {/* landr-0195 — simulates FullCalendar's `datesSet` firing after a
+          prev/next month click; pumps a new window through the prop so
+          the parent can re-key its availability query. */}
+      <button
+        type="button"
+        data-testid="trigger-visible-range-change"
+        onClick={() => onVisibleRangeChange?.('2026-08-01', '2026-09-12')}
+      >
+        range-change
       </button>
     </div>
   ),
@@ -257,6 +269,37 @@ describe('Schedule route', () => {
     await waitFor(() => {
       expect(screen.getByTestId('row-count')).toHaveTextContent('1')
     })
+  })
+
+  // landr-0195 — prev/next month nav in FullCalendar fires `datesSet`,
+  // which now flows up as `onVisibleRangeChange` and re-keys the
+  // availability query so the new window is fetched. Previously the
+  // window was memoised on mount → stale data after navigation.
+  it('refetches availability when the visible calendar window changes', async () => {
+    mock.state.products = [makeProduct()]
+    mock.state.rows = [makeAvailability()]
+    const availability = await import('@/lib/availability')
+    const fetchSpy = availability.fetchAvailability as unknown as ReturnType<
+      typeof vi.fn
+    >
+    const user = userEvent.setup()
+    render(<Schedule />)
+
+    await screen.findByText('Hotel package')
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalled()
+    })
+    const initialCalls = fetchSpy.mock.calls.length
+
+    await user.click(screen.getByTestId('trigger-visible-range-change'))
+
+    await waitFor(() => {
+      expect(fetchSpy.mock.calls.length).toBeGreaterThan(initialCalls)
+    })
+    const lastCall = fetchSpy.mock.calls[fetchSpy.mock.calls.length - 1]
+    // (operatorId, productId, from, to)
+    expect(lastCall[2]).toBe('2026-08-01')
+    expect(lastCall[3]).toBe('2026-09-12')
   })
 
   it('opens the bulk-add sheet on Add availability and submits a bulk payload', async () => {

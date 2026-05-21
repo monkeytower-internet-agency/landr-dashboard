@@ -2,7 +2,11 @@ import { useMemo, useRef, type MouseEvent as ReactMouseEvent } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
-import type { DateSelectArg, DayCellContentArg } from '@fullcalendar/core'
+import type {
+  DateSelectArg,
+  DatesSetArg,
+  DayCellContentArg,
+} from '@fullcalendar/core'
 import type { AvailabilityRow } from '@/lib/availability'
 import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
@@ -20,6 +24,13 @@ type Props = {
   onDayClick?: (summary: DaySummary | null, date: string) => void
   onPillClick?: (summary: DaySummary | null, date: string) => void
   onRangeSelect?: (fromDate: string, toDate: string) => void
+  // landr-0195 — fires whenever FullCalendar's visible date range changes
+  // (initial paint, prev/next, today). `from` is the first visible day,
+  // `to` is the last visible day inclusive (FullCalendar's native `end` is
+  // exclusive — we subtract a day before reporting). Mirrors the pattern
+  // already in BookingsCalendar.tsx's `handleDatesSet` so the availability
+  // query can be re-keyed on month navigation instead of frozen at mount.
+  onVisibleRangeChange?: (from: string, to: string) => void
 }
 
 function groupByDate(rows: AvailabilityRow[]): Map<string, DaySummary> {
@@ -53,6 +64,7 @@ export function AvailabilityCalendar({
   onDayClick,
   onPillClick,
   onRangeSelect,
+  onVisibleRangeChange,
 }: Props) {
   const calendarRef = useRef<FullCalendar | null>(null)
   const byDate = useMemo(() => groupByDate(rows), [rows])
@@ -65,6 +77,16 @@ export function AvailabilityCalendar({
     const toIso = toLocalIso
     onRangeSelect(toIso(arg.start), toIso(end))
     calendarRef.current?.getApi().unselect()
+  }
+
+  function handleDatesSet(arg: DatesSetArg) {
+    if (!onVisibleRangeChange) return
+    // FullCalendar reports `end` as exclusive — subtract one day so the
+    // window matches the inclusive `to` shape used by /availability.
+    // Mirrors BookingsCalendar.tsx:168-177.
+    const end = new Date(arg.end)
+    end.setDate(end.getDate() - 1)
+    onVisibleRangeChange(toLocalIso(arg.start), toLocalIso(end))
   }
 
   function handleDayCellDidMount(arg: DayCellContentArg) {
@@ -162,6 +184,7 @@ export function AvailabilityCalendar({
         selectable={!!onRangeSelect}
         selectMirror
         select={handleSelect}
+        datesSet={onVisibleRangeChange ? handleDatesSet : undefined}
         dayCellContent={renderDayCellContent}
         dayCellDidMount={handleDayCellDidMount}
       />
