@@ -136,3 +136,31 @@ export async function markOnboarded(
 export async function disconnectGmail(operatorId: string): Promise<void> {
   await api<void>('DELETE', `/api/staff/operators/${operatorId}/integrations/gmail`)
 }
+
+// landr-6ybs — per-operator subscribable ICS calendar feed.
+// GET auto-creates the token row on first read, so the dashboard can
+// render the URL immediately without an explicit "enable" step. POST
+// rotates the token (invalidates the prior URL).
+export const OperatorIcalTokenSchema = z.object({
+  url: z.string(),
+  token: z.string(),
+})
+export type OperatorIcalToken = z.infer<typeof OperatorIcalTokenSchema>
+
+export async function fetchOperatorIcalToken(
+  operatorId: string,
+): Promise<OperatorIcalToken> {
+  return api<OperatorIcalToken>(
+    'GET',
+    `/api/staff/operators/${operatorId}/ical-token`,
+  )
+}
+
+export async function regenerateOperatorIcalToken(
+  operatorId: string,
+): Promise<OperatorIcalToken> {
+  return api<OperatorIcalToken>(
+    'POST',
+    `/api/staff/operators/${operatorId}/ical-token`,
+  )
+}

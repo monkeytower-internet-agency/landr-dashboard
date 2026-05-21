@@ -49,6 +49,7 @@ import { BrandingSettings } from '@/routes/settings/BrandingSettings'
 import { CompanySettings } from '@/routes/settings/CompanySettings'
 import { CalendarDisplaySettings } from '@/routes/settings/CalendarDisplaySettings'
 import { DisplayPreferencesSettings } from '@/routes/settings/DisplayPreferencesSettings'
+import { IntegrationsCalendarSettings } from '@/routes/settings/IntegrationsCalendarSettings'
 import { IntegrationsGmailSettings } from '@/routes/settings/IntegrationsGmailSettings'
 import { ConnectedAccountsSettings } from '@/routes/settings/ConnectedAccountsSettings'
 import { EmailLog } from '@/routes/settings/EmailLog'
@@ -183,6 +184,8 @@ function App() {
                 {/* landr-qg4q — outbound_emails viewer (failed sends, retried, sent). */}
                 <Route path="email-log" element={<EmailLog />} />
                 <Route path="integrations/gmail" element={<IntegrationsGmailSettings />} />
+                {/* landr-6ybs — per-operator subscribable ICS calendar feed. */}
+                <Route path="integrations/calendar" element={<IntegrationsCalendarSettings />} />
                 <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
                 <Route path="pricing" element={<PricingSettings />} />
                 <Route path="tags" element={<TagsSettings />} />

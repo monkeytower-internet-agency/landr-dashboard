@@ -52,6 +52,14 @@ export const ACCOUNT_SECTIONS: SettingsSubSection[] = [
     label: t.settingsHub.sections.integrationsGmail,
     icon: PlugIcon,
   },
+  // landr-6ybs — per-operator subscribable ICS calendar feed. Sits in
+  // the ACCOUNT group next to Gmail because both are personal third-
+  // party integrations the operator wires up once.
+  {
+    to: '/settings/integrations/calendar',
+    label: t.settingsHub.sections.integrationsCalendar,
+    icon: CalendarDaysIcon,
+  },
   {
     to: '/settings/plan',
     label: t.settingsHub.sections.plan,
