@@ -453,6 +453,29 @@ export const t = {
       toastSuccess: 'Booking unblocked.',
       toastError: 'Failed to unblock booking.',
     },
+    // landr-9qo1 — operator-internal notes on a booking. Never sent to
+    // the customer; staff-side only.
+    notes: {
+      tabNotes: 'Notes',
+      sectionTitle: 'Internal notes',
+      sectionHint:
+        'Private to staff. Never sent to the customer.',
+      composerPlaceholder: 'Add an internal note…',
+      composerSave: 'Save note',
+      composerSaving: 'Saving…',
+      composerError: 'Could not save note.',
+      composerSuccess: 'Note saved.',
+      empty: 'No internal notes yet.',
+      loading: 'Loading notes…',
+      loadError: 'Could not load notes.',
+      deleteLabel: 'Delete note',
+      deleteConfirm: 'Delete this note? This cannot be undone.',
+      deleteSuccess: 'Note deleted.',
+      deleteError: 'Could not delete note.',
+      deletedUser: '(deleted user)',
+      byAuthor: (author: string, when: string): string =>
+        `${author} · ${when}`,
+    },
     // landr-irds — server-rendered invoice PDF download. The button lives
     // in the BookingDetailSheet footer next to Print and fetches the
     // auth-protected GET /api/staff/operators/{op}/bookings/{id}/invoice.pdf
