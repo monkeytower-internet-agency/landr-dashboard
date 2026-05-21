@@ -35,6 +35,10 @@ const { mock } = vi.hoisted(() => {
     updateCalls: [] as Array<{ id: string; payload: Record<string, unknown> }>,
     deleteCalls: [] as string[],
     previewError: null as string | null,
+    // landr-7tyo: Jinja render_error returned by the preview endpoint
+    // (kept distinct from previewError, which simulates a network/HTTP
+    // failure on the query itself).
+    previewRenderError: null as string | null,
   }
   return { mock: { state } }
 })
@@ -101,9 +105,16 @@ vi.mock('@/lib/emailTemplates', async (importOriginal) => {
         subject: tpl.subject,
         body_html: tpl.body_html,
         body_text: tpl.body_text,
+        // landr-7tyo: mirrors the live preview endpoint shape from
+        // landr-tq6j. Tests can flip render_error via mock.state to
+        // exercise the inline banner.
+        render_error: mock.state.previewRenderError,
         fixture: {
-          note: 'v1 stub: raw template returned without variable substitution',
-          booking_id: '00000000-0000-0000-0000-000000000000',
+          note: 'Rendered against a sample booking context.',
+          context: {
+            customer_name: 'Sample Customer',
+            operator_name: 'Sample Operator',
+          },
         },
       }
     }),
@@ -185,6 +196,7 @@ beforeEach(() => {
   mock.state.updateCalls = []
   mock.state.deleteCalls = []
   mock.state.previewError = null
+  mock.state.previewRenderError = null
   toastCalls.success.length = 0
   toastCalls.error.length = 0
 })
@@ -336,7 +348,23 @@ describe('EmailTemplates route', () => {
     expect(screen.getByText(/permission denied/i)).toBeInTheDocument()
   })
 
-  it('shows stub banner in preview when backend returns v1 stub fixture', async () => {
+  it('surfaces render_error from the preview endpoint as an inline banner (landr-7tyo)', async () => {
+    mock.state.templates = [makeTemplate()]
+    mock.state.previewRenderError = "'undefined_xyz' is undefined"
+    const user = userEvent.setup()
+    render(<EmailTemplates />)
+    await screen.findByText('Booking received')
+
+    const deTabs = screen.getAllByRole('button', { name: /de/i })
+    await user.click(deTabs[0])
+
+    await screen.findByLabelText(/email template editor/i)
+    const banner = await screen.findByRole('alert')
+    expect(banner).toHaveTextContent(/template did not render/i)
+    expect(banner).toHaveTextContent("'undefined_xyz' is undefined")
+  })
+
+  it('surfaces the variable catalog sidebar from fixture.context (landr-7tyo)', async () => {
     mock.state.templates = [makeTemplate()]
     const user = userEvent.setup()
     render(<EmailTemplates />)
@@ -346,6 +374,10 @@ describe('EmailTemplates route', () => {
     await user.click(deTabs[0])
 
     await screen.findByLabelText(/email template editor/i)
-    await screen.findByText(/live preview lands when the email sender ships/i)
+    const sidebar = await screen.findByRole('complementary', {
+      name: /available variables/i,
+    })
+    expect(sidebar).toHaveTextContent('{{ customer_name }}')
+    expect(sidebar).toHaveTextContent('{{ operator_name }}')
   })
 })

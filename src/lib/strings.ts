@@ -942,12 +942,28 @@ export const t = {
     previewLoading: 'Loading preview…',
     previewError: 'Preview failed',
     previewSelectTemplate: 'Save a template to see the preview.',
-    previewStubBanner:
-      'Live preview lands when the email sender ships (landr-m05.16). Showing raw template.',
     previewSubject: 'Subject',
     previewHtml: 'HTML',
     previewHtmlTitle: 'Email HTML preview',
     previewText: 'Plain text',
+    // landr-7tyo — Jinja render error surfaced from the preview endpoint
+    // (landr-tq6j). Banner sits below the iframe so the operator can
+    // still see whatever partial output the engine produced before the
+    // failure.
+    previewRenderErrorTitle: 'Template did not render',
+    previewRenderErrorHint:
+      'This template references a variable that the email engine does not provide. Pick a name from the catalog on the right.',
+    // landr-7tyo — variable catalog sidebar (C2 from email-templates.md).
+    // Surfaced from the preview endpoint's fixture.context payload so
+    // the dashboard always shows the same keys the renderer accepts.
+    variablesTitle: 'Available variables',
+    variablesHint:
+      'Click a chip to copy the Jinja placeholder. Paste into the subject or body to inject the value at send time.',
+    variablesEmpty: 'Run the preview to load available variables.',
+    variablesCopyAria: (key: string): string => `Copy {{ ${key} }} to clipboard`,
+    variablesCopied: 'Copied to clipboard.',
+    variablesCopyError: 'Could not copy to clipboard.',
+    variablesSampleLabel: 'Sample',
   },
   onboarding: {
     title: 'Welcome to LANDR',
