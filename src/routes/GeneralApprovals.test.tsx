@@ -99,6 +99,31 @@ vi.mock('@/lib/auth', () => ({
   }),
 }))
 
+// landr-8eks — capture sonner toast calls so we can assert the bulk
+// approve/reject path no longer surfaces the no-op Undo affordance.
+const { toastCalls } = vi.hoisted(() => ({
+  toastCalls: {
+    success: [] as Array<{ message: unknown; options?: unknown }>,
+    warning: [] as Array<{ message: unknown; options?: unknown }>,
+    error: [] as Array<{ message: unknown; options?: unknown }>,
+  },
+}))
+
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn((message: unknown, options?: unknown) => {
+      toastCalls.success.push({ message, options })
+    }),
+    warning: vi.fn((message: unknown, options?: unknown) => {
+      toastCalls.warning.push({ message, options })
+    }),
+    error: vi.fn((message: unknown, options?: unknown) => {
+      toastCalls.error.push({ message, options })
+    }),
+  },
+  Toaster: () => null,
+}))
+
 // Stub window.fetch used by postGeneralApprovalDecision
 const fetchSpy = vi.fn()
 vi.stubGlobal('fetch', fetchSpy)
@@ -152,6 +177,9 @@ beforeEach(() => {
   mock.state.rows = []
   mock.state.error = null
   fetchSpy.mockReset()
+  toastCalls.success.length = 0
+  toastCalls.warning.length = 0
+  toastCalls.error.length = 0
   // landr-aqn4 — ApprovalsFilters persists state under
   // `landr.dashboard.approvalsFilters.<userId>`; tests share the mocked
   // user-1 so clear between specs to avoid filter leakage.
@@ -505,8 +533,10 @@ describe('GeneralApprovals route', () => {
 
   it('bulk-approve fires Promise.all of approval decisions', async () => {
     mock.state.rows = [sampleRow, newCustomerRow]
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200 }),
+    // landr-8eks — each Response can only be consumed once; the bulk path
+    // fires two parallel POSTs so give each its own Response instance.
+    fetchSpy.mockImplementation(
+      async () => new Response(JSON.stringify({}), { status: 200 }),
     )
     const user = userEvent.setup()
     render(<GeneralApprovals />)
@@ -530,12 +560,23 @@ describe('GeneralApprovals route', () => {
       const body = JSON.parse(opts.body as string)
       expect(body).toMatchObject({ decision: 'approve', branch: 'general' })
     }
+
+    // landr-8eks — bulk approve is non-reversible (emails fire, audit_log
+    // captures the transition). The success toast must NOT advertise an
+    // Undo affordance, and the toast message itself must not contain the
+    // word "Undo".
+    await waitFor(() => expect(toastCalls.success).toHaveLength(1))
+    const [{ message, options }] = toastCalls.success
+    expect(options).toBeUndefined()
+    expect(String(message)).not.toMatch(/undo/i)
   })
 
   it('bulk-reject opens a confirm dialog before firing', async () => {
     mock.state.rows = [sampleRow, newCustomerRow]
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200 }),
+    // landr-8eks — each Response can only be consumed once; the bulk path
+    // fires two parallel POSTs so give each its own Response instance.
+    fetchSpy.mockImplementation(
+      async () => new Response(JSON.stringify({}), { status: 200 }),
     )
     const user = userEvent.setup()
     render(<GeneralApprovals />)
@@ -556,6 +597,15 @@ describe('GeneralApprovals route', () => {
       const body = JSON.parse(opts.body as string)
       expect(body).toMatchObject({ decision: 'reject', branch: 'general' })
     }
+
+    // landr-8eks — bulk reject is non-reversible (voucher used_count
+    // decrements via transition_booking_approval RPC, audit_log entry
+    // written). The success toast must NOT advertise an Undo affordance.
+    // The confirm dialog already warns 'You cannot undo this from here.'
+    await waitFor(() => expect(toastCalls.success).toHaveLength(1))
+    const [{ message, options }] = toastCalls.success
+    expect(options).toBeUndefined()
+    expect(String(message)).not.toMatch(/undo/i)
   })
 
   it('Awaiting filter narrows the table to the selected stage(s)', async () => {

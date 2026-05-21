@@ -364,15 +364,16 @@ export function GeneralApprovals() {
     setSelectedIds(new Set())
 
     if (fail === 0) {
+      // landr-8eks / landr-a4kh — no Undo affordance: bulk approve/reject is
+      // non-reversible (emails fire on approve, voucher used_count decrements
+      // on reject, audit_log captures the transition, and the post-transition
+      // stage is past a Stripe-promotable boundary). Reject path already warns
+      // 'You cannot undo this from here.' in confirmRejectDescription.
       const message =
         decision === 'approve'
           ? t.bulkActions.toastApproved(ok)
           : t.bulkActions.toastRejected(ok)
-      toast.success(`${message} — ${t.bulkActions.undo}`, {
-        // landr-lbbj — Undo is a stub; once we have a bulk-reverse endpoint
-        // wire it up here. For now we no-op so the user sees the affordance.
-        action: { label: t.bulkActions.undo, onClick: () => {} },
-      })
+      toast.success(message)
     } else if (ok > 0) {
       toast.warning(t.bulkActions.toastPartial(ok, fail))
     } else {
