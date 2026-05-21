@@ -107,6 +107,14 @@ const { mock } = vi.hoisted(() => {
     }),
     channel: vi.fn(() => channel),
     removeChannel: vi.fn(),
+    // landr-uqr2 — api-client.getBearerToken() reads the session before
+    // every fetch; provide a stable test token so the bulk-apply tag
+    // path can mount without an AuthProvider.
+    auth: {
+      getSession: vi.fn(async () => ({
+        data: { session: { access_token: 'test-token' } },
+      })),
+    },
     rpc: vi.fn(async (fn: string, args: unknown) => {
       state.rpcCalls.push({ fn, args })
       if (state.rpcError) return { data: null, error: state.rpcError }
@@ -163,7 +171,11 @@ vi.mock('@/lib/auth', () => ({
 
 // Capture the latest set of toast calls so we can assert on them.
 const { toastCalls } = vi.hoisted(() => ({
-  toastCalls: { success: [] as string[], error: [] as string[] },
+  toastCalls: {
+    success: [] as string[],
+    warning: [] as string[],
+    error: [] as string[],
+  },
 }))
 
 vi.mock('sonner', () => ({
@@ -171,12 +183,24 @@ vi.mock('sonner', () => ({
     success: vi.fn((msg: string) => {
       toastCalls.success.push(msg)
     }),
+    // landr-uqr2 — bulk-apply tags surfaces a partial-failure warning toast.
+    warning: vi.fn((msg: string) => {
+      toastCalls.warning.push(msg)
+    }),
     error: vi.fn((msg: string) => {
       toastCalls.error.push(msg)
     }),
   },
   Toaster: () => null,
 }))
+
+// landr-uqr2 — Contacts route now wires bulk-apply tags through the
+// FastAPI router. Centralise a fetch stub that handles auth + tag list +
+// per-row setContactTags POSTs. Stubbed at module scope so the tests that
+// don't exercise bulk-tag are unaffected (fetchSpy.mockReset() in
+// beforeEach restores the default unimplemented spy).
+const fetchSpy = vi.fn()
+vi.stubGlobal('fetch', fetchSpy)
 
 import { Contacts } from './Contacts'
 
@@ -233,7 +257,9 @@ beforeEach(() => {
   mock.state.rpcCalls = []
   mock.state.auditRows = []
   mock.realtimeHandlers.length = 0
+  fetchSpy.mockReset()
   toastCalls.success.length = 0
+  toastCalls.warning.length = 0
   toastCalls.error.length = 0
   // landr-j57l — clear per-test localStorage so URL-vs-storage assertions
   // start from a known baseline.
@@ -342,6 +368,86 @@ describe('Contacts route', () => {
     expect(
       screen.getByRole('heading', { name: /no contacts yet/i }),
     ).toBeInTheDocument()
+  })
+
+  // ---- landr-uqr2 — bulk-apply tags -----------------------------------
+
+  it('bulk toolbar is hidden until a contact row is selected', async () => {
+    mock.state.contacts = freshSampleContacts()
+    render(<Contacts />)
+
+    await screen.findByText('Alice Anderson')
+    expect(
+      screen.queryByTestId('contacts-bulk-toolbar'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('selecting a contact reveals the bulk toolbar with the Apply tag action', async () => {
+    mock.state.contacts = freshSampleContacts()
+    const user = userEvent.setup()
+    render(<Contacts />)
+
+    await screen.findByText('Alice Anderson')
+    await user.click(screen.getByTestId('contacts-select-c-1'))
+
+    expect(screen.getByTestId('contacts-bulk-toolbar')).toBeInTheDocument()
+    expect(screen.getByText('1 selected')).toBeInTheDocument()
+    expect(screen.getByTestId('contacts-bulk-toolbar-tag')).toBeInTheDocument()
+  })
+
+  it('bulk-apply tag fans setContactTags out per selected contact and toasts on success', async () => {
+    mock.state.contacts = freshSampleContacts()
+    // landr-uqr2 / fetch-spy-response-mockResolvedValue-footgun — use
+    // mockImplementation so each parallel POST gets a fresh Response.
+    const tagListBody = JSON.stringify([
+      {
+        id: 't-vip',
+        operator_id: 'op-1',
+        name: 'VIP',
+        color: '#3b82f6',
+        created_at: '2026-05-21T00:00:00Z',
+        updated_at: '2026-05-21T00:00:00Z',
+      },
+    ])
+    fetchSpy.mockImplementation(async (url: string) => {
+      if (url.endsWith('/tags') && !url.includes('/contacts/')) {
+        return new Response(tagListBody, { status: 200 })
+      }
+      return new Response(JSON.stringify({ tag_ids: ['t-vip'] }), {
+        status: 200,
+      })
+    })
+
+    const user = userEvent.setup()
+    render(<Contacts />)
+
+    await screen.findByText('Alice Anderson')
+    await user.click(screen.getByTestId('contacts-select-c-1'))
+    await user.click(screen.getByTestId('contacts-select-c-2'))
+
+    await user.click(screen.getByTestId('contacts-bulk-toolbar-tag'))
+    await user.click(
+      screen.getByTestId('contacts-bulk-toolbar-tag-picker-trigger'),
+    )
+    await screen.findByTestId(
+      'contacts-bulk-toolbar-tag-picker-option-t-vip',
+    )
+    await user.click(
+      screen.getByTestId('contacts-bulk-toolbar-tag-picker-option-t-vip'),
+    )
+    await user.click(screen.getByTestId('contacts-bulk-toolbar-tag-confirm'))
+
+    // Two POSTs to /contacts/{id}/tags expected (one per selected row).
+    await waitFor(() => {
+      const setCalls = fetchSpy.mock.calls.filter((c) =>
+        String((c as [string])[0]).match(
+          /\/api\/staff\/operators\/op-1\/contacts\/[^/]+\/tags$/,
+        ),
+      )
+      expect(setCalls.length).toBe(2)
+    })
+    await waitFor(() => expect(toastCalls.success).toHaveLength(1))
+    expect(toastCalls.success[0]).toMatch(/^Applied 1 tag to 2 rows$/)
   })
 
   it('triggers the GDPR erase RPC after confirmation', async () => {

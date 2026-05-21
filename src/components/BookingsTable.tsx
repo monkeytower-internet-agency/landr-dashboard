@@ -53,6 +53,7 @@ import {
   statusOptionsFor,
   useInlineEditBooking,
 } from '@/lib/inline-edit-booking'
+import { bulkApplyTagsToBookings } from '@/lib/tags'
 import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { t } from '@/lib/strings'
 import { highlightMatch } from '@/lib/text-highlight'
@@ -449,6 +450,47 @@ export function BookingsTable({
     setSelectedIds(new Set())
   }
 
+  // landr-uqr2 — bulk-apply tags. Reads each selected row's current tag
+  // ids off the in-memory row set and POSTs the UNION (current ∪ chosen)
+  // via setBookingTags per row. Promise.allSettled handles partial
+  // failures — at least one success keeps the picker closed and toasts
+  // a warning with the fail count.
+  async function runBulkApplyTags(
+    ids: string[],
+    tagIds: string[],
+  ): Promise<void> {
+    if (!currentOperatorId || tagIds.length === 0 || ids.length === 0) return
+    setBulkBusy(true)
+    try {
+      const items = ids.map((id) => {
+        const row = rows.find((r) => r.id === id)
+        return {
+          id,
+          currentTagIds: (row?.tags ?? []).map((t) => t.id),
+        }
+      })
+      const { ok, failed } = await bulkApplyTagsToBookings(
+        currentOperatorId,
+        items,
+        tagIds,
+      )
+      setSelectedIds(new Set())
+      if (failed.length === 0) {
+        toast.success(t.bulkActions.toastTagsApplied(ok, tagIds.length))
+      } else if (ok > 0) {
+        toast.warning(t.bulkActions.toastTagsPartial(ok, failed.length))
+      } else {
+        toast.error(t.bulkActions.toastError)
+      }
+    } catch (err) {
+      toast.error(t.bulkActions.toastError, {
+        description: err instanceof Error ? err.message : undefined,
+      })
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
   // landr-vaob — bulk send-reminder wired to the real endpoint
   // (POST /api/staff/operators/{op}/bookings/bulk-reminder, landr-s0wo).
   // Mirrors GeneralApprovals.runBulkSendReminder so the two surfaces
@@ -613,9 +655,11 @@ export function BookingsTable({
       <BulkActionToolbar
         selectedIds={[...selectedIds]}
         onClear={() => setSelectedIds(new Set())}
-        actions={['exportCsv', 'sendReminder']}
+        actions={['tag', 'exportCsv', 'sendReminder']}
         onExportCsv={(ids) => runBulkExportCsv(ids)}
         onSendReminder={(ids) => runBulkSendReminder(ids)}
+        onApplyTags={(ids, tagIds) => runBulkApplyTags(ids, tagIds)}
+        operatorId={currentOperatorId ?? undefined}
         busy={bulkBusy}
         testIdPrefix="bookings-bulk-toolbar"
       />

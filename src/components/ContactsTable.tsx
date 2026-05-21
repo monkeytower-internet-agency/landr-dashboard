@@ -17,7 +17,10 @@ import {
   Trash2Icon,
   UsersIcon,
 } from 'lucide-react'
+import { toast } from 'sonner'
+import { BulkActionToolbar } from '@/components/BulkActionToolbar'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { EmptyState } from '@/components/EmptyState'
 import { Input } from '@/components/ui/input'
 import { SkeletonTableRows } from '@/components/SkeletonTableRows'
@@ -36,7 +39,9 @@ import {
   type ContactRow,
 } from '@/lib/contacts'
 import { TagChipRow } from '@/components/tags/TagChip'
+import { useOperator } from '@/lib/operator'
 import { t } from '@/lib/strings'
+import { bulkApplyTagsToContacts } from '@/lib/tags'
 import { highlightMatch } from '@/lib/text-highlight'
 import { useListKeyboardNav } from '@/lib/use-list-keyboard-nav'
 
@@ -86,9 +91,69 @@ export function ContactsTable({
     },
     [isGlobalFilterControlled, onGlobalFilterChange],
   )
+  // landr-uqr2 — bulk-select state (mirrors BookingsTable). Set<id> for
+  // O(1) header / row checks; the toolbar opens a TagPicker that fans
+  // tag-apply out across the selected rows.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const { currentOperatorId } = useOperator()
 
   const columns = useMemo<ColumnDef<ContactRow>[]>(
     () => [
+      // landr-uqr2 — leading select column (matches BookingsTable +
+      // GeneralApprovals). Header toggles every visible row; row click
+      // stopPropagation so the checkbox does not trigger onEdit().
+      {
+        id: 'select',
+        enableSorting: false,
+        header: ({ table: t1 }) => {
+          const visibleIds = t1
+            .getRowModel()
+            .rows.map((r) => (r.original as ContactRow).id)
+          const allChecked =
+            visibleIds.length > 0 &&
+            visibleIds.every((id) => selectedIds.has(id))
+          const someChecked = visibleIds.some((id) => selectedIds.has(id))
+          return (
+            <Checkbox
+              checked={allChecked}
+              ref={(el) => {
+                if (el) el.indeterminate = !allChecked && someChecked
+              }}
+              onChange={(e) => {
+                const next = new Set(selectedIds)
+                if (e.currentTarget.checked) {
+                  for (const id of visibleIds) next.add(id)
+                } else {
+                  for (const id of visibleIds) next.delete(id)
+                }
+                setSelectedIds(next)
+              }}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={t.bulkActions.selectAllAria}
+              data-testid="contacts-select-all"
+            />
+          )
+        },
+        cell: ({ row }) => {
+          const id = row.original.id
+          const checked = selectedIds.has(id)
+          return (
+            <Checkbox
+              checked={checked}
+              onChange={(e) => {
+                const next = new Set(selectedIds)
+                if (e.currentTarget.checked) next.add(id)
+                else next.delete(id)
+                setSelectedIds(next)
+              }}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={t.bulkActions.selectRowAria(id)}
+              data-testid={`contacts-select-${id}`}
+            />
+          )
+        },
+      },
       {
         id: 'name',
         header: t.contacts.columnName,
@@ -210,7 +275,7 @@ export function ContactsTable({
         },
       },
     ],
-    [onEdit, onErase, onAudit, globalFilter],
+    [onEdit, onErase, onAudit, globalFilter, selectedIds],
   )
 
   const table = useReactTable({
@@ -226,11 +291,9 @@ export function ContactsTable({
     initialState: { pagination: { pageSize: 25 } },
   })
 
-  // landr-euta — vim-style j/k row navigation. Contacts has no bulk-
-  // select column today, so we wire only the Enter → onEdit branch.
-  // 'x' is still listed in the global help sheet but is a no-op here
-  // until a contacts bulk-select column ships (BookingsTable +
-  // GeneralApprovals carry the toggle today).
+  // landr-euta — vim-style j/k row navigation. landr-uqr2 wires 'x' to
+  // toggle bulk-select on the focused row so contacts now share the same
+  // toggle UX as BookingsTable + GeneralApprovals.
   const visibleRows = table.getRowModel().rows
   const nav = useListKeyboardNav({
     rowCount: visibleRows.length,
@@ -238,7 +301,57 @@ export function ContactsTable({
       const row = visibleRows[index]
       if (row) onEdit(row.original)
     },
+    onToggleSelect: (index) => {
+      const row = visibleRows[index]
+      if (!row) return
+      const id = row.original.id
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) next.delete(id)
+        else next.add(id)
+        return next
+      })
+    },
   })
+
+  // landr-uqr2 — bulk-apply tags handler. Reads each selected contact's
+  // current tag ids off the in-memory row set, POSTs the UNION via
+  // setContactTags per row, and toasts the partial-failure outcome.
+  async function runBulkApplyTags(
+    ids: string[],
+    tagIds: string[],
+  ): Promise<void> {
+    if (!currentOperatorId || tagIds.length === 0 || ids.length === 0) return
+    setBulkBusy(true)
+    try {
+      const items = ids.map((id) => {
+        const row = rows.find((r) => r.id === id)
+        return {
+          id,
+          currentTagIds: (row?.tags ?? []).map((tagRef) => tagRef.id),
+        }
+      })
+      const { ok, failed } = await bulkApplyTagsToContacts(
+        currentOperatorId,
+        items,
+        tagIds,
+      )
+      setSelectedIds(new Set())
+      if (failed.length === 0) {
+        toast.success(t.bulkActions.toastTagsApplied(ok, tagIds.length))
+      } else if (ok > 0) {
+        toast.warning(t.bulkActions.toastTagsPartial(ok, failed.length))
+      } else {
+        toast.error(t.bulkActions.toastError)
+      }
+    } catch (err) {
+      toast.error(t.bulkActions.toastError, {
+        description: err instanceof Error ? err.message : undefined,
+      })
+    } finally {
+      setBulkBusy(false)
+    }
+  }
 
   // landr-s1mr / landr-sj2z — When there are zero contacts AND the fetch
   // has settled, show the friendly empty-state card. During the loading
@@ -373,6 +486,16 @@ export function ContactsTable({
           Next
         </Button>
       </div>
+
+      <BulkActionToolbar
+        selectedIds={[...selectedIds]}
+        onClear={() => setSelectedIds(new Set())}
+        actions={['tag']}
+        onApplyTags={(ids, tagIds) => runBulkApplyTags(ids, tagIds)}
+        operatorId={currentOperatorId ?? undefined}
+        busy={bulkBusy}
+        testIdPrefix="contacts-bulk-toolbar"
+      />
     </div>
   )
 }
