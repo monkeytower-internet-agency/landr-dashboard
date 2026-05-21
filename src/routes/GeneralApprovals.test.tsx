@@ -460,6 +460,104 @@ describe('GeneralApprovals route', () => {
     expect(screen.getByTestId('approvals-sort-stage')).toBeInTheDocument()
   })
 
+  // ---- landr-lbbj ------------------------------------------------------
+
+  it('bulk toolbar is hidden until a row is selected', async () => {
+    mock.state.rows = [sampleRow, newCustomerRow]
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+    expect(
+      screen.queryByTestId('approvals-bulk-toolbar'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('selecting a row reveals the bulk toolbar with correct count', async () => {
+    mock.state.rows = [sampleRow, newCustomerRow]
+    const user = userEvent.setup()
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+    await user.click(screen.getByTestId('approvals-select-b-abc123'))
+
+    expect(screen.getByTestId('approvals-bulk-toolbar')).toBeInTheDocument()
+    expect(screen.getByText('1 selected')).toBeInTheDocument()
+
+    await user.click(screen.getByTestId('approvals-select-b-xyz789'))
+    expect(screen.getByText('2 selected')).toBeInTheDocument()
+  })
+
+  it('select-all checkbox toggles every visible row', async () => {
+    mock.state.rows = [sampleRow, newCustomerRow]
+    const user = userEvent.setup()
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+    await user.click(screen.getByTestId('approvals-select-all'))
+    expect(screen.getByText('2 selected')).toBeInTheDocument()
+
+    // Un-tick to clear.
+    await user.click(screen.getByTestId('approvals-select-all'))
+    expect(
+      screen.queryByTestId('approvals-bulk-toolbar'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('bulk-approve fires Promise.all of approval decisions', async () => {
+    mock.state.rows = [sampleRow, newCustomerRow]
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    )
+    const user = userEvent.setup()
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+    await user.click(screen.getByTestId('approvals-select-all'))
+    await user.click(screen.getByTestId('approvals-bulk-toolbar-approve'))
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2))
+    const calledUrls = fetchSpy.mock.calls.map(
+      (c) => (c as [string, RequestInit])[0],
+    )
+    expect(calledUrls).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('/api/staff/bookings/b-abc123/approval'),
+        expect.stringContaining('/api/staff/bookings/b-xyz789/approval'),
+      ]),
+    )
+    // Both bodies carry decision=approve / branch=general.
+    for (const [, opts] of fetchSpy.mock.calls as Array<[string, RequestInit]>) {
+      const body = JSON.parse(opts.body as string)
+      expect(body).toMatchObject({ decision: 'approve', branch: 'general' })
+    }
+  })
+
+  it('bulk-reject opens a confirm dialog before firing', async () => {
+    mock.state.rows = [sampleRow, newCustomerRow]
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    )
+    const user = userEvent.setup()
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+    await user.click(screen.getByTestId('approvals-select-all'))
+    await user.click(screen.getByTestId('approvals-bulk-toolbar-reject'))
+
+    // Dialog appears, no fetch yet.
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    expect(fetchSpy).not.toHaveBeenCalled()
+
+    await user.click(
+      screen.getByTestId('approvals-bulk-toolbar-reject-confirm'),
+    )
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2))
+    for (const [, opts] of fetchSpy.mock.calls as Array<[string, RequestInit]>) {
+      const body = JSON.parse(opts.body as string)
+      expect(body).toMatchObject({ decision: 'reject', branch: 'general' })
+    }
+  })
+
   it('Awaiting filter narrows the table to the selected stage(s)', async () => {
     const hotelRow = {
       ...newCustomerRow,
