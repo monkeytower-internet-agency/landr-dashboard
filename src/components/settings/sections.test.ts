@@ -66,7 +66,9 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // main Calendar via landr-3uai turned Schedule into a setup tool).
   // landr-yp8x — Branding joined the SETTINGS group next to Display
   // preferences (logo + primary colour shown in the embedded widget).
-  it('settings group contains the nine program subsections', () => {
+  // landr-iz58 — Tags joined the SETTINGS group below Pricing (operator-
+  // scoped labels for bookings + contacts).
+  it('settings group contains the ten program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -77,6 +79,7 @@ describe('account/settings grouping (landr-fzcg)', () => {
       '/settings/schedule',
       '/settings/email-templates',
       '/settings/pricing',
+      '/settings/tags',
     ])
   })
 

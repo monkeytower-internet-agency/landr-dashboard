@@ -34,6 +34,7 @@ import { IntegrationsGmailSettings } from '@/routes/settings/IntegrationsGmailSe
 import { ConnectedAccountsSettings } from '@/routes/settings/ConnectedAccountsSettings'
 import { PlanSettings } from '@/routes/settings/PlanSettings'
 import { PricingSettings } from '@/routes/settings/PricingSettings'
+import { TagsSettings } from '@/routes/settings/TagsSettings'
 import { AuthProvider } from '@/lib/auth'
 import { OperatorProvider } from '@/lib/operator'
 import { ProtectedRoute } from '@/lib/ProtectedRoute'
@@ -148,6 +149,7 @@ function App() {
                 <Route path="integrations/gmail" element={<IntegrationsGmailSettings />} />
                 <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
                 <Route path="pricing" element={<PricingSettings />} />
+                <Route path="tags" element={<TagsSettings />} />
                 <Route path="plan" element={<PlanSettings />} />
               </Route>
 

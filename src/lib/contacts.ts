@@ -2,6 +2,14 @@ import { supabase } from '@/lib/supabase'
 import { CONTACT_TYPES, type ContactType } from '@/lib/contacts-filters'
 import type { ContactsSort } from '@/lib/contacts-sort'
 
+// landr-iz58 — operator-scoped tag projected through contact_tags JOIN
+// operator_tags. Same shape as BookingTagRef in lib/bookings.ts.
+export type ContactTagRef = {
+  id: string
+  name: string
+  color: string
+}
+
 export type ContactRow = {
   id: string
   operator_id: string
@@ -23,6 +31,12 @@ export type ContactRow = {
    * fetch a bare contact (fetchContact) don't have to populate it.
    */
   types?: ContactType[]
+  /**
+   * landr-iz58 — operator-scoped tags. Present on rows returned by
+   * fetchContacts; optional so legacy fixtures don't have to populate it.
+   * Filtered client-side to drop soft-deleted parent tags.
+   */
+  tags?: ContactTagRef[]
 }
 
 const CONTACT_SELECT = `
@@ -42,7 +56,31 @@ const CONTACT_SELECT = `
   gdpr_erasure_note
 `
 
-const CONTACT_WITH_TYPES_SELECT = `${CONTACT_SELECT.trim()},\n  types`
+// landr-iz58 — append the tag embed to the with-types select so the contact
+// list renders chips inline. Embed shape matches lib/bookings.ts flattening.
+const CONTACT_WITH_TYPES_SELECT = `${CONTACT_SELECT.trim()},
+  types,
+  contact_tags ( operator_tags ( id, name, color, deleted_at ) )
+`
+
+type RawContactTagEmbed = {
+  operator_tags: { id: string; name: string; color: string; deleted_at: string | null } | null
+}
+type RawContactRow = Omit<ContactRow, 'tags'> & {
+  contact_tags?: RawContactTagEmbed[] | null
+}
+
+function flattenContactTags(raw: RawContactRow): ContactRow {
+  const tags: ContactTagRef[] = []
+  for (const wrapper of raw.contact_tags ?? []) {
+    const ot = wrapper.operator_tags
+    if (!ot) continue
+    if (ot.deleted_at) continue
+    tags.push({ id: ot.id, name: ot.name, color: ot.color })
+  }
+  const { contact_tags: _omit, ...rest } = raw
+  return { ...rest, tags }
+}
 
 export type FetchContactsOptions = {
   sort?: ContactsSort
@@ -107,7 +145,7 @@ export async function fetchContacts(
   const { data, error } = await query.limit(500)
 
   if (error) throw new Error(error.message)
-  return (data ?? []) as unknown as ContactRow[]
+  return ((data ?? []) as unknown as RawContactRow[]).map(flattenContactTags)
 }
 
 export type ContactTypeCounts = Record<ContactType, number>
@@ -174,15 +212,21 @@ export async function fetchContactTypeCounts(
   return counts
 }
 
+// landr-iz58 — single-contact fetch embeds tags so the detail sheet can
+// pre-fill the picker without a second round-trip.
+const CONTACT_WITH_TAGS_SELECT = `${CONTACT_SELECT.trim()},
+  contact_tags ( operator_tags ( id, name, color, deleted_at ) )
+`
+
 export async function fetchContact(contactId: string): Promise<ContactRow> {
   const { data, error } = await supabase
     .from('contacts')
-    .select(CONTACT_SELECT)
+    .select(CONTACT_WITH_TAGS_SELECT)
     .eq('id', contactId)
     .single()
 
   if (error) throw new Error(error.message)
-  return data as unknown as ContactRow
+  return flattenContactTags(data as unknown as RawContactRow)
 }
 
 export type ContactPatch = {

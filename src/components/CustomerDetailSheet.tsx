@@ -41,6 +41,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { CopyLinkButton } from '@/components/CopyLinkButton'
 import { CustomerBookings } from '@/components/customer/CustomerBookings'
+import { TagPicker } from '@/components/tags/TagPicker'
 import { invalidateBookingCaches, type BookingRow } from '@/lib/bookings'
 import {
   contactNameDisplay,
@@ -48,6 +49,7 @@ import {
   patchContact,
   type ContactRow,
 } from '@/lib/contacts'
+import { setContactTags } from '@/lib/tags'
 import { t } from '@/lib/strings'
 
 type Props = {
@@ -423,6 +425,12 @@ function CustomerEditForm({
               </FormItem>
             )}
           />
+
+          {/* landr-iz58 — tag picker writes via setContactTags on every
+              change (immediate-save model). The form-level "Save" button
+              still handles other field changes; tags persist independently
+              because the API surface is its own POST. */}
+          <ContactTagsField row={row} disabled={mutation.isPending} />
         </form>
       </Form>
 
@@ -484,5 +492,55 @@ function CustomerEditForm({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  )
+}
+
+// ---- TagPicker bridge (landr-iz58) ----------------------------------
+//
+// Renders a TagPicker pre-populated with the contact's current tag set.
+// Toggling a tag fires setContactTags() immediately — independent of the
+// react-hook-form save lifecycle for the other contact fields. That keeps
+// the form's dirty-state logic clean (tag changes don't enable the Save
+// button, and saving other fields doesn't double-write tags).
+
+type ContactTagsFieldProps = {
+  row: ContactRow
+  disabled?: boolean
+}
+
+function ContactTagsField({ row, disabled }: ContactTagsFieldProps) {
+  const queryClient = useQueryClient()
+  const initial = (row.tags ?? []).map((t) => t.id)
+  const [selected, setSelected] = useState<string[]>(initial)
+
+  const mutation = useMutation({
+    mutationFn: (nextIds: string[]) => setContactTags(row.operator_id, row.id, nextIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contact', row.id] })
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
+    },
+    onError: (err: Error) => {
+      // Roll back optimistic change on failure.
+      setSelected(initial)
+      toast.error(t.customerDetail.tagsToastError, { description: err.message })
+    },
+  })
+
+  return (
+    <div data-testid="customer-tags-picker">
+      <label className="text-xs font-medium">{t.customerDetail.tagsLabel}</label>
+      <div className="mt-1">
+        <TagPicker
+          operatorId={row.operator_id}
+          selectedIds={selected}
+          onChange={(next) => {
+            setSelected(next)
+            mutation.mutate(next)
+          }}
+          disabled={disabled || mutation.isPending}
+          testIdPrefix="customer-tag-picker"
+        />
+      </div>
+    </div>
   )
 }
