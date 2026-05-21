@@ -15,6 +15,7 @@ import {
   TagIcon,
   TagsIcon,
   UsersIcon,
+  WebhookIcon,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { t } from '@/lib/strings'
@@ -142,6 +143,15 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/operations',
     label: t.settingsHub.sections.operations,
     icon: CheckSquareIcon,
+  },
+  // landr-ah9u — operator webhook configuration. Sits below Operations
+  // (the other 'workflow plumbing' entry) and at the very bottom of the
+  // SETTINGS list because v1 is a stub — the surface exists but the
+  // server-side delivery worker arrives in v2.
+  {
+    to: '/settings/webhooks',
+    label: t.settingsHub.sections.webhooks,
+    icon: WebhookIcon,
   },
 ]
 

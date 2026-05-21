@@ -82,7 +82,7 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // scoped labels for bookings + contacts).
   // landr-qg4q — Email log joined the SETTINGS group between Email
   // templates and Pricing (outbound_emails viewer for operator debug).
-  it('settings group contains the twelve program subsections', () => {
+  it('settings group contains the thirteen program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -98,6 +98,9 @@ describe('account/settings grouping (landr-fzcg)', () => {
       // landr-r87i — Settings → Operations: operator-customisable
       // default per-booking checklist items (v2 of landr-84n1).
       '/settings/operations',
+      // landr-ah9u — Settings → Webhooks: operator-managed event
+      // subscriptions (v1 localStorage; v2 server-delivered).
+      '/settings/webhooks',
     ])
   })
 
@@ -115,6 +118,13 @@ describe('account/settings grouping (landr-fzcg)', () => {
     const entry = SETTINGS_SECTIONS.find((s) => s.to === '/settings/email-log')
     expect(entry).toBeDefined()
     expect(entry?.label).toBe('Email log')
+  })
+
+  // landr-ah9u — pin the Webhooks entry shape.
+  it('includes a Webhooks entry at /settings/webhooks', () => {
+    const entry = SETTINGS_SECTIONS.find((s) => s.to === '/settings/webhooks')
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Webhooks')
   })
 
   it('account + settings are disjoint', () => {

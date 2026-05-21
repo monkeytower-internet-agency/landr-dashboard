@@ -245,6 +245,9 @@ export const t = {
       // customises (v2 of landr-84n1; defaults move from hardcoded to
       // operator_checklist_templates).
       operations: 'Operations',
+      // landr-ah9u — operator webhook configuration (v1 localStorage,
+      // v2 server-delivered via background worker).
+      webhooks: 'Webhooks',
     },
     // landr-fnhz — one-line description for each settings subsection,
     // rendered as the PageTitle subtitle on the matching sub-page so the
@@ -277,6 +280,9 @@ export const t = {
       // landr-r87i — default per-booking checklist editor.
       operations:
         'Default checklist items that seed every new booking. Per-booking progress stays local.',
+      // landr-ah9u — operator webhook configuration.
+      webhooks:
+        'Subscribe an HTTPS endpoint to booking and payment events. Configuration is saved locally; server-side delivery ships in v2.',
     },
     plan: {
       title: 'Plan',
@@ -2152,5 +2158,62 @@ export const t = {
     // `t.undo.deleted(kind, label)` so the noun stays close to the action.
     deletedBooking: (label: string): string => `Deleted booking — ${label}`,
     deletedProduct: (label: string): string => `Deleted product — ${label}`,
+  },
+  // landr-ah9u — Settings → Webhooks. v1 is a UI-only configuration
+  // surface that persists the operator's webhook list to localStorage;
+  // v2 (future) graduates to operator_webhooks + a background delivery
+  // worker. Copy here covers the list, the add/edit dialog, validation
+  // errors, and the 'v1 stub' notice that warns the operator nothing is
+  // wired up to actually POST yet.
+  webhooksSettings: {
+    title: 'Webhooks',
+    subtitle:
+      'Subscribe an HTTPS endpoint to receive booking and payment events.',
+    v1Notice:
+      'Configuration saved locally. Server-side delivery in v2.',
+    addButton: 'Add webhook',
+    empty: 'No webhooks yet. Add one to subscribe to events.',
+    columnUrl: 'URL',
+    columnEvents: 'Events',
+    columnCreated: 'Created',
+    edit: 'Edit',
+    delete: 'Delete',
+    confirmDelete: 'Confirm delete',
+    cancel: 'Cancel',
+    dialogAddTitle: 'Add webhook',
+    dialogEditTitle: 'Edit webhook',
+    dialogDescription:
+      'Enter the endpoint URL and pick the events you want to receive.',
+    fieldUrl: 'Endpoint URL',
+    fieldUrlPlaceholder: 'https://example.com/webhooks/landr',
+    fieldUrlHint: 'Must start with https://',
+    fieldEvents: 'Events',
+    fieldEventsHint: 'Choose at least one event to subscribe to.',
+    fieldSecret: 'Signing secret',
+    fieldSecretHint:
+      'Use this secret to verify the HMAC signature on delivered payloads (v2).',
+    fieldSecretCopy: 'Copy secret',
+    fieldSecretCopied: 'Secret copied to clipboard.',
+    fieldSecretCopyError: 'Could not copy. Select + copy manually.',
+    errorUrlRequired: 'Enter an endpoint URL.',
+    errorUrlInvalid: 'Enter a valid https:// URL.',
+    errorEventsRequired: 'Pick at least one event.',
+    save: 'Save webhook',
+    saving: 'Saving…',
+    create: 'Add webhook',
+    creating: 'Adding…',
+    toastCreated: 'Webhook saved locally.',
+    toastUpdated: 'Webhook updated.',
+    toastDeleted: 'Webhook deleted.',
+    // Display names for each event in WEBHOOK_EVENTS — keep aligned with
+    // src/lib/webhooks.ts. The wire name (e.g. 'booking.created') is the
+    // contract; this lookup is purely for the UI label.
+    eventLabels: {
+      'booking.created': 'Booking created',
+      'booking.approved': 'Booking approved',
+      'booking.cancelled': 'Booking cancelled',
+      'booking.completed': 'Booking completed',
+      'payment.received': 'Payment received',
+    },
   },
 } as const
