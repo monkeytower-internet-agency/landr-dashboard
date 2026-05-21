@@ -1,5 +1,11 @@
 import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api-client'
+// landr-g2m5 — single source of truth for the product_kind enum lives in
+// lib/products.ts. Re-export here so existing `from '@/lib/bookings'`
+// consumers keep compiling without changes.
+import type { ProductKind } from '@/lib/products'
+
+export type { ProductKind }
 
 export type BookingSemanticState =
   | 'pending'
@@ -17,13 +23,6 @@ export type BookingStageCode =
   | 'awaiting_hotel_approval'
   | 'awaiting_payment'
   | (string & {})
-
-// Mirrors public.product_kind enum (landr-glx product_kinds_refactor).
-export type ProductKind =
-  | 'service'
-  | 'digital_good'
-  | 'physical_good'
-  | 'gift_card'
 
 // Mirrors public.service_time_shape enum. NULL for non-service products.
 export type ServiceTimeShape =
