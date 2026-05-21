@@ -22,6 +22,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { ApprovalsFilters } from '@/components/approvals/ApprovalsFilters'
+import { StageChip } from '@/components/approvals/StageChip'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -159,6 +160,15 @@ export function GeneralApprovals() {
           }
           return <span className="whitespace-nowrap">{display}</span>
         },
+      },
+      {
+        // landr-qmdo — color-coded "Awaiting X" chip showing which actor
+        // needs to act next. Sortable by stage code so the operator can
+        // batch-process "all the Hotel ones" without leaving the queue.
+        id: 'stage',
+        header: t.generalApprovals.columnStage,
+        accessorFn: (row) => row.current_stage?.code ?? '',
+        cell: ({ row }) => <StageChip code={row.original.current_stage?.code} />,
       },
       {
         id: 'customer',

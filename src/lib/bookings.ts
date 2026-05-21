@@ -637,6 +637,39 @@ export function priceBucketOf(row: BookingRow): PriceBucket {
   return 'high'
 }
 
+// landr-qmdo — Approvals page "Awaiting" dimension. The booking_lifecycle
+// stages.code column is operator-customisable free-text, but the Approvals
+// queue only surfaces rows in one of three canonical states. We collapse
+// the raw code into a small enum so the filter chip stays stable across
+// operator-renamed stages (anything outside the three known codes lands
+// in null and is filtered out of the dimension).
+export type ApprovalStage = 'general' | 'secondary' | 'hotel'
+
+export const APPROVAL_STAGE_BUCKETS: ReadonlyArray<ApprovalStage> = [
+  'general',
+  'secondary',
+  'hotel',
+]
+
+/** Bucket the booking's current_stage.code into the three Approvals
+ *  stages. Returns null when the code doesn't match any known stage
+ *  (caller decides whether to show or hide such rows; the Approvals page
+ *  itself only ever queries `awaiting_general_approval` today, so this
+ *  mostly stays in the `general` bucket). */
+export function stageOf(row: BookingRow): ApprovalStage | null {
+  const code = row.current_stage?.code
+  switch (code) {
+    case 'awaiting_general_approval':
+      return 'general'
+    case 'awaiting_secondary_approval':
+      return 'secondary'
+    case 'awaiting_hotel_approval':
+      return 'hotel'
+    default:
+      return null
+  }
+}
+
 /** Format the firstActivityDate as 'Tue 8 Jul' (or null when unscheduled). */
 export function activityDateDisplay(row: BookingRow): string | null {
   const iso = firstActivityDate(row)
