@@ -33,6 +33,7 @@ import { StageBadge } from '@/components/booking/StageBadge'
 import {
   cancelBooking,
   customerDisplay,
+  invalidateBookingCaches,
   patchBookingProduct,
   patchCustomerContact,
   postHotelApprovalDecision,
@@ -170,13 +171,12 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const isDirty = customerDirty || dirtyItems.length > 0
 
   const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: ['bookings'] })
-    // landr-parv — the Views layer (Bookings/Reporting/ViewPage) keys its
-    // shared cache under ['views-bookings', operatorId] (see
-    // lib/views-bookings-data.ts:useViewBookings). Without this line, saving
-    // through the detail sheet left the Views layer stale until a manual
-    // refresh because ['bookings'] is a different prefix.
-    queryClient.invalidateQueries({ queryKey: ['views-bookings'] })
+    // landr-399m — ['bookings'] + ['views-bookings'] live in the shared
+    // invalidateBookingCaches helper so CustomerDetailSheet + GeneralApprovals
+    // (and any future booking-writing surface) stay in lock-step. The Views
+    // layer (lib/views-bookings-data.ts:useViewBookings) keys under a
+    // different prefix that ['bookings'] doesn't match — see helper comment.
+    void invalidateBookingCaches(queryClient)
     queryClient.invalidateQueries({ queryKey: ['calendar'] })
     queryClient.invalidateQueries({ queryKey: ['contacts'] })
   }
