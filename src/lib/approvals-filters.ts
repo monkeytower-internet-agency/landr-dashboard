@@ -28,6 +28,9 @@ export type ApprovalsFilters = {
   urgency: string[]
   /** PriceBucket — see src/lib/bookings.ts. */
   price: string[]
+  /** landr-qmdo — ApprovalStage ('general' | 'secondary' | 'hotel').
+   *  Filters rows by current_stage.code via stageOf(). */
+  stages: string[]
 }
 
 export const EMPTY_APPROVALS_FILTERS: ApprovalsFilters = {
@@ -36,6 +39,7 @@ export const EMPTY_APPROVALS_FILTERS: ApprovalsFilters = {
   customerStatus: [],
   urgency: [],
   price: [],
+  stages: [],
 }
 
 const FILTER_KEYS: ReadonlyArray<keyof ApprovalsFilters> = [
@@ -44,6 +48,7 @@ const FILTER_KEYS: ReadonlyArray<keyof ApprovalsFilters> = [
   'customerStatus',
   'urgency',
   'price',
+  'stages',
 ]
 
 export function approvalsStorageKey(userId: string): string {

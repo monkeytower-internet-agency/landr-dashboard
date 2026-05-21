@@ -561,6 +561,9 @@ export const t = {
     // request date column so operators can prioritise by when the
     // booking is *happening*, not when it was *submitted*.
     columnActivityDate: 'Activity',
+    // landr-qmdo — "Awaiting X" stage chip column. Sorted by stage code
+    // so operators can batch by "all the Hotel ones" / "all secondary".
+    columnStage: 'Stage',
     columnCustomer: 'Customer',
     columnProduct: 'Product',
     columnPrice: 'Price',
@@ -590,6 +593,9 @@ export const t = {
       customerStatus: 'Customer',
       urgency: 'Urgency',
       price: 'Price',
+      // landr-qmdo — "Awaiting X" stage filter dim (Operator review /
+      // Secondary approver / Hotel). Orthogonal to the other dims.
+      stage: 'Awaiting',
       clearAll: 'Clear filters',
       noOptions: 'No options to filter by yet.',
       activeCount: (n: number): string => ` (${n})`,
@@ -599,6 +605,14 @@ export const t = {
         voucher_invalid: 'Voucher',
         manual_override: 'Override',
         other: 'Other',
+      } as Record<string, string>,
+      // landr-qmdo — labels for the three Approvals stage buckets. These
+      // match the per-row StageChip labels so the operator sees the same
+      // wording on the chip and in the filter dropdown.
+      stageLabels: {
+        general: 'Operator review',
+        secondary: 'Secondary approver',
+        hotel: 'Hotel review',
       } as Record<string, string>,
       customerStatusLabels: {
         new: 'New',

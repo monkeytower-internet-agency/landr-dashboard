@@ -429,4 +429,66 @@ describe('GeneralApprovals route', () => {
     )
     expect(screen.getByText('Adam Adams')).toBeInTheDocument()
   })
+
+  // ---- landr-qmdo ------------------------------------------------------
+
+  it('renders a color-coded stage chip on each row', async () => {
+    // sampleRow is awaiting_general_approval → "Operator review" (blue).
+    // hotelRow is awaiting_hotel_approval → "Hotel review" (amber).
+    const hotelRow = {
+      ...newCustomerRow,
+      id: 'b-hot999',
+      current_stage: { code: 'awaiting_hotel_approval' },
+      customer: {
+        id: 'c-3',
+        first_name: 'Hilda',
+        last_name: 'Hotel',
+        email: 'hilda@example.com',
+      },
+    }
+    mock.state.rows = [sampleRow, hotelRow]
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+
+    // Two chips render — one per row.
+    expect(screen.getByText('Operator review')).toBeInTheDocument()
+    expect(screen.getByText('Hilda Hotel')).toBeInTheDocument()
+    expect(screen.getByText('Hotel review')).toBeInTheDocument()
+
+    // The Stage column header is sortable.
+    expect(screen.getByTestId('approvals-sort-stage')).toBeInTheDocument()
+  })
+
+  it('Awaiting filter narrows the table to the selected stage(s)', async () => {
+    const hotelRow = {
+      ...newCustomerRow,
+      id: 'b-hot999',
+      current_stage: { code: 'awaiting_hotel_approval' },
+      customer: {
+        id: 'c-3',
+        first_name: 'Hilda',
+        last_name: 'Hotel',
+        email: 'hilda@example.com',
+      },
+    }
+    mock.state.rows = [sampleRow, hotelRow]
+    const user = userEvent.setup()
+    render(<GeneralApprovals />)
+
+    await screen.findByText('Carol Chen')
+    expect(screen.getByText('Hilda Hotel')).toBeInTheDocument()
+
+    // Open the stage dropdown and select "Hotel review".
+    await user.click(screen.getByTestId('approvals-filters-stage-trigger'))
+    await user.click(
+      await screen.findByTestId('approvals-filters-stage-option-hotel'),
+    )
+
+    // Carol (general) is hidden; Hilda (hotel) remains.
+    await waitFor(() =>
+      expect(screen.queryByText('Carol Chen')).not.toBeInTheDocument(),
+    )
+    expect(screen.getByText('Hilda Hotel')).toBeInTheDocument()
+  })
 })

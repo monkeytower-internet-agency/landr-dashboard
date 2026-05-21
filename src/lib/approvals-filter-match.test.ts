@@ -10,6 +10,7 @@ import {
   firstActivityDate,
   isNewCustomer,
   priceBucketOf,
+  stageOf,
   urgencyBucketOf,
 } from '@/lib/bookings'
 import { matchesApprovalsFilters } from '@/lib/approvals-filter-match'
@@ -442,5 +443,66 @@ describe('matchesApprovalsFilters', () => {
         now,
       ),
     ).toBe(false)
+  })
+
+  // landr-qmdo — Stage dimension ('general' | 'secondary' | 'hotel').
+  it('stage filter matches when current_stage.code is in the set', () => {
+    const r = row() // current_stage.code = awaiting_general_approval
+    expect(
+      matchesApprovalsFilters(r, withFilters({ stages: ['general'] }), now),
+    ).toBe(true)
+    expect(
+      matchesApprovalsFilters(r, withFilters({ stages: ['hotel'] }), now),
+    ).toBe(false)
+  })
+
+  it('stage filter is multi-select OR within the dimension', () => {
+    const general = row({ current_stage: { code: 'awaiting_general_approval' } })
+    const hotel = row({ current_stage: { code: 'awaiting_hotel_approval' } })
+    const secondary = row({
+      current_stage: { code: 'awaiting_secondary_approval' },
+    })
+    const filters = withFilters({ stages: ['general', 'hotel'] })
+    expect(matchesApprovalsFilters(general, filters, now)).toBe(true)
+    expect(matchesApprovalsFilters(hotel, filters, now)).toBe(true)
+    expect(matchesApprovalsFilters(secondary, filters, now)).toBe(false)
+  })
+
+  it('stage filter excludes rows with unknown stage codes', () => {
+    const r = row({ current_stage: { code: 'awaiting_legal_review' } })
+    expect(
+      matchesApprovalsFilters(r, withFilters({ stages: ['general'] }), now),
+    ).toBe(false)
+  })
+
+  it('empty stages array does not filter (matches anything)', () => {
+    const r = row({ current_stage: { code: 'awaiting_legal_review' } })
+    expect(
+      matchesApprovalsFilters(r, withFilters({ stages: [] }), now),
+    ).toBe(true)
+  })
+})
+
+describe('stageOf', () => {
+  function r(code: string | null) {
+    return {
+      ...({} as BookingRow),
+      current_stage: code ? { code } : null,
+    } as BookingRow
+  }
+
+  it('maps the three canonical codes to enum buckets', () => {
+    expect(stageOf(r('awaiting_general_approval'))).toBe('general')
+    expect(stageOf(r('awaiting_secondary_approval'))).toBe('secondary')
+    expect(stageOf(r('awaiting_hotel_approval'))).toBe('hotel')
+  })
+
+  it('returns null for unknown / customised codes', () => {
+    expect(stageOf(r('awaiting_legal_review'))).toBeNull()
+    expect(stageOf(r('confirmed'))).toBeNull()
+  })
+
+  it('returns null when current_stage is missing', () => {
+    expect(stageOf(r(null))).toBeNull()
   })
 })

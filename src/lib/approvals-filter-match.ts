@@ -11,6 +11,7 @@ import {
   approvalReasonsOf,
   isNewCustomer,
   priceBucketOf,
+  stageOf,
   urgencyBucketOf,
   type ApprovalReasonBucket,
   type BookingRow,
@@ -56,6 +57,14 @@ export function matchesApprovalsFilters(
   if (filters.price.length > 0) {
     const bucket = priceBucketOf(booking)
     if (!filters.price.includes(bucket)) return false
+  }
+
+  // landr-qmdo — Stage bucket ('general' | 'secondary' | 'hotel'). Rows
+  // whose current_stage.code doesn't map to one of the three known stages
+  // (stageOf → null) are excluded whenever the dimension is active.
+  if (filters.stages.length > 0) {
+    const bucket = stageOf(booking)
+    if (!bucket || !filters.stages.includes(bucket)) return false
   }
 
   return true

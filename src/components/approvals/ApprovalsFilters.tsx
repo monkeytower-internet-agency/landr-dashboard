@@ -27,12 +27,15 @@ import {
 } from '@/lib/approvals-filters'
 import {
   APPROVAL_REASON_BUCKETS,
+  APPROVAL_STAGE_BUCKETS,
   PRICE_BUCKETS,
   URGENCY_BUCKETS,
   approvalReasonsOf,
   isNewCustomer,
   priceBucketOf,
+  stageOf,
   urgencyBucketOf,
+  type ApprovalStage,
   type BookingRow,
   type PriceBucket,
   type UrgencyBucket,
@@ -178,6 +181,29 @@ export function ApprovalsFilters({
     [bookings],
   )
 
+  // landr-qmdo — Stage ('general' | 'secondary' | 'hotel'). Rows whose
+  // stage code doesn't map to a known bucket (stageOf → null) are skipped
+  // here so the count badges only reflect the three canonical states.
+  const stageOptions = useMemo<Option[]>(() => {
+    const pairs: Array<{ bookingId: string; value: string; label: string }> = []
+    for (const b of bookings) {
+      const bucket = stageOf(b)
+      if (!bucket) continue
+      pairs.push({
+        bookingId: b.id,
+        value: bucket,
+        label: t.generalApprovals.filters.stageLabels[bucket] ?? bucket,
+      })
+    }
+    return bucketByValue(
+      pairs,
+      APPROVAL_STAGE_BUCKETS.map((bucket: ApprovalStage) => ({
+        value: bucket,
+        label: t.generalApprovals.filters.stageLabels[bucket] ?? bucket,
+      })),
+    )
+  }, [bookings])
+
   const total = activeApprovalsFilterCount(filters)
 
   return (
@@ -225,6 +251,14 @@ export function ApprovalsFilters({
         selected={filters.price}
         onToggle={(v) => toggle('price', v)}
         onClear={() => clearDimension('price')}
+      />
+      <FilterDropdown
+        testId={`${testIdPrefix}-stage`}
+        label={t.generalApprovals.filters.stage}
+        options={stageOptions}
+        selected={filters.stages}
+        onToggle={(v) => toggle('stages', v)}
+        onClear={() => clearDimension('stages')}
       />
       {total > 0 ? (
         <Button
