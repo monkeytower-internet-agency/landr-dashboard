@@ -267,6 +267,20 @@ export const t = {
       pendingPayment: 'Pending payment',
       upcoming: 'Upcoming (next 30d)',
     },
+    // landr-n2j2 — click-to-edit cell labels + toasts.
+    inlineEdit: {
+      clickToEdit: 'Click to edit',
+      statusAria: (current: string): string => `Edit status (currently ${current})`,
+      statusUpdateError: 'Could not update status.',
+      statusUpdated: 'Status updated.',
+      statusUnchangedFromStage: (stage: string): string =>
+        `No status change available from "${stage}".`,
+      startDateAria: 'Edit start date',
+      endDateAria: 'Edit end date',
+      datesUpdateError: 'Could not update dates.',
+      datesUpdated: 'Dates updated.',
+      datesNoItem: 'No scheduled line item to edit.',
+    },
     detail: {
       sectionStatus: 'Status',
       sectionCustomer: 'Customer',

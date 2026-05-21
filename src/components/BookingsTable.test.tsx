@@ -7,12 +7,20 @@
 //   isLoading=false, rows>0      → real rows visible
 //   isLoading=false, rows.length=0 → EmptyState visible
 
-import { render, screen } from '@testing-library/react'
+import { render as rtlRender, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
-// BookingsTable reads useOperatorCalendarPrefs() to pick up time-format
-// preferences. Stub it so render() works outside an OperatorProvider.
+// BookingsTable reads useOperatorCalendarPrefs() + useOperator() (landr-n2j2
+// added the second so the inline-edit hook can scope its query keys). Stub
+// both so render() works outside an OperatorProvider.
 vi.mock('@/lib/operator', () => ({
+  useOperator: () => ({
+    currentOperatorId: 'op-test',
+    loading: false,
+    switchOperator: () => {},
+  }),
   useOperatorCalendarPrefs: () => ({
     workHoursStart: '08:00',
     workHoursEnd: '20:00',
@@ -22,6 +30,20 @@ vi.mock('@/lib/operator', () => ({
 
 import { BookingsTable } from './BookingsTable'
 import type { BookingRow } from '@/lib/bookings'
+
+// landr-n2j2 — BookingsTable now mounts useInlineEditBooking which calls
+// useQueryClient(). Provide a fresh client per render so the table can
+// initialise without an ancestor QueryClientProvider.
+function render(ui: ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return rtlRender(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  })
+}
 
 function makeRow(overrides: Partial<BookingRow> = {}): BookingRow {
   // Minimal shape — the table reads from these fields plus a handful of

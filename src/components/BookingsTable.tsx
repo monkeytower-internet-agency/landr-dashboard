@@ -26,6 +26,7 @@ import {
 import {
   customerDisplay,
   dateDisplay,
+  earliestScheduledItem,
   earliestServiceDate,
   formatServiceDateRange,
   matchingServiceEnd,
@@ -44,7 +45,13 @@ import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { DayChips } from '@/components/booking/DayChips'
 import { SkeletonTableRows } from '@/components/SkeletonTableRows'
 import { StageBadge } from '@/components/booking/StageBadge'
-import { useOperatorCalendarPrefs } from '@/lib/operator'
+import { InlineEditCell } from '@/components/bookings/InlineEditCell'
+import {
+  decisionFromSelection,
+  statusOptionsFor,
+  useInlineEditBooking,
+} from '@/lib/inline-edit-booking'
+import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { t } from '@/lib/strings'
 import { highlightMatch } from '@/lib/text-highlight'
 
@@ -99,6 +106,21 @@ export function BookingsTable({
   // landr-f1s — respect the operator's time_format_24h preference for the
   // Created column.
   const { hour12 } = useOperatorCalendarPrefs()
+  // landr-n2j2 — inline-edit cells need the operator-scoped query key so the
+  // optimistic write + invalidation hits the same cache the page reads from.
+  // Both ['bookings'] (this page) and ['views-bookings'] (saved Views) are
+  // listed so a status / date flip stays consistent across surfaces.
+  const { currentOperatorId } = useOperator()
+  const opId = currentOperatorId ?? 'none'
+  const inlineEdit = useInlineEditBooking({
+    queryKeys: useMemo(
+      () => [
+        ['bookings', opId] as const,
+        ['views-bookings', opId] as const,
+      ],
+      [opId],
+    ),
+  })
 
   const columns = useMemo<ColumnDef<BookingRow>[]>(
     () => [
@@ -167,20 +189,70 @@ export function BookingsTable({
         // is scheduled). Multi-item bookings with mixed dates use the MIN
         // — matches calendar/reporting semantics (earliestScheduledItem
         // in lib/bookings.ts and bookingsToCalendarEvents).
+        // landr-n2j2 — clicking the cell opens a native date input that
+        // PATCHes the EARLIEST scheduled item's date_range_start (and
+        // collapses date_range_end onto it for single-day bookings). This
+        // mirrors the calendar drag pattern. Bookings with NO scheduled
+        // item render as read-only "—" — there's no line to PATCH.
         id: 'service_date',
         accessorFn: (row) => earliestServiceDate(row),
         sortUndefined: 'last',
         header: t.bookings.columnServiceDate,
         cell: ({ row }) => {
-          const start = earliestServiceDate(row.original)
-          if (!start) {
+          const item = earliestScheduledItem(row.original)
+          if (!item || !item.date_range_start) {
             return <span className="text-muted-foreground text-xs">—</span>
           }
+          const start = item.date_range_start
           const end = matchingServiceEnd(row.original, start)
-          return (
+          const display = (
             <span className="whitespace-nowrap">
               {formatServiceDateRange(start, end)}
             </span>
+          )
+          return (
+            <InlineEditCell
+              kind="date"
+              value={start}
+              ariaLabel={t.bookings.inlineEdit.startDateAria}
+              display={display}
+              testId={`bookings-cell-service-date-${row.original.id}`}
+              onCommit={(next) => {
+                if (!next) return
+                // Keep date_range_end pinned to start when it was a single-
+                // day booking; preserve the relative end when it was a
+                // range (shift by the same delta).
+                let nextEnd: string | null = end
+                if (end && end !== start) {
+                  // Multi-day range — shift the end by the same number of
+                  // calendar days the start moved.
+                  const startMs = Date.parse(`${start}T00:00:00Z`)
+                  const endMs = Date.parse(`${end}T00:00:00Z`)
+                  const nextStartMs = Date.parse(`${next}T00:00:00Z`)
+                  if (
+                    Number.isFinite(startMs) &&
+                    Number.isFinite(endMs) &&
+                    Number.isFinite(nextStartMs)
+                  ) {
+                    const deltaMs = endMs - startMs
+                    const nextEndDate = new Date(nextStartMs + deltaMs)
+                    nextEnd = nextEndDate.toISOString().slice(0, 10)
+                  }
+                } else {
+                  // Single-day — keep end pinned to the new start (most
+                  // bookings in fixtures have end === start).
+                  nextEnd = next
+                }
+                inlineEdit.rescheduleEarliestItem({
+                  bookingId: row.original.id,
+                  itemId: item.id,
+                  previousStart: start,
+                  previousEnd: end,
+                  newStart: next,
+                  newEnd: nextEnd,
+                })
+              }}
+            />
           )
         },
       },
@@ -233,15 +305,48 @@ export function BookingsTable({
         },
       },
       {
+        // landr-n2j2 — inline-edit status dropdown. Scoped to the approval
+        // transitions FastAPI exposes today (general / hotel awaiting
+        // stages → approve/reject). Bookings in any other stage render as
+        // a plain StageBadge (read-only) until a dedicated set-stage
+        // endpoint ships (follow-up bd ticket).
         id: 'status',
         accessorKey: 'current_semantic_state',
         header: t.bookings.columnStatus,
-        cell: ({ row }) => (
-          <StageBadge
-            state={row.original.current_semantic_state}
-            stageCode={stageCode(row.original)}
-          />
-        ),
+        cell: ({ row }) => {
+          const code = stageCode(row.original)
+          const badge = (
+            <StageBadge
+              state={row.original.current_semantic_state}
+              stageCode={code}
+            />
+          )
+          const options = statusOptionsFor(row.original)
+          if (options.length === 0) {
+            return badge
+          }
+          return (
+            <InlineEditCell
+              kind="select"
+              value="noop"
+              options={options}
+              ariaLabel={t.bookings.inlineEdit.statusAria(
+                row.original.current_semantic_state,
+              )}
+              display={badge}
+              testId={`bookings-cell-status-${row.original.id}`}
+              onCommit={(selection) => {
+                const decision = decisionFromSelection(code, selection)
+                if (!decision) return
+                inlineEdit.applyApprovalDecision({
+                  bookingId: row.original.id,
+                  decision,
+                  fromStage: code as string,
+                })
+              }}
+            />
+          )
+        },
       },
       {
         id: 'price',
@@ -252,7 +357,7 @@ export function BookingsTable({
         ),
       },
     ],
-    [onCustomerClick, hour12, selectedIds, globalFilter],
+    [onCustomerClick, hour12, selectedIds, globalFilter, inlineEdit],
   )
 
   const table = useReactTable({
