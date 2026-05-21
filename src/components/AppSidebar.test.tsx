@@ -107,6 +107,51 @@ describe('AppSidebar (landr-e8jf)', () => {
   })
 })
 
+describe('AppSidebar — Views entry at Position-A (landr-v0xg)', () => {
+  it('renders a /views top-level link labelled "Views"', () => {
+    renderSidebar()
+    const links = screen.queryAllByRole('link')
+    const viewsLink = links.find((a) => a.getAttribute('href') === '/views')
+    expect(viewsLink).toBeDefined()
+    expect((viewsLink!.textContent ?? '').trim()).toMatch(/views/i)
+  })
+
+  it('places Views between Dashboard (/) and Bookings (/bookings)', () => {
+    renderSidebar()
+    // Multiple Sidebar variants render the same links; de-dupe to first
+    // occurrence per href to get a stable order assertion. The variants
+    // share the same primaryItems order so the first-occurrence sequence
+    // matches the source-of-truth order in AppSidebar.tsx.
+    const seen = new Set<string>()
+    const orderedHrefs: string[] = []
+    for (const a of screen.queryAllByRole('link')) {
+      const href = a.getAttribute('href')
+      if (!href || seen.has(href)) continue
+      seen.add(href)
+      orderedHrefs.push(href)
+    }
+    const dashIdx = orderedHrefs.indexOf('/')
+    const viewsIdx = orderedHrefs.indexOf('/views')
+    const bookingsIdx = orderedHrefs.indexOf('/bookings')
+    expect(dashIdx).toBeGreaterThanOrEqual(0)
+    expect(viewsIdx).toBeGreaterThanOrEqual(0)
+    expect(bookingsIdx).toBeGreaterThanOrEqual(0)
+    expect(viewsIdx).toBeGreaterThan(dashIdx)
+    expect(viewsIdx).toBeLessThan(bookingsIdx)
+  })
+
+  it('highlights Views when on a /views/* URL', () => {
+    renderSidebar('/views/some-uuid')
+    const viewsLink = screen
+      .queryAllByRole('link')
+      .find((a) => a.getAttribute('href') === '/views')
+    const viewsButton = viewsLink!.closest(
+      '[data-sidebar="menu-button"]',
+    ) as HTMLElement | null
+    expect(viewsButton?.getAttribute('data-active')).toBe('true')
+  })
+})
+
 describe('AppSidebar — Account/Settings split (landr-fzcg)', () => {
   it('Account link points to /account (lands on /settings/company)', () => {
     renderSidebar()
