@@ -35,6 +35,7 @@ import {
   type ContactRow,
 } from '@/lib/contacts'
 import { t } from '@/lib/strings'
+import { highlightMatch } from '@/lib/text-highlight'
 
 type Props = {
   rows: ContactRow[]
@@ -56,28 +57,36 @@ export function ContactsTable({ rows, onEdit, onErase, onAudit }: Props) {
         header: t.contacts.columnName,
         accessorFn: (row) => contactNameDisplay(row),
         cell: ({ getValue }) => (
-          <span className="truncate font-medium">{getValue<string>()}</span>
+          <span className="truncate font-medium">
+            {highlightMatch(getValue<string>(), globalFilter)}
+          </span>
         ),
       },
       {
         id: 'email',
         accessorKey: 'email',
         header: t.contacts.columnEmail,
-        cell: ({ row }) => (
-          <span className="text-muted-foreground truncate">
-            {row.original.email ?? '—'}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const email = row.original.email
+          return (
+            <span className="text-muted-foreground truncate">
+              {email ? highlightMatch(email, globalFilter) : '—'}
+            </span>
+          )
+        },
       },
       {
         id: 'phone',
         accessorKey: 'phone',
         header: t.contacts.columnPhone,
-        cell: ({ row }) => (
-          <span className="text-muted-foreground truncate">
-            {row.original.phone ?? '—'}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const phone = row.original.phone
+          return (
+            <span className="text-muted-foreground truncate">
+              {phone ? highlightMatch(phone, globalFilter) : '—'}
+            </span>
+          )
+        },
       },
       {
         id: 'created_at',
@@ -157,7 +166,7 @@ export function ContactsTable({ rows, onEdit, onErase, onAudit }: Props) {
         },
       },
     ],
-    [onEdit, onErase, onAudit],
+    [onEdit, onErase, onAudit, globalFilter],
   )
 
   const table = useReactTable({

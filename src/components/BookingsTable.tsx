@@ -45,6 +45,7 @@ import { DayChips } from '@/components/booking/DayChips'
 import { StageBadge } from '@/components/booking/StageBadge'
 import { useOperatorCalendarPrefs } from '@/lib/operator'
 import { t } from '@/lib/strings'
+import { highlightMatch } from '@/lib/text-highlight'
 
 type Props = {
   rows: BookingRow[]
@@ -184,11 +185,16 @@ export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
               <CustomerNameLink
                 contactId={contactId}
                 display={display}
+                displayNode={highlightMatch(display, globalFilter)}
                 onClick={onCustomerClick}
               />
             )
           }
-          return <span className="truncate">{display}</span>
+          return (
+            <span className="truncate">
+              {highlightMatch(display, globalFilter)}
+            </span>
+          )
         },
       },
       {
@@ -196,7 +202,9 @@ export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
         header: t.bookings.columnProduct,
         accessorFn: (row) => productDisplay(row),
         cell: ({ getValue }) => (
-          <span className="truncate">{getValue<string>()}</span>
+          <span className="truncate">
+            {highlightMatch(getValue<string>(), globalFilter)}
+          </span>
         ),
       },
       {
@@ -233,7 +241,7 @@ export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
         ),
       },
     ],
-    [onCustomerClick, hour12, selectedIds],
+    [onCustomerClick, hour12, selectedIds, globalFilter],
   )
 
   const table = useReactTable({

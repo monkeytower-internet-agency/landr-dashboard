@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
 
@@ -6,6 +7,10 @@ type Props = {
   display: string
   onClick: (contactId: string) => void
   className?: string
+  // landr-11d5 — optional rich content used when search-highlight wraps
+  // matches in <mark>. When omitted, falls back to the plain `display`
+  // string. `display` is still the source of truth for aria-label.
+  displayNode?: ReactNode
 }
 
 export function CustomerNameLink({
@@ -13,6 +18,7 @@ export function CustomerNameLink({
   display,
   onClick,
   className,
+  displayNode,
 }: Props) {
   return (
     <button
@@ -29,7 +35,7 @@ export function CustomerNameLink({
         className,
       )}
     >
-      {display}
+      {displayNode ?? display}
     </button>
   )
 }

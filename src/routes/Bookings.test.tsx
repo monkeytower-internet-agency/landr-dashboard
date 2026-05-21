@@ -172,7 +172,14 @@ describe('Bookings route', () => {
     await waitFor(() =>
       expect(screen.queryByText('Alice Anderson')).not.toBeInTheDocument(),
     )
-    expect(screen.getByText('Bob Brown')).toBeInTheDocument()
+    // landr-11d5 — the matching substring is wrapped in a yellow <mark>,
+    // so 'Bob Brown' is split across nodes. Assert via the <mark>.
+    const bobMark = Array.from(document.querySelectorAll('mark')).find(
+      (m) => m.textContent === 'Bob',
+    )
+    expect(bobMark).toBeDefined()
+    expect(bobMark?.className).toContain('bg-yellow-200/40')
+    expect(bobMark?.parentElement?.textContent).toBe('Bob Brown')
   })
 
   it('opens the booking detail sheet when a row is clicked', async () => {
