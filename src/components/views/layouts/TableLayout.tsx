@@ -309,10 +309,14 @@ function fieldToColumn(
 
 function readCellValue(item: BookingItem, key: string): unknown {
   if (key === 'current_stage') return item.current_stage?.code ?? null
-  if (key === 'product_id') return item.product_name ?? item.product_id ?? null
-  if (key === 'pickup_location_id') {
-    return item.pickup_location_name ?? item.pickup_location_id ?? null
-  }
+  if (key === 'product_id') return item.items?.[0]?.products?.name ?? item.items?.[0]?.products?.id ?? null
+  if (key === 'pickup_location_id') return null  // not surfaced on BookingRow; left for future
+  if (key === 'booking_total') return item.gross_total
+  if (key === 'customer_first_name') return item.customer?.first_name ?? null
+  if (key === 'customer_last_name') return item.customer?.last_name ?? null
+  if (key === 'customer_email') return item.customer?.email ?? null
+  if (key === 'date_range_start') return item.items?.[0]?.date_range_start ?? null
+  if (key === 'date_range_end') return item.items?.[0]?.date_range_end ?? null
   return (item as unknown as Record<string, unknown>)[key]
 }
 
@@ -328,25 +332,27 @@ function renderCell(item: BookingItem, field: ViewField): React.ReactNode {
   if (field.type === 'id') {
     // FK reference — render the embedded display name.
     if (field.key === 'product_id') {
-      return item.product_name ? (
-        <span className="truncate">{item.product_name}</span>
+      const _pname = item.items?.[0]?.products?.name
+      return _pname ? (
+        <span className="truncate">{_pname}</span>
       ) : (
         <span className="text-muted-foreground text-xs">—</span>
       )
     }
     if (field.key === 'pickup_location_id') {
-      return item.pickup_location_name ? (
-        <span className="truncate">{item.pickup_location_name}</span>
-      ) : (
-        <span className="text-muted-foreground text-xs">—</span>
-      )
+      return <span className="text-muted-foreground text-xs">—</span>
     }
     // Unknown id field — fall back to the raw id.
     const raw = (item as unknown as Record<string, unknown>)[field.key]
     return raw ? String(raw) : '—'
   }
   if (field.type === 'date') {
-    const raw = (item as unknown as Record<string, unknown>)[field.key]
+    const dateMap: Record<string, string | null | undefined> = {
+      date_range_start: item.items?.[0]?.date_range_start,
+      date_range_end: item.items?.[0]?.date_range_end,
+      created_at: item.created_at,
+    }
+    const raw = field.key in dateMap ? dateMap[field.key] : (item as unknown as Record<string, unknown>)[field.key]
     if (typeof raw !== 'string' || raw.length === 0) {
       return (
         <span className="text-muted-foreground text-xs">
@@ -356,11 +362,20 @@ function renderCell(item: BookingItem, field: ViewField): React.ReactNode {
     }
     return <span className="whitespace-nowrap">{formatDayLabel(raw)}</span>
   }
+  if (field.type === 'text') {
+    const textMap: Record<string, string | null | undefined> = {
+      customer_first_name: item.customer?.first_name,
+      customer_last_name: item.customer?.last_name,
+      customer_email: item.customer?.email,
+    }
+    const raw = field.key in textMap ? textMap[field.key] : (item as unknown as Record<string, unknown>)[field.key]
+    return raw ? <span className="truncate">{String(raw)}</span> : <span className="text-muted-foreground text-xs">—</span>
+  }
   if (field.type === 'number') {
     if (field.key === 'booking_total') {
       return (
         <span className="font-medium">
-          {formatMoney(item.booking_total, item.currency || 'EUR')}
+          {formatMoney(item.gross_total, item.currency || 'EUR')}
         </span>
       )
     }

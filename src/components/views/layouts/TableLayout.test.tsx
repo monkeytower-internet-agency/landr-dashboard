@@ -16,25 +16,38 @@ import { describe, expect, it, vi } from 'vitest'
 import { TableLayout } from './TableLayout'
 import type { BookingItem } from '@/lib/views-bookings-data'
 
-function makeItem(overrides: Partial<BookingItem> = {}): BookingItem {
+type CustomerOverride = { id?: string; first_name?: string | null; last_name?: string | null; email?: string | null; phone?: string | null }
+type ItemOverride = Partial<BookingItem['items'][number]>
+function makeItem(
+  overrides: Omit<Partial<BookingItem>, 'customer' | 'items'> & {
+    customer?: CustomerOverride
+    items?: ItemOverride[]
+  } = {},
+): BookingItem {
+  const { customer: customerOv, items: itemsOv, ...rest } = overrides
   return {
     id: 'b-1',
-    customer_first_name: 'Marie',
-    customer_last_name: 'Curie',
-    customer_email: 'marie@example.com',
-    product_id: 'p-1',
-    product_name: 'Tandem flight',
-    date_range_start: '2026-07-08',
-    date_range_end: '2026-07-08',
-    selected_days: [],
-    booking_total: '199.00',
-    currency: 'EUR',
-    current_stage: { code: 'awaiting_general_approval' },
-    current_semantic_state: 'pending',
-    pickup_location_id: null,
-    pickup_location_name: null,
     created_at: '2026-05-21T10:00:00Z',
-    ...overrides,
+    current_semantic_state: 'pending',
+    current_stage: { code: 'awaiting_general_approval' },
+    gross_total: '199.00',
+    currency: 'EUR',
+    customer: {
+      id: 'c-1',
+      first_name: 'Marie',
+      last_name: 'Curie',
+      email: 'marie@example.com',
+      phone: null,
+      ...customerOv,
+    },
+    items: itemsOv && itemsOv.length > 0 ? (itemsOv as BookingItem['items']) : [{
+      id: 'bi-1',
+      date_range_start: '2026-07-08',
+      date_range_end: '2026-07-08',
+      selected_days: [],
+      products: { id: 'p-1', name: 'Tandem flight', product_kind: 'service', service_time_shape: null },
+    }],
+    ...rest,
   }
 }
 
@@ -62,8 +75,7 @@ describe('TableLayout (landr-7w3s)', () => {
           makeItem(),
           makeItem({
             id: 'b-2',
-            customer_first_name: 'Olaf',
-            customer_email: 'olaf@example.com',
+            customer: { first_name: 'Olaf', email: 'olaf@example.com' },
           }),
         ]}
         onConfigChange={() => {}}
