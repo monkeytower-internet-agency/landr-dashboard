@@ -40,6 +40,7 @@ export function Staff() {
           { label: t.app.settings, to: '/settings' },
           { label: t.settingsHub.sections.team },
         ]}
+        subtitle={t.settingsHub.sectionDescriptions.team}
       />
       <header className="flex items-center justify-between gap-4">
         <div>

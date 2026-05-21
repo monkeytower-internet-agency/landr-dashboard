@@ -1,4 +1,4 @@
-// landr-fx2i — page-title infrastructure for the topbar.
+// landr-fx2i / landr-fnhz — page-title infrastructure for the topbar.
 //
 // A route component declares its title (or breadcrumb) by rendering
 // <PageTitle title="Bookings" /> or
@@ -12,6 +12,11 @@
 // dynamic label that depends on a query result (product name, contact
 // name). Context lets the page populate the label once the data
 // arrives without coupling AppShell to every fetch.
+//
+// landr-fnhz extension — optional `subtitle` prop renders a muted
+// text-xs line below the title or breadcrumb. Used for at-a-glance
+// context (e.g. on Bookings: "124 bookings, €12.4k revenue", on a
+// Settings subsection: the section description).
 import {
   createContext,
   useCallback,
@@ -27,6 +32,7 @@ export type Crumb = { label: string; to?: string }
 export type PageTitleState = {
   title: string | null
   crumbs: Crumb[]
+  subtitle: string | null
 }
 
 type PageTitleApi = {
@@ -36,7 +42,7 @@ type PageTitleApi = {
 
 const PageTitleContext = createContext<PageTitleApi | undefined>(undefined)
 
-const EMPTY_STATE: PageTitleState = { title: null, crumbs: [] }
+const EMPTY_STATE: PageTitleState = { title: null, crumbs: [], subtitle: null }
 
 export function PageTitleProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PageTitleState>(EMPTY_STATE)
@@ -57,16 +63,21 @@ export function PageTitleProvider({ children }: { children: ReactNode }) {
  *
  * Use in each route component:
  *   <PageTitle title="Bookings" />
+ *   <PageTitle title="Bookings" subtitle="124 bookings · €12.4k revenue" />
  *   <PageTitle crumbs={[{label:'Products', to:'/settings/products'}, {label: name}]} />
+ *   <PageTitle crumbs={[…]} subtitle="Apply your logo + brand colour" />
  *
  * If both `title` and `crumbs` are passed, `crumbs` wins (breadcrumb mode).
+ * `subtitle` is optional and renders in either mode.
  */
 export function PageTitle({
   title,
   crumbs,
+  subtitle,
 }: {
   title?: string
   crumbs?: Crumb[]
+  subtitle?: string
 }): null {
   const ctx = useContext(PageTitleContext)
   // Outside a provider this is a no-op (lets tests render route components
@@ -77,14 +88,18 @@ export function PageTitle({
   const crumbsKey = JSON.stringify(crumbs ?? [])
   useEffect(() => {
     if (!set) return
-    set({ title: title ?? null, crumbs: crumbs ?? [] })
+    set({
+      title: title ?? null,
+      crumbs: crumbs ?? [],
+      subtitle: subtitle ?? null,
+    })
     return () => {
       set(EMPTY_STATE)
     }
     // crumbsKey covers the deep content of `crumbs`; including the raw
     // crumbs array would re-fire on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, crumbsKey, set])
+  }, [title, crumbsKey, subtitle, set])
   return null
 }
 

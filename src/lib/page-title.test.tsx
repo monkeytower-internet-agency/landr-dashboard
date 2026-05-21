@@ -17,13 +17,14 @@ import {
 } from './page-title'
 
 function TitleProbe() {
-  const { title, crumbs } = usePageTitle()
+  const { title, crumbs, subtitle } = usePageTitle()
   return (
     <div>
       <span data-testid="title">{title ?? '(none)'}</span>
       <span data-testid="crumbs">
         {crumbs.length === 0 ? '(empty)' : crumbs.map((c) => c.label).join(' › ')}
       </span>
+      <span data-testid="subtitle">{subtitle ?? '(none)'}</span>
     </div>
   )
 }
@@ -106,6 +107,67 @@ describe('PageTitle / PageTitleProvider (landr-fx2i)', () => {
       screen.getByText('swap').click()
     })
     expect(screen.getByTestId('title').textContent).toBe('Calendar')
+  })
+
+  it('subtitle prop populates context alongside title (landr-fnhz)', () => {
+    render(
+      <Harness>
+        <PageTitle title="Bookings" subtitle="124 bookings · €12.4k" />
+      </Harness>,
+    )
+    expect(screen.getByTestId('title').textContent).toBe('Bookings')
+    expect(screen.getByTestId('subtitle').textContent).toBe(
+      '124 bookings · €12.4k',
+    )
+  })
+
+  it('subtitle is preserved in breadcrumb mode (landr-fnhz)', () => {
+    render(
+      <Harness>
+        <PageTitle
+          crumbs={[
+            { label: 'Settings', to: '/settings' },
+            { label: 'Branding' },
+          ]}
+          subtitle="Apply your logo + brand colour"
+        />
+      </Harness>,
+    )
+    expect(screen.getByTestId('crumbs').textContent).toBe('Settings › Branding')
+    expect(screen.getByTestId('subtitle').textContent).toBe(
+      'Apply your logo + brand colour',
+    )
+  })
+
+  it('omitting subtitle leaves it null (backwards-compat, landr-fnhz)', () => {
+    render(
+      <Harness>
+        <PageTitle title="Bookings" />
+      </Harness>,
+    )
+    expect(screen.getByTestId('subtitle').textContent).toBe('(none)')
+  })
+
+  it('changing the subtitle prop updates the topbar (landr-fnhz)', () => {
+    function Swapper() {
+      const [n, setN] = useState(1)
+      return (
+        <>
+          <PageTitle title="Bookings" subtitle={`${n} bookings`} />
+          <button onClick={() => setN(2)}>bump</button>
+        </>
+      )
+    }
+    render(
+      <Harness>
+        <Swapper />
+      </Harness>,
+    )
+    expect(screen.getByTestId('subtitle').textContent).toBe('1 bookings')
+    act(() => {
+      screen.getByText('bump').click()
+    })
+    expect(screen.getByTestId('subtitle').textContent).toBe('2 bookings')
   })
 
   it('outside a provider, <PageTitle> is a safe no-op (returns null, no throw)', () => {

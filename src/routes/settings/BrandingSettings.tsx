@@ -57,6 +57,7 @@ export function BrandingSettings() {
           { label: t.app.settings, to: '/settings' },
           { label: t.settingsHub.sections.branding },
         ]}
+        subtitle={t.settingsHub.sectionDescriptions.branding}
       />
       <OperatorSection>
         {({ operator, operatorId, invalidate }) => (

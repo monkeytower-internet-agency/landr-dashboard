@@ -34,6 +34,7 @@ export function DisplayPreferencesSettings() {
           { label: t.app.settings, to: '/settings' },
           { label: t.settingsHub.sections.displayPreferences },
         ]}
+        subtitle={t.settingsHub.sectionDescriptions.displayPreferences}
       />
       <OperatorSection>
         {({ operator, operatorId, invalidate }) => (

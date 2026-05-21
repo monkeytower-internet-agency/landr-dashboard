@@ -92,6 +92,7 @@ function PricingSettingsInner({ operatorId }: InnerProps) {
           { label: t.app.settings, to: '/settings' },
           { label: t.settingsHub.sections.pricing },
         ]}
+        subtitle={t.settingsHub.sectionDescriptions.pricing}
       />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Pricing</h1>

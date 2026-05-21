@@ -25,6 +25,7 @@ export function PlanSettings() {
                 { label: t.app.settings, to: '/settings' },
                 { label: t.settingsHub.sections.plan },
               ]}
+              subtitle={t.settingsHub.sectionDescriptions.plan}
             />
             <h1 className="text-2xl font-semibold">
               {t.settingsHub.plan.title}

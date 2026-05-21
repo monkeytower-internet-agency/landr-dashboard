@@ -51,6 +51,7 @@ export function CompanySettings() {
           { label: t.app.settings, to: '/settings' },
           { label: t.settingsHub.sections.company },
         ]}
+        subtitle={t.settingsHub.sectionDescriptions.company}
       />
       <OperatorSection>
         {({ operator, operatorId, invalidate }) => (

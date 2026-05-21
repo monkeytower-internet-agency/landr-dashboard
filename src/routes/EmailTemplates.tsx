@@ -110,6 +110,7 @@ export function EmailTemplates() {
           { label: t.app.settings, to: '/settings' },
           { label: t.settingsHub.sections.emailTemplates },
         ]}
+        subtitle={t.settingsHub.sectionDescriptions.emailTemplates}
       />
       <header>
         <h1 className="text-xl font-semibold">{t.emailTemplates.title}</h1>

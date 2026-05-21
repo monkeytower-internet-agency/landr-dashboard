@@ -20,6 +20,7 @@ import { useBookingsFilters } from '@/lib/bookings-filters'
 import { downloadCsv, todayStampUtc, type CsvColumn } from '@/lib/csv-export'
 import { useOperator } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
+import { formatCurrency } from '@/lib/reporting'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { t } from '@/lib/strings'
 
@@ -71,6 +72,23 @@ export function Bookings() {
     [rows, filtersApi.filters],
   )
 
+  // landr-fnhz — topbar subtitle: filtered count + summed gross revenue.
+  // Mirrors what the table is currently showing (post-filter), so the
+  // operator sees the same shape as the rows below. Picks the first
+  // booking's currency for the format (EUR-dominant in our market; if
+  // the operator ever mixes currencies the format still reads sensibly).
+  const titleSubtitle = useMemo(() => {
+    const total = filteredRows.reduce((acc, r) => {
+      const n = Number(r.gross_total)
+      return acc + (Number.isFinite(n) ? n : 0)
+    }, 0)
+    const currency = filteredRows[0]?.currency || 'EUR'
+    return t.bookings.subtitleSummary(
+      filteredRows.length,
+      formatCurrency(total, currency),
+    )
+  }, [filteredRows])
+
   // landr-xnpc — export the CURRENT FILTERED view. Column set mirrors the
   // on-screen table so the file is recognisable next to the UI.
   function onExportCsv() {
@@ -112,7 +130,7 @@ export function Bookings() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle title={t.bookings.title} />
+      <PageTitle title={t.bookings.title} subtitle={titleSubtitle} />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">{t.bookings.title}</h1>
         <Button
