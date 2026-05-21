@@ -39,7 +39,9 @@ import {
   type PricingScheme,
   type RuleKind,
 } from '@/lib/pricingSchemes'
+import { useOperator } from '@/lib/operator'
 import { SortableRuleItem } from './SortableRuleItem'
+import { SimulateDialog } from './SimulateDialog'
 import { diffSortChanges } from './pricing-reorder-math'
 
 type Props = {
@@ -148,6 +150,13 @@ function SchemeEditor({ scheme, operatorId, onRefetch }: EditorProps) {
   const [nameVal, setNameVal] = useState(scheme.name)
   const [notesVal, setNotesVal] = useState(scheme.notes ?? '')
   const [newRuleKind, setNewRuleKind] = useState<RuleKind>('per_day_base')
+  const [simulateOpen, setSimulateOpen] = useState(false)
+  // landr-5gk7 — the simulator dialog hits the public estimate endpoint,
+  // which is slug-scoped. The editor sheet is rendered inside the operator
+  // shell so currentOperator is always populated here; we guard the
+  // 'Simulate' button on its presence rather than throwing.
+  const { currentOperator } = useOperator()
+  const operatorSlug = currentOperator?.slug ?? null
   const [nextSortOrder, setNextSortOrder] = useState(
     scheme.rules.length > 0
       ? Math.max(...scheme.rules.map((r) => r.sort_order)) + 10
@@ -287,6 +296,20 @@ function SchemeEditor({ scheme, operatorId, onRefetch }: EditorProps) {
           >
             {scheme.active ? 'Active' : 'Inactive'}
           </Button>
+          {/* landr-5gk7 — opens the pricing-rule simulator dialog. Disabled
+              when we don't yet know the operator slug (rare race during
+              initial load) so we never fire a public-API call with an
+              undefined slug. */}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs"
+            onClick={() => setSimulateOpen(true)}
+            disabled={!operatorSlug}
+          >
+            Simulate
+          </Button>
         </div>
         <SheetTitle className="sr-only">{scheme.name}</SheetTitle>
         <SheetDescription className="sr-only">
@@ -341,6 +364,20 @@ function SchemeEditor({ scheme, operatorId, onRefetch }: EditorProps) {
             </DndContext>
           )}
         </div>
+
+        {/* landr-5gk7 — pricing-rule simulator. Mounted alongside the
+            editor so operators can preview their changes without leaving
+            the sheet. */}
+        {operatorSlug ? (
+          <SimulateDialog
+            open={simulateOpen}
+            onOpenChange={setSimulateOpen}
+            schemeId={scheme.id}
+            operatorId={operatorId}
+            operatorSlug={operatorSlug}
+            schemeName={scheme.name}
+          />
+        ) : null}
 
         {/* Add rule */}
         <div className="rounded-md border p-3 space-y-2">

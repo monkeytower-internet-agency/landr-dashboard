@@ -51,6 +51,30 @@ vi.mock('sonner', () => ({
   Toaster: () => null,
 }))
 
+// landr-5gk7 — the editor now reads currentOperator.slug via useOperator
+// so the Simulate button knows which public-API slug to call. We're not
+// exercising the simulator here, but we still need to satisfy the hook
+// contract (it throws if OperatorProvider isn't mounted). A bare-bones
+// mock keeps this test file focused on the reorder + render concerns it
+// was originally written for.
+vi.mock('@/lib/operator', () => ({
+  useOperator: () => ({
+    operators: [],
+    currentOperator: { id: 'op-1', slug: 'op-slug', name: 'Op' },
+    currentOperatorId: 'op-1',
+    loading: false,
+    switchOperator: () => {},
+    refreshOperators: () => {},
+  }),
+}))
+
+// landr-5gk7 — stub the simulator dialog so this test file doesn't pull
+// in the products/api-client transitive deps that the dialog uses. The
+// dialog has its own dedicated test (SimulateDialog.test.tsx).
+vi.mock('./SimulateDialog', () => ({
+  SimulateDialog: () => null,
+}))
+
 import { PricingSchemeEditorSheet } from './PricingSchemeEditorSheet'
 import type { PricingScheme } from '@/lib/pricingSchemes'
 
