@@ -32,6 +32,10 @@ type ProductFixture = {
     | 'fixed_window'
     | 'time_slot'
     | null
+  // landr-kav4 — capacity_per_unit added to ProductForSchedule so the
+  // Dashboard capacity card can read it without a second round-trip.
+  // Schedule route itself ignores the field; default null is fine.
+  capacity_per_unit: number | null
 }
 
 const { mock } = vi.hoisted(() => {
@@ -203,6 +207,7 @@ function makeProduct(overrides: Partial<ProductFixture> = {}): ProductFixture {
     name: 'Hotel package',
     product_kind: 'service',
     service_time_shape: 'fixed_window',
+    capacity_per_unit: null,
     ...overrides,
   }
 }

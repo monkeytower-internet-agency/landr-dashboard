@@ -5,12 +5,18 @@
 
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { CheckCircleIcon, ChevronRightIcon } from 'lucide-react'
 
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
+import { CapacityCard } from '@/components/dashboard/CapacityCard'
 import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
 import { DashboardRevenueSpark } from '@/components/DashboardRevenueSpark'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  fetchSchedulableProducts,
+  type ProductForSchedule,
+} from '@/lib/availability'
 import {
   customerDisplay,
   dateDisplay,
@@ -24,6 +30,7 @@ import { fetchContacts, type ContactRow } from '@/lib/contacts'
 import {
   recentActivity,
   todaysBookings,
+  todaysCapacity,
   weekRevenueDaily,
   weekSummary,
   type ActivityEvent,
@@ -90,6 +97,17 @@ export function Dashboard() {
       : null,
   })
 
+  // ---- data: schedulable products (shared key with /schedule) ----------
+  // landr-kav4 — feeds the Today's-capacity card. Same query key as the
+  // Schedule route's productsQuery so the two surfaces hit the cache
+  // together; no realtime needed (product catalogue changes are rare and
+  // a stale render here is acceptable until the next mount).
+  const schedulableProductsQuery = useQuery<ProductForSchedule[]>({
+    queryKey: ['schedulable-products', currentOperatorId ?? 'none'],
+    queryFn: () => fetchSchedulableProducts(currentOperatorId as string),
+    enabled: !!currentOperatorId,
+  })
+
   const bookingRows = useMemo(
     () => bookingsQuery.data ?? [],
     [bookingsQuery.data],
@@ -102,8 +120,16 @@ export function Dashboard() {
     () => approvalsQuery.data ?? [],
     [approvalsQuery.data],
   )
+  const schedulableProducts = useMemo(
+    () => schedulableProductsQuery.data ?? [],
+    [schedulableProductsQuery.data],
+  )
 
   const todayRows = useMemo(() => todaysBookings(bookingRows), [bookingRows])
+  const capacityRows = useMemo(
+    () => todaysCapacity(bookingRows, schedulableProducts),
+    [bookingRows, schedulableProducts],
+  )
   const summary = useMemo(
     () => weekSummary(bookingRows, contactRows),
     [bookingRows, contactRows],
@@ -126,11 +152,15 @@ export function Dashboard() {
 
   const pendingCount = approvalRows.length
   const errored =
-    bookingsQuery.isError || contactsQuery.isError || approvalsQuery.isError
+    bookingsQuery.isError ||
+    contactsQuery.isError ||
+    approvalsQuery.isError ||
+    schedulableProductsQuery.isError
   const errorMessage =
     bookingsQuery.error?.message ??
     contactsQuery.error?.message ??
     approvalsQuery.error?.message ??
+    schedulableProductsQuery.error?.message ??
     ''
 
   return (
@@ -178,6 +208,14 @@ export function Dashboard() {
 
           {/* Right column — summary cards stacked */}
           <div className="flex flex-col gap-4">
+            <CapacityCard
+              rows={capacityRows}
+              loading={
+                (bookingsQuery.isPending ||
+                  schedulableProductsQuery.isPending) &&
+                !!currentOperatorId
+              }
+            />
             <RevenueSummaryCard
               revenue={summary.revenue}
               currency={summary.currency}

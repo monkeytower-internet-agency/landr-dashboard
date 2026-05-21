@@ -24,8 +24,11 @@ const { mock } = vi.hoisted(() => {
   const state = {
     bookings: [] as Row[],
     contacts: [] as Row[],
+    // landr-kav4 — schedulable products feed the Today's-capacity card.
+    products: [] as Row[],
     bookingsError: null as { message: string } | null,
     contactsError: null as { message: string } | null,
+    productsError: null as { message: string } | null,
     // Last filter applied via .filter(col, op, value) — used to decide
     // whether the call is the general-approvals path vs the all-bookings
     // path. fetchPendingGeneralApprovals adds
@@ -77,6 +80,9 @@ const { mock } = vi.hoisted(() => {
               data: state.bookings,
               error: state.bookingsError,
             }
+          }
+          if (table === 'products') {
+            return { data: state.products, error: state.productsError }
           }
           return { data: [], error: null }
         }),
@@ -249,8 +255,10 @@ function makeContact(over: Record<string, unknown>): Record<string, unknown> {
 beforeEach(() => {
   mock.state.bookings = []
   mock.state.contacts = []
+  mock.state.products = []
   mock.state.bookingsError = null
   mock.state.contactsError = null
+  mock.state.productsError = null
   mock.state.lastBookingFilter = null
 })
 
@@ -422,5 +430,87 @@ describe('Dashboard route', () => {
       await screen.findByText(/failed to load dashboard data/i),
     ).toBeInTheDocument()
     expect(screen.getByText(/boom/i)).toBeInTheDocument()
+  })
+
+  // landr-kav4 — Today's-capacity card.
+  it('renders the capacity card with X/Y and a red band when >90% booked', async () => {
+    const today = todayLocalIso()
+    mock.state.products = [
+      { id: 'p-hot', name: 'Tandem Flight', capacity_per_unit: 4 },
+      { id: 'p-cool', name: 'Sky Tour', capacity_per_unit: 10 },
+    ]
+    mock.state.bookings = [
+      makeBooking({
+        id: 'b-hot-1',
+        items: [
+          {
+            id: 'i-1',
+            date_range_start: today,
+            date_range_end: today,
+            selected_days: null,
+            products: {
+              id: 'p-hot',
+              name: 'Tandem Flight',
+              product_kind: 'service',
+              service_time_shape: 'single_date',
+            },
+          },
+        ],
+        participants: [
+          { id: 'pt-1', pickup_location: null },
+          { id: 'pt-2', pickup_location: null },
+          { id: 'pt-3', pickup_location: null },
+        ],
+      }),
+      makeBooking({
+        id: 'b-hot-2',
+        items: [
+          {
+            id: 'i-2',
+            date_range_start: today,
+            date_range_end: today,
+            selected_days: null,
+            products: {
+              id: 'p-hot',
+              name: 'Tandem Flight',
+              product_kind: 'service',
+              service_time_shape: 'single_date',
+            },
+          },
+        ],
+        participants: [
+          { id: 'pt-4', pickup_location: null },
+          { id: 'pt-5', pickup_location: null },
+        ],
+      }),
+    ]
+
+    render(<Dashboard />)
+
+    const hotRow = await screen.findByTestId('dashboard-capacity-row-p-hot')
+    expect(hotRow).toHaveTextContent('Tandem Flight')
+    // 3 + 2 = 5 participants against a capacity of 4 = 125% → red band.
+    expect(hotRow).toHaveTextContent('5/4')
+    expect(hotRow).toHaveAttribute('data-band', 'high')
+
+    const coolRow = screen.getByTestId('dashboard-capacity-row-p-cool')
+    // No bookings → 0/10 → green band.
+    expect(coolRow).toHaveTextContent('0/10')
+    expect(coolRow).toHaveAttribute('data-band', 'low')
+  })
+
+  it('skips products without a capacity_per_unit on the capacity card', async () => {
+    mock.state.products = [
+      { id: 'p-no-cap', name: 'Walk-up', capacity_per_unit: null },
+    ]
+    render(<Dashboard />)
+    // Card still renders, but with the empty-state copy. findByText polls
+    // until the products query resolves and the loading line is replaced.
+    expect(
+      await screen.findByText(/no schedulable products/i),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByTestId('dashboard-capacity-row-p-no-cap'),
+    ).not.toBeInTheDocument()
   })
 })

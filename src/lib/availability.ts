@@ -109,6 +109,10 @@ export async function deleteAvailability(availabilityId: string): Promise<void> 
 // Subset of the product columns the scheduler UI needs. The (product_kind,
 // service_time_shape) pair replaces the old duration_kind enum (landr-glx
 // schema refactor; landr-5eb dashboard sweep).
+//
+// landr-kav4 — capacity_per_unit is surfaced here so the Dashboard capacity
+// card (which reuses fetchSchedulableProducts) can render X/Y per product
+// without an extra round-trip. Existing Schedule callers ignore the field.
 export type ProductForSchedule = {
   id: string
   name: string
@@ -119,6 +123,7 @@ export type ProductForSchedule = {
     | 'fixed_window'
     | 'time_slot'
     | null
+  capacity_per_unit: number | null
 }
 
 export async function fetchSchedulableProducts(
@@ -128,7 +133,7 @@ export async function fetchSchedulableProducts(
   // gift card, …) are filtered out so the scheduler picker doesn't list them.
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, product_kind, service_time_shape')
+    .select('id, name, product_kind, service_time_shape, capacity_per_unit')
     .eq('operator_id', operatorId)
     .eq('active', true)
     .eq('product_kind', 'service')
