@@ -1533,4 +1533,45 @@ export const t = {
     activityApprovalPending: 'Awaiting approval',
     customerFallback: 'Unknown customer',
   },
+  // landr-s1mr — Copy for the shared <EmptyState> cards across surfaces.
+  // Each surface gets a friendly title + sub-copy + CTA so the empty
+  // screen still tells the operator what to do next. Approvals uses the
+  // celebratory tone (nothing pending is the *good* state).
+  emptyStates: {
+    bookings: {
+      title: 'No bookings yet',
+      description:
+        'New customer bookings will show up here. Share your booking link or create one manually to get started.',
+    },
+    contacts: {
+      title: 'No contacts yet',
+      description:
+        'Your customer list is empty. Contacts are added automatically when a booking comes in.',
+    },
+    products: {
+      title: 'No products yet',
+      description:
+        'Add your first product so customers can book it from your widget.',
+      cta: 'New product',
+    },
+    views: {
+      title: 'No views yet',
+      description:
+        'Saved views let you filter and revisit the bookings that matter most. Create one or start from a template.',
+      cta: '+ New view',
+    },
+    calendar: {
+      title: 'No bookings to show',
+      description:
+        'When you have scheduled bookings they will appear on the calendar.',
+    },
+    recentlyViewed: {
+      title: 'Nothing here yet',
+      description: 'Bookings, contacts, products and views you open will land here.',
+    },
+    approvals: {
+      title: 'All caught up',
+      description: 'No approvals are waiting on you right now. Nice work.',
+    },
+  },
 } as const

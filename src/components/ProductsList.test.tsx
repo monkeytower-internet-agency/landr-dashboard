@@ -304,4 +304,50 @@ describe('ProductsList — chip click target (landr-sydf)', () => {
     await user.click(trigger)
     expect(onSelect).not.toHaveBeenCalled()
   })
+
+  // landr-s1mr — friendly empty-state card with a CTA wired to onCreate
+  // when the operator has zero products.
+  describe('empty state (landr-s1mr)', () => {
+    it('renders the shared EmptyState card when rows is empty', () => {
+      render(
+        <ProductsList
+          rows={[]}
+          selectedId={null}
+          onSelect={() => {}}
+          onCreate={() => {}}
+          onDuplicate={() => {}}
+          duplicatingId={null}
+        />,
+      )
+      expect(screen.getByTestId('products-empty-state')).toBeInTheDocument()
+      expect(
+        screen.getByRole('heading', { name: /no products yet/i }),
+      ).toBeInTheDocument()
+      // The search input is suppressed — the friendly card replaces the
+      // full list chrome until the operator creates something.
+      expect(
+        screen.queryByPlaceholderText(/search products/i),
+      ).not.toBeInTheDocument()
+    })
+
+    it('clicking the CTA in the empty state fires onCreate', async () => {
+      const { default: userEvent } = await import(
+        '@testing-library/user-event'
+      )
+      const user = userEvent.setup()
+      const onCreate = vi.fn()
+      render(
+        <ProductsList
+          rows={[]}
+          selectedId={null}
+          onSelect={() => {}}
+          onCreate={onCreate}
+          onDuplicate={() => {}}
+          duplicatingId={null}
+        />,
+      )
+      await user.click(screen.getByRole('button', { name: /new product/i }))
+      expect(onCreate).toHaveBeenCalledTimes(1)
+    })
+  })
 })

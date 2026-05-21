@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
+import { CalendarRangeIcon } from 'lucide-react'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { BookingsCalendar } from '@/components/BookingsCalendar'
 import { BookingsFilters } from '@/components/bookings/BookingsFilters'
 import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
+import { EmptyState } from '@/components/EmptyState'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { fetchBookings, type BookingRow } from '@/lib/bookings'
 import { filterBookings } from '@/lib/bookings-filter-match'
@@ -83,6 +85,16 @@ export function Calendar() {
         </Card>
       ) : query.isPending && currentOperatorId ? (
         <p className="text-muted-foreground text-sm">{t.calendar.loading}</p>
+      ) : rows.length === 0 ? (
+        // landr-s1mr — friendly empty state when the operator has zero
+        // bookings at all. We surface this instead of the empty filter
+        // bar + blank calendar grid, which read as "is it broken?".
+        <EmptyState
+          icon={CalendarRangeIcon}
+          title={t.emptyStates.calendar.title}
+          description={t.emptyStates.calendar.description}
+          data-testid="calendar-empty-state"
+        />
       ) : (
         <>
           <BookingsFilters

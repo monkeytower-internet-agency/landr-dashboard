@@ -318,6 +318,20 @@ describe('Calendar route', () => {
     expect(screen.getByText(/boom/i)).toBeInTheDocument()
   })
 
+  // landr-s1mr — friendly empty-state card when the operator has no bookings.
+  it('renders the shared EmptyState card when there are zero bookings', async () => {
+    mock.state.rows = []
+    render(<Calendar />)
+
+    const empty = await screen.findByTestId('calendar-empty-state')
+    expect(empty).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: /no bookings to show/i }),
+    ).toBeInTheDocument()
+    // Calendar grid suppressed when the empty state shows.
+    expect(screen.queryAllByTestId('booking-event').length).toBe(0)
+  })
+
   it('subscribes to realtime updates on both bookings and booking_products', async () => {
     mock.state.rows = sampleRows
     render(<Calendar />)

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BedDoubleIcon, CopyIcon, MoreHorizontalIcon, PlusIcon, SearchIcon } from 'lucide-react'
+import { BedDoubleIcon, CopyIcon, MoreHorizontalIcon, PackageIcon, PlusIcon, SearchIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { EmptyState } from '@/components/EmptyState'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -167,6 +168,23 @@ export function ProductsList({ rows, selectedId, onSelect, onCreate, onDuplicate
   // landr-ssrx — flatten the filtered list into a render plan that
   // intersperses hotel headers above their room groups.
   const entries = useMemo(() => groupRows(filtered), [filtered])
+
+  // landr-s1mr — When the operator has zero products at all (not just
+  // zero matches for the search or addon toggle), surface the friendly
+  // empty-state card with a "New product" CTA wired to onCreate.
+  if (rows.length === 0) {
+    return (
+      <div className="flex h-full flex-col">
+        <EmptyState
+          icon={PackageIcon}
+          title={t.emptyStates.products.title}
+          description={t.emptyStates.products.description}
+          action={{ label: t.emptyStates.products.cta, onClick: onCreate }}
+          data-testid="products-empty-state"
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col gap-3">

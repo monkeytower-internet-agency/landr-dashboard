@@ -18,10 +18,17 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table'
-import { ArrowDown, ArrowUp, ArrowUpDown, DownloadIcon } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  DownloadIcon,
+  PartyPopperIcon,
+} from 'lucide-react'
 
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { BulkActionToolbar } from '@/components/BulkActionToolbar'
+import { EmptyState } from '@/components/EmptyState'
 import { ApprovalsFilters } from '@/components/approvals/ApprovalsFilters'
 import { StageChip } from '@/components/approvals/StageChip'
 import {
@@ -440,7 +447,7 @@ export function GeneralApprovals() {
           {t.generalApprovals.loading}
         </p>
       ) : rows.length === 0 ? (
-        <EmptyState />
+        <ApprovalsEmptyState />
       ) : (
         <>
           <ApprovalsFilters
@@ -616,18 +623,18 @@ export function GeneralApprovals() {
   )
 }
 
-function EmptyState() {
+// landr-s1mr — reuse the shared <EmptyState> with the celebratory tone.
+// We keep this wrapper so the route can render `<ApprovalsEmptyState />`
+// the same way it did before (and so the data-testid stays stable for
+// the existing tests).
+function ApprovalsEmptyState() {
   return (
-    <div
-      className="border-muted-foreground/20 flex flex-col items-center justify-center gap-2 rounded-md border border-dashed py-16 text-center"
+    <EmptyState
+      icon={PartyPopperIcon}
+      tone="celebratory"
+      title={t.emptyStates.approvals.title}
+      description={t.emptyStates.approvals.description}
       data-testid="approvals-empty-state"
-    >
-      <span className="text-3xl" aria-hidden>
-        {t.generalApprovals.emptyEmoji}
-      </span>
-      <p className="text-muted-foreground text-sm">
-        {t.generalApprovals.empty}
-      </p>
-    </div>
+    />
   )
 }

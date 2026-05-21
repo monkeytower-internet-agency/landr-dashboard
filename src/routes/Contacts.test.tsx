@@ -306,6 +306,19 @@ describe('Contacts route', () => {
     expect(screen.getByText(/boom/i)).toBeInTheDocument()
   })
 
+  // landr-s1mr — friendly empty-state card surfaces when the operator
+  // has zero contacts.
+  it('renders the shared EmptyState card when there are zero contacts', async () => {
+    mock.state.contacts = []
+    render(<Contacts />)
+
+    const empty = await screen.findByTestId('contacts-empty-state')
+    expect(empty).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: /no contacts yet/i }),
+    ).toBeInTheDocument()
+  })
+
   it('triggers the GDPR erase RPC after confirmation', async () => {
     mock.state.contacts = [freshSampleContacts()[0]]
     const user = userEvent.setup()

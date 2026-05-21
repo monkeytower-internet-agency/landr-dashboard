@@ -9,10 +9,11 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table'
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarRangeIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { EmptyState } from '@/components/EmptyState'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -263,6 +264,20 @@ export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
     // reminder endpoint once it exists.
     toast.success(t.bulkActions.toastReminderSent(ids.length))
     setSelectedIds(new Set())
+  }
+
+  // landr-s1mr — When there are zero bookings at all (not just zero
+  // matches for the current filter/search), show the friendly empty-state
+  // card instead of the filter chrome + empty table.
+  if (rows.length === 0) {
+    return (
+      <EmptyState
+        icon={CalendarRangeIcon}
+        title={t.emptyStates.bookings.title}
+        description={t.emptyStates.bookings.description}
+        data-testid="bookings-empty-state"
+      />
+    )
   }
 
   return (
