@@ -359,23 +359,22 @@ export function colorKeyForBooking(row: BookingRow): BookingSemanticState {
   return row.current_semantic_state
 }
 
-// Persist a calendar drag-to-reschedule. Writes the new start/end date
-// to the booking_products row that we used to render the event. If the
-// booking had no scheduled item, this is a no-op (callers should guard).
+// Persist a calendar drag-to-reschedule. Routes through FastAPI's
+// PATCH /bookings/{id}/products/{lineId} because date changes re-run
+// the pricing engine (see write-routing-convention memory). Callers
+// must hold a bookingId — the calendar event's `bookingId` field.
+// If the booking had no scheduled item (`itemId === null`), the caller
+// guards and skips this entirely (no-op).
 export async function rescheduleBookingItem(args: {
+  bookingId: string
   itemId: string
   startDate: string // ISO date YYYY-MM-DD
   endDate: string | null // ISO date YYYY-MM-DD or null
 }): Promise<void> {
-  const payload: { date_range_start: string; date_range_end: string | null } = {
+  await patchBookingProduct(args.bookingId, args.itemId, {
     date_range_start: args.startDate,
     date_range_end: args.endDate,
-  }
-  const { error } = await supabase
-    .from('booking_products')
-    .update(payload)
-    .eq('id', args.itemId)
-  if (error) throw new Error(error.message)
+  })
 }
 
 // Helper: format a Date back to YYYY-MM-DD for postgres `date` columns.

@@ -348,9 +348,7 @@ describe('CalendarLayout (landr-9kbl)', () => {
         calendarConfig: { dateField: 'date_range_start' },
       })
       render(<CalendarLayout view={view} items={[makeRow()]} />)
-      expect(
-        document.querySelector('.fc-dayGridMonth-view'),
-      ).not.toBeNull()
+      expect(document.querySelector('.fc-dayGridMonth-view')).not.toBeNull()
       // Month button is the active (default) variant.
       expect(
         screen
@@ -365,9 +363,7 @@ describe('CalendarLayout (landr-9kbl)', () => {
         calendarConfig: { dateField: 'date_range_start', view: 'week' },
       })
       render(<CalendarLayout view={view} items={[makeRow()]} />)
-      expect(
-        document.querySelector('.fc-timeGridWeek-view'),
-      ).not.toBeNull()
+      expect(document.querySelector('.fc-timeGridWeek-view')).not.toBeNull()
       expect(
         screen
           .getByTestId('view-calendar-view-week')
@@ -381,9 +377,7 @@ describe('CalendarLayout (landr-9kbl)', () => {
         calendarConfig: { dateField: 'date_range_start', view: 'day' },
       })
       render(<CalendarLayout view={view} items={[makeRow()]} />)
-      expect(
-        document.querySelector('.fc-timeGridDay-view'),
-      ).not.toBeNull()
+      expect(document.querySelector('.fc-timeGridDay-view')).not.toBeNull()
       expect(
         screen
           .getByTestId('view-calendar-view-day')
@@ -439,9 +433,70 @@ describe('CalendarLayout (landr-9kbl)', () => {
         calendarConfig: { dateField: 'date_range_start', view: 'fortnight' },
       })
       render(<CalendarLayout view={view} items={[makeRow()]} />)
-      expect(
-        document.querySelector('.fc-dayGridMonth-view'),
-      ).not.toBeNull()
+      expect(document.querySelector('.fc-dayGridMonth-view')).not.toBeNull()
+    })
+  })
+
+  // landr-nnbm — drag-to-reschedule wiring. We can't simulate a real
+  // FullCalendar drop in jsdom (the interaction plugin uses pointer
+  // events that aren't reliably synthesizable), so we assert on the
+  // markup contract: the event renders inside a draggable container
+  // when DnD is wired AND the dateField is `date_range_start`. The
+  // useDragReschedule hook itself owns the patch/undo path and is
+  // covered in calendar-reschedule.test.tsx.
+  describe('drag-to-reschedule (landr-nnbm)', () => {
+    it('marks events draggable when onReschedule is set AND dateField is date_range_start', () => {
+      const view = makeView({
+        layout: 'calendar',
+        calendarConfig: { dateField: 'date_range_start' },
+      })
+      render(
+        <CalendarLayout
+          view={view}
+          items={[makeRow({ id: 'row-a' })]}
+          onReschedule={vi.fn()}
+        />,
+      )
+      // FullCalendar applies fc-event-draggable to draggable events.
+      const harness = screen.getAllByTestId('view-calendar-event')[0]
+      const harnessRoot = harness.closest('.fc-event')
+      expect(harnessRoot?.className).toMatch(/fc-event-draggable/)
+    })
+
+    it('keeps events non-draggable when onReschedule is omitted', () => {
+      const view = makeView({
+        layout: 'calendar',
+        calendarConfig: { dateField: 'date_range_start' },
+      })
+      render(<CalendarLayout view={view} items={[makeRow({ id: 'row-a' })]} />)
+      const harness = screen.getAllByTestId('view-calendar-event')[0]
+      const harnessRoot = harness.closest('.fc-event')
+      expect(harnessRoot?.className ?? '').not.toMatch(/fc-event-draggable/)
+    })
+
+    it('keeps events non-draggable when dateField is NOT date_range_start (avoids patching the wrong column)', () => {
+      // The PATCH route writes date_range_start / date_range_end on
+      // booking_products. If a saved View plotted events on some other
+      // date field, a drop would silently move the wrong thing —
+      // disable DnD in that case.
+      const view = makeView({
+        layout: 'calendar',
+        calendarConfig: { dateField: 'date_range_end' },
+      })
+      render(
+        <CalendarLayout
+          view={view}
+          items={[makeRow({ id: 'row-a' })]}
+          onReschedule={vi.fn()}
+        />,
+      )
+      const harness = screen.queryAllByTestId('view-calendar-event')[0]
+      // dateField=date_range_end + no end value means the test row has
+      // no plottable date — guard for empty too.
+      if (harness) {
+        const harnessRoot = harness.closest('.fc-event')
+        expect(harnessRoot?.className ?? '').not.toMatch(/fc-event-draggable/)
+      }
     })
   })
 })

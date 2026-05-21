@@ -333,34 +333,67 @@ describe('Calendar route', () => {
   })
 })
 
+// landr-nnbm — rescheduleBookingItem now routes through FastAPI's
+// PATCH /api/staff/bookings/{id}/products/{lineId} (pricing re-runs server
+// side, per the write-routing convention). The helper used to write
+// booking_products directly via supabase; that path is dead — these tests
+// guard the new path by stubbing fetch and asserting URL + body.
 describe('rescheduleBookingItem helper', () => {
-  it('writes date_range_start/date_range_end to booking_products', async () => {
+  beforeEach(() => {
+    // Supabase auth is reached by the api-client when minting the bearer.
+    // Provide a session so the helper doesn't bail with AuthExpiredError.
+    ;(mock.supabase as unknown as {
+      auth?: { getSession: () => Promise<unknown> }
+    }).auth = {
+      getSession: async () => ({
+        data: { session: { access_token: 'test-token' } },
+      }),
+    }
+  })
+
+  it('PATCHes /bookings/{id}/products/{lineId} with date_range_start/date_range_end', async () => {
+    const fetchSpy = vi.fn(async () =>
+      new Response(JSON.stringify({}), { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchSpy)
     const { rescheduleBookingItem } = await import('@/lib/bookings')
     await rescheduleBookingItem({
+      bookingId: 'b-1',
       itemId: 'i-1',
       startDate: '2026-06-01',
       endDate: '2026-06-03',
     })
-    expect(mock.state.lastUpdate).toEqual({
-      table: 'booking_products',
-      values: {
-        date_range_start: '2026-06-01',
-        date_range_end: '2026-06-03',
-      },
-      eqColumn: 'id',
-      eqValue: 'i-1',
+    expect(fetchSpy).toHaveBeenCalledOnce()
+    const [url, opts] = fetchSpy.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ]
+    expect(url).toContain('/api/staff/bookings/b-1/products/i-1')
+    expect(opts.method).toBe('PATCH')
+    const body = JSON.parse(opts.body as string)
+    expect(body).toEqual({
+      date_range_start: '2026-06-01',
+      date_range_end: '2026-06-03',
     })
+    vi.unstubAllGlobals()
   })
 
-  it('propagates supabase errors', async () => {
-    mock.state.updateError = { message: 'permission denied' }
+  it('propagates server errors', async () => {
+    const fetchSpy = vi.fn(async () =>
+      new Response(JSON.stringify({ detail: 'permission denied' }), {
+        status: 403,
+      }),
+    )
+    vi.stubGlobal('fetch', fetchSpy)
     const { rescheduleBookingItem } = await import('@/lib/bookings')
     await expect(
       rescheduleBookingItem({
+        bookingId: 'b-1',
         itemId: 'i-1',
         startDate: '2026-06-01',
         endDate: null,
       }),
-    ).rejects.toThrow('permission denied')
+    ).rejects.toThrow(/permission denied/i)
+    vi.unstubAllGlobals()
   })
 })
