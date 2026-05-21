@@ -21,6 +21,7 @@ import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp'
 import { NotificationsBell } from '@/components/NotificationsBell'
 import { OnboardingBanner } from '@/components/OnboardingBanner'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
+import { QuickCaptureFab } from '@/components/QuickCaptureFab'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { PageTitleDisplay } from '@/components/topbar/PageTitleDisplay'
 import { useAuth } from '@/lib/auth'
@@ -127,6 +128,10 @@ function AppShellInner({
         <OnboardingBanner />
         <main className="flex-1 px-4 py-6 sm:px-6">{children}</main>
       </SidebarInset>
+      {/* landr-f18d — Quick capture FAB. Bottom-right, mounted at the
+          shell level so it's reachable from every protected route (the
+          common operator use case is "phone rings while I'm on /calendar"). */}
+      <QuickCaptureFab />
       {/* landr-wmsc — global Cmd/Ctrl+K palette. Mounted once at the
           shell level so the hot-key listener (installed by the
           CommandPaletteProvider) covers every protected route. */}
