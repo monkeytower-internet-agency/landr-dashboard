@@ -406,4 +406,27 @@ describe('BookingDetailSheet', () => {
     expect(invalidatedKeys).toContainEqual(['bookings'])
     expect(invalidatedKeys).toContainEqual(['views-bookings'])
   })
+
+  // landr-a8fg — copy-link button in the sheet header. Mirrors the
+  // EmailTemplatePreview clipboard pattern (landr-7tyo): install the
+  // navigator.clipboard stub via Object.defineProperty BEFORE rendering and
+  // dispatch a raw .click() so userEvent.setup's internal clipboard wrapping
+  // can't intercept the writeText spy.
+  it('copies the deep-link URL (origin + /bookings?open=<id>) when the copy-link button is clicked', async () => {
+    const writeText = vi.fn(async () => undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    const btn = await screen.findByTestId('booking-copy-link')
+    btn.click()
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(
+        `${window.location.origin}/bookings?open=b-12345678-aaaa-bbbb-cccc-dddddddddddd`,
+      )
+    })
+  })
 })

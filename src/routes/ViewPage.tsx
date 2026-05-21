@@ -68,6 +68,7 @@ import {
   type BoardItemMutate,
 } from '@/components/views/layouts/BoardLayout'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
+import { CopyLinkButton } from '@/components/CopyLinkButton'
 import {
   applyView,
   useViewBookings,
@@ -418,6 +419,18 @@ export function ViewPage() {
               operatorId={currentOperatorId}
               size="md"
               className="text-foreground/70 hover:bg-accent hover:text-foreground"
+            />
+          ) : null}
+
+          {/* landr-a8fg — shareable deep-link to this saved view. The current
+              URL (/views/<id>) already deep-links straight to this surface,
+              so the path here is computed from viewId rather than the URL
+              search params — a copied link should not carry the operator's
+              transient ?layout= override. */}
+          {view ? (
+            <CopyLinkButton
+              path={`/views/${view.id}`}
+              testId="view-copy-link"
             />
           ) : null}
 

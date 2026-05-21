@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/sheet'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { CopyLinkButton } from '@/components/CopyLinkButton'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { BookingChecklist } from '@/components/booking/BookingChecklist'
 import { BookingTimeline } from '@/components/booking/BookingTimeline'
@@ -315,7 +316,17 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   return (
     <>
       <SheetHeader>
-        <SheetTitle>{t.bookings.detailsTitle}</SheetTitle>
+        <div className="flex items-center justify-between gap-2">
+          <SheetTitle>{t.bookings.detailsTitle}</SheetTitle>
+          {/* landr-a8fg — shareable deep-link to this booking. Mirrors the
+              ?open= pattern landr-ne58 uses for the Recently-viewed trail so
+              a pasted link opens the same sheet on the next operator's
+              screen. */}
+          <CopyLinkButton
+            path={`/bookings?open=${row.id}`}
+            testId="booking-copy-link"
+          />
+        </div>
         <SheetDescription>
           {row.customer && onCustomerClick ? (
             <span className="inline-flex flex-wrap items-center gap-x-1">

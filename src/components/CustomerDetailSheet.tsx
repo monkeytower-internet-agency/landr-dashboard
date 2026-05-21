@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/sheet'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
+import { CopyLinkButton } from '@/components/CopyLinkButton'
 import { CustomerBookings } from '@/components/customer/CustomerBookings'
 import { invalidateBookingCaches, type BookingRow } from '@/lib/bookings'
 import {
@@ -160,7 +161,17 @@ function CustomerDetailBody({ contactId, onClose }: BodyProps) {
   return (
     <>
       <SheetHeader>
-        <SheetTitle>{t.customerDetail.title}</SheetTitle>
+        <div className="flex items-center justify-between gap-2">
+          <SheetTitle>{t.customerDetail.title}</SheetTitle>
+          {/* landr-a8fg — shareable deep-link to this contact. Uses the
+              ?open=<contactId> route landr-ne58 already wires for the
+              Recently-viewed trail so the pasted link opens this sheet on
+              the next operator's screen. */}
+          <CopyLinkButton
+            path={`/contacts?open=${contactId}`}
+            testId="contact-copy-link"
+          />
+        </div>
         <SheetDescription>
           {query.data ? contactNameDisplay(query.data) : ' '}
         </SheetDescription>

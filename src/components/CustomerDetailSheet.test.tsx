@@ -412,4 +412,25 @@ describe('CustomerDetailSheet', () => {
       ).toBeInTheDocument()
     })
   })
+
+  // landr-a8fg — copy-link button in the sheet header. Same clipboard stub
+  // pattern as the BookingDetailSheet test (landr-7tyo): defineProperty
+  // before render + raw .click() so userEvent.setup() doesn't wrap the spy.
+  it('copies the deep-link URL (origin + /contacts?open=<id>) when the copy-link button is clicked', async () => {
+    const writeText = vi.fn(async () => undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+    render(<CustomerDetailSheet contactId="c-1" onOpenChange={() => {}} />)
+
+    const btn = await screen.findByTestId('contact-copy-link')
+    btn.click()
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(
+        `${window.location.origin}/contacts?open=c-1`,
+      )
+    })
+  })
 })
