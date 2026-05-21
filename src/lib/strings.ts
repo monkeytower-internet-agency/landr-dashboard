@@ -1447,6 +1447,11 @@ export const t = {
       // landr-4cwh — Board swimlanes (secondary grouping).
       swimlaneLabel: 'Swimlanes:',
       swimlaneNone: 'None (flat)',
+      // landr-9nj9 — Board column-by picker (primary grouping). "None"
+      // clears the key so the BoardLayout default fallback kicks in
+      // (first enum field, typically current_stage).
+      columnByLabel: 'Column by:',
+      columnByNone: 'Default',
     },
     filters: {
       addFilter: '+ Filter',

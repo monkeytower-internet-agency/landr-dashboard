@@ -12,6 +12,10 @@
 // landr-4cwh — Board layouts also get a "Swimlanes" dropdown that writes
 // to `boardConfig.swimlaneBy` (any enum or id field of the entity).
 //
+// landr-9nj9 — Board layouts also get a "Column by" dropdown (primary
+// grouping) that writes to `boardConfig.columnBy`. Selecting "Default"
+// clears the key so the BoardLayout fallback (first enum field) takes over.
+//
 // State lives in the parent (ViewPage owns the View's config). The toolbar
 // is a controlled component over the in-memory config blob.
 
@@ -19,6 +23,7 @@ import {
   Filter as FilterIcon,
   ArrowUpDown,
   Columns3,
+  Columns2,
   Layers,
   Rows3,
 } from 'lucide-react'
@@ -50,6 +55,7 @@ type Props = {
 const NO_SORT_VALUE = '__none__'
 const NO_GROUP_VALUE = '__none__'
 const NO_SWIMLANE_VALUE = '__none__'
+const NO_COLUMN_BY_VALUE = '__none__'
 
 export function ViewToolbar({
   entityType,
@@ -70,6 +76,13 @@ export function ViewToolbar({
   )
   const swimlaneBy = readSwimlaneBy(config)
   const activeSwimlaneKey = swimlaneBy ?? NO_SWIMLANE_VALUE
+  // landr-9nj9 — column-by picker uses the same enum/id field shortlist as
+  // swimlanes (board renders one column per distinct value of the field).
+  const columnByFields = fieldsFor(entityType).filter(
+    (f) => f.type === 'enum' || f.type === 'id',
+  )
+  const columnBy = readColumnBy(config)
+  const activeColumnByKey = columnBy ?? NO_COLUMN_BY_VALUE
 
   function setFilters(next: Filter[]) {
     onChange({ ...config, filters: next })
@@ -117,6 +130,25 @@ export function ViewToolbar({
     const nextBoard: Record<string, unknown> = {
       ...prevBoard,
       swimlaneBy: key === NO_SWIMLANE_VALUE ? null : key,
+    }
+    onChange({ ...config, boardConfig: nextBoard })
+  }
+
+  // landr-9nj9 — write boardConfig.columnBy. Selecting "Default" deletes
+  // the key entirely so BoardLayout's fallback (first enum field, today
+  // `current_stage`) takes over. We keep the rest of boardConfig
+  // (notably swimlaneBy) intact so the two pickers are independent.
+  function setColumnBy(key: string) {
+    const prevBoard =
+      (config as { boardConfig?: Record<string, unknown> }).boardConfig ?? {}
+    if (key === NO_COLUMN_BY_VALUE) {
+      const { columnBy: _drop, ...rest } = prevBoard
+      onChange({ ...config, boardConfig: rest })
+      return
+    }
+    const nextBoard: Record<string, unknown> = {
+      ...prevBoard,
+      columnBy: key,
     }
     onChange({ ...config, boardConfig: nextBoard })
   }
@@ -211,6 +243,36 @@ export function ViewToolbar({
       {layout === 'board' ? (
         <div
           className="flex items-center gap-1.5"
+          data-testid={`${testIdPrefix}-column-by`}
+        >
+          <Columns2
+            className="text-muted-foreground size-4"
+            aria-hidden="true"
+          />
+          <span className="text-muted-foreground text-xs">
+            {t.views.toolbar.columnByLabel}
+          </span>
+          <NativeSelect
+            value={activeColumnByKey}
+            onChange={(e) => setColumnBy(e.target.value)}
+            data-testid={`${testIdPrefix}-column-by-key`}
+            className="h-7 w-auto text-xs"
+          >
+            <option value={NO_COLUMN_BY_VALUE}>
+              {t.views.toolbar.columnByNone}
+            </option>
+            {columnByFields.map((f) => (
+              <option key={f.key} value={f.key}>
+                {f.label}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+      ) : null}
+
+      {layout === 'board' ? (
+        <div
+          className="flex items-center gap-1.5"
           data-testid={`${testIdPrefix}-swimlane`}
         >
           <Rows3
@@ -276,5 +338,15 @@ function isSortEntry(x: unknown): x is SortEntry {
 function readSwimlaneBy(config: Record<string, unknown>): string | null {
   const bc = (config as { boardConfig?: { swimlaneBy?: unknown } }).boardConfig
   const raw = bc?.swimlaneBy
+  return typeof raw === 'string' ? raw : null
+}
+
+// landr-9nj9 — Read boardConfig.columnBy, tolerating missing / null /
+// malformed configs alike. The picker treats anything non-string as "no
+// explicit pick" (Default) so the BoardLayout fallback chain stays in
+// charge — matching how swimlanes handle the same shape.
+function readColumnBy(config: Record<string, unknown>): string | null {
+  const bc = (config as { boardConfig?: { columnBy?: unknown } }).boardConfig
+  const raw = bc?.columnBy
   return typeof raw === 'string' ? raw : null
 }
