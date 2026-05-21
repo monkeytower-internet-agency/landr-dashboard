@@ -211,6 +211,53 @@ describe('Bookings route', () => {
     )
   })
 
+  // ---- landr-lbbj ------------------------------------------------------
+
+  it('bulk toolbar is hidden until a row is selected', async () => {
+    mock.state.rows = sampleRows
+    render(<Bookings />)
+
+    await screen.findByText('Alice Anderson')
+    expect(
+      screen.queryByTestId('bookings-bulk-toolbar'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('selecting a row reveals the bulk toolbar with the correct count', async () => {
+    mock.state.rows = sampleRows
+    const user = userEvent.setup()
+    render(<Bookings />)
+
+    await screen.findByText('Alice Anderson')
+    await user.click(screen.getByTestId('bookings-select-b-1111111111'))
+
+    expect(screen.getByTestId('bookings-bulk-toolbar')).toBeInTheDocument()
+    expect(screen.getByText('1 selected')).toBeInTheDocument()
+    // Bookings page exposes export-csv + send-reminder only.
+    expect(
+      screen.getByTestId('bookings-bulk-toolbar-export-csv'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByTestId('bookings-bulk-toolbar-send-reminder'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByTestId('bookings-bulk-toolbar-approve'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('bookings-bulk-toolbar-reject'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('select-all toggles every visible row', async () => {
+    mock.state.rows = sampleRows
+    const user = userEvent.setup()
+    render(<Bookings />)
+
+    await screen.findByText('Alice Anderson')
+    await user.click(screen.getByTestId('bookings-select-all'))
+    expect(screen.getByText('2 selected')).toBeInTheDocument()
+  })
+
   it('shows an error card when the query fails', async () => {
     mock.state.error = { message: 'boom' }
     render(<Bookings />)

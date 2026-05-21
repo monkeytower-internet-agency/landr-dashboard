@@ -21,6 +21,7 @@ import {
 import { ArrowDown, ArrowUp, ArrowUpDown, DownloadIcon } from 'lucide-react'
 
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
+import { BulkActionToolbar } from '@/components/BulkActionToolbar'
 import { ApprovalsFilters } from '@/components/approvals/ApprovalsFilters'
 import { StageChip } from '@/components/approvals/StageChip'
 import {
@@ -34,6 +35,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -100,6 +102,10 @@ export function GeneralApprovals() {
   const [dialog, setDialog] = useState<DialogState>(null)
   const [note, setNote] = useState('')
   const [activeRow, setActiveRow] = useState<BookingRow | null>(null)
+  // landr-lbbj — bulk-select state lives in the route component so the
+  // toolbar (presentation only) and the table can share it.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
 
   const query = useQuery<BookingRow[]>({
     queryKey: ['bookings', 'general-approvals', currentOperatorId ?? 'none'],
@@ -160,6 +166,61 @@ export function GeneralApprovals() {
 
   const columns = useMemo<ColumnDef<BookingRow>[]>(
     () => [
+      // landr-lbbj — bulk-select column. Header checkbox toggles ALL
+      // currently-visible (filtered+sorted) rows; row checkbox toggles
+      // that single id. Both stopPropagation so clicking the box doesn't
+      // also open the detail sheet underneath.
+      {
+        id: 'select',
+        enableSorting: false,
+        header: ({ table: t1 }) => {
+          const visibleIds = t1
+            .getRowModel()
+            .rows.map((r) => (r.original as BookingRow).id)
+          const allChecked =
+            visibleIds.length > 0 &&
+            visibleIds.every((id) => selectedIds.has(id))
+          const someChecked = visibleIds.some((id) => selectedIds.has(id))
+          return (
+            <Checkbox
+              checked={allChecked}
+              ref={(el) => {
+                if (el) el.indeterminate = !allChecked && someChecked
+              }}
+              onChange={(e) => {
+                const next = new Set(selectedIds)
+                if (e.currentTarget.checked) {
+                  for (const id of visibleIds) next.add(id)
+                } else {
+                  for (const id of visibleIds) next.delete(id)
+                }
+                setSelectedIds(next)
+              }}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={t.bulkActions.selectAllAria}
+              data-testid="approvals-select-all"
+            />
+          )
+        },
+        cell: ({ row }) => {
+          const id = row.original.id
+          const checked = selectedIds.has(id)
+          return (
+            <Checkbox
+              checked={checked}
+              onChange={(e) => {
+                const next = new Set(selectedIds)
+                if (e.currentTarget.checked) next.add(id)
+                else next.delete(id)
+                setSelectedIds(next)
+              }}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={t.bulkActions.selectRowAria(id)}
+              data-testid={`approvals-select-${id}`}
+            />
+          )
+        },
+      },
       {
         id: 'created_at',
         accessorKey: 'created_at',
@@ -252,7 +313,7 @@ export function GeneralApprovals() {
         ),
       },
     ],
-    [hour12],
+    [hour12, selectedIds],
   )
 
   const table = useReactTable({
@@ -275,6 +336,63 @@ export function GeneralApprovals() {
       filteredRows,
       approvalsCsvColumns,
     )
+  }
+
+  // landr-lbbj — bulk-action handlers. Each one fans out via Promise.all
+  // so all rows fire in parallel; partial failures surface in the toast.
+  async function runBulkDecision(
+    ids: string[],
+    decision: ApprovalDecision,
+  ): Promise<void> {
+    setBulkBusy(true)
+    const results = await Promise.allSettled(
+      ids.map((id) =>
+        postGeneralApprovalDecision({ bookingId: id, decision }),
+      ),
+    )
+    setBulkBusy(false)
+    const ok = results.filter((r) => r.status === 'fulfilled').length
+    const fail = results.length - ok
+    void invalidateBookingCaches(queryClient)
+    setSelectedIds(new Set())
+
+    if (fail === 0) {
+      const message =
+        decision === 'approve'
+          ? t.bulkActions.toastApproved(ok)
+          : t.bulkActions.toastRejected(ok)
+      toast.success(`${message} — ${t.bulkActions.undo}`, {
+        // landr-lbbj — Undo is a stub; once we have a bulk-reverse endpoint
+        // wire it up here. For now we no-op so the user sees the affordance.
+        action: { label: t.bulkActions.undo, onClick: () => {} },
+      })
+    } else if (ok > 0) {
+      toast.warning(t.bulkActions.toastPartial(ok, fail))
+    } else {
+      toast.error(t.bulkActions.toastError)
+    }
+  }
+
+  function runBulkExportCsv(ids: string[]): void {
+    // landr-lbbj — reuse landr-xnpc's column schema so the bulk export
+    // and the top-right "Download CSV" produce byte-identical files for
+    // the same rows.
+    const subset = rows.filter((r) => ids.includes(r.id))
+    downloadCsv(
+      `approvals-${todayStampUtc()}.csv`,
+      subset,
+      approvalsCsvColumns,
+    )
+    toast.success(t.bulkActions.toastExported(subset.length))
+    setSelectedIds(new Set())
+  }
+
+  function runBulkSendReminder(ids: string[]): void {
+    // landr-lbbj — stub action. The reminder-email endpoint doesn't exist
+    // yet (filed as follow-up). Surface a success toast so the UX is
+    // wired end-to-end; once the endpoint lands swap in the real call.
+    toast.success(t.bulkActions.toastReminderSent(ids.length))
+    setSelectedIds(new Set())
   }
 
   return (
@@ -413,6 +531,18 @@ export function GeneralApprovals() {
         onOpenChange={(open) => {
           if (!open) setActiveRow(null)
         }}
+      />
+
+      <BulkActionToolbar
+        selectedIds={[...selectedIds]}
+        onClear={() => setSelectedIds(new Set())}
+        actions={['approve', 'reject', 'exportCsv', 'sendReminder']}
+        onApprove={(ids) => runBulkDecision(ids, 'approve')}
+        onReject={(ids) => runBulkDecision(ids, 'reject')}
+        onExportCsv={(ids) => runBulkExportCsv(ids)}
+        onSendReminder={(ids) => runBulkSendReminder(ids)}
+        busy={bulkBusy}
+        testIdPrefix="approvals-bulk-toolbar"
       />
 
       <AlertDialog

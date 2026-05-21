@@ -699,6 +699,41 @@ export const t = {
       noOfValue: (label: string): string => `No bookings match ${label}`,
     },
   },
+  // landr-lbbj — bulk-select toolbar shown on Approvals + Bookings tables
+  // once one or more row checkboxes are ticked. Reused across both pages
+  // (the component itself decides which actions to expose via props).
+  bulkActions: {
+    selectRowAria: (id: string) => `Select row ${id}`,
+    selectAllAria: 'Select all rows on this page',
+    selectionCount: (n: number) =>
+      n === 1 ? '1 selected' : `${n} selected`,
+    clear: 'Clear',
+    approve: 'Approve',
+    reject: 'Reject',
+    exportCsv: 'Export CSV',
+    sendReminder: 'Send reminder',
+    confirmRejectTitle: 'Reject selected bookings?',
+    confirmRejectDescription: (n: number) =>
+      n === 1
+        ? 'This will mark 1 booking as rejected. You cannot undo this from here.'
+        : `This will mark ${n} bookings as rejected. You cannot undo this from here.`,
+    confirmRejectAction: 'Reject',
+    cancel: 'Cancel',
+    working: 'Working…',
+    undo: 'Undo',
+    toastApproved: (n: number) =>
+      n === 1 ? 'Approved 1 booking' : `Approved ${n} bookings`,
+    toastRejected: (n: number) =>
+      n === 1 ? 'Rejected 1 booking' : `Rejected ${n} bookings`,
+    toastReminderSent: (n: number) =>
+      n === 1 ? 'Reminder sent for 1 booking' : `Reminders sent for ${n} bookings`,
+    toastExported: (n: number) =>
+      n === 1 ? 'Exported 1 booking to CSV' : `Exported ${n} bookings to CSV`,
+    // Partial failure: some rows succeeded, some didn't.
+    toastPartial: (ok: number, fail: number) =>
+      `${ok} succeeded, ${fail} failed`,
+    toastError: 'Bulk action failed',
+  },
   staff: {
     title: 'Staff',
     subtitle:

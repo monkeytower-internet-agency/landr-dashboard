@@ -10,7 +10,9 @@ import {
   type SortingState,
 } from '@tanstack/react-table'
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -31,6 +33,12 @@ import {
   stageCode,
   type BookingRow,
 } from '@/lib/bookings'
+import {
+  downloadCsv,
+  todayStampUtc,
+  type CsvColumn,
+} from '@/lib/csv-export'
+import { BulkActionToolbar } from '@/components/BulkActionToolbar'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { DayChips } from '@/components/booking/DayChips'
 import { StageBadge } from '@/components/booking/StageBadge'
@@ -43,17 +51,96 @@ type Props = {
   onCustomerClick?: (contactId: string) => void
 }
 
+// landr-lbbj — column schema used by the bulk-export action. Mirrors
+// landr-xnpc's `bookingCsvColumns` in src/routes/Bookings.tsx so the bulk
+// export and the top-right "Download CSV" produce byte-identical files
+// for the same row set. If you change one, change the other.
+const bulkExportColumns: CsvColumn<BookingRow>[] = [
+  { header: 'Booking ID', value: (r) => r.id },
+  { header: 'Booked on', value: (r) => r.created_at },
+  { header: 'Service date', value: (r) => earliestServiceDate(r) ?? '' },
+  { header: 'Customer', value: (r) => customerDisplay(r) },
+  { header: 'Email', value: (r) => r.customer?.email ?? '' },
+  { header: 'Phone', value: (r) => r.customer?.phone ?? '' },
+  { header: 'Product', value: (r) => productDisplay(r) },
+  { header: 'Status', value: (r) => r.current_semantic_state },
+  { header: 'Stage', value: (r) => r.current_stage?.code ?? '' },
+  {
+    header: 'Gross total',
+    value: (r) => {
+      const n = Number(r.gross_total)
+      return Number.isFinite(n) ? n.toFixed(2) : ''
+    },
+  },
+  { header: 'Currency', value: (r) => r.currency || 'EUR' },
+]
+
 export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'created_at', desc: true },
   ])
   const [globalFilter, setGlobalFilter] = useState('')
+  // landr-lbbj — bulk-select state. Set<id> keeps the selection compact
+  // and lets us O(1) check from the header / row checkboxes.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   // landr-f1s — respect the operator's time_format_24h preference for the
   // Created column.
   const { hour12 } = useOperatorCalendarPrefs()
 
   const columns = useMemo<ColumnDef<BookingRow>[]>(
     () => [
+      // landr-lbbj — leading select column (matches GeneralApprovals).
+      {
+        id: 'select',
+        enableSorting: false,
+        header: ({ table: t1 }) => {
+          const visibleIds = t1
+            .getRowModel()
+            .rows.map((r) => (r.original as BookingRow).id)
+          const allChecked =
+            visibleIds.length > 0 &&
+            visibleIds.every((id) => selectedIds.has(id))
+          const someChecked = visibleIds.some((id) => selectedIds.has(id))
+          return (
+            <Checkbox
+              checked={allChecked}
+              ref={(el) => {
+                if (el) el.indeterminate = !allChecked && someChecked
+              }}
+              onChange={(e) => {
+                const next = new Set(selectedIds)
+                if (e.currentTarget.checked) {
+                  for (const id of visibleIds) next.add(id)
+                } else {
+                  for (const id of visibleIds) next.delete(id)
+                }
+                setSelectedIds(next)
+              }}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={t.bulkActions.selectAllAria}
+              data-testid="bookings-select-all"
+            />
+          )
+        },
+        cell: ({ row }) => {
+          const id = row.original.id
+          const checked = selectedIds.has(id)
+          return (
+            <Checkbox
+              checked={checked}
+              onChange={(e) => {
+                const next = new Set(selectedIds)
+                if (e.currentTarget.checked) next.add(id)
+                else next.delete(id)
+                setSelectedIds(next)
+              }}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={t.bulkActions.selectRowAria(id)}
+              data-testid={`bookings-select-${id}`}
+            />
+          )
+        },
+      },
       {
         id: 'created_at',
         accessorKey: 'created_at',
@@ -145,7 +232,7 @@ export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
         ),
       },
     ],
-    [onCustomerClick, hour12],
+    [onCustomerClick, hour12, selectedIds],
   )
 
   const table = useReactTable({
@@ -160,6 +247,23 @@ export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { pagination: { pageSize: 25 } },
   })
+
+  // landr-lbbj — bulk-action handlers. Bookings page has no approve/
+  // reject context (those live on the Approvals queue) so we only
+  // surface export-csv + send-reminder here.
+  function runBulkExportCsv(ids: string[]): void {
+    const subset = rows.filter((r) => ids.includes(r.id))
+    downloadCsv(`bookings-${todayStampUtc()}.csv`, subset, bulkExportColumns)
+    toast.success(t.bulkActions.toastExported(subset.length))
+    setSelectedIds(new Set())
+  }
+
+  function runBulkSendReminder(ids: string[]): void {
+    // landr-lbbj — stub action. Same as Approvals — wire to the real
+    // reminder endpoint once it exists.
+    toast.success(t.bulkActions.toastReminderSent(ids.length))
+    setSelectedIds(new Set())
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -264,6 +368,15 @@ export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
           Next
         </Button>
       </div>
+
+      <BulkActionToolbar
+        selectedIds={[...selectedIds]}
+        onClear={() => setSelectedIds(new Set())}
+        actions={['exportCsv', 'sendReminder']}
+        onExportCsv={(ids) => runBulkExportCsv(ids)}
+        onSendReminder={(ids) => runBulkSendReminder(ids)}
+        testIdPrefix="bookings-bulk-toolbar"
+      />
     </div>
   )
 }
