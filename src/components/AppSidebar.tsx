@@ -11,6 +11,7 @@ import {
   PanelLeftOpenIcon,
   ScrollTextIcon,
   SettingsIcon,
+  Trash2Icon,
   UserCircleIcon,
   UsersIcon,
 } from 'lucide-react'
@@ -129,6 +130,14 @@ const primaryItems: NavItem[] = [
     to: '/audit',
     label: t.nav.audit,
     icon: ScrollTextIcon,
+    exact: false,
+  },
+  // landr-4pn1 — Recently-deleted bin. Same rare-use cluster as Audit;
+  // operators visit only to undo an accidental delete.
+  {
+    to: '/trash',
+    label: t.nav.trash,
+    icon: Trash2Icon,
     exact: false,
   },
 ]
