@@ -342,6 +342,23 @@ export const t = {
       error: 'Failed to load timeline.',
       empty: 'No timeline events yet.',
     },
+    // landr-84n1 — Checklist tab: operator-private per-booking todo list.
+    // v1 lives in localStorage scoped on (operator, booking_id); v2 will
+    // move to a Postgres table.
+    checklist: {
+      tabChecklist: 'Checklist',
+      progress: (done: number, total: number): string => `${done}/${total} done`,
+      progressAria: (done: number, total: number): string =>
+        `${done} of ${total} checklist steps complete`,
+      itemAria: (label: string): string => `Toggle "${label}"`,
+      addPlaceholder: 'Add a step (e.g. "Sign waiver")',
+      addAction: 'Add',
+      addAria: 'Add a custom checklist step',
+      removeAria: (label: string): string => `Remove "${label}"`,
+      empty: 'No checklist steps yet.',
+      footnote:
+        'Saved on this device only. Switching devices or clearing site data resets the list.',
+    },
   },
   calendar: {
     title: 'Calendar',

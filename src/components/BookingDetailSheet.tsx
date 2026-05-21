@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Unlock } from 'lucide-react'
 
 import { useAuth } from '@/lib/auth'
+import { useOperator } from '@/lib/operator'
 import { trackView } from '@/lib/recently-viewed'
 
 import {
@@ -31,6 +32,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
+import { BookingChecklist } from '@/components/booking/BookingChecklist'
 import { BookingTimeline } from '@/components/booking/BookingTimeline'
 import { DayChips } from '@/components/booking/DayChips'
 import { MultiDayPicker } from '@/components/booking/MultiDayPicker'
@@ -144,11 +146,15 @@ function formatRangeLabel(days: string[]): string | null {
   return `${start} → ${end}`
 }
 
-type ActiveTab = 'details' | 'timeline'
+type ActiveTab = 'details' | 'timeline' | 'checklist'
 
 function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
+  // landr-84n1 — the checklist tab persists per (operator, booking_id).
+  // useOperator returns null when no operator is selected yet (rare
+  // outside tests); the checklist hook handles that gracefully.
+  const { currentOperatorId } = useOperator()
   const [customer, setCustomer] = useState<CustomerDraft>(() =>
     customerDraftFromRow(row),
   )
@@ -351,6 +357,17 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           >
             {t.bookings.timeline.tabTimeline}
           </TabsTrigger>
+          {/* landr-84n1 — Checklist tab. Sits alongside Details/Timeline in
+              the same shared Tabs primitive (landr-maat) so we don't grow a
+              second nav surface; the panel below mirrors the timeline
+              tabpanel layout. */}
+          <TabsTrigger
+            variant="pill"
+            value="checklist"
+            data-testid="booking-tab-checklist"
+          >
+            {t.bookings.checklist.tabChecklist}
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -361,6 +378,17 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3"
         >
           <BookingTimeline booking={row} />
+        </div>
+      ) : activeTab === 'checklist' ? (
+        <div
+          role="tabpanel"
+          aria-label={t.bookings.checklist.tabChecklist}
+          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3"
+        >
+          <BookingChecklist
+            bookingId={row.id}
+            operatorId={currentOperatorId}
+          />
         </div>
       ) : (
       <form
