@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { z } from 'zod'
+
+import { useAuth } from '@/lib/auth'
+import { trackView } from '@/lib/recently-viewed'
 
 import {
   AlertDialog,
@@ -114,12 +117,30 @@ type BodyProps = {
 
 function CustomerDetailBody({ contactId, onClose }: BodyProps) {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const [showDiscard, setShowDiscard] = useState(false)
 
   const query = useQuery<ContactRow>({
     queryKey: ['contact', contactId],
     queryFn: () => fetchContact(contactId),
   })
+
+  // landr-ne58 — record this open in the sidebar "Recently viewed" trail.
+  // We wait for the contact row to load so the stored label is the resolved
+  // display name rather than a placeholder id. The body is keyed by
+  // contactId in the parent, so reopens of a different contact remount and
+  // re-fire the effect; trackView() de-duplicates by (type, id).
+  const contactLabel = query.data ? contactNameDisplay(query.data) : null
+  useEffect(() => {
+    if (!contactLabel) return
+    trackView(
+      user?.id ?? null,
+      'contact',
+      contactId,
+      contactLabel,
+      `/contacts?open=${contactId}`,
+    )
+  }, [user?.id, contactId, contactLabel])
 
   return (
     <>

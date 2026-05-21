@@ -1341,6 +1341,19 @@ export const t = {
     templateSectionTitle: 'Start with a template',
     pickViewHelp: 'Pick a view from the sidebar to get started.',
   },
+  // landr-ne58 — Recently-viewed section in the app sidebar (last 5
+  // detail surfaces the operator opened — bookings, contacts, products,
+  // views).
+  recentlyViewed: {
+    heading: 'Recently viewed',
+    collapse: 'Collapse Recently viewed',
+    expand: 'Expand Recently viewed',
+    empty: 'Items you open will show up here.',
+    typeBooking: 'Booking',
+    typeContact: 'Contact',
+    typeProduct: 'Product',
+    typeView: 'View',
+  },
   // landr-c58d — Views sub-list in the app sidebar (star + hide).
   viewsSidebar: {
     showHidden: 'Show hidden views',

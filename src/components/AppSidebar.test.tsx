@@ -28,6 +28,18 @@ vi.mock('@/lib/saved-views', async () => {
   }
 })
 
+// landr-ne58 — RecentlyViewedList (mounted inside AppSidebar) calls
+// useAuth(); stub the module so the sidebar tests don't need a full
+// AuthProvider wrapper.
+vi.mock('@/lib/auth', () => ({
+  useAuth: () => ({
+    session: null,
+    user: { id: 'test-user', email: 'test@example.com' },
+    loading: false,
+    signOut: async () => {},
+  }),
+}))
+
 import { AppSidebar } from './AppSidebar'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { SidebarModeProvider } from '@/lib/sidebar-mode-context'
@@ -247,6 +259,77 @@ describe('AppSidebar — Account/Settings split (landr-fzcg)', () => {
       ) as HTMLElement | null
       expect(btn?.getAttribute('data-active')).not.toBe('true')
     }
+  })
+})
+
+describe('AppSidebar — Recently viewed (landr-ne58)', () => {
+  it('renders the Recently viewed section header', () => {
+    renderSidebar()
+    // shadcn Sidebar renders multiple visual variants — pick the first
+    // matching header. The button carries aria-expanded so we anchor on
+    // role + name to dodge the duplicate-rendering.
+    const headers = screen.queryAllByRole('button', {
+      name: /collapse recently viewed|expand recently viewed/i,
+    })
+    expect(headers.length).toBeGreaterThan(0)
+  })
+
+  it('shows the empty-state hint when nothing has been opened yet', () => {
+    renderSidebar()
+    const hints = screen.queryAllByTestId('recently-viewed-empty')
+    expect(hints.length).toBeGreaterThan(0)
+    expect(hints[0].textContent).toMatch(/items you open/i)
+  })
+
+  it('lists tracked entries newest-first as links', async () => {
+    // Seed two entries directly into localStorage so the trail is
+    // populated before the first render.
+    const trail = [
+      {
+        type: 'contact',
+        id: 'c-99',
+        label: 'Latest Lily',
+        href: '/contacts?open=c-99',
+        ts: 2,
+      },
+      {
+        type: 'booking',
+        id: 'b-77',
+        label: 'Older Ollie',
+        href: '/bookings?open=b-77',
+        ts: 1,
+      },
+    ]
+    window.localStorage.setItem(
+      'landr.dashboard.recentlyViewed.test-user',
+      JSON.stringify(trail),
+    )
+    renderSidebar()
+    const lily = screen
+      .queryAllByRole('link')
+      .find((a) => a.getAttribute('href') === '/contacts?open=c-99')
+    const ollie = screen
+      .queryAllByRole('link')
+      .find((a) => a.getAttribute('href') === '/bookings?open=b-77')
+    expect(lily).toBeDefined()
+    expect(ollie).toBeDefined()
+    // Confirm the labels surface.
+    expect(lily!.textContent).toMatch(/latest lily/i)
+    expect(ollie!.textContent).toMatch(/older ollie/i)
+  })
+
+  it('collapses the section when the header is clicked', async () => {
+    const user = userEvent.setup()
+    renderSidebar()
+    const headers = screen.getAllByRole('button', {
+      name: /collapse recently viewed/i,
+    })
+    await user.click(headers[0])
+    // Empty-state hint should no longer be in the (now-collapsed) DOM
+    // for this variant. Other variants stay open because each variant
+    // has its own state; assert by re-querying the first header is now
+    // aria-expanded=false.
+    expect(headers[0].getAttribute('aria-expanded')).toBe('false')
   })
 })
 

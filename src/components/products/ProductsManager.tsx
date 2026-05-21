@@ -1,6 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
+
+import { useAuth } from '@/lib/auth'
+import { trackView } from '@/lib/recently-viewed'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -176,6 +179,27 @@ export function ProductsManager({
     }
     return rows.find((r) => r.id === resolvedSelection) ?? null
   }, [rows, resolvedSelection])
+
+  // landr-ne58 — record this open in the sidebar "Recently viewed" trail.
+  // Only fire in routed mode (the URL-driven /settings/products/:id page);
+  // the onboarding embed (legacy mode, side-by-side list + auto-pick-first)
+  // is a wizard step and shouldn't pollute history with the auto-selected
+  // first row. trackView() de-duplicates by (type, id), so navigating
+  // around within the products page does not flood the trail.
+  const { user } = useAuth()
+  const trackedProductId = selectedProduct?.id ?? null
+  const trackedProductName = selectedProduct?.name ?? null
+  useEffect(() => {
+    if (!routed) return
+    if (!trackedProductId || !trackedProductName) return
+    trackView(
+      user?.id ?? null,
+      'product',
+      trackedProductId,
+      trackedProductName,
+      `/settings/products/${trackedProductId}`,
+    )
+  }, [routed, user?.id, trackedProductId, trackedProductName])
 
   // landr-pugm — query key now includes sort + kinds, so per-key writes
   // (setQueryData(['products', operatorId], …)) would miss the active cache

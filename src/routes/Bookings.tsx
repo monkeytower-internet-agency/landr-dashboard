@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { DownloadIcon } from 'lucide-react'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { BookingsTable } from '@/components/BookingsTable'
@@ -49,6 +50,7 @@ export function Bookings() {
   const [active, setActive] = useState<BookingRow | null>(null)
   const [openCustomerId, setOpenCustomerId] = useState<string | null>(null)
   const filtersApi = useBookingsFilters()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const query = useRealtimeQuery<BookingRow[]>({
     queryKey: ['bookings', currentOperatorId ?? 'none'],
@@ -77,6 +79,35 @@ export function Bookings() {
       bookingCsvColumns,
     )
   }
+
+  // landr-ne58 — `?open=<bookingId>` deep-links into the sheet, used by the
+  // sidebar Recently-viewed list (bookings have no detail URL). Resolve
+  // once the fetch lands; if the id no longer matches a row (deleted,
+  // wrong operator) we silently drop the param. We strip the param after
+  // opening so the URL is stable for the back button.
+  //
+  // The set-state-in-effect lint rule warns against this pattern in
+  // general, but URL-param → local-state synchronisation is one of the
+  // known exceptions (mirrors how createBrowserRouter loaders bridge URL
+  // state into component state). The effect runs at most once per
+  // (openId, fetched-rows) pair.
+  const openId = searchParams.get('open')
+  useEffect(() => {
+    if (!openId) return
+    if (!query.data) return
+    const match = rows.find((r) => r.id === openId) ?? null
+    if (match) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActive(match)
+    }
+    const next = new URLSearchParams(searchParams)
+    next.delete('open')
+    setSearchParams(next, { replace: true })
+    // setSearchParams is stable for the URL state but its identity is not;
+    // intentionally NOT included as a dep to avoid an infinite re-run loop
+    // after we strip the param.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId, query.data, rows])
 
   return (
     <div className="flex flex-col gap-6">

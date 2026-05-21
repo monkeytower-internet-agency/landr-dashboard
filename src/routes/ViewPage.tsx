@@ -29,6 +29,8 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { MoreHorizontalIcon, Pencil, Copy, Trash2 } from 'lucide-react'
+import { useAuth } from '@/lib/auth'
+import { trackView } from '@/lib/recently-viewed'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -105,6 +107,23 @@ export function ViewPage() {
   })
 
   const view = query.data ?? null
+
+  // landr-ne58 — record this open in the sidebar "Recently viewed" trail.
+  // Fires once per (user, view.id, view.name) tuple — rename triggers a
+  // re-track so the trail label stays current. trackView() de-duplicates
+  // by (type, id) so the entry bumps to the top instead of cluttering.
+  const { user } = useAuth()
+  const trackedViewName = view?.name ?? null
+  useEffect(() => {
+    if (!viewId || !trackedViewName) return
+    trackView(
+      user?.id ?? null,
+      'view',
+      viewId,
+      trackedViewName,
+      `/views/${viewId}`,
+    )
+  }, [user?.id, viewId, trackedViewName])
 
   const dirty = useViewDirtyState({
     operatorId: currentOperatorId,

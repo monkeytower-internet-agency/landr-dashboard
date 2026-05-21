@@ -39,6 +39,9 @@ import { t } from '@/lib/strings'
 // landr-c58d — Views sub-list (star + hide) rendered under the
 // top-level "Views" primary nav entry.
 import { ViewsSidebar } from '@/components/views/ViewsSidebar'
+// landr-ne58 — "Recently viewed" collapsible section rendered under the
+// primary nav, before the footer.
+import { RecentlyViewedList } from '@/components/RecentlyViewedList'
 
 type NavItem = {
   to: string
@@ -339,6 +342,12 @@ export function AppSidebar() {
             <NavMenu items={primaryItems} pathname={pathname} />
           </SidebarGroupContent>
         </SidebarGroup>
+        {/* landr-ne58 — Recently viewed (last 5 detail surfaces the user
+            opened). Sits under the primary nav cluster and before the
+            footer (Account / Settings / mode control) per the ticket
+            brief. The list hides itself entirely when there's no auth
+            user or the sidebar is in the icon-only rail variant. */}
+        <RecentlyViewedList />
       </SidebarContent>
       <SidebarFooter>
         {/* Account + Settings live above the mode control. They are

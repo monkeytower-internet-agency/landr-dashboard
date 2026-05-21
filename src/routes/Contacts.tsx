@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { DownloadIcon } from 'lucide-react'
 import { ContactAuditSheet } from '@/components/ContactAuditSheet'
@@ -110,6 +111,27 @@ export function Contacts() {
       contactCsvColumns,
     )
   }
+
+  // landr-ne58 — `?open=<contactId>` deep-links into the CustomerDetailSheet,
+  // used by the sidebar Recently-viewed list (contacts have no detail URL).
+  // The sheet itself loads the row by id so we don't need to wait for the
+  // list query — opening eagerly keeps the click-to-open feel snappy. We
+  // strip the param after opening to keep the URL stable.
+  //
+  // URL-param → local-state sync is one of the documented exceptions to
+  // the set-state-in-effect rule; see the matching comment in Bookings.tsx.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const openContactId = searchParams.get('open')
+  useEffect(() => {
+    if (!openContactId) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEditContactId(openContactId)
+    const next = new URLSearchParams(searchParams)
+    next.delete('open')
+    setSearchParams(next, { replace: true })
+    // setSearchParams identity intentionally excluded — see Bookings.tsx.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openContactId])
 
   return (
     <div className="flex flex-col gap-6">

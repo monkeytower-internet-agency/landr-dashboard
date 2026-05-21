@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Unlock } from 'lucide-react'
+
+import { useAuth } from '@/lib/auth'
+import { trackView } from '@/lib/recently-viewed'
 
 import {
   AlertDialog,
@@ -145,6 +148,7 @@ type ActiveTab = 'details' | 'timeline'
 
 function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const [customer, setCustomer] = useState<CustomerDraft>(() =>
     customerDraftFromRow(row),
   )
@@ -156,6 +160,21 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   // common operator interaction (editing dates / customer) stays one click
   // away. Timeline is read-only.
   const [activeTab, setActiveTab] = useState<ActiveTab>('details')
+
+  // landr-ne58 — record this open in the sidebar "Recently viewed" trail.
+  // BookingDetailBody is keyed by row.id (see parent <BookingDetailSheet>),
+  // so the body remounts each time the operator opens a different booking
+  // and the effect fires exactly once per open. Re-opening the same row
+  // de-duplicates inside trackView() — no flood of writes on re-renders.
+  useEffect(() => {
+    trackView(
+      user?.id ?? null,
+      'booking',
+      row.id,
+      customerDisplay(row),
+      `/bookings?open=${row.id}`,
+    )
+  }, [user?.id, row])
 
   const code = stageCode(row)
   const canUnblock = code === 'awaiting_hotel_approval'
