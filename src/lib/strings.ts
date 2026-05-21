@@ -169,6 +169,8 @@ export const t = {
       // (capacity pills now on Calendar; Schedule is a setup tool).
       schedule: 'Schedule',
       emailTemplates: 'Email templates',
+      // landr-qg4q — outbound_emails viewer (failed sends, retried, sent).
+      emailLog: 'Email log',
       integrationsGmail: 'Gmail',
       connectedAccounts: 'Connected accounts',
       plan: 'Plan',
@@ -192,6 +194,9 @@ export const t = {
       schedule: 'Plan capacity windows and one-off closures.',
       emailTemplates:
         'Customise transactional emails sent to customers for each booking event.',
+      // landr-qg4q — read-only audit surface for the outbound_emails queue.
+      emailLog:
+        'Outbound email queue: see what was sent, what failed, and why.',
       integrationsGmail:
         'Send outbound booking emails from your Gmail account via OAuth.',
       connectedAccounts:
@@ -1276,6 +1281,49 @@ export const t = {
     toastUpdateError: 'Could not update tag.',
     toastDeleted: 'Tag deleted.',
     toastDeleteError: 'Could not delete tag.',
+  },
+  // landr-qg4q — Settings → Email log. Read-only viewer over the
+  // public.outbound_emails queue so operators can debug why a customer
+  // didn't get an email without reaching for Supabase Studio.
+  emailLog: {
+    title: 'Email log',
+    subtitle:
+      'The outbound email queue. Click a row to inspect the full body and any sender error.',
+    noOperator: 'Select an operator to view the email log.',
+    loading: 'Loading email log…',
+    error: 'Failed to load the email log.',
+    empty: 'No outbound emails match the current filters.',
+
+    filtersLabel: 'Filter by status',
+    clearFilters: 'Clear filters',
+    fromLabel: 'From',
+    toLabel: 'To',
+
+    columnSubject: 'Subject',
+    columnRecipient: 'Recipient',
+    columnStatus: 'Status',
+    columnSentAt: 'Sent at',
+    columnCreatedAt: 'Queued at',
+
+    rowAriaLabel: (subject: string): string =>
+      `Open email log entry: ${subject}`,
+
+    statusLabels: {
+      queued: 'Queued',
+      sending: 'Sending',
+      sent: 'Sent',
+      failed: 'Failed',
+    } as Record<string, string>,
+
+    drawerHeader: (recipient: string, kind: string, locale: string): string =>
+      `${recipient} · ${kind} · ${locale}`,
+
+    fieldStatus: 'Status',
+    fieldRetries: 'Retries',
+    fieldLastError: 'Last sender error',
+    fieldBodyHtml: 'HTML body',
+    fieldBodyHtmlTitle: 'Email HTML body (sandboxed preview)',
+    fieldBodyText: 'Plain-text body',
   },
   reporting: {
     title: 'Reporting',

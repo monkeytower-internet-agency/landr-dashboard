@@ -43,6 +43,7 @@ import { CalendarDisplaySettings } from '@/routes/settings/CalendarDisplaySettin
 import { DisplayPreferencesSettings } from '@/routes/settings/DisplayPreferencesSettings'
 import { IntegrationsGmailSettings } from '@/routes/settings/IntegrationsGmailSettings'
 import { ConnectedAccountsSettings } from '@/routes/settings/ConnectedAccountsSettings'
+import { EmailLog } from '@/routes/settings/EmailLog'
 import { PlanSettings } from '@/routes/settings/PlanSettings'
 import { PricingSettings } from '@/routes/settings/PricingSettings'
 import { TagsSettings } from '@/routes/settings/TagsSettings'
@@ -164,6 +165,8 @@ function App() {
                     Schedule a setup tool, not a daily-ops view. */}
                 <Route path="schedule" element={<Schedule />} />
                 <Route path="email-templates" element={<EmailTemplates />} />
+                {/* landr-qg4q — outbound_emails viewer (failed sends, retried, sent). */}
+                <Route path="email-log" element={<EmailLog />} />
                 <Route path="integrations/gmail" element={<IntegrationsGmailSettings />} />
                 <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
                 <Route path="pricing" element={<PricingSettings />} />

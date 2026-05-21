@@ -68,7 +68,9 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // preferences (logo + primary colour shown in the embedded widget).
   // landr-iz58 — Tags joined the SETTINGS group below Pricing (operator-
   // scoped labels for bookings + contacts).
-  it('settings group contains the ten program subsections', () => {
+  // landr-qg4q — Email log joined the SETTINGS group between Email
+  // templates and Pricing (outbound_emails viewer for operator debug).
+  it('settings group contains the eleven program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -78,9 +80,17 @@ describe('account/settings grouping (landr-fzcg)', () => {
       '/settings/products',
       '/settings/schedule',
       '/settings/email-templates',
+      '/settings/email-log',
       '/settings/pricing',
       '/settings/tags',
     ])
+  })
+
+  // landr-qg4q — pin the Email log entry shape.
+  it('includes an Email log entry at /settings/email-log', () => {
+    const entry = SETTINGS_SECTIONS.find((s) => s.to === '/settings/email-log')
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Email log')
   })
 
   it('account + settings are disjoint', () => {
