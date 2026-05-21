@@ -10,11 +10,11 @@ import { describe, expect, it } from 'vitest'
 import {
   isPastBooking,
   toDateOnlyIso,
-  type BookingItem,
+  type BookingProduct,
   type BookingRow,
 } from './bookings'
 
-function item(overrides: Partial<BookingItem> = {}): BookingItem {
+function item(overrides: Partial<BookingProduct> = {}): BookingProduct {
   return {
     id: 'i-1',
     date_range_start: null,
@@ -30,7 +30,7 @@ function item(overrides: Partial<BookingItem> = {}): BookingItem {
   }
 }
 
-function row(items: BookingItem[]): BookingRow {
+function row(items: BookingProduct[]): BookingRow {
   return {
     id: 'b-1',
     created_at: '2026-01-01T00:00:00.000Z',

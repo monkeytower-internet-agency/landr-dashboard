@@ -32,7 +32,11 @@ export type ServiceTimeShape =
   | 'fixed_window'
   | 'time_slot'
 
-export type BookingItem = {
+// landr-lx7s — formerly `BookingItem`; renamed to `BookingProduct` to clear
+// the name collision with views-bookings-data.ts's `BookingItem = BookingRow`
+// alias. This shape is a single booking_products line (one product within a
+// booking); the View layer's `BookingItem` is the row-level aggregate.
+export type BookingProduct = {
   id: string
   date_range_start: string | null
   date_range_end: string | null
@@ -94,7 +98,7 @@ export type BookingRow = {
     email: string | null
     phone: string | null
   } | null
-  items: BookingItem[]
+  items: BookingProduct[]
   participants?: BookingParticipant[]
 }
 
@@ -278,8 +282,8 @@ export type BookingCalendarEvent = {
   raw: BookingRow
 }
 
-function earliestScheduledItem(row: BookingRow): BookingItem | null {
-  let best: BookingItem | null = null
+function earliestScheduledItem(row: BookingRow): BookingProduct | null {
+  let best: BookingProduct | null = null
   for (const item of row.items) {
     if (!item.date_range_start) continue
     if (!best || item.date_range_start < best.date_range_start!) {

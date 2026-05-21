@@ -31,6 +31,9 @@ import {
 // Alias matching CONTEXT.md "Item" language so the layout components can read
 // `items: BookingItem[]` rather than `rows: BookingRow[]`. Different name,
 // same shape — keeps the View layer's vocabulary consistent.
+// landr-lx7s — `BookingItem` is the View-layer item (= one row = one
+// booking). The booking_products line shape was renamed to `BookingProduct`
+// in bookings.ts so the two names no longer collide.
 export type BookingItem = BookingRow
 
 // ---------------------------------------------------------------------------

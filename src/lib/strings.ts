@@ -1215,24 +1215,18 @@ export const t = {
       cancel: 'Cancel',
     },
     body: {
-      stubHeading: (layout: string) =>
-        `${layout.charAt(0).toUpperCase() + layout.slice(1)} layout (placeholder)`,
-      stubBody:
-        'Layout components plug in here. The real Table / Board / Calendar renderers ship as the [D] / [E] / [F] views v1 tickets land.',
-      stubConfigHeading: 'Current view config',
-      stubFilterCount: (n: number) =>
-        `${n} filter${n === 1 ? '' : 's'} active`,
+      // landr-lx7s — shared loading/error copy used by all 3 layout branches
+      // (Table / Board / Calendar). Per-layout buckets keep only their
+      // layout-specific strings.
+      loading: 'Loading items…',
+      loadError: 'Failed to load items.',
       calendar: {
         placeholderTitle: 'Pick a date field to use Calendar layout',
         placeholderBody:
           'Open the view settings and set a date field (e.g. Start date) for the Calendar layout to plot items on.',
-        loading: 'Loading items…',
-        loadError: 'Failed to load items.',
         empty: 'No items to display.',
       },
       board: {
-        loading: 'Loading items…',
-        loadError: 'Failed to load items.',
         mustBeEnum: 'Column-by must be an enum field.',
         unknownField: (key: string) => `Unknown column-by field: ${key}.`,
         unsupportedField: (label: string) =>
