@@ -166,14 +166,17 @@ export function Contacts() {
             </p>
           </CardContent>
         </Card>
-      ) : query.isPending && currentOperatorId ? (
-        <p className="text-muted-foreground text-sm">{t.contacts.loading}</p>
       ) : (
+        /* landr-sj2z — pass isLoading so the table paints a skeleton
+           placeholder during the first fetch. The route no longer renders
+           the old "Loading…" line; the skeleton communicates the same
+           thing more clearly while keeping the table chrome stable. */
         <ContactsTable
           rows={rows}
           onEdit={(row) => setEditContactId(row.id)}
           onErase={(row) => setEraseTarget(row)}
           onAudit={(row) => setAuditTarget(row)}
+          isLoading={query.isPending && !!currentOperatorId}
         />
       )}
       <CustomerDetailSheet

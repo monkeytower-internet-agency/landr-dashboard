@@ -20,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/EmptyState'
 import { Input } from '@/components/ui/input'
+import { SkeletonTableRows } from '@/components/SkeletonTableRows'
 import {
   Table,
   TableBody,
@@ -41,9 +42,18 @@ type Props = {
   onEdit: (row: ContactRow) => void
   onErase: (row: ContactRow) => void
   onAudit: (row: ContactRow) => void
+  // landr-sj2z — render skeleton placeholder rows while the parent's
+  // query is still pending. Mirrors BookingsTable's loading-state prop.
+  isLoading?: boolean
 }
 
-export function ContactsTable({ rows, onEdit, onErase, onAudit }: Props) {
+export function ContactsTable({
+  rows,
+  onEdit,
+  onErase,
+  onAudit,
+  isLoading = false,
+}: Props) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'created_at', desc: true },
   ])
@@ -173,9 +183,11 @@ export function ContactsTable({ rows, onEdit, onErase, onAudit }: Props) {
     initialState: { pagination: { pageSize: 25 } },
   })
 
-  // landr-s1mr — When there are zero contacts at all, show the friendly
-  // empty-state card instead of the filter chrome + empty table.
-  if (rows.length === 0) {
+  // landr-s1mr / landr-sj2z — When there are zero contacts AND the fetch
+  // has settled, show the friendly empty-state card. During the loading
+  // window we fall through so the skeleton placeholder takes over below,
+  // preventing the empty-state from flashing before the real rows land.
+  if (rows.length === 0 && !isLoading) {
     return (
       <EmptyState
         icon={UsersIcon}
@@ -240,7 +252,16 @@ export function ContactsTable({ rows, onEdit, onErase, onAudit }: Props) {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length === 0 ? (
+            {isLoading ? (
+              // landr-sj2z — pulsing placeholder while the first fetch is
+              // in flight. Column count matches the visible columns so the
+              // real rows drop into the same grid.
+              <SkeletonTableRows
+                count={6}
+                columnCount={columns.length}
+                data-testid="contacts-skeleton"
+              />
+            ) : table.getRowModel().rows.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={columns.length}

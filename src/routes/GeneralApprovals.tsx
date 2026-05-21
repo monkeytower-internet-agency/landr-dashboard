@@ -29,6 +29,7 @@ import {
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { BulkActionToolbar } from '@/components/BulkActionToolbar'
 import { EmptyState } from '@/components/EmptyState'
+import { SkeletonTableRows } from '@/components/SkeletonTableRows'
 import { ApprovalsFilters } from '@/components/approvals/ApprovalsFilters'
 import { StageChip } from '@/components/approvals/StageChip'
 import {
@@ -443,9 +444,25 @@ export function GeneralApprovals() {
           </CardContent>
         </Card>
       ) : query.isPending && currentOperatorId ? (
-        <p className="text-muted-foreground text-sm">
-          {t.generalApprovals.loading}
-        </p>
+        /* landr-sj2z — paint the table chrome + pulsing skeleton rows
+           while the first fetch is in flight, instead of a one-line
+           "Loading…" string. The approvals queue has no filter chrome to
+           show during loading (filters are derived from the row set), so
+           we render a bare table shell with the skeleton body. */
+        <div
+          className="overflow-x-auto rounded-md border"
+          data-testid="approvals-skeleton-shell"
+        >
+          <Table>
+            <TableBody>
+              <SkeletonTableRows
+                count={6}
+                columnCount={columns.length}
+                data-testid="approvals-skeleton"
+              />
+            </TableBody>
+          </Table>
+        </div>
       ) : rows.length === 0 ? (
         <ApprovalsEmptyState />
       ) : (

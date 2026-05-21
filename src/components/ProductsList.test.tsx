@@ -330,6 +330,25 @@ describe('ProductsList — chip click target (landr-sydf)', () => {
       ).not.toBeInTheDocument()
     })
 
+    // landr-sj2z — the empty state must NOT render while isLoading is true.
+    // The skeleton list takes over so the operator sees pulsing chips
+    // rather than the EmptyState flashing before the first fetch lands.
+    it('does NOT render the EmptyState while isLoading is true (skeleton wins)', () => {
+      render(
+        <ProductsList
+          rows={[]}
+          selectedId={null}
+          onSelect={() => {}}
+          onCreate={() => {}}
+          onDuplicate={() => {}}
+          duplicatingId={null}
+          isLoading
+        />,
+      )
+      expect(screen.queryByTestId('products-empty-state')).not.toBeInTheDocument()
+      expect(screen.getByTestId('products-skeleton-row-0')).toBeInTheDocument()
+    })
+
     it('clicking the CTA in the empty state fires onCreate', async () => {
       const { default: userEvent } = await import(
         '@testing-library/user-event'

@@ -138,8 +138,6 @@ export function Bookings() {
             </p>
           </CardContent>
         </Card>
-      ) : query.isPending && currentOperatorId ? (
-        <p className="text-muted-foreground text-sm">{t.bookings.loading}</p>
       ) : (
         <>
           {/* landr-68a9 — pill strip lives ABOVE the dropdown filter bar
@@ -152,10 +150,15 @@ export function Bookings() {
             filtersApi={filtersApi}
             testIdPrefix="bookings-filters"
           />
+          {/* landr-sj2z — pass isLoading so the table can paint a skeleton
+              placeholder during the first fetch instead of the old plain
+              "Loading…" line. The EmptyState card only renders once the
+              fetch settles AND zero rows came back. */}
           <BookingsTable
             rows={filteredRows}
             onRowClick={(row) => setActive(row)}
             onCustomerClick={(id) => setOpenCustomerId(id)}
+            isLoading={query.isPending && !!currentOperatorId}
           />
         </>
       )}

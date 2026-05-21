@@ -498,10 +498,11 @@ describe('Products route', () => {
     const user = userEvent.setup()
     render('/settings/products')
 
+    // landr-sj2z — the listbox is now rendered immediately (with skeleton
+    // chips) while the products query is in flight; wait for the real
+    // option to land before asserting.
     const list = await screen.findByRole('listbox')
-    expect(
-      within(list).getByRole('option', { name: /Solo Course/i }),
-    ).toBeInTheDocument()
+    await within(list).findByRole('option', { name: /Solo Course/i })
 
     await user.type(screen.getByLabelText(/search products/i), 'Solo')
     await waitFor(() =>
