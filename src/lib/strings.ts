@@ -462,6 +462,28 @@ export const t = {
       working: 'Generating…',
       toastError: 'Failed to download invoice.',
     },
+    // landr-okxm — manual "mark as paid" for payments taken outside
+    // Stripe (cash, bank transfer, other). Only shown when the booking
+    // is in stage code 'awaiting_payment' with a positive balance_due.
+    markPaid: {
+      action: 'Mark as paid',
+      dialogTitle: 'Record manual payment',
+      dialogDescription:
+        'Use this when a customer has paid by cash, bank transfer, or another method outside Stripe. The booking will advance out of "awaiting payment" once the balance is covered.',
+      methodLabel: 'Payment method',
+      methodCash: 'Cash',
+      methodBankTransfer: 'Bank transfer',
+      methodOther: 'Other',
+      amountLabel: 'Amount',
+      amountHint: 'Defaults to the outstanding balance. Lower it to record a partial payment.',
+      noteLabel: 'Note (optional)',
+      notePlaceholder: 'e.g. paid at reception, ref #12345',
+      cancel: 'Cancel',
+      confirm: 'Mark as paid',
+      working: 'Recording…',
+      toastSuccess: 'Marked as paid.',
+      toastError: 'Failed to mark as paid.',
+    },
     // landr-ng3m — terminal "customer never showed" transition. Distinct
     // from cancel: the booking happened on paper, the customer didn't
     // appear. Captures (but does not yet enforce) a cancellation-fee

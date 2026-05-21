@@ -95,6 +95,11 @@ export type BookingRow = {
   current_semantic_state: BookingSemanticState
   current_stage: { code: string } | null
   gross_total: number | string
+  // landr-okxm — outstanding balance, surfaced so the Mark-as-paid sheet
+  // can prefill the amount input with the remaining due. Optional on the
+  // type so existing fixtures / mocks don't have to populate it; SELECT
+  // adds the column unconditionally.
+  balance_due?: number | string | null
   currency: string
   // landr-aqn4 — surfaced for the Approvals queue (reason / capacity /
   // first-time-customer signals). Nullable for legacy bookings; optional
@@ -128,6 +133,7 @@ const SELECT = `
   current_semantic_state,
   current_stage:booking_lifecycle_stages!current_stage_id ( code ),
   gross_total,
+  balance_due,
   currency,
   approval_trace,
   customer:contacts!inner ( id, first_name, last_name, email, phone ),
@@ -655,6 +661,67 @@ export function canMarkAsNoShow(row: BookingRow, today?: Date): boolean {
     }
   }
   return false
+}
+
+// ----- Mark-as-paid (landr-okxm) ------------------------------------------
+// Operator records a manual payment (cash / bank transfer / other) taken
+// outside Stripe. Hits POST /api/staff/operators/{op}/bookings/{id}/mark-paid
+// which inserts a payments row and advances the booking out of
+// awaiting_payment when the balance is covered.
+
+export type MarkAsPaidMethod = 'cash' | 'bank_transfer' | 'other'
+
+export type MarkAsPaidResult = {
+  booking_id: string
+  payment_id: string
+  amount: string
+  currency: string
+  method: MarkAsPaidMethod
+  provider: string
+  previous_stage_code: string
+  new_stage_code: string
+  new_semantic_state: string | null
+  advanced_to_confirmed: boolean
+}
+
+export async function markBookingAsPaid(
+  operatorId: string,
+  bookingId: string,
+  body: { method: MarkAsPaidMethod; amount?: string | null; note?: string | null },
+): Promise<MarkAsPaidResult> {
+  const payload: Record<string, unknown> = { method: body.method }
+  if (body.amount != null && body.amount !== '') payload.amount = body.amount
+  if (body.note != null && body.note !== '') payload.note = body.note
+  return api<MarkAsPaidResult>(
+    'POST',
+    `/api/staff/operators/${operatorId}/bookings/${bookingId}/mark-paid`,
+    payload,
+  )
+}
+
+/** UI-side eligibility — keep in sync with the server guard in
+ *  app/routers/staff_bookings_mark_paid.py. The button is hidden when this
+ *  returns false; the server re-checks defensively. Eligible only when
+ *  the booking is in the awaiting_payment lifecycle stage AND has a
+ *  positive balance_due. */
+export function canMarkAsPaid(row: BookingRow): boolean {
+  if (stageCode(row) !== 'awaiting_payment') return false
+  const due = balanceDueOf(row)
+  return due === null ? true : due > 0
+}
+
+/** Numeric balance_due, falling back to gross_total when the column is
+ *  missing (legacy fixtures / mocks). Returns null only when neither
+ *  field parses as a finite number. */
+export function balanceDueOf(row: BookingRow): number | null {
+  const raw = row.balance_due
+  if (raw != null) {
+    const n = typeof raw === 'number' ? raw : Number(raw)
+    if (Number.isFinite(n)) return n
+  }
+  const gross =
+    typeof row.gross_total === 'number' ? row.gross_total : Number(row.gross_total)
+  return Number.isFinite(gross) ? gross : null
 }
 
 // ----- Approval-queue helpers (landr-aqn4) --------------------------------

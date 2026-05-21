@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Download, Printer, Unlock, UserX } from 'lucide-react'
+import { BadgeEuro, Download, Printer, Unlock, UserX } from 'lucide-react'
 
 import { useAuth } from '@/lib/auth'
 import { useOperator } from '@/lib/operator'
@@ -24,6 +24,7 @@ import { TagPicker } from '@/components/tags/TagPicker'
 import { setBookingTags } from '@/lib/tags'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import {
   Sheet,
   SheetContent,
@@ -42,17 +43,21 @@ import { DayChips } from '@/components/booking/DayChips'
 import { MultiDayPicker } from '@/components/booking/MultiDayPicker'
 import { StageBadge } from '@/components/booking/StageBadge'
 import {
+  balanceDueOf,
   canMarkAsNoShow,
+  canMarkAsPaid,
   cancelBooking,
   customerDisplay,
   invalidateBookingCaches,
   markBookingAsNoShow,
+  markBookingAsPaid,
   patchBookingProduct,
   patchCustomerContact,
   postHotelApprovalDecision,
   priceDisplay,
   stageCode,
   type BookingRow,
+  type MarkAsPaidMethod,
 } from '@/lib/bookings'
 import { downloadInvoicePdf } from '@/lib/invoice-download'
 import { t } from '@/lib/strings'
@@ -177,6 +182,14 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const [showUnblock, setShowUnblock] = useState(false)
   const [showNoShow, setShowNoShow] = useState(false)
   const [chargeCancellationFee, setChargeCancellationFee] = useState(false)
+  // landr-okxm — Mark-as-paid dialog state. Amount defaults to the
+  // booking's outstanding balance so the operator can confirm with one
+  // click for full settlement; clearing/lowering the field records a
+  // partial payment.
+  const [showMarkPaid, setShowMarkPaid] = useState(false)
+  const [markPaidMethod, setMarkPaidMethod] = useState<MarkAsPaidMethod>('cash')
+  const [markPaidAmount, setMarkPaidAmount] = useState<string>('')
+  const [markPaidNote, setMarkPaidNote] = useState<string>('')
   // landr-5f8q — Details vs Timeline tab. Defaults to Details so the most
   // common operator interaction (editing dates / customer) stays one click
   // away. Timeline is read-only.
@@ -203,6 +216,12 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   // app/routers/staff_bookings_no_show.py so the button only shows
   // when the request would actually succeed.
   const canNoShow = canMarkAsNoShow(row)
+  // landr-okxm — Mark-as-paid eligibility mirrors the server guard in
+  // app/routers/staff_bookings_mark_paid.py: visible only when the
+  // booking sits in lifecycle stage 'awaiting_payment' with a positive
+  // balance_due.
+  const canMarkPaid = canMarkAsPaid(row)
+  const balanceDue = balanceDueOf(row)
 
   const originalCustomer = customerDraftFromRow(row)
   const originalItems = itemDraftsFromRow(row)
@@ -331,6 +350,36 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     },
   })
 
+  // landr-okxm — mark-as-paid mutation. Same path-based operator
+  // scoping as the no-show + invoice endpoints; the server inserts the
+  // payments row and (if balance hits zero) advances current_stage_id
+  // out of awaiting_payment.
+  const markPaidMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentOperatorId) {
+        throw new Error('No operator selected.')
+      }
+      const trimmedAmount = markPaidAmount.trim()
+      const trimmedNote = markPaidNote.trim()
+      await markBookingAsPaid(currentOperatorId, row.id, {
+        method: markPaidMethod,
+        amount: trimmedAmount.length > 0 ? trimmedAmount : null,
+        note: trimmedNote.length > 0 ? trimmedNote : null,
+      })
+    },
+    onSuccess: () => {
+      toast.success(t.bookings.markPaid.toastSuccess)
+      setShowMarkPaid(false)
+      setMarkPaidMethod('cash')
+      setMarkPaidAmount('')
+      setMarkPaidNote('')
+      invalidateAll()
+    },
+    onError: (err: Error) => {
+      toast.error(t.bookings.markPaid.toastError, { description: err.message })
+    },
+  })
+
   // landr-irds — server-rendered invoice PDF download. Requires
   // currentOperatorId because the endpoint is operator-scoped
   // (/api/staff/operators/{op}/bookings/{id}/invoice.pdf). Cache
@@ -355,6 +404,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     cancelMutation.isPending ||
     unblockMutation.isPending ||
     noShowMutation.isPending ||
+    markPaidMutation.isPending ||
     invoiceMutation.isPending
 
   function updateItem(itemId: string, updater: (it: ItemDraft) => ItemDraft) {
@@ -696,6 +746,27 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
               {t.bookings.noShow.action}
             </Button>
           ) : null}
+          {/* landr-okxm — Mark-as-paid button. Only shown when stage is
+              awaiting_payment with a positive balance_due (canMarkPaid). */}
+          {canMarkPaid ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                // Prefill the amount with the outstanding balance so a
+                // one-click full-settlement is the default path.
+                if (balanceDue != null) {
+                  setMarkPaidAmount(balanceDue.toFixed(2))
+                }
+                setShowMarkPaid(true)
+              }}
+              disabled={busy}
+              data-testid="booking-mark-paid-btn"
+            >
+              <BadgeEuro className="size-4" />
+              {t.bookings.markPaid.action}
+            </Button>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           {/* landr-irds — server-rendered invoice PDF download. The button
@@ -842,6 +913,102 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
               {unblockMutation.isPending
                 ? t.bookings.hotelUnblock.working
                 : t.bookings.hotelUnblock.confirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* landr-okxm — Mark-as-paid dialog. Method dropdown + amount input
+          (defaults to balance_due) + optional note. */}
+      <AlertDialog
+        open={showMarkPaid}
+        onOpenChange={(next) => {
+          if (markPaidMutation.isPending) return
+          if (!next) {
+            setMarkPaidMethod('cash')
+            setMarkPaidAmount('')
+            setMarkPaidNote('')
+          }
+          setShowMarkPaid(next)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.bookings.markPaid.dialogTitle}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.bookings.markPaid.dialogDescription}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="bk-mark-paid-method">
+                {t.bookings.markPaid.methodLabel}
+              </Label>
+              <NativeSelect
+                id="bk-mark-paid-method"
+                value={markPaidMethod}
+                onChange={(e) =>
+                  setMarkPaidMethod(e.target.value as MarkAsPaidMethod)
+                }
+                disabled={markPaidMutation.isPending}
+                data-testid="mark-paid-method"
+              >
+                <option value="cash">{t.bookings.markPaid.methodCash}</option>
+                <option value="bank_transfer">
+                  {t.bookings.markPaid.methodBankTransfer}
+                </option>
+                <option value="other">{t.bookings.markPaid.methodOther}</option>
+              </NativeSelect>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="bk-mark-paid-amount">
+                {t.bookings.markPaid.amountLabel} ({row.currency || 'EUR'})
+              </Label>
+              <Input
+                id="bk-mark-paid-amount"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0.01"
+                value={markPaidAmount}
+                onChange={(e) => setMarkPaidAmount(e.target.value)}
+                disabled={markPaidMutation.isPending}
+                data-testid="mark-paid-amount"
+              />
+              <p className="text-muted-foreground text-xs">
+                {t.bookings.markPaid.amountHint}
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="bk-mark-paid-note">
+                {t.bookings.markPaid.noteLabel}
+              </Label>
+              <Textarea
+                id="bk-mark-paid-note"
+                value={markPaidNote}
+                onChange={(e) => setMarkPaidNote(e.target.value)}
+                placeholder={t.bookings.markPaid.notePlaceholder}
+                disabled={markPaidMutation.isPending}
+                rows={2}
+                data-testid="mark-paid-note"
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={markPaidMutation.isPending}>
+              {t.bookings.markPaid.cancel}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={markPaidMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault()
+                markPaidMutation.mutate()
+              }}
+              data-testid="mark-paid-confirm"
+            >
+              {markPaidMutation.isPending
+                ? t.bookings.markPaid.working
+                : t.bookings.markPaid.confirm}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
