@@ -100,6 +100,16 @@ export type BookingRow = {
   // type so existing fixtures / mocks don't have to populate it; SELECT
   // adds the column unconditionally.
   balance_due?: number | string | null
+  // landr-puix — manual price override applied by an operator via
+  // POST /api/staff/operators/{op}/bookings/{id}/price-override. When
+  // non-null the dashboard surfaces it in place of gross_total (italic +
+  // amber affordance via priceDisplay) and balance_due is derived from
+  // it server-side. Cleared via the DELETE on the same path. Optional
+  // on the type so legacy fixtures / mocks don't have to populate the
+  // fields; SELECT projects them unconditionally.
+  override_gross_total?: number | string | null
+  override_reason?: string | null
+  override_applied_at?: string | null
   currency: string
   // landr-aqn4 — surfaced for the Approvals queue (reason / capacity /
   // first-time-customer signals). Nullable for legacy bookings; optional
@@ -134,6 +144,9 @@ const SELECT = `
   current_stage:booking_lifecycle_stages!current_stage_id ( code ),
   gross_total,
   balance_due,
+  override_gross_total,
+  override_reason,
+  override_applied_at,
   currency,
   approval_trace,
   customer:contacts!inner ( id, first_name, last_name, email, phone ),
@@ -277,12 +290,36 @@ export function numberFormatter(currency: string): Intl.NumberFormat {
 }
 
 export function priceDisplay(row: BookingRow): string {
-  const n =
-    typeof row.gross_total === 'number'
-      ? row.gross_total
-      : Number(row.gross_total)
-  if (!Number.isFinite(n)) return '—'
-  return numberFormatter(row.currency || 'EUR').format(n)
+  // landr-puix — when an operator override is set it supersedes the
+  // engine-computed gross_total. Server-side, balance_due is already
+  // derived from COALESCE(override_gross_total, gross_total), so this
+  // keeps the visible figure in lock-step with what the customer is
+  // billed.
+  const raw = effectiveGrossOf(row)
+  if (!Number.isFinite(raw)) return '—'
+  return numberFormatter(row.currency || 'EUR').format(raw)
+}
+
+/** Numeric "effective gross" — the override when set, else gross_total.
+ *  Returns NaN when neither parses (caller surfaces "—"). Used by
+ *  priceDisplay + the BookingsTable price column accessor so sorts and
+ *  exports also see the override-aware value. */
+export function effectiveGrossOf(row: BookingRow): number {
+  const o = row.override_gross_total
+  if (o != null) {
+    const n = typeof o === 'number' ? o : Number(o)
+    if (Number.isFinite(n)) return n
+  }
+  const g =
+    typeof row.gross_total === 'number' ? row.gross_total : Number(row.gross_total)
+  return g
+}
+
+/** True when an operator-set override is currently in effect for this
+ *  booking. Drives the italic + amber affordance in the table cell and
+ *  the "Clear override" footer button visibility in BookingDetailSheet. */
+export function hasPriceOverride(row: BookingRow): boolean {
+  return row.override_gross_total != null
 }
 
 // landr-f1s — date + time-of-day display. Hour cycle follows the operator's
@@ -977,6 +1014,45 @@ export function balanceDueOf(row: BookingRow): number | null {
   const gross =
     typeof row.gross_total === 'number' ? row.gross_total : Number(row.gross_total)
   return Number.isFinite(gross) ? gross : null
+}
+
+// ----- Price override (landr-puix) ----------------------------------------
+// Operator-set manual override of a booking's gross_total. Reason is
+// required by the server (min_length=1) so the dashboard prompts for it
+// when committing the new price. POST sets, DELETE clears. The server
+// recomputes balance_due against COALESCE(override_gross_total,
+// gross_total) so this single round-trip is enough to keep the visible
+// figure + outstanding-balance prompts in sync.
+
+export type PriceOverrideResult = {
+  booking_id: string
+  override_gross_total: string | null
+  override_reason: string | null
+  override_applied_at: string | null
+  gross_total: string
+  balance_due: string
+}
+
+export async function setBookingPriceOverride(
+  operatorId: string,
+  bookingId: string,
+  body: { override_gross_total: string | number; reason: string },
+): Promise<PriceOverrideResult> {
+  return api<PriceOverrideResult>(
+    'POST',
+    `/api/staff/operators/${operatorId}/bookings/${bookingId}/price-override`,
+    body,
+  )
+}
+
+export async function clearBookingPriceOverride(
+  operatorId: string,
+  bookingId: string,
+): Promise<PriceOverrideResult> {
+  return api<PriceOverrideResult>(
+    'DELETE',
+    `/api/staff/operators/${operatorId}/bookings/${bookingId}/price-override`,
+  )
 }
 
 // ----- Approval-queue helpers (landr-aqn4) --------------------------------

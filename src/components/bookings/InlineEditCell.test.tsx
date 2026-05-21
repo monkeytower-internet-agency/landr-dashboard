@@ -195,6 +195,90 @@ describe('InlineEditCell — date', () => {
   })
 })
 
+describe('InlineEditCell — number (landr-puix)', () => {
+  it('renders the display and flips to a numeric input on click', () => {
+    render(
+      <InlineEditCell
+        kind="number"
+        value="100.00"
+        ariaLabel="Edit price"
+        display={<span>€100.00</span>}
+        testId="cell"
+        onCommit={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('€100.00')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('cell-display'))
+    const input = screen.getByLabelText('Edit price') as HTMLInputElement
+    expect(input.type).toBe('number')
+    expect(input.value).toBe('100.00')
+    // Defaults: min='0', step='0.01'.
+    expect(input.min).toBe('0')
+    expect(input.step).toBe('0.01')
+  })
+
+  it('commits on Enter with the new value', () => {
+    const onCommit = vi.fn()
+    render(
+      <InlineEditCell
+        kind="number"
+        value="100.00"
+        ariaLabel="Edit price"
+        display={<span>€100.00</span>}
+        testId="cell"
+        onCommit={onCommit}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('cell-display'))
+    const input = screen.getByLabelText('Edit price') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '75' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onCommit).toHaveBeenCalledWith('75')
+  })
+
+  it('does NOT commit on blur — caller drives commit via the reason dialog', () => {
+    const onCommit = vi.fn()
+    render(
+      <InlineEditCell
+        kind="number"
+        value="100.00"
+        ariaLabel="Edit price"
+        display={<span>€100.00</span>}
+        testId="cell"
+        onCommit={onCommit}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('cell-display'))
+    const input = screen.getByLabelText('Edit price') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '75' } })
+    fireEvent.blur(input)
+    // Blur in number-mode reverts (the caller's dialog is the commit gate)
+    // and the editor unmounts.
+    expect(onCommit).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('cell-edit')).toBeNull()
+  })
+
+  it('reverts on Escape', () => {
+    const onCommit = vi.fn()
+    render(
+      <InlineEditCell
+        kind="number"
+        value="100.00"
+        ariaLabel="Edit price"
+        display={<span>€100.00</span>}
+        testId="cell"
+        onCommit={onCommit}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('cell-display'))
+    const input = screen.getByLabelText('Edit price') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '75' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(onCommit).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('cell-edit')).toBeNull()
+  })
+})
+
 describe('InlineEditCell — readOnly', () => {
   it('renders the display without click/keyboard affordances when readOnly', () => {
     const onCommit = vi.fn()
