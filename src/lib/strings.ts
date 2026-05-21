@@ -703,6 +703,11 @@ export const t = {
     fieldPhone: 'Phone',
     fieldPreferredLocale: 'Preferred language',
     localeNone: '— No preference —',
+    // landr-h46a — opt-out for non-transactional outbound emails.
+    fieldDoNotContact:
+      'This contact does not want to receive marketing or reminder emails',
+    fieldDoNotContactHelp:
+      'Booking confirmations, hotel requests, and other transactional emails still send.',
     save: 'Save changes',
     saving: 'Saving…',
     cancel: 'Cancel',

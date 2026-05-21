@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Form,
   FormControl,
@@ -82,6 +83,11 @@ const schema = z.object({
     ),
   phone: z.string().trim().max(64),
   preferred_locale: z.string().trim().max(16),
+  // landr-h46a — opt-out flag suppressing non-transactional (reminder /
+  // marketing) outbound emails. Transactional kinds (booking_received,
+  // booking_confirmation, hotel_request, no_show*) ignore this on the
+  // API side.
+  do_not_contact: z.boolean(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -93,6 +99,7 @@ function defaultsFrom(row: ContactRow): FormValues {
     email: row.email ?? '',
     phone: row.phone ?? '',
     preferred_locale: row.preferred_locale ?? '',
+    do_not_contact: row.do_not_contact ?? false,
   }
 }
 
@@ -298,6 +305,7 @@ function CustomerEditForm({
         email: values.email.trim() || null,
         phone: values.phone.trim() || null,
         preferred_locale: values.preferred_locale.trim() || null,
+        do_not_contact: values.do_not_contact,
       })
     },
     onSuccess: () => {
@@ -422,6 +430,42 @@ function CustomerEditForm({
                   </NativeSelect>
                 </FormControl>
                 <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* landr-h46a — do-not-contact opt-out. Suppresses non-
+              transactional (reminder / marketing) outbound emails on the
+              API side. Transactional kinds (booking_received,
+              booking_confirmation, hotel_request, no_show*) still send.
+              Stored as contacts.do_not_contact; persisted via the plain
+              Supabase PATCH the form already uses (RLS + audit triggers
+              cover it — write-routing-convention). */}
+          <FormField
+            control={form.control}
+            name="do_not_contact"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start gap-3 space-y-0 rounded-md border p-3">
+                <FormControl>
+                  <Checkbox
+                    checked={!!field.value}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                    disabled={mutation.isPending}
+                    data-testid="do-not-contact-checkbox"
+                  />
+                </FormControl>
+                <div className="flex flex-col gap-1">
+                  <FormLabel className="cursor-pointer text-sm font-normal">
+                    {t.customerDetail.fieldDoNotContact}
+                  </FormLabel>
+                  <p className="text-muted-foreground text-xs">
+                    {t.customerDetail.fieldDoNotContactHelp}
+                  </p>
+                  <FormMessage />
+                </div>
               </FormItem>
             )}
           />
