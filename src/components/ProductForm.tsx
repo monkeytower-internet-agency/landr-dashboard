@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { MarkdownEditor } from '@/components/ui/markdown-editor'
 import { NativeSelect } from '@/components/ui/native-select'
 import { PricingSchemeManager } from '@/components/pricing/PricingSchemeManager'
+import { ProductGroupManager } from '@/components/products/ProductGroupManager'
 import { useOperator, useOperatorAllowedProductKinds } from '@/lib/operator'
 import {
   KIND_DISPLAY_ORDER,
@@ -971,16 +972,27 @@ export function ProductForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>{t.products.fieldProductGroup}</FormLabel>
-                <FormControl>
-                  <NativeSelect {...field} value={field.value ?? ''}>
-                    <option value="">{t.products.optionNone}</option>
-                    {productGroups.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </FormControl>
+                <div className="flex items-center gap-1">
+                  <FormControl>
+                    <NativeSelect {...field} value={field.value ?? ''}>
+                      <option value="">{t.products.optionNone}</option>
+                      {productGroups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </FormControl>
+                  {operatorId ? (
+                    <EditTaxonomyButton
+                      title={t.products.productGroupManagerTitle}
+                      description={t.products.productGroupManagerDescription}
+                      ariaLabel={t.products.manageProductGroups}
+                    >
+                      <ProductGroupManager operatorId={operatorId} />
+                    </EditTaxonomyButton>
+                  ) : null}
+                </div>
                 <FormMessage />
               </FormItem>
             )}
