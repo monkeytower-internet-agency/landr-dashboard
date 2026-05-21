@@ -8,6 +8,11 @@
 // the entity's enum + id fields, and writes back to
 // `boardConfig.swimlaneBy`. Existing sort/filter/columns chrome is exercised
 // indirectly via ViewPage tests; we don't re-cover it here.
+//
+// landr-9nj9 — ViewToolbar column-by picker tests. Same Board-only gating
+// and field shortlist as swimlanes; writes to `boardConfig.columnBy`;
+// selecting "Default" deletes the key so BoardLayout's fallback (first
+// enum field — today current_stage) takes over.
 
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -205,5 +210,133 @@ describe('ViewToolbar swimlanes (landr-4cwh)', () => {
         },
       }),
     )
+  })
+})
+
+describe('ViewToolbar column-by picker (landr-9nj9)', () => {
+  it('does not render the Column-by control for non-board layouts', () => {
+    render(
+      <ViewToolbar
+        entityType="booking"
+        config={{ layout: 'table', filters: [], sort: [] }}
+        onChange={vi.fn()}
+        layout="table"
+      />,
+    )
+    expect(
+      screen.queryByTestId('view-toolbar-column-by'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('renders Column-by for board layouts with a "Default" option plus enum/id fields', () => {
+    render(
+      <ViewToolbar
+        entityType="booking"
+        config={{
+          layout: 'board',
+          filters: [],
+          sort: [],
+          boardConfig: {},
+        }}
+        onChange={vi.fn()}
+        layout="board"
+      />,
+    )
+    const select = screen.getByTestId(
+      'view-toolbar-column-by-key',
+    ) as HTMLSelectElement
+    // Default selection when no explicit columnBy is saved.
+    expect(select.value).toBe('__none__')
+    const options = Array.from(select.options).map((o) => o.value)
+    expect(options).toContain('__none__')
+    expect(options).toContain('current_stage')
+    expect(options).toContain('current_semantic_state')
+    expect(options).toContain('product_id')
+    expect(options).toContain('pickup_location_id')
+    // Free-text / number / date fields stay out of the shortlist — they
+    // don't yield discrete columns. Same rule as Swimlanes.
+    expect(options).not.toContain('customer_first_name')
+    expect(options).not.toContain('booking_total')
+    expect(options).not.toContain('date_range_start')
+  })
+
+  it('writes the picked field to boardConfig.columnBy, preserving swimlaneBy', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <ViewToolbar
+        entityType="booking"
+        config={{
+          layout: 'board',
+          filters: [],
+          sort: [],
+          boardConfig: { swimlaneBy: 'current_semantic_state' },
+        }}
+        onChange={onChange}
+        layout="board"
+      />,
+    )
+    await user.selectOptions(
+      screen.getByTestId('view-toolbar-column-by-key'),
+      'current_stage',
+    )
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        boardConfig: {
+          columnBy: 'current_stage',
+          swimlaneBy: 'current_semantic_state',
+        },
+      }),
+    )
+  })
+
+  it('selecting "Default" deletes boardConfig.columnBy so the layout fallback kicks in', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <ViewToolbar
+        entityType="booking"
+        config={{
+          layout: 'board',
+          filters: [],
+          sort: [],
+          boardConfig: {
+            columnBy: 'current_stage',
+            swimlaneBy: 'current_semantic_state',
+          },
+        }}
+        onChange={onChange}
+        layout="board"
+      />,
+    )
+    const select = screen.getByTestId(
+      'view-toolbar-column-by-key',
+    ) as HTMLSelectElement
+    expect(select.value).toBe('current_stage')
+    await user.selectOptions(select, '__none__')
+    const arg = onChange.mock.calls[0][0] as {
+      boardConfig: Record<string, unknown>
+    }
+    expect(arg.boardConfig.columnBy).toBeUndefined()
+    // Swimlanes setting must survive the column-by reset.
+    expect(arg.boardConfig.swimlaneBy).toBe('current_semantic_state')
+  })
+
+  it('round-trips a saved columnBy as the selected option', () => {
+    render(
+      <ViewToolbar
+        entityType="booking"
+        config={{
+          layout: 'board',
+          boardConfig: { columnBy: 'current_semantic_state' },
+        }}
+        onChange={vi.fn()}
+        layout="board"
+      />,
+    )
+    const select = screen.getByTestId(
+      'view-toolbar-column-by-key',
+    ) as HTMLSelectElement
+    expect(select.value).toBe('current_semantic_state')
   })
 })
