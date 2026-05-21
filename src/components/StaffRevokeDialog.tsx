@@ -99,7 +99,7 @@ export function StaffRevokeDialog({ member, onOpenChange }: Props) {
               if (!isReady) return
               mutation.mutate()
             }}
-            className="bg-destructive text-white hover:bg-destructive/90"
+            variant="destructive"
           >
             {mutation.isPending
               ? t.staff.revokeSubmitting

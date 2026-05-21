@@ -557,7 +557,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
                 if (!cancelReasonReady) return
                 cancelMutation.mutate()
               }}
-              className="bg-destructive text-white hover:bg-destructive/90"
+              variant="destructive"
             >
               {cancelMutation.isPending
                 ? t.bookings.cancel.cancelling
