@@ -27,8 +27,11 @@ import { ContactsTable } from './ContactsTable'
 import type { ContactRow } from '@/lib/contacts'
 
 // landr-uqr2 — the BulkActionToolbar embedded in ContactsTable renders a
-// TagPicker which uses @tanstack/react-query. Provide a fresh client per
-// render so the table can initialise without an ancestor provider.
+// TagPicker which uses @tanstack/react-query. landr-oxlk —
+// ContactRowContextMenu mounts useQueryClient() (for the per-row tags
+// mutation). Provide a fresh client per render so the table can mount
+// without an ancestor provider; mirrors the wrapper BookingsTable.test.tsx
+// already added for the same reason.
 function render(ui: ReactElement) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },

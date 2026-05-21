@@ -21,6 +21,7 @@ import { toast } from 'sonner'
 import { BulkActionToolbar } from '@/components/BulkActionToolbar'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { ContactRowContextMenu } from '@/components/contacts/ContactRowContextMenu'
 import { EmptyState } from '@/components/EmptyState'
 import { Input } from '@/components/ui/input'
 import { SkeletonTableRows } from '@/components/SkeletonTableRows'
@@ -443,21 +444,33 @@ export function ContactsTable({
             ) : (
               visibleRows.map((row, index) => {
                 const rowProps = nav.getRowProps(index)
+                // landr-oxlk — right-click → quick actions (Open / Copy
+                // link / Apply tag / Erase). Wraps the existing TableRow
+                // via asChild so left-click → onEdit, j/k focus, and the
+                // testid stay untouched.
                 return (
-                  <TableRow
+                  <ContactRowContextMenu
                     key={row.id}
-                    onClick={() => onEdit(row.original)}
-                    className="cursor-pointer data-[focused]:bg-muted/60"
-                    data-testid={`contacts-row-${row.original.id}`}
-                    ref={rowProps.ref}
-                    data-focused={rowProps['data-focused']}
+                    row={row.original}
+                    operatorId={row.original.operator_id ?? null}
+                    onOpenDetail={(r) => onEdit(r)}
+                    onErase={(r) => onErase(r)}
+                    copyLinkPath={(r) => `/contacts?open=${r.id}`}
                   >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
+                    <TableRow
+                      onClick={() => onEdit(row.original)}
+                      className="cursor-pointer data-[focused]:bg-muted/60"
+                      data-testid={`contacts-row-${row.original.id}`}
+                      ref={rowProps.ref}
+                      data-focused={rowProps['data-focused']}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </ContactRowContextMenu>
                 )
               })
             )}

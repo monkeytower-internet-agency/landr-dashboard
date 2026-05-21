@@ -316,6 +316,19 @@ export const t = {
       pendingPayment: 'Pending payment',
       upcoming: 'Upcoming (next 30d)',
     },
+    // landr-oxlk — right-click context menu on a Bookings row. Mark-no-
+    // show + Cancel labels deliberately mirror the BookingDetailSheet
+    // actions so the operator sees the same wording in both places.
+    rowContextMenu: {
+      openDetail: 'Open booking',
+      copyLink: 'Copy link',
+      applyTag: 'Apply tag',
+      tagsLoading: 'Loading tags…',
+      tagsEmpty: 'No tags yet.',
+      tagSelectedMark: '✓',
+      markNoShow: 'Mark as no-show',
+      cancelBooking: 'Cancel booking',
+    },
     // landr-n2j2 — click-to-edit cell labels + toasts.
     inlineEdit: {
       clickToEdit: 'Click to edit',
@@ -528,6 +541,19 @@ export const t = {
     eraseDialogCancel: 'Cancel',
     eraseDialogSubmit: 'Erase contact',
     activityRecent: 'Recent: ',
+    // landr-oxlk — right-click context menu on a Contacts row. Mirrors
+    // the action labels in the actions column / detail sheet so the
+    // wording stays consistent.
+    rowContextMenu: {
+      openDetail: 'Open contact',
+      copyLink: 'Copy link',
+      applyTag: 'Apply tag',
+      tagsLoading: 'Loading tags…',
+      tagsEmpty: 'No tags yet.',
+      tagSelectedMark: '✓',
+      tagsToastError: 'Failed to update contact tags.',
+      erase: 'Erase (GDPR)',
+    },
     // landr-pqk — sort dropdown + derived-type filter chips.
     filters: {
       sortLabel: 'Sort',
@@ -853,6 +879,14 @@ export const t = {
     toastApproved: 'Booking approved.',
     toastRejected: 'Booking rejected.',
     toastError: 'Action failed.',
+    // landr-oxlk — right-click context menu on an Approvals row. Mirrors
+    // the inline Approve/Reject buttons; selecting Approve/Reject opens
+    // the same confirmation dialog the buttons do.
+    rowContextMenu: {
+      openDetail: 'Open booking',
+      approve: 'Approve',
+      reject: 'Reject',
+    },
     // landr-xnpc — download the filtered approval queue as CSV.
     exportCsv: 'Download CSV',
     exportCsvAria: (n: number): string =>

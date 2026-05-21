@@ -30,6 +30,7 @@ import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { BulkActionToolbar } from '@/components/BulkActionToolbar'
 import { EmptyState } from '@/components/EmptyState'
 import { SkeletonTableRows } from '@/components/SkeletonTableRows'
+import { ApprovalRowContextMenu } from '@/components/approvals/ApprovalRowContextMenu'
 import { ApprovalsFilters } from '@/components/approvals/ApprovalsFilters'
 import { StageChip } from '@/components/approvals/StageChip'
 import {
@@ -618,24 +619,34 @@ export function GeneralApprovals() {
                 ) : (
                   visibleApprovalRows.map((row, index) => {
                     const rowProps = nav.getRowProps(index)
+                    // landr-oxlk — right-click → Open / Approve / Reject.
+                    // Approve & Reject defer to openDialog() so the same
+                    // AlertDialog wizard the inline buttons use handles
+                    // the confirmation + optional note.
                     return (
-                      <TableRow
+                      <ApprovalRowContextMenu
                         key={row.id}
-                        onClick={() => setActiveRow(row.original)}
-                        className="cursor-pointer data-[focused]:bg-muted/60"
-                        data-testid={`approvals-row-${row.original.id}`}
-                        ref={rowProps.ref}
-                        data-focused={rowProps['data-focused']}
+                        row={row.original}
+                        onOpenDetail={(r) => setActiveRow(r)}
+                        onDecide={(r, decision) => openDialog(r, decision)}
                       >
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id}>
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext(),
-                            )}
-                          </TableCell>
-                        ))}
-                      </TableRow>
+                        <TableRow
+                          onClick={() => setActiveRow(row.original)}
+                          className="cursor-pointer data-[focused]:bg-muted/60"
+                          data-testid={`approvals-row-${row.original.id}`}
+                          ref={rowProps.ref}
+                          data-focused={rowProps['data-focused']}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext(),
+                              )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      </ApprovalRowContextMenu>
                     )
                   })
                 )}
