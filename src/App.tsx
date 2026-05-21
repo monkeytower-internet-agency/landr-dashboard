@@ -57,6 +57,7 @@ import { PlanSettings } from '@/routes/settings/PlanSettings'
 import { PricingSettings } from '@/routes/settings/PricingSettings'
 import { TagsSettings } from '@/routes/settings/TagsSettings'
 import { OperationsSettings } from '@/routes/settings/OperationsSettings'
+import { WebhooksSettings } from '@/routes/settings/WebhooksSettings'
 import { AuthProvider } from '@/lib/auth'
 import { OperatorProvider } from '@/lib/operator'
 import { ProtectedRoute } from '@/lib/ProtectedRoute'
@@ -192,6 +193,9 @@ function App() {
                 {/* landr-r87i — Settings → Operations: operator-customisable
                     default booking-checklist items (v2 of landr-84n1). */}
                 <Route path="operations" element={<OperationsSettings />} />
+                {/* landr-ah9u — Settings → Webhooks: operator-managed event
+                    subscriptions (v1 localStorage; v2 server-delivered). */}
+                <Route path="webhooks" element={<WebhooksSettings />} />
                 <Route path="plan" element={<PlanSettings />} />
               </Route>
 
