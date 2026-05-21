@@ -1,18 +1,14 @@
 import { useMemo, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { BookingsCalendar } from '@/components/BookingsCalendar'
 import { BookingsFilters } from '@/components/bookings/BookingsFilters'
 import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  fetchBookings,
-  rescheduleBookingItem,
-  type BookingRow,
-} from '@/lib/bookings'
+import { fetchBookings, type BookingRow } from '@/lib/bookings'
 import { filterBookings } from '@/lib/bookings-filter-match'
 import { useBookingsFilters } from '@/lib/bookings-filters'
 import { useCalendarView } from '@/lib/calendar-view-memory'
+import { useDragReschedule } from '@/lib/calendar-reschedule'
 import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
@@ -24,8 +20,6 @@ export function Calendar() {
     useOperatorCalendarPrefs()
   const [active, setActive] = useState<BookingRow | null>(null)
   const [openCustomerId, setOpenCustomerId] = useState<string | null>(null)
-  const [rescheduleError, setRescheduleError] = useState<string | null>(null)
-  const queryClient = useQueryClient()
   const filtersApi = useBookingsFilters()
   // landr-1lj — per-operator memory of the last selected calendar view.
   const calendarView = useCalendarView(currentOperatorId)
@@ -48,20 +42,12 @@ export function Calendar() {
       : null,
   })
 
-  const reschedule = useMutation({
-    mutationFn: rescheduleBookingItem,
-    onSuccess: () => {
-      setRescheduleError(null)
-      queryClient.invalidateQueries({
-        queryKey: ['bookings', currentOperatorId ?? 'none'],
-      })
-    },
-    onError: (err: Error) => {
-      setRescheduleError(err.message || t.calendar.rescheduleError)
-      queryClient.invalidateQueries({
-        queryKey: ['bookings', currentOperatorId ?? 'none'],
-      })
-    },
+  // landr-nnbm — drag-to-reschedule: optimistic cache write + FastAPI
+  // PATCH + sonner toast with Undo. Both the main /calendar and the
+  // Views Calendar layout share `useDragReschedule`; the only
+  // difference is which cache key receives the optimistic write.
+  const { reschedule } = useDragReschedule({
+    queryKeys: [['bookings', currentOperatorId ?? 'none']],
   })
 
   const rows = useMemo(() => query.data ?? [], [query.data])
@@ -99,14 +85,6 @@ export function Calendar() {
         <p className="text-muted-foreground text-sm">{t.calendar.loading}</p>
       ) : (
         <>
-          {rescheduleError ? (
-            <p
-              role="alert"
-              className="text-destructive border-destructive/30 bg-destructive/10 rounded-md border px-3 py-2 text-sm"
-            >
-              {rescheduleError}
-            </p>
-          ) : null}
           <BookingsFilters
             bookings={rows}
             filtersApi={filtersApi}
@@ -126,10 +104,19 @@ export function Calendar() {
             onCustomerClick={(id) => setOpenCustomerId(id)}
             onReschedule={({ event, newStart, newEnd }) => {
               if (!event.itemId) return
-              reschedule.mutate({
+              // Resolve the live item from the row cache so we can
+              // capture the previous dates for Undo.
+              const item = event.raw.items.find((it) => it.id === event.itemId)
+              const previousStart = item?.date_range_start ?? newStart
+              const previousEnd = item?.date_range_end ?? null
+              reschedule({
+                bookingId: event.bookingId,
                 itemId: event.itemId,
-                startDate: newStart,
-                endDate: newEnd,
+                newStart,
+                newEnd,
+                previousStart,
+                previousEnd,
+                label: event.title,
               })
             }}
           />

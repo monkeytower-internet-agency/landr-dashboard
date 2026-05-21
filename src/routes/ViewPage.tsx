@@ -59,6 +59,7 @@ import { ViewToolbar } from '@/components/views/ViewToolbar'
 import { useViewDirtyState } from '@/components/views/useViewDirtyState'
 import { StarButton } from '@/components/views/StarButton'
 import { CalendarLayout } from '@/components/views/layouts/CalendarLayout'
+import { useDragReschedule } from '@/lib/calendar-reschedule'
 import { TableLayout } from '@/components/views/layouts/TableLayout'
 import {
   BoardLayout,
@@ -599,6 +600,15 @@ function CalendarLayoutBranch({
   // FullCalendar layout (firstDay column header).
   const { firstDayOfWeek } = useOperatorCalendarPrefs()
   const bookings = useViewBookings(currentOperatorId)
+  // landr-nnbm — drag-to-reschedule shares the BookingsCalendar hook.
+  // Optimistically patch BOTH caches so a row dragged on a saved View
+  // also moves on the main /calendar if the operator switches tabs.
+  const { reschedule } = useDragReschedule({
+    queryKeys: [
+      ['views-bookings', currentOperatorId ?? 'none'],
+      ['bookings', currentOperatorId ?? 'none'],
+    ],
+  })
   const items = useMemo(
     () =>
       applyView(
@@ -637,6 +647,7 @@ function CalendarLayoutBranch({
       items={items}
       firstDayOfWeek={firstDayOfWeek}
       onConfigChange={setConfig}
+      onReschedule={reschedule}
     />
   )
 }

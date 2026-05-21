@@ -13,7 +13,6 @@
 //     compact event content.
 //
 // Differences from BookingsCalendar.tsx:
-//   - No DnD reschedule in v1 (the spec explicitly defers this).
 //   - No capacity pills (those belong to /calendar's daily-ops surface).
 //   - dateField is dynamic — the Views abstraction picks ANY date field on
 //     the entity, not just date_range_start.
@@ -22,14 +21,22 @@
 // `calendarConfig.view` and persisted via `onConfigChange` when the user
 // picks a different variant. Mirrors the segmented switcher used by the
 // legacy BookingsCalendar.
+//
+// landr-nnbm — drag-to-reschedule is now wired (was deferred in v1). The
+// layout enables DnD only when `dateField === 'date_range_start'`, because
+// the PATCH route writes `date_range_start` / `date_range_end` on
+// booking_products; dragging an event whose calendar position is keyed on
+// some other date field would silently move the wrong thing.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
+import interactionPlugin from '@fullcalendar/interaction'
 import type {
   EventClickArg,
   EventContentArg,
+  EventDropArg,
   EventInput,
 } from '@fullcalendar/core'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -38,6 +45,7 @@ import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import {
   customerDisplay,
   productDisplay,
+  toDateOnlyIso,
   type BookingRow,
 } from '@/lib/bookings'
 import type { SavedViewWithState } from '@/lib/saved-views'
@@ -107,6 +115,27 @@ function dateValue(row: BookingRow, fieldKey: string): string | null {
   }
 }
 
+// landr-nnbm — pick the booking_products line whose date_range_start
+// matches the value rendered on the calendar. Used to resolve a drop
+// back to the line we should PATCH. Returns null if no item carries a
+// matching date — caller must guard before firing the reschedule.
+function itemAtStart(row: BookingRow, startIso: string): {
+  id: string
+  date_range_start: string
+  date_range_end: string | null
+} | null {
+  for (const it of row.items) {
+    if (it.date_range_start === startIso) {
+      return {
+        id: it.id,
+        date_range_start: it.date_range_start,
+        date_range_end: it.date_range_end,
+      }
+    }
+  }
+  return null
+}
+
 // FullCalendar treats all-day event `end` as EXCLUSIVE. Bump by one day so
 // the visible range matches the inclusive [start, end] semantics stored on
 // booking_products.
@@ -116,6 +145,22 @@ function bumpExclusive(iso: string): string {
   const [, y, mo, d] = m
   const date = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d) + 1))
   return date.toISOString().slice(0, 10)
+}
+
+// landr-nnbm — drag-to-reschedule payload. `itemId` is the
+// booking_products line id of the EARLIEST scheduled item on the row
+// (matches the pick used to plot the event). Callers wire this to
+// useDragReschedule's `reschedule` so the hook owns the optimistic
+// write, the FastAPI PATCH, and the toast / Undo. CalendarLayout itself
+// stays pure (no react-query / no sonner).
+export type CalendarReschedulePayload = {
+  bookingId: string
+  itemId: string
+  newStart: string
+  newEnd: string | null
+  previousStart: string
+  previousEnd: string | null
+  label: string
 }
 
 type Props = {
@@ -133,6 +178,11 @@ type Props = {
    *  When omitted the switcher still works locally but won't survive a
    *  remount. */
   onConfigChange?: (patch: Record<string, unknown>) => void
+  /** landr-nnbm — when set AND the view's dateField is
+   *  `date_range_start`, events become draggable. Drop fires this
+   *  callback with the new + previous dates so the parent can patch
+   *  optimistically + show a toast with Undo. */
+  onReschedule?: (payload: CalendarReschedulePayload) => void
 }
 
 export function CalendarLayout({
@@ -141,6 +191,7 @@ export function CalendarLayout({
   onItemClick,
   firstDayOfWeek = 1,
   onConfigChange,
+  onReschedule,
 }: Props) {
   const calendarConfig = useMemo(
     () => readCalendarConfig(view.config),
@@ -192,6 +243,13 @@ export function CalendarLayout({
     }
   }
 
+  // landr-nnbm — DnD is only safe when the calendar's date field is
+  // `date_range_start`: the PATCH route writes that exact column on
+  // booking_products. For any other date field, leave events
+  // non-editable so a drop can't silently overwrite the wrong column.
+  const dndEnabled =
+    !!onReschedule && calendarConfig.dateField === 'date_range_start'
+
   const events = useMemo<EventInput[]>(() => {
     if (!validDateField || !validDateEndField || !calendarConfig.dateField) {
       return []
@@ -207,21 +265,38 @@ export function CalendarLayout({
       // FullCalendar `end` is exclusive for all-day events — bump by one day
       // so the range stays visible across the configured last date.
       const end = endRaw && endRaw >= start ? bumpExclusive(endRaw) : undefined
+      // Only events backed by a real booking_products line can be
+      // dragged (the PATCH route needs a `lineId`). When the calendar
+      // is keyed on `date_range_start`, we resolve that line by
+      // matching `start` — if no item matches (data drift), the event
+      // stays draggable but the drop handler will revert.
+      const isEditable = dndEnabled
       out.push({
         id: item.id,
         title: `${customerDisplay(item)} — ${productDisplay(item)}`,
         start,
         end,
         allDay: true,
+        editable: isEditable,
         extendedProps: {
           customerName: customerDisplay(item),
           productName: productDisplay(item),
           rowId: item.id,
+          // Capture the start used to plot the event so the drop
+          // handler can resolve back to the underlying line by id.
+          plottedStart: start,
         },
       })
     }
     return out
-  }, [items, calendarConfig.dateField, calendarConfig.dateEndField, validDateField, validDateEndField])
+  }, [
+    items,
+    calendarConfig.dateField,
+    calendarConfig.dateEndField,
+    validDateField,
+    validDateEndField,
+    dndEnabled,
+  ])
 
   // Index by id so the click handler can resolve back to the BookingRow.
   const itemsById = useMemo(() => {
@@ -253,6 +328,56 @@ export function CalendarLayout({
       return
     }
     setOpenRow(row)
+  }
+
+  function handleEventDrop(arg: EventDropArg) {
+    if (!onReschedule || !dndEnabled) {
+      arg.revert()
+      return
+    }
+    const row = itemsById.get(arg.event.id)
+    const newStartDate = arg.event.start
+    if (!row || !newStartDate) {
+      arg.revert()
+      return
+    }
+    const plottedStart = arg.event.extendedProps.plottedStart as
+      | string
+      | undefined
+    if (!plottedStart) {
+      arg.revert()
+      return
+    }
+    const line = itemAtStart(row, plottedStart)
+    if (!line) {
+      arg.revert()
+      return
+    }
+    const newStart = toDateOnlyIso(newStartDate)
+    // FullCalendar reports all-day end as exclusive — back off one day
+    // so the persisted `date_range_end` stays inclusive (matches the
+    // bumpExclusive applied at render time).
+    let newEnd: string | null = null
+    if (arg.event.end) {
+      const endExclusive = new Date(arg.event.end)
+      if (arg.event.allDay) {
+        endExclusive.setDate(endExclusive.getDate() - 1)
+      }
+      newEnd = toDateOnlyIso(endExclusive)
+    } else if (line.date_range_end) {
+      // FullCalendar doesn't emit `end` when the event is single-day;
+      // keep the previous end inclusive so the patch round-trips.
+      newEnd = line.date_range_end
+    }
+    onReschedule({
+      bookingId: row.id,
+      itemId: line.id,
+      newStart,
+      newEnd,
+      previousStart: line.date_range_start,
+      previousEnd: line.date_range_end,
+      label: `${customerDisplay(row)} — ${productDisplay(row)}`,
+    })
   }
 
   function renderEventContent(arg: EventContentArg) {
@@ -307,7 +432,7 @@ export function CalendarLayout({
       <div className="landr-fc rounded-md border p-3">
         <FullCalendar
           ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin]}
+          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           initialView={FC_VIEW_BY_VARIANT[activeView]}
           headerToolbar={{
             left: 'prev,next today',
@@ -317,9 +442,15 @@ export function CalendarLayout({
           height="auto"
           firstDay={firstDayOfWeek}
           weekNumbers={false}
-          editable={false}
+          // landr-nnbm — `editable` toggles drag/drop globally on the
+          // calendar; each event still sets its own `editable` flag so
+          // non-DnD events stay frozen even with this on.
+          editable={dndEnabled}
+          eventStartEditable={dndEnabled}
+          eventDurationEditable={false}
           events={events}
           eventClick={handleEventClick}
+          eventDrop={handleEventDrop}
           eventContent={renderEventContent}
         />
       </div>

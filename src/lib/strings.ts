@@ -299,6 +299,12 @@ export const t = {
     viewWeek: 'Week',
     viewDay: 'Day',
     rescheduleError: 'Could not reschedule booking.',
+    // landr-nnbm — drag-to-reschedule confirmation toast + Undo action.
+    rescheduleToast: (label: string, dateLabel: string): string =>
+      `Rescheduled ${label} to ${dateLabel}`,
+    rescheduleUndo: 'Undo',
+    rescheduleUndone: 'Reschedule undone.',
+    rescheduleUndoError: 'Could not undo reschedule.',
     // landr-f1s — off-hours expand/collapse for the time-grid views.
     expandOffHours: (start: string, end: string): string =>
       `Show hours outside ${start}–${end}`,
