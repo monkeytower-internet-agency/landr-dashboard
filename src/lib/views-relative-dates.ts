@@ -16,7 +16,10 @@
 //   Anchor+offset:  <anchor>±N(d|w|m|y)    e.g. today+7d, tomorrow-1d
 //                                          start_of_week+2d, end_of_month-1d
 //
-// Week convention: Monday-first (Europe). landr operates in Europe.
+// Week convention: configurable via the `weekStartsOn` parameter
+// (0=Sunday..6=Saturday). Default 1 (Monday) preserves the original
+// Europe-first behaviour — see landr-m4zq for the operator-level setting
+// that drives this at the dashboard layer.
 //
 // Output is always YYYY-MM-DD ISO (date-only — no time, no tz). The matcher
 // in views-bookings-data.ts compares as strings, which works because
@@ -62,16 +65,22 @@ function addYears(d: Date, n: number): Date {
   return addMonths(d, n * 12)
 }
 
-/** Monday of the week containing d (Europe convention). */
-function startOfWeekMon(d: Date): Date {
+/**
+ * First day of the week containing d, configurable via weekStartsOn
+ * (0=Sunday..6=Saturday). landr-m4zq — when weekStartsOn=1 the previous
+ * Monday is returned (preserving the Europe-first convention); when
+ * weekStartsOn=0 the previous Sunday is returned.
+ */
+function startOfWeek(d: Date, weekStartsOn: number): Date {
   const day = d.getDay() // 0=Sun, 1=Mon, ... 6=Sat
-  // Distance back to Monday: Sun→6, Mon→0, Tue→1, ...
-  const back = day === 0 ? 6 : day - 1
+  // Distance back to the configured first day. (day - weekStartsOn) mod 7
+  // gives the number of days to subtract; +7 keeps the result non-negative.
+  const back = ((day - weekStartsOn) % 7 + 7) % 7
   return addDays(startOfDayLocal(d), -back)
 }
 
-function endOfWeekMon(d: Date): Date {
-  return addDays(startOfWeekMon(d), 6)
+function endOfWeek(d: Date, weekStartsOn: number): Date {
+  return addDays(startOfWeek(d, weekStartsOn), 6)
 }
 
 function startOfMonth(d: Date): Date {
@@ -94,17 +103,19 @@ function endOfYear(d: Date): Date {
 // ---------------------------------------------------------------------------
 // Token parsing
 
-const ANCHOR_RESOLVERS: Record<string, (now: Date) => Date> = {
+// landr-m4zq — resolvers receive (now, weekStartsOn). Only the week-relative
+// anchors actually read weekStartsOn; the others ignore it.
+const ANCHOR_RESOLVERS: Record<string, (now: Date, weekStartsOn: number) => Date> = {
   today: (n) => startOfDayLocal(n),
   now: (n) => startOfDayLocal(n),
   tomorrow: (n) => addDays(startOfDayLocal(n), 1),
   yesterday: (n) => addDays(startOfDayLocal(n), -1),
-  start_of_week: startOfWeekMon,
-  end_of_week: endOfWeekMon,
-  start_of_month: startOfMonth,
-  end_of_month: endOfMonth,
-  start_of_year: startOfYear,
-  end_of_year: endOfYear,
+  start_of_week: (n, w) => startOfWeek(n, w),
+  end_of_week: (n, w) => endOfWeek(n, w),
+  start_of_month: (n) => startOfMonth(n),
+  end_of_month: (n) => endOfMonth(n),
+  start_of_year: (n) => startOfYear(n),
+  end_of_year: (n) => endOfYear(n),
 }
 
 const ANCHOR_LABELS: Record<string, string> = {
@@ -151,17 +162,22 @@ function applyOffset(date: Date, sign: '+' | '-', n: number, unit: Unit): Date {
  * Resolve a relative-date token to a YYYY-MM-DD ISO string in the local
  * timezone. Returns null if the token doesn't match the grammar.
  *
+ * `weekStartsOn` (default 1 = Monday) drives the start_of_week /
+ * end_of_week anchors. 0 = Sunday-first. landr-m4zq.
+ *
  * Examples:
- *   resolveRelativeDate('today')                -> '2026-05-21'
- *   resolveRelativeDate('+7d')                  -> '2026-05-28'
- *   resolveRelativeDate('today-1d')             -> '2026-05-20'
- *   resolveRelativeDate('start_of_week')        -> Monday's ISO
- *   resolveRelativeDate('end_of_month')         -> last day of month
- *   resolveRelativeDate('not-a-token')          -> null
+ *   resolveRelativeDate('today')                       -> '2026-05-21'
+ *   resolveRelativeDate('+7d')                         -> '2026-05-28'
+ *   resolveRelativeDate('today-1d')                    -> '2026-05-20'
+ *   resolveRelativeDate('start_of_week')               -> previous Monday
+ *   resolveRelativeDate('start_of_week', now, 0)       -> previous Sunday
+ *   resolveRelativeDate('end_of_month')                -> last day of month
+ *   resolveRelativeDate('not-a-token')                 -> null
  */
 export function resolveRelativeDate(
   token: string,
   now: Date = new Date(),
+  weekStartsOn: number = 1,
 ): string | null {
   if (typeof token !== 'string') return null
 
@@ -170,7 +186,7 @@ export function resolveRelativeDate(
     const [, anchor, sign, nStr, unit] = anchorMatch
     const resolver = ANCHOR_RESOLVERS[anchor!]
     if (!resolver) return null
-    let date = resolver(now)
+    let date = resolver(now, weekStartsOn)
     if (sign && nStr && unit) {
       date = applyOffset(date, sign as '+' | '-', Number(nStr), unit as Unit)
     }
@@ -192,6 +208,7 @@ export function resolveRelativeDate(
 export function isRelativeToken(value: unknown): value is string {
   if (typeof value !== 'string') return false
   // Use a constant `now` here — only the shape matters, not the result.
+  // weekStartsOn doesn't matter for shape-only validation.
   return resolveRelativeDate(value, new Date(2026, 0, 1)) !== null
 }
 

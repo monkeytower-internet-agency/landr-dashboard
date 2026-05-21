@@ -77,6 +77,9 @@ type Props = {
   workHoursEnd?: string
   /** true = 12h AM/PM, false = 24h. */
   hour12?: boolean
+  /** landr-m4zq — 0=Sunday..6=Saturday. Drives FullCalendar `firstDay`.
+   *  Default 1 (Monday) mirrors the DB default. */
+  firstDayOfWeek?: number
   // landr-3uai — when both are set, per-day capacity pills are rendered
   // in each day cell's corner. Click → /schedule with date+product
   // preselected. Both null/undefined ⇒ no pills (preserves the clean
@@ -139,6 +142,7 @@ export function BookingsCalendar({
   workHoursStart = '08:00',
   workHoursEnd = '20:00',
   hour12 = false,
+  firstDayOfWeek = 1,
   operatorId,
   activeProductId,
 }: Props) {
@@ -439,7 +443,7 @@ export function BookingsCalendar({
             right: '',
           }}
           height="auto"
-          firstDay={1}
+          firstDay={firstDayOfWeek}
           weekNumbers={false}
           editable={!!onReschedule}
           eventStartEditable

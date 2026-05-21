@@ -79,6 +79,44 @@ describe('resolveRelativeDate — anchors', () => {
   })
 })
 
+// landr-m4zq — weekStartsOn drives start_of_week / end_of_week.
+describe('resolveRelativeDate — weekStartsOn (landr-m4zq)', () => {
+  // 2026-05-21 is a Thursday. Wall-clock calendar for context:
+  //   Sun 17 · Mon 18 · Tue 19 · Wed 20 · Thu 21 · Fri 22 · Sat 23 · Sun 24
+  const thursday = localDate(2026, 5, 21)
+
+  it('weekStartsOn=1 (Monday, default) → previous Monday', () => {
+    expect(resolveRelativeDate('start_of_week', thursday, 1)).toBe('2026-05-18')
+    expect(resolveRelativeDate('end_of_week', thursday, 1)).toBe('2026-05-24')
+  })
+
+  it('weekStartsOn=0 (Sunday) → previous Sunday', () => {
+    expect(resolveRelativeDate('start_of_week', thursday, 0)).toBe('2026-05-17')
+    expect(resolveRelativeDate('end_of_week', thursday, 0)).toBe('2026-05-23')
+  })
+
+  it('weekStartsOn=0 — Sunday returns itself', () => {
+    const sunday = localDate(2026, 5, 24)
+    expect(resolveRelativeDate('start_of_week', sunday, 0)).toBe('2026-05-24')
+    expect(resolveRelativeDate('end_of_week', sunday, 0)).toBe('2026-05-30')
+  })
+
+  it('default weekStartsOn is 1 when omitted', () => {
+    // Calling with only (token, now) must yield the Monday-first result.
+    expect(resolveRelativeDate('start_of_week', thursday)).toBe('2026-05-18')
+  })
+
+  it('weekStartsOn flows through anchor+offset tokens', () => {
+    expect(resolveRelativeDate('start_of_week+1w', thursday, 0)).toBe('2026-05-24')
+    expect(resolveRelativeDate('end_of_week+1w', thursday, 0)).toBe('2026-05-30')
+  })
+
+  it('non-week anchors ignore weekStartsOn', () => {
+    expect(resolveRelativeDate('today', thursday, 0)).toBe('2026-05-21')
+    expect(resolveRelativeDate('start_of_month', thursday, 0)).toBe('2026-05-01')
+  })
+})
+
 describe('resolveRelativeDate — pure offsets', () => {
   it('+Nd / -Nd from today', () => {
     const now = localDate(2026, 5, 21)

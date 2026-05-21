@@ -282,6 +282,35 @@ describe('SettingsLayout', () => {
     ).toBeInTheDocument()
   })
 
+  // landr-m4zq — Settings → Calendar display exposes first_day_of_week.
+  it('toggling First day of week submits the corresponding PATCH payload (landr-m4zq)', async () => {
+    const user = userEvent.setup()
+    renderSettingsTree('/settings/calendar-display')
+
+    const select = (await screen.findByLabelText(
+      /first day of week/i,
+    )) as HTMLSelectElement
+    // Default fixture omits the column → form defaults to 1 (Monday).
+    expect(select.value).toBe('1')
+
+    // Switch to Sunday-first.
+    await user.selectOptions(select, '0')
+    expect(select.value).toBe('0')
+
+    // Save the form. The CalendarDisplaySettings form posts via patchOperator
+    // with only the dirty fields (react-hook-form isDirty gate + the
+    // mutation's exclude-unset behaviour on the server side).
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    // The PATCH call must include first_day_of_week=0. Other fields are
+    // included too (RHF submits the whole form) — we just assert presence
+    // and the correct value.
+    expect(mocks.patchOperator).toHaveBeenCalled()
+    const lastCall = mocks.patchOperator.mock.calls.at(-1)
+    expect(lastCall?.[0]).toBe('op-1')
+    expect(lastCall?.[1]).toMatchObject({ first_day_of_week: 0 })
+  })
+
   it('renders the Plan subsection placeholder when no package is embedded', async () => {
     renderSettingsTree('/settings/plan')
     expect(

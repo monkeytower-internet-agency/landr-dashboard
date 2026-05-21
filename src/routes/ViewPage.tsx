@@ -38,7 +38,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useOperator } from '@/lib/operator'
+import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import {
   deleteSavedView,
@@ -612,10 +612,21 @@ function LayoutBody({ layout, view, setConfig }: LayoutBodyProps) {
 // follow the same shape without each layout reinventing the fetch.
 function CalendarLayoutBranch({ view }: { view: SavedViewWithState }) {
   const { currentOperatorId } = useOperator()
+  // landr-m4zq — thread the operator's first_day_of_week into both the
+  // resolver (for start_of_week / end_of_week tokens in filters) and the
+  // FullCalendar layout (firstDay column header).
+  const { firstDayOfWeek } = useOperatorCalendarPrefs()
   const bookings = useViewBookings(currentOperatorId)
   const items = useMemo(
-    () => applyView(bookings.data ?? [], view.config, view.entity_type),
-    [bookings.data, view.config, view.entity_type],
+    () =>
+      applyView(
+        bookings.data ?? [],
+        view.config,
+        view.entity_type,
+        new Date(),
+        firstDayOfWeek,
+      ),
+    [bookings.data, view.config, view.entity_type, firstDayOfWeek],
   )
   if (bookings.isPending) {
     return (
@@ -638,7 +649,13 @@ function CalendarLayoutBranch({ view }: { view: SavedViewWithState }) {
       </Card>
     )
   }
-  return <CalendarLayout view={view} items={items} />
+  return (
+    <CalendarLayout
+      view={view}
+      items={items}
+      firstDayOfWeek={firstDayOfWeek}
+    />
+  )
 }
 
 // landr-7w3s — Table branch owns its data fetch + view-pipe application.
@@ -652,10 +669,20 @@ function TableLayoutBranch({
   setConfig: (config: Record<string, unknown>) => void
 }) {
   const { currentOperatorId } = useOperator()
+  // landr-m4zq — filter resolver must honour the operator's first-day-of-week
+  // so 'This week' chips behave consistently across Table / Board / Calendar.
+  const { firstDayOfWeek } = useOperatorCalendarPrefs()
   const bookings = useViewBookings(currentOperatorId)
   const items = useMemo(
-    () => applyView(bookings.data ?? [], view.config, view.entity_type),
-    [bookings.data, view.config, view.entity_type],
+    () =>
+      applyView(
+        bookings.data ?? [],
+        view.config,
+        view.entity_type,
+        new Date(),
+        firstDayOfWeek,
+      ),
+    [bookings.data, view.config, view.entity_type, firstDayOfWeek],
   )
   const [openItem, setOpenItem] = useState<BookingItem | null>(null)
   if (bookings.isPending) {
@@ -704,11 +731,20 @@ function TableLayoutBranch({
 // layout component itself stays renderer-only.
 function BoardLayoutBranch({ view }: { view: SavedViewWithState }) {
   const { currentOperatorId } = useOperator()
+  // landr-m4zq — see comment in TableLayoutBranch.
+  const { firstDayOfWeek } = useOperatorCalendarPrefs()
   const qc = useQueryClient()
   const bookings = useViewBookings(currentOperatorId)
   const items = useMemo(
-    () => applyView(bookings.data ?? [], view.config, view.entity_type),
-    [bookings.data, view.config, view.entity_type],
+    () =>
+      applyView(
+        bookings.data ?? [],
+        view.config,
+        view.entity_type,
+        new Date(),
+        firstDayOfWeek,
+      ),
+    [bookings.data, view.config, view.entity_type, firstDayOfWeek],
   )
   const onItemMutate = useMemo<BoardItemMutate>(
     () =>

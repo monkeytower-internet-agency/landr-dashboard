@@ -39,6 +39,9 @@ export const OperatorSettingsSchema = z.object({
   work_hours_start: TimeOfDaySchema.nullable().optional(),
   work_hours_end: TimeOfDaySchema.nullable().optional(),
   time_format_24h: z.boolean().nullable().optional(),
+  // landr-m4zq — first day of week (0=Sunday..6=Saturday). Mirrors the
+  // DB CHECK constraint (BETWEEN 0 AND 6) and the API Pydantic ge/le.
+  first_day_of_week: z.number().int().min(0).max(6).nullable().optional(),
   // landr-c3t — premium-tease opt-in.
   show_premium_teasers: z.boolean().nullable().optional(),
   // landr-c3t — embedded subscription_package (read-only on Settings; the
