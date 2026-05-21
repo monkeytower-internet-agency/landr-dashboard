@@ -35,6 +35,10 @@ type Props = {
   emptyLabel?: string
   /** Slot for any custom column-header element. */
   headerExtra?: ReactNode
+  /** landr-4cwh — Suppress the in-column header row entirely. Used by
+   *  matrix (swimlane) mode where the chrome is supplied by the surrounding
+   *  grid (separate column-header + row-header rows). */
+  hideHeader?: boolean
 }
 
 export function BoardColumn({
@@ -47,6 +51,7 @@ export function BoardColumn({
   disabledReason = null,
   emptyLabel,
   headerExtra,
+  hideHeader = false,
 }: Props) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column:${columnKey}`,
@@ -66,17 +71,21 @@ export function BoardColumn({
       )}
       title={disabled ? disabledReason ?? undefined : undefined}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          {showStageChip ? (
-            <StageChip code={columnKey} />
-          ) : (
-            <span className="truncate text-sm font-medium">{label}</span>
-          )}
-          <span className="text-muted-foreground text-xs">{items.length}</span>
+      {hideHeader ? null : (
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            {showStageChip ? (
+              <StageChip code={columnKey} />
+            ) : (
+              <span className="truncate text-sm font-medium">{label}</span>
+            )}
+            <span className="text-muted-foreground text-xs">
+              {items.length}
+            </span>
+          </div>
+          {headerExtra}
         </div>
-        {headerExtra}
-      </div>
+      )}
 
       <SortableContext
         items={items.map((it) => it.id)}

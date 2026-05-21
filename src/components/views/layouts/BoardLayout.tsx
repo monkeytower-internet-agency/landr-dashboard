@@ -21,7 +21,7 @@
 // cancelled) accept drops. Disallowed columns render greyed-out with a
 // tooltip explaining why.
 
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import {
   DndContext,
   KeyboardSensor,
@@ -129,11 +129,87 @@ function readBoardConfigColumnBy(
   return typeof raw === 'string' ? raw : null
 }
 
+// landr-4cwh — Secondary grouping (swimlanes). When set, the Board renders
+// a 2D matrix: columns × swimlanes. Tolerates both string and null (the
+// latter explicitly means "no swimlane"; same as missing key).
+function readBoardConfigSwimlaneBy(
+  config: Record<string, unknown>,
+): string | null {
+  const bc = (config as { boardConfig?: { swimlaneBy?: unknown } }).boardConfig
+  const raw = bc?.swimlaneBy
+  return typeof raw === 'string' ? raw : null
+}
+
+// landr-4cwh — Hard-cap distinct swimlane values pulled from `id`-typed
+// fields so a pathological dataset (e.g. 200 distinct products) doesn't
+// produce 200 swimlane rows. Enum fields always use their full enumValues.
+const SWIMLANE_MAX_DISTINCT = 20
+
+/** Read a swimlane group key off an item. Returns null when the value is
+ *  missing (those items collect into a synthetic "no value" row). v1 only
+ *  groups by current_stage / customer_id / product_id; other field keys
+ *  fall through to null and the inline message in the layout warns. */
+function readItemSwimlane(item: BookingItem, key: string): string | null {
+  switch (key) {
+    case 'current_stage':
+      return stageCode(item)
+    case 'current_semantic_state':
+      return item.current_semantic_state ?? null
+    case 'customer_id':
+      return item.customer?.id ?? null
+    case 'product_id': {
+      const first = item.items[0]?.products?.id
+      return typeof first === 'string' ? first : null
+    }
+    default:
+      return null
+  }
+}
+
+/** Derive a friendly label for a swimlane key. For enum fields we use the
+ *  field registry's enumLabels; for id fields we fall back to the canonical
+ *  display string read off the first matching item (customer name, product
+ *  name, etc.). */
+function swimlaneLabel(args: {
+  entityType: string
+  fieldKey: string
+  swimlaneKey: string
+  fieldType: string
+  items: BookingItem[]
+}): string {
+  const { entityType, fieldKey, swimlaneKey, fieldType, items } = args
+  if (fieldType === 'enum') {
+    return valueLabel(entityType, fieldKey, swimlaneKey)
+  }
+  // id field — find an item whose grouping value matches, read its display.
+  const match = items.find(
+    (it) => readItemSwimlane(it, fieldKey) === swimlaneKey,
+  )
+  if (!match) return swimlaneKey
+  switch (fieldKey) {
+    case 'customer_id': {
+      const c = match.customer
+      if (!c) return swimlaneKey
+      const name = [c.first_name, c.last_name].filter(Boolean).join(' ').trim()
+      return name || c.email || swimlaneKey
+    }
+    case 'product_id': {
+      const name = match.items[0]?.products?.name
+      return typeof name === 'string' && name.length > 0 ? name : swimlaneKey
+    }
+    default:
+      return swimlaneKey
+  }
+}
+
 export function BoardLayout({ view, items, onItemMutate }: Props) {
   const columnBy =
     readBoardConfigColumnBy(view.config) ?? 'current_stage'
+  const swimlaneBy = readBoardConfigSwimlaneBy(view.config)
 
   const field = findField(view.entity_type, columnBy)
+  const swimlaneField =
+    swimlaneBy !== null ? findField(view.entity_type, swimlaneBy) : null
 
   // Optimistic override map: itemId → patched BookingRow. Survives until a
   // refetched `items` arrives with the same stage (then we drop the entry
@@ -198,6 +274,71 @@ export function BoardLayout({ view, items, onItemMutate }: Props) {
     }))
   }, [field, view.entity_type, columnBy, localItems])
 
+  // -------- swimlane derivation (landr-4cwh) --------
+  //
+  // For enum fields we honour the registry order (so empty swimlanes are
+  // still rendered for completeness). For id fields we derive distinct
+  // values from the actual data (sorted, capped at SWIMLANE_MAX_DISTINCT).
+  // A synthetic null bucket appears when at least one item has no value.
+  const swimlanes = useMemo<
+    { key: string | null; label: string; items: BookingItem[] }[]
+  >(() => {
+    if (!swimlaneBy || !swimlaneField) return []
+    if (swimlaneField.type === 'enum' && swimlaneField.enumValues) {
+      const out: { key: string | null; label: string; items: BookingItem[] }[] =
+        swimlaneField.enumValues.map((key) => ({
+          key,
+          label: valueLabel(view.entity_type, swimlaneBy, key),
+          items: localItems.filter(
+            (it) => readItemSwimlane(it, swimlaneBy) === key,
+          ),
+        }))
+      const nullItems = localItems.filter(
+        (it) => readItemSwimlane(it, swimlaneBy) === null,
+      )
+      if (nullItems.length > 0) {
+        out.push({ key: null, label: t.views.body.board.swimlaneEmptyCell, items: nullItems })
+      }
+      return out
+    }
+    // id (or any non-enum groupable) — derive distinct keys from data.
+    const distinct = new Set<string>()
+    let hasNull = false
+    for (const it of localItems) {
+      const k = readItemSwimlane(it, swimlaneBy)
+      if (k === null) {
+        hasNull = true
+      } else {
+        distinct.add(k)
+      }
+    }
+    const keys = Array.from(distinct).sort().slice(0, SWIMLANE_MAX_DISTINCT)
+    const out: { key: string | null; label: string; items: BookingItem[] }[] =
+      keys.map((key) => ({
+        key,
+        label: swimlaneLabel({
+          entityType: view.entity_type,
+          fieldKey: swimlaneBy,
+          swimlaneKey: key,
+          fieldType: swimlaneField.type,
+          items: localItems,
+        }),
+        items: localItems.filter(
+          (it) => readItemSwimlane(it, swimlaneBy) === key,
+        ),
+      }))
+    if (hasNull) {
+      out.push({
+        key: null,
+        label: t.views.body.board.swimlaneEmptyCell,
+        items: localItems.filter(
+          (it) => readItemSwimlane(it, swimlaneBy) === null,
+        ),
+      })
+    }
+    return out
+  }, [swimlaneBy, swimlaneField, view, localItems])
+
   // -------- gating placeholders --------
 
   if (!field) {
@@ -233,6 +374,25 @@ export function BoardLayout({ view, items, onItemMutate }: Props) {
     )
   }
 
+  // -------- swimlane validation (landr-4cwh) --------
+  //
+  // Swimlane gating is non-fatal: render the flat board AND a small inline
+  // notice so the operator sees why their secondary grouping was ignored.
+  // We deliberately don't `return` placeholders here — that would hide the
+  // working columns and feel broken.
+  const swimlaneError: string | null = (() => {
+    if (!swimlaneBy) return null
+    if (!swimlaneField) return t.views.body.board.swimlaneUnknownField(swimlaneBy)
+    // Only enum + id fields are groupable for swimlanes. Other types
+    // (text / date / number / boolean) yield too many distinct values or
+    // don't carry a natural display label.
+    if (swimlaneField.type !== 'enum' && swimlaneField.type !== 'id') {
+      return t.views.body.board.swimlaneMustBeGroupable
+    }
+    return null
+  })()
+  const renderAsMatrix = swimlaneBy !== null && swimlaneError === null
+
   // -------- drag handling --------
 
   function handleDragEnd(event: DragEndEvent) {
@@ -264,42 +424,133 @@ export function BoardLayout({ view, items, onItemMutate }: Props) {
 
   return (
     <>
+      {swimlaneError ? (
+        <p
+          className="text-muted-foreground text-xs"
+          data-testid="board-swimlane-warning"
+        >
+          {swimlaneError}
+        </p>
+      ) : null}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragEnd={handleDragEnd}
       >
-        <div
-          data-testid="board-layout"
-          data-board-column-by={columnBy}
-          className="flex gap-3 overflow-x-auto pb-2"
-        >
-          {columns.map((col) => {
-            // For current_stage, decide whether THIS column is a valid drop
-            // target. Without an active drag we can't know the source, so we
-            // mark a column "potentially-disabled" only if NO source stage
-            // can reach it — i.e. nothing in STAGE_TRANSITIONS lists it as
-            // a `to`. That keeps the chrome accurate at rest while the real
-            // per-drag gating runs in handleDragEnd.
-            const canBeATarget =
-              columnBy !== 'current_stage' ||
-              STAGE_TRANSITIONS.some((r) => r.to === col.key)
-            return (
-              <BoardColumn
-                key={col.key}
-                columnKey={col.key}
-                label={col.label}
-                showStageChip={columnBy === 'current_stage'}
-                items={col.items}
-                onOpen={(it) => setDetailRow(it)}
-                disabled={!canBeATarget}
-                disabledReason={
-                  canBeATarget ? null : t.views.body.board.disallowedTarget
-                }
-              />
-            )
-          })}
-        </div>
+        {renderAsMatrix ? (
+          // landr-4cwh — 2D matrix: header row of columns × left column of
+          // swimlanes. Each cell is a BoardColumn keyed by `${col}::${lane}`
+          // — that keeps DnD ids unique across the grid (drop targets like
+          // `column:confirmed` would collide otherwise) while reusing the
+          // same column chrome the flat board ships with.
+          <div
+            data-testid="board-layout"
+            data-board-column-by={columnBy}
+            data-board-swimlane-by={swimlaneBy ?? undefined}
+            className="overflow-x-auto pb-2"
+          >
+            <div
+              role="grid"
+              className="inline-grid gap-3"
+              style={{
+                gridTemplateColumns: `minmax(8rem, max-content) repeat(${columns.length}, minmax(0, max-content))`,
+              }}
+            >
+              {/* Header row: empty corner + one cell per column. */}
+              <div role="columnheader" aria-hidden="true" />
+              {columns.map((col) => (
+                <div
+                  key={`hdr-${col.key}`}
+                  role="columnheader"
+                  data-testid={`board-matrix-header-${col.key}`}
+                  className="text-muted-foreground px-1 text-xs font-medium"
+                >
+                  {col.label}
+                </div>
+              ))}
+
+              {/* Body rows: swimlane label + one BoardColumn per (col, lane). */}
+              {swimlanes.map((lane) => {
+                const laneKeyAttr = lane.key ?? '__null__'
+                return (
+                  <Fragment key={`lane-${laneKeyAttr}`}>
+                    <div
+                      role="rowheader"
+                      data-testid={`board-swimlane-${laneKeyAttr}`}
+                      className="text-muted-foreground self-start px-1 pt-3 text-xs font-medium"
+                    >
+                      {lane.label}
+                    </div>
+                    {columns.map((col) => {
+                      const cellItems = col.items.filter((it) =>
+                        lane.key === null
+                          ? readItemSwimlane(it, swimlaneBy!) === null
+                          : readItemSwimlane(it, swimlaneBy!) === lane.key,
+                      )
+                      const canBeATarget =
+                        columnBy !== 'current_stage' ||
+                        STAGE_TRANSITIONS.some((r) => r.to === col.key)
+                      return (
+                        <div
+                          key={`cell-${col.key}-${laneKeyAttr}`}
+                          role="gridcell"
+                          data-testid={`board-cell-${col.key}-${laneKeyAttr}`}
+                        >
+                          <BoardColumn
+                            columnKey={`${col.key}::${laneKeyAttr}`}
+                            label={col.label}
+                            showStageChip={false}
+                            hideHeader
+                            items={cellItems}
+                            onOpen={(it) => setDetailRow(it)}
+                            disabled={!canBeATarget}
+                            disabledReason={
+                              canBeATarget
+                                ? null
+                                : t.views.body.board.disallowedTarget
+                            }
+                          />
+                        </div>
+                      )
+                    })}
+                  </Fragment>
+                )
+              })}
+            </div>
+          </div>
+        ) : (
+          <div
+            data-testid="board-layout"
+            data-board-column-by={columnBy}
+            className="flex gap-3 overflow-x-auto pb-2"
+          >
+            {columns.map((col) => {
+              // For current_stage, decide whether THIS column is a valid drop
+              // target. Without an active drag we can't know the source, so we
+              // mark a column "potentially-disabled" only if NO source stage
+              // can reach it — i.e. nothing in STAGE_TRANSITIONS lists it as
+              // a `to`. That keeps the chrome accurate at rest while the real
+              // per-drag gating runs in handleDragEnd.
+              const canBeATarget =
+                columnBy !== 'current_stage' ||
+                STAGE_TRANSITIONS.some((r) => r.to === col.key)
+              return (
+                <BoardColumn
+                  key={col.key}
+                  columnKey={col.key}
+                  label={col.label}
+                  showStageChip={columnBy === 'current_stage'}
+                  items={col.items}
+                  onOpen={(it) => setDetailRow(it)}
+                  disabled={!canBeATarget}
+                  disabledReason={
+                    canBeATarget ? null : t.views.body.board.disallowedTarget
+                  }
+                />
+              )
+            })}
+          </div>
+        )}
       </DndContext>
 
       <BookingDetailSheet
@@ -328,14 +579,20 @@ function readItemField(item: BookingItem, key: string): string | null {
 
 /** Resolve which column an over-id refers to — either a column droppable
  *  (`column:<key>`) or another sortable card whose current column we
- *  inherit. Returns null if the target can't be classified. */
+ *  inherit. Returns null if the target can't be classified.
+ *
+ *  landr-4cwh — in matrix (swimlane) mode cells use compound keys like
+ *  `column:confirmed::__null__`; strip the `::<lane>` suffix so the column
+ *  key alone is what feeds the transition gate. */
 function resolveTargetColumn(
   overId: string,
   items: BookingItem[],
   columnBy: string,
 ): string | null {
   if (overId.startsWith('column:')) {
-    return overId.slice('column:'.length)
+    const raw = overId.slice('column:'.length)
+    const sepAt = raw.indexOf('::')
+    return sepAt === -1 ? raw : raw.slice(0, sepAt)
   }
   const overItem = items.find((it) => it.id === overId)
   return overItem ? readItemField(overItem, columnBy) : null

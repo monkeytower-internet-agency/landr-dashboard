@@ -1340,6 +1340,9 @@ export const t = {
       // sees one consistent control surface across layouts.
       groupByLabel: 'Group:',
       groupByNone: 'No grouping',
+      // landr-4cwh — Board swimlanes (secondary grouping).
+      swimlaneLabel: 'Swimlanes:',
+      swimlaneNone: 'None (flat)',
     },
     filters: {
       addFilter: '+ Filter',
@@ -1370,6 +1373,12 @@ export const t = {
         emptyColumn: 'No items',
         disallowedTarget: 'No supported transition into this column.',
         mutateError: 'Could not move card — change reverted.',
+        // landr-4cwh — swimlane (secondary grouping) copy.
+        swimlaneUnknownField: (key: string) =>
+          `Unknown swimlane field: ${key}.`,
+        swimlaneMustBeGroupable:
+          'Swimlane field must be an enum or id field.',
+        swimlaneEmptyCell: '—',
       },
     },
     // landr-7w3s — Table layout copy.
