@@ -56,9 +56,11 @@ export const VIEW_TEMPLATES: ViewTemplate[] = [
     },
   },
   {
+    // landr-1zxt — uses Monday-anchored start_of_week + end_of_week so the
+    // saved View materialises the current calendar week on every render.
     key: 'this-week',
     name: 'This week',
-    description: 'Bookings starting in the next 7 days, on a calendar.',
+    description: 'Bookings starting this week (Mon–Sun), on a calendar.',
     entity_type: 'booking',
     config: {
       layout: 'calendar',
@@ -66,7 +68,7 @@ export const VIEW_TEMPLATES: ViewTemplate[] = [
         {
           field: 'date_range_start',
           op: 'within',
-          values: ['today', '+7d'],
+          values: ['start_of_week', 'end_of_week'],
         },
       ],
       sort: [],
@@ -87,6 +89,58 @@ export const VIEW_TEMPLATES: ViewTemplate[] = [
         { field: 'pickup_location_id', op: 'is_not_null', values: [] },
       ],
       sort: [],
+    },
+  },
+  {
+    // landr-1zxt — starter pack.
+    key: 'next-7-days',
+    name: 'Next 7 days',
+    description: 'Bookings starting in the next week.',
+    entity_type: 'booking',
+    config: {
+      layout: 'table',
+      filters: [
+        {
+          field: 'date_range_start',
+          op: 'within',
+          values: ['today', '+7d'],
+        },
+      ],
+      sort: [{ source: 'system', key: 'date_range_start', dir: 'asc' }],
+    },
+  },
+  {
+    key: 'this-month',
+    name: 'This month',
+    description: 'Bookings starting any day this month.',
+    entity_type: 'booking',
+    config: {
+      layout: 'table',
+      filters: [
+        {
+          field: 'date_range_start',
+          op: 'within',
+          values: ['start_of_month', 'end_of_month'],
+        },
+      ],
+      sort: [{ source: 'system', key: 'date_range_start', dir: 'asc' }],
+    },
+  },
+  {
+    key: 'past-due',
+    name: 'Past due bookings',
+    description: 'Bookings whose start date has already passed.',
+    entity_type: 'booking',
+    config: {
+      layout: 'table',
+      filters: [
+        {
+          field: 'date_range_start',
+          op: 'within',
+          values: ['today-1y', 'yesterday'],
+        },
+      ],
+      sort: [{ source: 'system', key: 'date_range_start', dir: 'desc' }],
     },
   },
 ]

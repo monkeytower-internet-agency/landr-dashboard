@@ -150,6 +150,138 @@ describe('matchesViewFilters', () => {
     ).toBe(true)
   })
 
+  // landr-1zxt — relative-date tokens are resolved at compare-time.
+  it('resolves relative tokens against a stable `now` for eq', () => {
+    const now = new Date(2026, 4, 21, 12, 0, 0) // 2026-05-21
+    const today: Filter = {
+      field: 'date_range_start',
+      op: 'eq',
+      values: ['today'],
+    }
+    expect(
+      matchesViewFilters(
+        row({
+          items: [
+            {
+              id: 'a',
+              date_range_start: '2026-05-21',
+              date_range_end: null,
+              selected_days: null,
+              products: null,
+            },
+          ],
+        }),
+        [today],
+        now,
+      ),
+    ).toBe(true)
+    expect(
+      matchesViewFilters(
+        row({
+          items: [
+            {
+              id: 'a',
+              date_range_start: '2026-05-20',
+              date_range_end: null,
+              selected_days: null,
+              products: null,
+            },
+          ],
+        }),
+        [today],
+        now,
+      ),
+    ).toBe(false)
+  })
+
+  it('resolves a [start_of_week, end_of_week] within range', () => {
+    // 2026-05-21 = Thursday → Mon..Sun = 2026-05-18 .. 2026-05-24.
+    const now = new Date(2026, 4, 21, 12, 0, 0)
+    const thisWeek: Filter = {
+      field: 'date_range_start',
+      op: 'within',
+      values: ['start_of_week', 'end_of_week'],
+    }
+    expect(
+      matchesViewFilters(
+        row({
+          items: [
+            {
+              id: 'a',
+              date_range_start: '2026-05-19',
+              date_range_end: null,
+              selected_days: null,
+              products: null,
+            },
+          ],
+        }),
+        [thisWeek],
+        now,
+      ),
+    ).toBe(true)
+    expect(
+      matchesViewFilters(
+        row({
+          items: [
+            {
+              id: 'a',
+              date_range_start: '2026-05-25',
+              date_range_end: null,
+              selected_days: null,
+              products: null,
+            },
+          ],
+        }),
+        [thisWeek],
+        now,
+      ),
+    ).toBe(false)
+  })
+
+  it('mixes relative tokens and literal ISO dates in the same chip', () => {
+    const now = new Date(2026, 4, 21, 12, 0, 0)
+    // [literal, +7d] → [2026-05-15, 2026-05-28]
+    const f: Filter = {
+      field: 'date_range_start',
+      op: 'within',
+      values: ['2026-05-15', '+7d'],
+    }
+    expect(
+      matchesViewFilters(
+        row({
+          items: [
+            {
+              id: 'a',
+              date_range_start: '2026-05-21',
+              date_range_end: null,
+              selected_days: null,
+              products: null,
+            },
+          ],
+        }),
+        [f],
+        now,
+      ),
+    ).toBe(true)
+    expect(
+      matchesViewFilters(
+        row({
+          items: [
+            {
+              id: 'a',
+              date_range_start: '2026-05-29',
+              date_range_end: null,
+              selected_days: null,
+              products: null,
+            },
+          ],
+        }),
+        [f],
+        now,
+      ),
+    ).toBe(false)
+  })
+
   it('unknown field is ignored (forward-compat for v2 custom fields)', () => {
     expect(
       matchesViewFilters(row(), [
