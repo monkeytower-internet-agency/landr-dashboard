@@ -370,7 +370,7 @@ function CustomerEditForm({
                 setShowDiscard(false)
                 onClose()
               }}
-              className="bg-destructive text-white hover:bg-destructive/90"
+              variant="destructive"
             >
               {t.customerDetail.discardConfirm}
             </AlertDialogAction>

@@ -77,7 +77,7 @@ export function LocationDeleteDialog({
               e.preventDefault()
               mutation.mutate()
             }}
-            className="bg-destructive text-white hover:bg-destructive/90"
+            variant="destructive"
           >
             {mutation.isPending
               ? t.pickupLocations.deleteDialogDeleting
