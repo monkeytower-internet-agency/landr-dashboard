@@ -727,4 +727,161 @@ describe('BookingDetailSheet', () => {
     )
     await waitFor(() => expect(createObjectURL).toHaveBeenCalledOnce())
   })
+
+  // -----------------------------------------------------------------------
+  // landr-okxm — Mark-as-paid workflow.
+  // -----------------------------------------------------------------------
+
+  it('hides the Mark-as-paid button when stage is not awaiting_payment', () => {
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(screen.queryByTestId('booking-mark-paid-btn')).not.toBeInTheDocument()
+  })
+
+  it('hides the Mark-as-paid button when balance_due is zero', () => {
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_payment' },
+      balance_due: 0,
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+    expect(screen.queryByTestId('booking-mark-paid-btn')).not.toBeInTheDocument()
+  })
+
+  it('shows Mark-as-paid when stage=awaiting_payment, prefills amount with balance_due, POSTs to mark-paid', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockImplementation(async () =>
+      new Response(
+        JSON.stringify({
+          booking_id: 'b',
+          payment_id: 'pay-1',
+          amount: '300.00',
+          currency: 'EUR',
+          method: 'cash',
+          provider: 'manual_cash',
+          previous_stage_code: 'awaiting_payment',
+          new_stage_code: 'paid_pending_cutoff',
+          new_semantic_state: 'confirmed',
+          advanced_to_confirmed: true,
+        }),
+        { status: 200 },
+      ),
+    )
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_payment' },
+      balance_due: '300.00',
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+
+    const btn = screen.getByTestId('booking-mark-paid-btn')
+    await user.click(btn)
+
+    const dialog = await screen.findByRole('alertdialog')
+    const amount = within(dialog).getByTestId('mark-paid-amount') as HTMLInputElement
+    // Defaulted to balance_due rendered to 2 decimal places.
+    expect(amount.value).toBe('300.00')
+
+    const confirmBtn = within(dialog).getByTestId('mark-paid-confirm')
+    await user.click(confirmBtn)
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/staff/operators/op-test/bookings/')
+    expect(url).toContain('/mark-paid')
+    expect(opts.method).toBe('POST')
+    expect(JSON.parse(opts.body as string)).toEqual({
+      method: 'cash',
+      amount: '300.00',
+    })
+  })
+
+  it('switching method to bank_transfer + lowering the amount records a partial payment', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockImplementation(async () =>
+      new Response(
+        JSON.stringify({
+          booking_id: 'b',
+          payment_id: 'pay-1',
+          amount: '100.00',
+          currency: 'EUR',
+          method: 'bank_transfer',
+          provider: 'manual_transfer',
+          previous_stage_code: 'awaiting_payment',
+          new_stage_code: 'awaiting_payment',
+          new_semantic_state: 'pending',
+          advanced_to_confirmed: false,
+        }),
+        { status: 200 },
+      ),
+    )
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_payment' },
+      balance_due: '300.00',
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+
+    await user.click(screen.getByTestId('booking-mark-paid-btn'))
+    const dialog = await screen.findByRole('alertdialog')
+
+    const method = within(dialog).getByTestId('mark-paid-method') as HTMLSelectElement
+    await user.selectOptions(method, 'bank_transfer')
+
+    const amount = within(dialog).getByTestId('mark-paid-amount') as HTMLInputElement
+    await user.clear(amount)
+    await user.type(amount, '100')
+
+    const note = within(dialog).getByTestId('mark-paid-note') as HTMLTextAreaElement
+    await user.type(note, 'Wire ref 12345')
+
+    await user.click(within(dialog).getByTestId('mark-paid-confirm'))
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(opts.body as string)).toEqual({
+      method: 'bank_transfer',
+      amount: '100',
+      note: 'Wire ref 12345',
+    })
+  })
+
+  it('Mark-as-paid invalidates [bookings] and [views-bookings] on success', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockImplementation(async () =>
+      new Response(
+        JSON.stringify({
+          booking_id: 'b',
+          payment_id: 'pay-1',
+          amount: '300.00',
+          currency: 'EUR',
+          method: 'cash',
+          provider: 'manual_cash',
+          previous_stage_code: 'awaiting_payment',
+          new_stage_code: 'paid_pending_cutoff',
+          new_semantic_state: 'confirmed',
+          advanced_to_confirmed: true,
+        }),
+        { status: 200 },
+      ),
+    )
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_payment' },
+      balance_due: '300.00',
+    })
+    const { invalidateSpy } = renderWithInvalidationSpy(
+      <BookingDetailSheet row={row} onOpenChange={() => {}} />,
+    )
+
+    await user.click(screen.getByTestId('booking-mark-paid-btn'))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByTestId('mark-paid-confirm'))
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const invalidatedKeys = invalidateSpy.mock.calls.map(
+      (call) => (call[0] as { queryKey: unknown[] }).queryKey,
+    )
+    expect(invalidatedKeys).toContainEqual(['bookings'])
+    expect(invalidatedKeys).toContainEqual(['views-bookings'])
+  })
 })
