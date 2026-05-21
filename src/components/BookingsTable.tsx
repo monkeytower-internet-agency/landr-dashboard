@@ -42,6 +42,7 @@ import {
   type CsvColumn,
 } from '@/lib/csv-export'
 import { BulkActionToolbar } from '@/components/BulkActionToolbar'
+import { BookingRowContextMenu } from '@/components/bookings/BookingRowContextMenu'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { DayChips } from '@/components/booking/DayChips'
 import { SkeletonTableRows } from '@/components/SkeletonTableRows'
@@ -608,21 +609,34 @@ export function BookingsTable({
             ) : (
               visibleRows.map((row, index) => {
                 const rowProps = nav.getRowProps(index)
+                // landr-oxlk — right-click → quick actions. The trigger
+                // wraps the TableRow via asChild so left-click → open
+                // sheet, j/k focus, and the row's existing testid stay
+                // unchanged. Tags & destructive actions live behind the
+                // menu so the common case (click row → sheet) is
+                // unaffected.
                 return (
-                  <TableRow
+                  <BookingRowContextMenu
                     key={row.id}
-                    onClick={() => onRowClick(row.original)}
-                    className="cursor-pointer data-[focused]:bg-muted/60"
-                    data-testid={`bookings-row-${row.original.id}`}
-                    ref={rowProps.ref}
-                    data-focused={rowProps['data-focused']}
+                    row={row.original}
+                    operatorId={currentOperatorId ?? null}
+                    onOpenDetail={(r) => onRowClick(r)}
+                    copyLinkPath={(r) => `/bookings?open=${r.id}`}
                   >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
+                    <TableRow
+                      onClick={() => onRowClick(row.original)}
+                      className="cursor-pointer data-[focused]:bg-muted/60"
+                      data-testid={`bookings-row-${row.original.id}`}
+                      ref={rowProps.ref}
+                      data-focused={rowProps['data-focused']}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </BookingRowContextMenu>
                 )
               })
             )}
