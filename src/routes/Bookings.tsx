@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { DownloadIcon } from 'lucide-react'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
@@ -16,7 +16,11 @@ import {
   type BookingRow,
 } from '@/lib/bookings'
 import { filterBookings } from '@/lib/bookings-filter-match'
-import { useBookingsFilters } from '@/lib/bookings-filters'
+import {
+  parseBookingsFiltersFromUrl,
+  serialiseBookingsFiltersToUrl,
+  useBookingsFilters,
+} from '@/lib/bookings-filters'
 import { downloadCsv, todayStampUtc, type CsvColumn } from '@/lib/csv-export'
 import { useOperator } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
@@ -51,8 +55,24 @@ export function Bookings() {
   const { currentOperatorId } = useOperator()
   const [active, setActive] = useState<BookingRow | null>(null)
   const [openCustomerId, setOpenCustomerId] = useState<string | null>(null)
-  const filtersApi = useBookingsFilters()
   const [searchParams, setSearchParams] = useSearchParams()
+
+  // landr-j57l — primary filters round-trip through the URL. We capture
+  // the initial URL state once via useState initializer so the filters
+  // hook seeds from the deep-link (URL > localStorage on first mount).
+  // Subsequent state changes are pushed back to the URL via the effect
+  // below with { replace: true } so the back button stays useful.
+  const [initialUrlFilters] = useState(() =>
+    parseBookingsFiltersFromUrl(searchParams),
+  )
+  const [initialUrlQuery] = useState(
+    () => searchParams.get('q')?.trim() ?? '',
+  )
+  const filtersApi = useBookingsFilters({ initialOverride: initialUrlFilters })
+  // landr-j57l — `?q=` deep-links the global search input. Lifted out of
+  // BookingsTable (where it used to live as internal state) so we can sync
+  // it to the URL. The table accepts controlled globalFilter props now.
+  const [globalQuery, setGlobalQuery] = useState<string>(initialUrlQuery)
 
   const query = useRealtimeQuery<BookingRow[]>({
     queryKey: ['bookings', currentOperatorId ?? 'none'],
@@ -128,6 +148,37 @@ export function Bookings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openId, query.data, rows])
 
+  // landr-j57l — state → URL sync. On every filter / search change push
+  // the current state back to the URL with { replace: true } so the link
+  // stays shareable without piling up history entries (mirrors the
+  // landr-jzc0 Schedule pattern). Compare-before-write inside the
+  // serialise helpers means a no-op render won't re-set the URL.
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    let dirty = serialiseBookingsFiltersToUrl(next, filtersApi.filters)
+    const trimmedQuery = globalQuery.trim()
+    if (trimmedQuery) {
+      if (next.get('q') !== trimmedQuery) {
+        next.set('q', trimmedQuery)
+        dirty = true
+      }
+    } else if (next.has('q')) {
+      next.delete('q')
+      dirty = true
+    }
+    if (dirty) setSearchParams(next, { replace: true })
+    // setSearchParams identity is unstable; including it would re-run the
+    // effect after every write. Intentionally omitted — same pattern as
+    // the `?open=` effect above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersApi.filters, globalQuery])
+
+  // Stable callback for the controlled search input; keeps BookingsTable's
+  // useCallback deps quiet.
+  const handleGlobalQueryChange = useCallback((next: string) => {
+    setGlobalQuery(next)
+  }, [])
+
   return (
     <div className="flex flex-col gap-6">
       <PageTitle title={t.bookings.title} subtitle={titleSubtitle} />
@@ -177,6 +228,8 @@ export function Bookings() {
             onRowClick={(row) => setActive(row)}
             onCustomerClick={(id) => setOpenCustomerId(id)}
             isLoading={query.isPending && !!currentOperatorId}
+            globalFilter={globalQuery}
+            onGlobalFilterChange={handleGlobalQueryChange}
           />
         </>
       )}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   flexRender,
   getCoreRowModel,
@@ -67,6 +67,14 @@ type Props = {
   // the table just paints a placeholder so the operator sees the chrome
   // immediately instead of a blank gap.
   isLoading?: boolean
+  /**
+   * landr-j57l — when both are passed, the global search input becomes
+   * controlled by the parent so it can persist to the URL (`?q=…`).
+   * Omitting them keeps the legacy uncontrolled behaviour for any callers
+   * that don't need URL round-tripping (calendar embeds, future surfaces).
+   */
+  globalFilter?: string
+  onGlobalFilterChange?: (next: string) => void
 }
 
 // landr-lbbj — column schema used by the bulk-export action. Mirrors
@@ -98,11 +106,30 @@ export function BookingsTable({
   onRowClick,
   onCustomerClick,
   isLoading = false,
+  globalFilter: controlledGlobalFilter,
+  onGlobalFilterChange,
 }: Props) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'created_at', desc: true },
   ])
-  const [globalFilter, setGlobalFilter] = useState('')
+  // landr-j57l — controlled-or-uncontrolled global search. When the parent
+  // passes both props the input is fully controlled (Bookings.tsx uses
+  // this to sync to ?q=); otherwise we fall back to internal state.
+  const [internalGlobalFilter, setInternalGlobalFilter] = useState('')
+  const isGlobalFilterControlled = controlledGlobalFilter !== undefined
+  const globalFilter = isGlobalFilterControlled
+    ? controlledGlobalFilter
+    : internalGlobalFilter
+  const setGlobalFilter = useCallback(
+    (next: string) => {
+      if (isGlobalFilterControlled) {
+        onGlobalFilterChange?.(next)
+      } else {
+        setInternalGlobalFilter(next)
+      }
+    },
+    [isGlobalFilterControlled, onGlobalFilterChange],
+  )
   // landr-lbbj — bulk-select state. Set<id> keeps the selection compact
   // and lets us O(1) check from the header / row checkboxes.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())

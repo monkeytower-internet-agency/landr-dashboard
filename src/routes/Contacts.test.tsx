@@ -5,10 +5,10 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ReactElement, ReactNode } from 'react'
+import { useEffect, type ReactElement, type ReactNode } from 'react'
 
 type ChannelHandle = {
   on: ReturnType<typeof vi.fn>
@@ -213,6 +213,19 @@ function render(ui: ReactElement) {
   })
 }
 
+// landr-j57l — captures current location so URL-deep-link tests can
+// assert filter / sort / search changes push back to the URL. The probe
+// is a module-scope object mutated via useEffect (not during render) so
+// React strict mode + react-hooks/globals lint stay happy.
+const probe = { search: '' }
+function LocationProbe() {
+  const loc = useLocation()
+  useEffect(() => {
+    probe.search = loc.search
+  }, [loc.search])
+  return null
+}
+
 beforeEach(() => {
   mock.state.contacts = []
   mock.state.contactsError = null
@@ -222,6 +235,10 @@ beforeEach(() => {
   mock.realtimeHandlers.length = 0
   toastCalls.success.length = 0
   toastCalls.error.length = 0
+  // landr-j57l — clear per-test localStorage so URL-vs-storage assertions
+  // start from a known baseline.
+  window.localStorage.clear()
+  probe.search = ''
 })
 
 afterEach(() => {
@@ -447,5 +464,147 @@ describe('Contacts route', () => {
     await waitFor(() =>
       expect(within(dialog).getByText('UPDATE')).toBeInTheDocument(),
     )
+  })
+
+  // ---- landr-j57l — URL ⇄ filter round-trip ---------------------------
+
+  describe('URL deep-linking (landr-j57l)', () => {
+    function renderWithProbe(initialEntry: string) {
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      })
+      return rtlRender(<Contacts />, {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={client}>
+            <MemoryRouter initialEntries={[initialEntry]}>
+              {children}
+              <LocationProbe />
+            </MemoryRouter>
+          </QueryClientProvider>
+        ),
+      })
+    }
+
+    it('mount with ?type= preselects the type chip', async () => {
+      mock.state.contacts = freshSampleContacts()
+      renderWithProbe('/?type=customer')
+
+      await screen.findByText('Alice Anderson')
+      const chip = screen.getByTestId('contacts-filters-type-customer')
+      expect(chip).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('mount with ?q= deep-links the search input', async () => {
+      mock.state.contacts = freshSampleContacts()
+      renderWithProbe('/?q=Bob')
+
+      // The search input shows the URL-derived value on first paint.
+      await waitFor(() =>
+        expect(screen.getByLabelText(/search contacts/i)).toHaveValue('Bob'),
+      )
+      // 'Bob' is wrapped in <mark> when the search matches, so the text
+      // is split across nodes — assert via the <mark> instead of a plain
+      // findByText('Bob Brown') match.
+      await waitFor(() => {
+        const bobMark = Array.from(document.querySelectorAll('mark')).find(
+          (m) => m.textContent === 'Bob',
+        )
+        expect(bobMark).toBeDefined()
+        expect(bobMark?.parentElement?.textContent).toBe('Bob Brown')
+      })
+      // Alice is filtered out by the global search.
+      expect(screen.queryByText('Alice Anderson')).not.toBeInTheDocument()
+    })
+
+    it('mount with ?sort= preselects the sort dropdown', async () => {
+      mock.state.contacts = freshSampleContacts()
+      renderWithProbe('/?sort=name_asc')
+
+      await screen.findByText('Alice Anderson')
+      expect(
+        (screen.getByTestId('contacts-filters-sort-select') as HTMLSelectElement)
+          .value,
+      ).toBe('name_asc')
+    })
+
+    it('mount with ?erased=1 flips the include-erased toggle on', async () => {
+      mock.state.contacts = freshSampleContacts()
+      renderWithProbe('/?erased=1')
+
+      await screen.findByText('Alice Anderson')
+      expect(screen.getByTestId('contacts-filters-show-erased')).toBeChecked()
+    })
+
+    it('mount URL params win over stored localStorage selection', async () => {
+      // Pre-seed localStorage with a DIFFERENT type selection…
+      window.localStorage.setItem(
+        'landr.dashboard.contactsFilters.user-1',
+        JSON.stringify({ types: ['employee'], includeErased: false }),
+      )
+      window.localStorage.setItem(
+        'landr.dashboard.contactsSort.user-1',
+        'created_at_desc',
+      )
+      mock.state.contacts = freshSampleContacts()
+      // …mount with a URL pointing at a different selection.
+      renderWithProbe('/?type=customer&sort=name_asc')
+
+      await screen.findByText('Alice Anderson')
+      expect(
+        screen.getByTestId('contacts-filters-type-customer'),
+      ).toHaveAttribute('aria-pressed', 'true')
+      expect(
+        screen.getByTestId('contacts-filters-type-employee'),
+      ).toHaveAttribute('aria-pressed', 'false')
+      expect(
+        (screen.getByTestId('contacts-filters-sort-select') as HTMLSelectElement)
+          .value,
+      ).toBe('name_asc')
+    })
+
+    it('clicking a type chip pushes ?type= to the URL', async () => {
+      // The chip is disabled when type count is 0 (CountedFilterChip
+      // gates clicks on count > 0). Inject a `types` field on the fixture
+      // so the parallel contact-type-counts query reports `customer: >0`
+      // and the chip is clickable.
+      mock.state.contacts = freshSampleContacts().map((c) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ({ ...c, types: ['customer'] }) as any,
+      )
+      const user = userEvent.setup()
+      renderWithProbe('/')
+
+      await screen.findByText('Alice Anderson')
+      // Wait for the count to land so the chip is enabled.
+      await waitFor(() => {
+        const chip = screen.getByTestId('contacts-filters-type-customer')
+        expect(chip).not.toBeDisabled()
+      })
+      await user.click(screen.getByTestId('contacts-filters-type-customer'))
+      await waitFor(() => expect(probe.search).toContain('type=customer'))
+    })
+
+    it('changing the sort dropdown pushes ?sort= to the URL', async () => {
+      mock.state.contacts = freshSampleContacts()
+      const user = userEvent.setup()
+      renderWithProbe('/')
+
+      await screen.findByText('Alice Anderson')
+      await user.selectOptions(
+        screen.getByTestId('contacts-filters-sort-select'),
+        'name_asc',
+      )
+      await waitFor(() => expect(probe.search).toContain('sort=name_asc'))
+    })
+
+    it('typing in the search input pushes ?q= to the URL', async () => {
+      mock.state.contacts = freshSampleContacts()
+      const user = userEvent.setup()
+      renderWithProbe('/')
+
+      await screen.findByText('Alice Anderson')
+      await user.type(screen.getByLabelText(/search contacts/i), 'Bob')
+      await waitFor(() => expect(probe.search).toContain('q=Bob'))
+    })
   })
 })

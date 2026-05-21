@@ -10,6 +10,13 @@
 //
 // Empty `types` array means "show everything". Selecting multiple values
 // is OR-within-dimension (union) — see fetchContacts in @/lib/contacts.
+//
+// landr-j57l — the primary filter dimension also round-trips through the
+// URL (`?type=…&erased=1`) so a filtered view is shareable. Parse/serialise
+// helpers are at the bottom of this module; routes pass URL-parsed values
+// to `useContactsFilters({ initialOverride })` (URL > localStorage on first
+// load). Sort lives in useContactsSort and gets `?sort=` via its own
+// override hook option.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth'
@@ -97,18 +104,41 @@ export type UseContactsFilters = {
   clearAll: () => void
 }
 
+export type UseContactsFiltersOptions = {
+  /**
+   * landr-j57l — when provided, this value seeds the initial state instead
+   * of reading from localStorage. Used by Contacts.tsx to hydrate from
+   * `?type=…&erased=…` URL params on mount so a deep-link wins over
+   * whatever was last stored. Captured once via the useState initializer;
+   * subsequent reference changes are not re-applied (the route is the
+   * source of URL → state hydration after that point).
+   */
+  initialOverride?: ContactsFilters | null
+}
+
 /**
  * Per-user contact-type filter hook. Keyed on the auth user id so the
  * same browser distinguishes accounts; falls back to in-memory state
  * when no user is signed in.
  */
-export function useContactsFilters(): UseContactsFilters {
+export function useContactsFilters(
+  options: UseContactsFiltersOptions = {},
+): UseContactsFilters {
   const { user } = useAuth()
   const userId = user?.id ?? null
 
-  const [filters, setFiltersState] = useState<ContactsFilters>(() =>
-    userId ? readStored(userId) : EMPTY_FILTERS,
-  )
+  // landr-j57l — `initialOverride` (URL-derived) takes priority over the
+  // localStorage default on first mount, and we eagerly persist it so a
+  // same-user reload without the URL params still reflects the deep-link.
+  // Captured once via the useState initializer.
+  const [filters, setFiltersState] = useState<ContactsFilters>(() => {
+    const override = options.initialOverride ?? null
+    if (override) {
+      if (userId) writeStored(userId, override)
+      return override
+    }
+    return userId ? readStored(userId) : EMPTY_FILTERS
+  })
 
   const lastUserRef = useRef<string | null>(userId)
   useEffect(() => {
@@ -163,4 +193,81 @@ export function useContactsFilters(): UseContactsFilters {
     () => ({ filters, setFilters, toggleType, setIncludeErased, clearAll }),
     [filters, setFilters, toggleType, setIncludeErased, clearAll],
   )
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// landr-j57l — URL ⇄ filters serialization
+//
+// URL param shape (all optional):
+//   ?type=<csv>     contact type values (customer/attendee/employee/agent)
+//   ?erased=1       include GDPR-erased tombstones (includeErased toggle)
+//
+// Unknown type values are silently dropped (forward-compat with future
+// derived types). Sort lives in useContactsSort and uses ?sort= separately.
+// ──────────────────────────────────────────────────────────────────────
+
+function parseCsv(raw: string | null): string[] {
+  if (!raw) return []
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const piece of raw.split(',')) {
+    const trimmed = piece.trim()
+    if (!trimmed) continue
+    if (seen.has(trimmed)) continue
+    seen.add(trimmed)
+    out.push(trimmed)
+  }
+  return out
+}
+
+function parseBool(raw: string | null): boolean {
+  if (!raw) return false
+  const v = raw.trim().toLowerCase()
+  return v === '1' || v === 'true'
+}
+
+/**
+ * landr-j57l — parse a URLSearchParams into a ContactsFilters value.
+ * Returns null when no relevant param is present so the caller falls
+ * back to the localStorage-backed default.
+ */
+export function parseContactsFiltersFromUrl(
+  params: URLSearchParams,
+): ContactsFilters | null {
+  if (!params.has('type') && !params.has('erased')) return null
+  const types = parseCsv(params.get('type')).filter(isContactType)
+  const includeErased = parseBool(params.get('erased'))
+  return { types, includeErased }
+}
+
+/**
+ * landr-j57l — apply a ContactsFilters value to a URLSearchParams.
+ * Mutates `params` in place and returns true when anything changed so
+ * the caller can skip an unnecessary setSearchParams write.
+ */
+export function serialiseContactsFiltersToUrl(
+  params: URLSearchParams,
+  filters: ContactsFilters,
+): boolean {
+  let dirty = false
+  if (filters.types.length > 0) {
+    const next = filters.types.join(',')
+    if (params.get('type') !== next) {
+      params.set('type', next)
+      dirty = true
+    }
+  } else if (params.has('type')) {
+    params.delete('type')
+    dirty = true
+  }
+  if (filters.includeErased) {
+    if (params.get('erased') !== '1') {
+      params.set('erased', '1')
+      dirty = true
+    }
+  } else if (params.has('erased')) {
+    params.delete('erased')
+    dirty = true
+  }
+  return dirty
 }

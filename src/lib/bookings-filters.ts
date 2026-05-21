@@ -6,6 +6,14 @@
 // Filters are USER-level (not operator-level): the same user filtering
 // similarly across operators is intentional.
 //
+// landr-j57l — primary filter dimensions also round-trip through the URL
+// (`?status=`, `?product=`, `?location=`, `?kind=`, `?shape=`,
+// `?dateRange=`, `?past=`) so a filtered view can be shared / bookmarked.
+// URL parse/serialise helpers live in this module (parseBookingsFiltersFromUrl
+// / serialiseBookingsFiltersToUrl) and are wired up in src/routes/Bookings.tsx.
+// URL > localStorage on first load — the route passes the URL-parsed value
+// to `useBookingsFilters({ initialOverride })`.
+//
 // Empty array on a dimension means "match all" — see matchesFilters().
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -157,19 +165,46 @@ export type UseBookingsFilters = {
   setServiceDateRange: (value: ServiceDateRangePreset | null) => void
 }
 
+export type UseBookingsFiltersOptions = {
+  /**
+   * landr-j57l — when provided, this value seeds the initial state instead
+   * of reading from localStorage. Used by routes that hydrate from URL
+   * params on mount so a `?status=…&product=…` link wins over whatever was
+   * last stored. Subsequent toggles still persist to localStorage as usual
+   * (so leaving + returning without the URL params keeps the link's view).
+   * Captured once via the useState initializer — later changes to this
+   * reference do not re-run the hydration.
+   */
+  initialOverride?: BookingsFilters | null
+}
+
 /**
  * Per-user filter hook. Reads/writes localStorage keyed on the auth user id.
  * When no user is signed in we fall back to an in-memory state (no persist).
  */
-export function useBookingsFilters(): UseBookingsFilters {
+export function useBookingsFilters(
+  options: UseBookingsFiltersOptions = {},
+): UseBookingsFilters {
   const { user } = useAuth()
   const userId = user?.id ?? null
 
   // Lazy init keyed on userId so a different account on the same browser
-  // starts from its own stored state.
-  const [filters, setFiltersState] = useState<BookingsFilters>(() =>
-    userId ? readStored(userId) : EMPTY_FILTERS,
-  )
+  // starts from its own stored state. landr-j57l — when an `initialOverride`
+  // (URL-derived) is passed, it wins over localStorage so deep-links round-
+  // trip predictably. The override is captured once via the useState
+  // initializer; later changes to options.initialOverride are not
+  // re-applied (the route writes back to the URL on user interaction).
+  const [filters, setFiltersState] = useState<BookingsFilters>(() => {
+    const override = options.initialOverride ?? null
+    if (override) {
+      // Persist the override so a same-user reload (without the URL params)
+      // still shows the deep-linked view — matches the localStorage-is-
+      // memory expectation users already have from landr-1lj.
+      if (userId) writeStored(userId, override)
+      return override
+    }
+    return userId ? readStored(userId) : EMPTY_FILTERS
+  })
 
   // When the user changes (sign-in/out, account switch), re-read storage so
   // the bar reflects the new identity rather than the previous user's chips.
@@ -265,4 +300,160 @@ export function useBookingsFilters(): UseBookingsFilters {
       setServiceDateRange,
     ],
   )
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// landr-j57l — URL ⇄ filters serialization
+//
+// URL param shape (all optional):
+//   ?status=<csv>      booking_lifecycle_stages.code values
+//   ?product=<csv>     products.id values
+//   ?location=<csv>    locations.id values
+//   ?kind=<csv>        product_kind enum values
+//   ?shape=<csv>       service_time_shape enum values
+//   ?dateRange=<enum>  today | this_week | next_30d
+//   ?past=1            include past bookings (showPast view toggle)
+//
+// CSV values are deduped + empty entries dropped. Unknown enum values
+// (kind/shape/dateRange) are silently rejected — the URL is treated as
+// untrusted user input, never as a schema oracle.
+// ──────────────────────────────────────────────────────────────────────
+
+const PRODUCT_KIND_VALUES = [
+  'service',
+  'digital_good',
+  'physical_good',
+  'gift_card',
+] as const
+const SERVICE_TIME_SHAPE_VALUES = [
+  'single_date',
+  'days_range',
+  'fixed_window',
+  'time_slot',
+] as const
+
+function parseCsv(raw: string | null): string[] {
+  if (!raw) return []
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const piece of raw.split(',')) {
+    const trimmed = piece.trim()
+    if (!trimmed) continue
+    if (seen.has(trimmed)) continue
+    seen.add(trimmed)
+    out.push(trimmed)
+  }
+  return out
+}
+
+function parseEnumCsv<T extends string>(
+  raw: string | null,
+  allowed: ReadonlyArray<T>,
+): T[] {
+  const allow = new Set<string>(allowed)
+  return parseCsv(raw).filter((v): v is T => allow.has(v))
+}
+
+function parseBool(raw: string | null): boolean {
+  // Accept `1` / `true` (case-insensitive). Everything else (including
+  // `0`/`false`/missing) parses as false so the URL stays compact when
+  // the toggle is in its default position.
+  if (!raw) return false
+  const v = raw.trim().toLowerCase()
+  return v === '1' || v === 'true'
+}
+
+/**
+ * landr-j57l — parse a URLSearchParams into a BookingsFilters value. All
+ * dimensions are optional; missing keys map to EMPTY_FILTERS defaults.
+ * Returns null when the URL carries no relevant filter params, so the
+ * caller can fall through to the localStorage-backed default.
+ */
+export function parseBookingsFiltersFromUrl(
+  params: URLSearchParams,
+): BookingsFilters | null {
+  const hasAny =
+    params.has('status') ||
+    params.has('product') ||
+    params.has('location') ||
+    params.has('kind') ||
+    params.has('shape') ||
+    params.has('dateRange') ||
+    params.has('past')
+  if (!hasAny) return null
+
+  const dateRangeRaw = params.get('dateRange')
+  const serviceDateRange: ServiceDateRangePreset | null =
+    dateRangeRaw && isServiceDateRangePreset(dateRangeRaw)
+      ? dateRangeRaw
+      : null
+
+  return {
+    lifecycleStates: parseCsv(params.get('status')),
+    productIds: parseCsv(params.get('product')),
+    pickupLocationIds: parseCsv(params.get('location')),
+    productKinds: parseEnumCsv(params.get('kind'), PRODUCT_KIND_VALUES),
+    serviceTimeShapes: parseEnumCsv(
+      params.get('shape'),
+      SERVICE_TIME_SHAPE_VALUES,
+    ),
+    showPast: parseBool(params.get('past')),
+    serviceDateRange,
+  }
+}
+
+/**
+ * landr-j57l — apply a BookingsFilters value to a URLSearchParams. Mutates
+ * `params` in place: sets each dimension key when non-empty, deletes it
+ * when empty so the URL stays compact (no `?status=&product=` noise).
+ * Returns true when any key was added/removed/changed, so the caller can
+ * skip the setSearchParams write when nothing moved (avoids router thrash).
+ */
+export function serialiseBookingsFiltersToUrl(
+  params: URLSearchParams,
+  filters: BookingsFilters,
+): boolean {
+  let dirty = false
+
+  const csvFields: Array<[string, readonly string[]]> = [
+    ['status', filters.lifecycleStates],
+    ['product', filters.productIds],
+    ['location', filters.pickupLocationIds],
+    ['kind', filters.productKinds],
+    ['shape', filters.serviceTimeShapes],
+  ]
+  for (const [key, values] of csvFields) {
+    if (values.length > 0) {
+      const next = values.join(',')
+      if (params.get(key) !== next) {
+        params.set(key, next)
+        dirty = true
+      }
+    } else if (params.has(key)) {
+      params.delete(key)
+      dirty = true
+    }
+  }
+
+  if (filters.serviceDateRange) {
+    if (params.get('dateRange') !== filters.serviceDateRange) {
+      params.set('dateRange', filters.serviceDateRange)
+      dirty = true
+    }
+  } else if (params.has('dateRange')) {
+    params.delete('dateRange')
+    dirty = true
+  }
+
+  if (filters.showPast) {
+    if (params.get('past') !== '1') {
+      params.set('past', '1')
+      dirty = true
+    }
+  } else if (params.has('past')) {
+    params.delete('past')
+    dirty = true
+  }
+
+  return dirty
 }

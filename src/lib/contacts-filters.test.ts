@@ -20,8 +20,11 @@ import {
   EMPTY_FILTERS,
   activeFilterCount,
   isEmptyFilters,
+  parseContactsFiltersFromUrl,
+  serialiseContactsFiltersToUrl,
   storageKey,
   useContactsFilters,
+  type ContactsFilters,
 } from './contacts-filters'
 
 beforeEach(() => {
@@ -176,6 +179,92 @@ describe('useContactsFilters', () => {
       act(() => result.current.clearAll())
       expect(result.current.filters.includeErased).toBe(false)
       expect(result.current.filters.types).toEqual([])
+    })
+  })
+
+  // ----- landr-j57l — URL parse/serialise + initialOverride ------------
+  describe('URL round-trip (landr-j57l)', () => {
+    it('parseContactsFiltersFromUrl returns null when no filter params present', () => {
+      expect(
+        parseContactsFiltersFromUrl(new URLSearchParams('?open=abc')),
+      ).toBeNull()
+    })
+
+    it('parses type CSV + erased flag', () => {
+      const out = parseContactsFiltersFromUrl(
+        new URLSearchParams('?type=customer,attendee&erased=1'),
+      )!
+      expect(out.types).toEqual(['customer', 'attendee'])
+      expect(out.includeErased).toBe(true)
+    })
+
+    it('drops unknown type values silently', () => {
+      const out = parseContactsFiltersFromUrl(
+        new URLSearchParams('?type=customer,bogus,employee'),
+      )!
+      expect(out.types).toEqual(['customer', 'employee'])
+    })
+
+    it('serialiseContactsFiltersToUrl writes non-empty filters', () => {
+      const filters: ContactsFilters = {
+        types: ['agent', 'employee'],
+        includeErased: true,
+      }
+      const params = new URLSearchParams()
+      const dirty = serialiseContactsFiltersToUrl(params, filters)
+      expect(dirty).toBe(true)
+      expect(params.get('type')).toBe('agent,employee')
+      expect(params.get('erased')).toBe('1')
+    })
+
+    it('serialise drops keys when filters are empty', () => {
+      const params = new URLSearchParams('?type=customer&erased=1')
+      const dirty = serialiseContactsFiltersToUrl(params, EMPTY_FILTERS)
+      expect(dirty).toBe(true)
+      expect(params.has('type')).toBe(false)
+      expect(params.has('erased')).toBe(false)
+    })
+
+    it('serialise is a no-op when URL already matches state', () => {
+      const params = new URLSearchParams('?type=customer')
+      expect(
+        serialiseContactsFiltersToUrl(params, {
+          types: ['customer'],
+          includeErased: false,
+        }),
+      ).toBe(false)
+    })
+
+    it('initialOverride wins over localStorage on first mount', () => {
+      window.localStorage.setItem(
+        storageKey('user-1'),
+        JSON.stringify({ types: ['employee'], includeErased: false }),
+      )
+      const override: ContactsFilters = {
+        types: ['customer', 'attendee'],
+        includeErased: true,
+      }
+      const { result } = renderHook(() =>
+        useContactsFilters({ initialOverride: override }),
+      )
+      expect(result.current.filters.types).toEqual(['customer', 'attendee'])
+      expect(result.current.filters.includeErased).toBe(true)
+      // Eagerly persisted so a same-user reload without the URL still
+      // reflects the deep-linked view.
+      expect(
+        JSON.parse(window.localStorage.getItem(storageKey('user-1'))!),
+      ).toEqual({ types: ['customer', 'attendee'], includeErased: true })
+    })
+
+    it('with no override, falls back to localStorage as before', () => {
+      window.localStorage.setItem(
+        storageKey('user-1'),
+        JSON.stringify({ types: ['agent'], includeErased: false }),
+      )
+      const { result } = renderHook(() =>
+        useContactsFilters({ initialOverride: null }),
+      )
+      expect(result.current.filters.types).toEqual(['agent'])
     })
   })
 })
