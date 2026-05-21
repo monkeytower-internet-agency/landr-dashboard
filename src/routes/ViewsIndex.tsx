@@ -119,3 +119,8 @@ export function ViewsIndex() {
     </div>
   )
 }
+
+// landr-mhhq — default export so the route can be lazy-loaded alongside
+// the rest of the /views family in App.tsx. Named export is preserved
+// for direct test imports.
+export default ViewsIndex

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import {
   Navigate,
   Outlet,
@@ -6,7 +7,20 @@ import {
   useLocation,
   useParams,
 } from 'react-router-dom'
-import { Analytics } from '@/routes/Analytics'
+// landr-mhhq — code-split the heavy routes off the initial bundle:
+//   - /analytics pulls recharts + 5 analytics chart components
+//   - /views/:viewId pulls fullcalendar (+timegrid +daygrid
+//     +interaction) and @dnd-kit via CalendarLayout / BoardLayout
+//   - /views and /views/new ride along so the whole Views family
+//     lives in its own chunk.
+// AuthCallback / Login / Dashboard / Bookings / Calendar / etc stay
+// eagerly imported because the operator hits them within seconds of
+// landing and the network round-trip would feel laggier than the
+// extra bytes save.
+const Analytics = lazy(() => import('@/routes/Analytics'))
+const ViewPage = lazy(() => import('@/routes/ViewPage'))
+const ViewsIndex = lazy(() => import('@/routes/ViewsIndex'))
+const ViewsNew = lazy(() => import('@/routes/ViewsNew'))
 import { AuthCallback } from '@/routes/AuthCallback'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
@@ -20,9 +34,6 @@ import { Products } from '@/routes/Products'
 import { Reporting } from '@/routes/Reporting'
 import { Schedule } from '@/routes/Schedule'
 import { Staff } from '@/routes/Staff'
-import { ViewsIndex } from '@/routes/ViewsIndex'
-import { ViewsNew } from '@/routes/ViewsNew'
-import { ViewPage } from '@/routes/ViewPage'
 import { EmailTemplates } from '@/routes/EmailTemplates'
 import { PickupLocations } from '@/routes/PickupLocations'
 import { SettingsLayout } from '@/routes/SettingsLayout'
@@ -41,6 +52,7 @@ import { ProtectedRoute } from '@/lib/ProtectedRoute'
 import { ThemeProvider } from '@/lib/theme'
 import { AppShell } from '@/components/AppShell'
 import { OnboardingGuard } from '@/components/OnboardingGuard'
+import { RouteFallback } from '@/components/RouteFallback'
 import { Toaster } from '@/components/ui/sonner'
 
 // landr-sydf — preserve /products/:productId deep links by forwarding the
@@ -88,7 +100,13 @@ function App() {
                 <ProtectedRoute>
                   <OnboardingGuard>
                     <AppShell>
-                      <Outlet />
+                      {/* landr-mhhq — Suspense boundary catches all
+                          lazy-loaded route chunks (Analytics +
+                          /views family today) so the AppShell chrome
+                          stays mounted while the chunk streams in. */}
+                      <Suspense fallback={<RouteFallback />}>
+                        <Outlet />
+                      </Suspense>
                     </AppShell>
                   </OnboardingGuard>
                 </ProtectedRoute>

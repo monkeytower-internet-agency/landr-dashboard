@@ -901,3 +901,10 @@ function readConfigLayout(config: Record<string, unknown>): ViewLayout {
   const raw = (config as { layout?: unknown }).layout
   return isViewLayout(raw as string | null | undefined) ? raw as ViewLayout : 'table'
 }
+
+// landr-mhhq — default export so the route can be lazy-loaded via
+// React.lazy() in App.tsx. ViewPage drags fullcalendar (+timegrid +
+// daygrid + interaction) and @dnd-kit (core + sortable + utilities)
+// through its CalendarLayout / BoardLayout layouts. Named export and
+// the buildBookingItemMutate test helper export stay intact.
+export default ViewPage
