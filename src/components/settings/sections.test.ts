@@ -45,13 +45,25 @@ describe('SETTINGS_SECTIONS', () => {
 // /settings/* URLs but are surfaced as two distinct top-level sidebar
 // items; groupForPath() drives which sub-sidebar list renders.
 describe('ACCOUNT_SECTIONS (landr-fzcg)', () => {
-  it('contains exactly company/connected/gmail/plan in that order', () => {
+  // landr-6ybs — Calendar feed joined ACCOUNT between Gmail and Plan
+  // (per-operator subscribable ICS feed; sits next to Gmail because
+  // both are personal third-party integrations).
+  it('contains exactly company/connected/gmail/calendar/plan in that order', () => {
     expect(ACCOUNT_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/company',
       '/settings/connected-accounts',
       '/settings/integrations/gmail',
+      '/settings/integrations/calendar',
       '/settings/plan',
     ])
+  })
+
+  it('includes a Calendar feed entry at /settings/integrations/calendar', () => {
+    const entry = ACCOUNT_SECTIONS.find(
+      (s) => s.to === '/settings/integrations/calendar',
+    )
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Calendar feed')
   })
 
   it('has no duplicate routes', () => {

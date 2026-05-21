@@ -233,13 +233,15 @@ describe('SettingsLayout', () => {
   it('renders the Account sub-sidebar when on an account URL (landr-fzcg)', () => {
     renderSettingsTree('/settings/company')
     // /settings/company belongs to the Account group, so the sub-sidebar
-    // renders ACCOUNT_SECTIONS (Company, Connected accounts, Gmail, Plan).
+    // renders ACCOUNT_SECTIONS (Company, Connected accounts, Gmail,
+    // Calendar feed, Plan). landr-6ybs added Calendar feed.
     const nav = screen.getByRole('navigation', { name: /account sections/i })
     const links = nav.querySelectorAll('a')
-    expect(links).toHaveLength(4)
+    expect(links).toHaveLength(5)
     expect(nav).toHaveTextContent(/company/i)
     expect(nav).toHaveTextContent(/connected accounts/i)
     expect(nav).toHaveTextContent(/gmail/i)
+    expect(nav).toHaveTextContent(/calendar feed/i)
     expect(nav).toHaveTextContent(/plan/i)
     // Settings-group items must NOT appear in the Account sub-sidebar.
     expect(nav).not.toHaveTextContent(/calendar & display/i)

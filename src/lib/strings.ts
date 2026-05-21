@@ -232,6 +232,8 @@ export const t = {
       // landr-qg4q — outbound_emails viewer (failed sends, retried, sent).
       emailLog: 'Email log',
       integrationsGmail: 'Gmail',
+      // landr-6ybs — per-operator subscribable ICS calendar feed.
+      integrationsCalendar: 'Calendar feed',
       connectedAccounts: 'Connected accounts',
       plan: 'Plan',
       pricing: 'Pricing',
@@ -263,6 +265,9 @@ export const t = {
         'Outbound email queue: see what was sent, what failed, and why.',
       integrationsGmail:
         'Send outbound booking emails from your Gmail account via OAuth.',
+      // landr-6ybs — per-operator subscribable ICS calendar feed.
+      integrationsCalendar:
+        'Subscribe to a live ICS feed of all your bookings in Google, Apple, or Outlook calendar.',
       connectedAccounts:
         'Identity links (Google, Apple, GitHub) for this operator.',
       plan: 'Your current subscription plan.',
@@ -1295,6 +1300,48 @@ export const t = {
     gmailDisconnecting: 'Disconnecting…',
     gmailDisconnected: 'Gmail disconnected.',
     gmailDisconnectError: 'Failed to disconnect Gmail.',
+
+    // landr-6ybs — Calendar feed subsection.
+    calendarFeedTitle: 'Calendar feed',
+    calendarFeedDescription:
+      'A subscribable URL that streams every non-cancelled booking into your personal calendar app. Updates roughly hourly depending on your calendar client.',
+    calendarFeedUrlLabel: 'Subscribe URL',
+    calendarFeedLoading: 'Loading feed URL…',
+    calendarFeedError: 'Failed to load the feed URL.',
+    calendarFeedCopy: 'Copy URL',
+    calendarFeedCopied: 'URL copied to clipboard.',
+    calendarFeedCopyError: 'Could not copy. Select + copy manually.',
+    calendarFeedRegenerate: 'Regenerate URL',
+    calendarFeedRegenerating: 'Regenerating…',
+    calendarFeedRegenerated:
+      'New URL issued. The previous URL has been invalidated.',
+    calendarFeedRegenerateError: 'Failed to regenerate the URL.',
+    calendarFeedRegenerateConfirmTitle: 'Regenerate calendar URL?',
+    calendarFeedRegenerateConfirmBody:
+      'This will invalidate the current URL. Any calendar app already subscribed will stop receiving updates until you re-subscribe with the new URL.',
+    calendarFeedRegenerateConfirmCta: 'Regenerate',
+    calendarFeedRegenerateCancelCta: 'Cancel',
+    calendarFeedInstructionsHeading: 'How to subscribe',
+    calendarFeedInstructionsIntro:
+      'Copy the URL above, then add it as a subscribed calendar (not an import — subscriptions auto-refresh).',
+    calendarFeedGoogleHeading: 'Google Calendar',
+    calendarFeedGoogleSteps: [
+      'Open Google Calendar in a browser (the mobile app cannot add subscriptions; once added on the web it syncs to mobile).',
+      'In the left sidebar, click the "+" next to "Other calendars" and choose "From URL".',
+      'Paste the URL and click "Add calendar". The feed appears under "Other calendars".',
+    ],
+    calendarFeedAppleHeading: 'Apple Calendar (macOS / iOS)',
+    calendarFeedAppleSteps: [
+      'macOS: open Calendar, then File → New Calendar Subscription. Paste the URL and click Subscribe.',
+      'iOS: open Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar. Paste the URL.',
+      'Choose how often the calendar refreshes; 15 min is the most frequent option.',
+    ],
+    calendarFeedOutlookHeading: 'Outlook',
+    calendarFeedOutlookSteps: [
+      'Open Outlook on the web (outlook.live.com or outlook.office.com).',
+      'In the calendar view, click "Add calendar" → "Subscribe from web".',
+      'Paste the URL, name the calendar, pick a colour, and click Import.',
+    ],
   },
   pickupLocations: {
     title: 'Pickup locations',
