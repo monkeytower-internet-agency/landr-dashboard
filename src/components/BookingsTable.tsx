@@ -241,7 +241,7 @@ export function BookingsTable({
           const end = matchingServiceEnd(row.original, start)
           const display = (
             <span className="whitespace-nowrap">
-              {formatServiceDateRange(start, end)}
+              {formatServiceDateRange(start, end, { hour12 })}
             </span>
           )
           return (
