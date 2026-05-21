@@ -138,6 +138,24 @@ export const t = {
   userMenu: {
     label: 'User menu',
   },
+  // landr-8whx — topbar notifications bell. v1 surfaces pending approvals
+  // and recent bookings (last 24h) from existing cached queries; no
+  // realtime subscription yet (those queries are already invalidated on
+  // writes via invalidateBookingCaches, so this dropdown refreshes for
+  // free whenever an operator approves/edits/creates a booking).
+  notifications: {
+    label: 'Notifications',
+    open: 'Open notifications',
+    badge: (n: number): string => `${n} unread notifications`,
+    heading: 'Notifications',
+    empty: 'You are all caught up.',
+    sectionPending: 'Pending approvals',
+    sectionRecent: 'New bookings (last 24h)',
+    pendingItem: (customer: string): string => `${customer} — awaiting approval`,
+    recentItem: (customer: string): string => `${customer} — new booking`,
+    viewAllApprovals: 'View all approvals',
+    viewAllBookings: 'View all bookings',
+  },
   bookings: {
     title: 'Bookings',
     empty: 'No bookings yet.',
