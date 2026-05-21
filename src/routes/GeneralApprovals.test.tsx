@@ -300,6 +300,31 @@ describe('GeneralApprovals route', () => {
     ).not.toBeInTheDocument()
   })
 
+  // ---- landr-sj2z ------------------------------------------------------
+
+  // Skeleton placeholder fills the table shell while the first query is
+  // pending. Initial render sits in React Query's pending state; the
+  // .order() promise resolves on the next microtask. Synchronous queries
+  // against the DOM after render() see the skeleton shell. Once the
+  // empty-state appears (data resolved) the skeleton is gone.
+  it('renders the skeleton shell while the first fetch is pending', async () => {
+    mock.state.rows = [sampleRow]
+    render(<GeneralApprovals />)
+    // Initial render: query is pending → skeleton shell is visible and the
+    // friendly empty-state has NOT appeared yet.
+    expect(
+      screen.getByTestId('approvals-skeleton-shell'),
+    ).toBeInTheDocument()
+    expect(screen.getByTestId('approvals-skeleton-row-0')).toBeInTheDocument()
+    expect(screen.queryByText('Carol Chen')).not.toBeInTheDocument()
+    // After the query resolves, the skeleton is gone and the real row is
+    // in the DOM.
+    await screen.findByText('Carol Chen')
+    expect(
+      screen.queryByTestId('approvals-skeleton-shell'),
+    ).not.toBeInTheDocument()
+  })
+
   it('shows the pending count badge in the header', async () => {
     mock.state.rows = [sampleRow, newCustomerRow]
     render(<GeneralApprovals />)

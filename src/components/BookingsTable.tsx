@@ -42,6 +42,7 @@ import {
 import { BulkActionToolbar } from '@/components/BulkActionToolbar'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { DayChips } from '@/components/booking/DayChips'
+import { SkeletonTableRows } from '@/components/SkeletonTableRows'
 import { StageBadge } from '@/components/booking/StageBadge'
 import { useOperatorCalendarPrefs } from '@/lib/operator'
 import { t } from '@/lib/strings'
@@ -51,6 +52,11 @@ type Props = {
   rows: BookingRow[]
   onRowClick: (row: BookingRow) => void
   onCustomerClick?: (contactId: string) => void
+  // landr-sj2z — when true, render skeleton rows in place of the table
+  // body. The route still owns the loading lifecycle (useQuery.isPending);
+  // the table just paints a placeholder so the operator sees the chrome
+  // immediately instead of a blank gap.
+  isLoading?: boolean
 }
 
 // landr-lbbj — column schema used by the bulk-export action. Mirrors
@@ -77,7 +83,12 @@ const bulkExportColumns: CsvColumn<BookingRow>[] = [
   { header: 'Currency', value: (r) => r.currency || 'EUR' },
 ]
 
-export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
+export function BookingsTable({
+  rows,
+  onRowClick,
+  onCustomerClick,
+  isLoading = false,
+}: Props) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'created_at', desc: true },
   ])
@@ -274,10 +285,12 @@ export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
     setSelectedIds(new Set())
   }
 
-  // landr-s1mr — When there are zero bookings at all (not just zero
-  // matches for the current filter/search), show the friendly empty-state
-  // card instead of the filter chrome + empty table.
-  if (rows.length === 0) {
+  // landr-s1mr / landr-sj2z — When there are zero bookings at all AND we
+  // are NOT mid-fetch, show the friendly empty-state card. During the
+  // initial loading window we fall through so the skeleton placeholder
+  // takes over (see TableBody below) — preventing an "empty state flash"
+  // before the first rows land.
+  if (rows.length === 0 && !isLoading) {
     return (
       <EmptyState
         icon={CalendarRangeIcon}
@@ -342,7 +355,16 @@ export function BookingsTable({ rows, onRowClick, onCustomerClick }: Props) {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length === 0 ? (
+            {isLoading ? (
+              // landr-sj2z — pulsing skeleton placeholder while the first
+              // fetch is still in flight. Column count matches the live
+              // table so the eventual rows land in the same grid.
+              <SkeletonTableRows
+                count={6}
+                columnCount={columns.length}
+                data-testid="bookings-skeleton"
+              />
+            ) : table.getRowModel().rows.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={columns.length}

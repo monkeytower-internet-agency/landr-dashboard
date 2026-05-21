@@ -471,6 +471,9 @@ export function ProductsManager({
           duplicateMutation.mutate(row.id)
         }}
         duplicatingId={duplicatingId}
+        // landr-sj2z — paint skeleton chips during the first fetch so the
+        // filter + new-product header stays visible above them.
+        isLoading={isLoading}
       />
     </div>
   )
@@ -519,9 +522,10 @@ export function ProductsManager({
             </p>
           </CardContent>
         </Card>
-      ) : isLoading ? (
-        <p className="text-muted-foreground text-sm">{t.products.loading}</p>
       ) : routed ? (
+        /* landr-sj2z — no more top-level "Loading…" line. The
+           ProductsList renders its own skeleton chips during the first
+           fetch so the filter chrome stays visible. */
         /* landr-li8e — routed mode: list view OR full-page detail, never
            both. Switching is driven by the URL via the Products route. */
         showList ? listColumn : detailCard

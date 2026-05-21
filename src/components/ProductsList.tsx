@@ -4,6 +4,7 @@ import { BedDoubleIcon, CopyIcon, MoreHorizontalIcon, PackageIcon, PlusIcon, Sea
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { EmptyState } from '@/components/EmptyState'
+import { SkeletonListRows } from '@/components/SkeletonTableRows'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -106,9 +107,21 @@ type Props = {
   onCreate: () => void
   onDuplicate: (row: ProductRow) => void
   duplicatingId: string | null
+  // landr-sj2z — paint skeleton list items in place of real chips while
+  // the parent's fetch is in flight. Mirrors the table-side prop on the
+  // other surfaces.
+  isLoading?: boolean
 }
 
-export function ProductsList({ rows, selectedId, onSelect, onCreate, onDuplicate, duplicatingId }: Props) {
+export function ProductsList({
+  rows,
+  selectedId,
+  onSelect,
+  onCreate,
+  onDuplicate,
+  duplicatingId,
+  isLoading = false,
+}: Props) {
   const [filter, setFilter] = useState('')
   // landr-u34k — hide is_addon_only=true rows by default. The toggle
   // surfaces them again for operators who need to find / edit one.
@@ -169,10 +182,12 @@ export function ProductsList({ rows, selectedId, onSelect, onCreate, onDuplicate
   // intersperses hotel headers above their room groups.
   const entries = useMemo(() => groupRows(filtered), [filtered])
 
-  // landr-s1mr — When the operator has zero products at all (not just
-  // zero matches for the search or addon toggle), surface the friendly
-  // empty-state card with a "New product" CTA wired to onCreate.
-  if (rows.length === 0) {
+  // landr-s1mr / landr-sj2z — When the operator has zero products AND
+  // the parent fetch has settled, surface the friendly empty-state card
+  // with a "New product" CTA. During the loading window we fall through
+  // so the skeleton placeholder list renders below, preventing an empty-
+  // state flash before the first rows arrive.
+  if (rows.length === 0 && !isLoading) {
     return (
       <div className="flex h-full flex-col">
         <EmptyState
@@ -240,7 +255,12 @@ export function ProductsList({ rows, selectedId, onSelect, onCreate, onDuplicate
         aria-label={t.products.listAriaLabel}
         className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto"
       >
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          // landr-sj2z — skeleton chips while the products query is in
+          // flight. The list aria-label stays so AT users still know
+          // they're inside the products listbox.
+          <SkeletonListRows count={6} data-testid="products-skeleton" />
+        ) : filtered.length === 0 ? (
           <li className="text-muted-foreground rounded-md border border-dashed p-4 text-center text-sm">
             {visibleRows.length === 0 ? t.products.empty : t.products.noMatches}
           </li>
