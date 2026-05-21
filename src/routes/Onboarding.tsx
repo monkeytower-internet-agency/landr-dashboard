@@ -108,8 +108,13 @@ function OnboardingInner({
   }, [searchParams, operatorId])
 
   const [step, setStep] = useState<number>(initialStep)
+  const [isCompleted, setIsCompleted] = useState(false)
 
   useEffect(() => {
+    // Once onboarding is completed, do NOT re-persist the step — otherwise
+    // this effect races with finishMutation.onSuccess's clearStoredStep and
+    // leaves a stale `step=9` localStorage key per-operator.
+    if (isCompleted) return
     writeStoredStep(operatorId, step)
     const current = Number(searchParams.get('step'))
     if (current !== step) {
@@ -117,7 +122,7 @@ function OnboardingInner({
       next.set('step', String(step))
       setSearchParams(next, { replace: true })
     }
-  }, [step, operatorId, searchParams, setSearchParams])
+  }, [step, operatorId, searchParams, setSearchParams, isCompleted])
 
   const advance = useCallback(() => {
     setStep((s) => Math.min(TOTAL_STEPS, s + 1))
@@ -130,6 +135,7 @@ function OnboardingInner({
   const finishMutation = useMutation({
     mutationFn: () => markOnboarded(operatorId),
     onSuccess: () => {
+      setIsCompleted(true)
       clearStoredStep(operatorId)
       refresh()
       setStep(TOTAL_STEPS)
