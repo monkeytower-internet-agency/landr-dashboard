@@ -151,6 +151,10 @@ export const t = {
     columnPrice: 'Price',
     columnDays: 'Days',
     filterPlaceholder: 'Search bookings…',
+    // landr-xnpc — download the filtered view as CSV.
+    exportCsv: 'Download CSV',
+    exportCsvAria: (n: number): string =>
+      `Download ${n} filtered bookings as CSV`,
     detailsTitle: 'Booking',
     detailsClose: 'Close',
     // landr-1lj — filter bar above the table + calendar.
@@ -286,6 +290,10 @@ export const t = {
     columnActivity: 'Activity',
     columnActions: 'Actions',
     filterPlaceholder: 'Search contacts…',
+    // landr-xnpc — download the filtered view as CSV.
+    exportCsv: 'Download CSV',
+    exportCsvAria: (n: number): string =>
+      `Download ${n} filtered contacts as CSV`,
     statusActive: 'Active',
     statusErased: 'Erased',
     actionErase: 'GDPR erase',
@@ -588,6 +596,10 @@ export const t = {
     toastApproved: 'Booking approved.',
     toastRejected: 'Booking rejected.',
     toastError: 'Action failed.',
+    // landr-xnpc — download the filtered approval queue as CSV.
+    exportCsv: 'Download CSV',
+    exportCsvAria: (n: number): string =>
+      `Download ${n} filtered approvals as CSV`,
     // landr-aqn4 — filter bar above the table.
     filters: {
       reason: 'Reason',

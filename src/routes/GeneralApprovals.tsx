@@ -18,7 +18,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table'
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, DownloadIcon } from 'lucide-react'
 
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { ApprovalsFilters } from '@/components/approvals/ApprovalsFilters'
@@ -59,6 +59,7 @@ import {
 } from '@/lib/bookings'
 import { filterApprovals } from '@/lib/approvals-filter-match'
 import { useApprovalsFilters } from '@/lib/approvals-filters'
+import { downloadCsv, todayStampUtc, type CsvColumn } from '@/lib/csv-export'
 import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
@@ -67,6 +68,27 @@ type DialogState = {
   row: BookingRow
   decision: ApprovalDecision
 } | null
+
+// landr-xnpc — CSV column set for the Approvals queue export. Stable at
+// module scope; mirrors the on-screen approval table plus the gross_total
+// numeric so operators can sort/SUM in their spreadsheet of choice.
+const approvalsCsvColumns: CsvColumn<BookingRow>[] = [
+  { header: 'Booking ID', value: (r) => r.id },
+  { header: 'Requested', value: (r) => r.created_at },
+  { header: 'Activity date', value: (r) => firstActivityDate(r) ?? '' },
+  { header: 'Stage', value: (r) => r.current_stage?.code ?? '' },
+  { header: 'Customer', value: (r) => customerDisplay(r) },
+  { header: 'Email', value: (r) => r.customer?.email ?? '' },
+  { header: 'Product', value: (r) => productDisplay(r) },
+  {
+    header: 'Gross total',
+    value: (r) => {
+      const n = Number(r.gross_total)
+      return Number.isFinite(n) ? n.toFixed(2) : ''
+    },
+  },
+  { header: 'Currency', value: (r) => r.currency || 'EUR' },
+]
 
 export function GeneralApprovals() {
   const { currentOperatorId } = useOperator()
@@ -244,6 +266,17 @@ export function GeneralApprovals() {
 
   const pendingCount = rows.length
 
+  // landr-xnpc — export the CURRENT FILTERED view (post chip filters), not
+  // the raw queue. If the operator narrowed to "Hotel review only" they
+  // want the CSV to match that.
+  function onExportCsv() {
+    downloadCsv(
+      `approvals-${todayStampUtc()}.csv`,
+      filteredRows,
+      approvalsCsvColumns,
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <PageTitle title={t.generalApprovals.title} />
@@ -260,6 +293,17 @@ export function GeneralApprovals() {
             </span>
           ) : null}
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onExportCsv}
+          disabled={filteredRows.length === 0}
+          aria-label={t.generalApprovals.exportCsvAria(filteredRows.length)}
+          data-testid="approvals-export-csv"
+        >
+          <DownloadIcon className="size-4" />
+          {t.generalApprovals.exportCsv}
+        </Button>
       </header>
 
       {query.isError ? (
