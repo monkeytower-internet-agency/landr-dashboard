@@ -85,6 +85,10 @@ export const t = {
     dashboard: 'Dashboard',
     bookings: 'Bookings',
     calendar: 'Calendar',
+    // landr-af6c — Analytics sits between Calendar and Contacts in the
+    // primary nav. Keep Reporting as a separate (older) destination so
+    // existing operator bookmarks and the CSV export don't move.
+    analytics: 'Analytics',
     contacts: 'Contacts',
     products: 'Products',
     reporting: 'Reporting',
@@ -937,6 +941,77 @@ export const t = {
       'Holded sync runs automatically after the Para42 cancellation period. ' +
       'A manual “sync now” trigger from this screen is deferred until the ' +
       'matching FastAPI endpoint ships (landr-m05.9 carry-over).',
+  },
+  // landr-af6c — /analytics route copy. Lives next to the reporting bucket
+  // because both surfaces consume the same bookings fetch; analytics is the
+  // operational-insight view while reporting is the export-and-numbers view.
+  analytics: {
+    title: 'Analytics',
+    loading: 'Loading analytics…',
+    error: 'Failed to load analytics data.',
+    empty: 'No bookings in the selected range yet.',
+
+    rangeLabel: 'Range',
+    rangeLast30: 'Last 30 days',
+    rangeLast90: 'Last 90 days',
+    rangeLast365: 'Last 365 days',
+    rangeNote: (from: string, to: string) => `${from} → ${to}`,
+
+    kpiBookingsLabel: 'Bookings',
+    kpiBookingsHint: 'Total bookings (incl. cancelled)',
+    kpiRevenueLabel: 'Revenue',
+    kpiRevenueHint: 'Excludes cancelled bookings',
+    kpiAvgTicketLabel: 'Average ticket',
+    kpiAvgTicketHint: 'Revenue ÷ non-cancelled bookings',
+
+    cancelledNote: (n: number) =>
+      n === 0
+        ? ''
+        : `${n} cancelled booking${n === 1 ? '' : 's'} excluded from revenue.`,
+    mixedCurrencyWarning:
+      'Multiple currencies detected — totals shown in the first currency seen.',
+
+    revenueOverTimeTitle: 'Revenue over time',
+    revenueOverTimeDescription:
+      'Gross revenue per bucket, cancelled bookings excluded.',
+    bucketDay: 'daily buckets',
+    bucketWeek: 'weekly buckets',
+    bucketMonth: 'monthly buckets',
+
+    productsTitle: 'Bookings per product',
+    productsDescription:
+      'Top 10 products by booking line count. Multi-product bookings ' +
+      'allocate revenue evenly across their lines.',
+
+    funnelTitle: 'Conversion funnel',
+    funnelDescription:
+      'Initiated → confirmed → completed. Each stage contains its successors.',
+    funnelInitiated: 'Initiated',
+    funnelConfirmed: 'Confirmed',
+    funnelCompleted: 'Completed',
+    funnelFromTop: (pct: string) => `${pct} of top`,
+    funnelFromPrev: (pct: string) => `${pct} of previous`,
+    funnelCancelledNote: (n: number) =>
+      `${n} cancelled booking${n === 1 ? '' : 's'} dropped off before confirmation.`,
+    funnelNoShowNote: (n: number) =>
+      `${n} no-show booking${n === 1 ? '' : 's'} confirmed but never arrived.`,
+
+    topCustomersTitle: 'Top customers',
+    topCustomersDescription: 'By revenue, then booking count. Up to 10 rows.',
+    topCustomersColumnName: 'Customer',
+    topCustomersColumnEmail: 'Email',
+    topCustomersColumnBookings: 'Bookings',
+    topCustomersColumnRevenue: 'Revenue',
+    topCustomersEmpty: 'No customers in the selected range.',
+
+    heatmapTitle: 'Occupancy heatmap',
+    heatmapDescription:
+      'When bookings come in. Rows are weekdays of the service date; ' +
+      'columns are the booking-creation hour (UTC).',
+    heatmapEmpty: 'No bookings in the selected range to plot.',
+    heatmapHourAxis: 'Hour of day (UTC)',
+    heatmapCellAria: (count: number, weekday: string, hour: number) =>
+      `${count} booking${count === 1 ? '' : 's'} on ${weekday} at ${hour.toString().padStart(2, '0')}:00 UTC`,
   },
   emailTemplates: {
     title: 'Email templates',
