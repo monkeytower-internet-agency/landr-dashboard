@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/AppSidebar'
 import { CommandPalette } from '@/components/CommandPalette'
+import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp'
 import { NotificationsBell } from '@/components/NotificationsBell'
 import { OnboardingBanner } from '@/components/OnboardingBanner'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
@@ -23,6 +24,7 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { PageTitleDisplay } from '@/components/topbar/PageTitleDisplay'
 import { useAuth } from '@/lib/auth'
 import { CommandPaletteProvider } from '@/lib/command-palette-context'
+import { KeyboardShortcutsHelpProvider } from '@/lib/keyboard-shortcuts-help-context'
 import { PageTitleProvider } from '@/lib/page-title'
 import { SidebarModeProvider } from '@/lib/sidebar-mode-context'
 import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
@@ -121,6 +123,10 @@ function AppShellInner({
           shell level so the hot-key listener (installed by the
           CommandPaletteProvider) covers every protected route. */}
       <CommandPalette />
+      {/* landr-kwu9 — global '?' keyboard shortcuts cheat sheet. Same
+          pattern as the palette: provider installs the keydown listener,
+          this component renders the dialog wherever in the shell. */}
+      <KeyboardShortcutsHelp />
     </SidebarProvider>
   )
 }
@@ -138,7 +144,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     <SidebarModeProvider>
       <PageTitleProvider>
         <CommandPaletteProvider>
-          <AppShellInner onSignOut={onSignOut}>{children}</AppShellInner>
+          <KeyboardShortcutsHelpProvider>
+            <AppShellInner onSignOut={onSignOut}>{children}</AppShellInner>
+          </KeyboardShortcutsHelpProvider>
         </CommandPaletteProvider>
       </PageTitleProvider>
     </SidebarModeProvider>
