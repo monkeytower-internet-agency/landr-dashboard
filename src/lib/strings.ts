@@ -44,6 +44,26 @@ export const t = {
     loadingHint: 'Loading…',
     bookingMissingCustomer: 'Unknown customer',
   },
+  // landr-kwu9 — global ? keyboard shortcuts cheat sheet.
+  keyboardShortcuts: {
+    dialogTitle: 'Keyboard shortcuts',
+    dialogDescription:
+      'Speed up navigation with these keyboard shortcuts. Press ? from anywhere to reopen this sheet.',
+    closeLabel: 'Close',
+    groupGlobal: 'Global',
+    groupNavigation: 'Navigation',
+    groupDialogs: 'Dialogs & sheets',
+    shortcuts: {
+      commandPalette: 'Open command palette',
+      keyboardHelp: 'Show this shortcuts sheet',
+      toggleSidebar: 'Toggle sidebar',
+      closeOverlay: 'Close any open dialog, sheet, or palette',
+      sortColumn:
+        'Sort a table column (click the header arrow; arrow keys cycle directions)',
+      calendarPrevNext:
+        'Previous / next period in the calendar (use the toolbar buttons)',
+    },
+  },
   auth: {
     signInHeading: 'Sign in',
     signInDescription: 'Access your operator dashboard.',
