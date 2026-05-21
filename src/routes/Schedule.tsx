@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Card,
   CardContent,
@@ -31,7 +32,6 @@ import {
 import { useOperator } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
-import { cn } from '@/lib/utils'
 
 // landr-lp9t — persisted Month/List view toggle. Keyed globally (not per
 // operator) because users typically prefer one view across all tenants;
@@ -446,42 +446,28 @@ export function Schedule() {
             picker. Hidden when no product is pickable — there's nothing to
             view-toggle in that case. */}
         {products.length > 0 || productsQuery.isPending ? (
-          <div
-            role="tablist"
-            aria-label={t.schedule.viewToggleLabel}
-            className="border-input bg-background mt-1 inline-flex shrink-0 rounded-md border p-0.5"
+          <Tabs
+            value={view}
+            onValueChange={(next) => setView(next as ScheduleView)}
+            className="mt-1 shrink-0"
           >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={view === 'month'}
-              data-testid="schedule-view-month"
-              onClick={() => setView('month')}
-              className={cn(
-                'cursor-pointer rounded-sm px-3 py-1.5 text-xs font-medium transition-colors',
-                view === 'month'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-              )}
-            >
-              {t.schedule.viewToggleMonth}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={view === 'list'}
-              data-testid="schedule-view-list"
-              onClick={() => setView('list')}
-              className={cn(
-                'cursor-pointer rounded-sm px-3 py-1.5 text-xs font-medium transition-colors',
-                view === 'list'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-              )}
-            >
-              {t.schedule.viewToggleList}
-            </button>
-          </div>
+            <TabsList variant="pill" aria-label={t.schedule.viewToggleLabel}>
+              <TabsTrigger
+                variant="pill"
+                value="month"
+                data-testid="schedule-view-month"
+              >
+                {t.schedule.viewToggleMonth}
+              </TabsTrigger>
+              <TabsTrigger
+                variant="pill"
+                value="list"
+                data-testid="schedule-view-list"
+              >
+                {t.schedule.viewToggleList}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         ) : null}
       </div>
 

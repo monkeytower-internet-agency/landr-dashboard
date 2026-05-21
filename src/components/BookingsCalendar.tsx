@@ -14,6 +14,7 @@ import type {
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import {
   bookingsToCalendarEvents,
@@ -401,21 +402,26 @@ export function BookingsCalendar({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-end gap-1" role="tablist">
-        {(Object.keys(VIEW_LABEL) as CalendarView[]).map((v) => (
-          <Button
-            key={v}
-            type="button"
-            role="tab"
-            aria-selected={view === v}
-            size="sm"
-            variant={view === v ? 'default' : 'outline'}
-            onClick={() => handleViewChange(v)}
-          >
-            {VIEW_LABEL[v]}
-          </Button>
-        ))}
-      </div>
+      <Tabs
+        value={view}
+        onValueChange={(next) => handleViewChange(next as CalendarView)}
+      >
+        <TabsList
+          className="flex items-center justify-end gap-1 border-0 bg-transparent p-0"
+        >
+          {(Object.keys(VIEW_LABEL) as CalendarView[]).map((v) => (
+            <TabsTrigger key={v} value={v} asChild>
+              <Button
+                type="button"
+                size="sm"
+                variant={view === v ? 'default' : 'outline'}
+              >
+                {VIEW_LABEL[v]}
+              </Button>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
       {showOffHoursToggle ? (
         <div className="flex items-center justify-end">
           <Button

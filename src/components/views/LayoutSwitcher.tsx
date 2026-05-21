@@ -9,6 +9,7 @@
 
 import { LayoutGrid, LayoutList, CalendarDays } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
 
@@ -43,36 +44,35 @@ const OPTIONS: readonly LayoutOption[] = [
 
 export function LayoutSwitcher({ value, onChange, testIdPrefix = 'layout-switcher' }: Props) {
   return (
-    <div
-      role="tablist"
-      aria-label={t.views.layout.groupLabel}
-      data-testid={testIdPrefix}
-      className="border-input bg-background inline-flex rounded-md border p-0.5"
-    >
-      {OPTIONS.map((opt) => {
-        const active = opt.value === value
-        const Icon = opt.icon
-        return (
-          <Button
-            key={opt.value}
-            type="button"
-            role="tab"
-            size="sm"
-            variant={active ? 'default' : 'ghost'}
-            aria-selected={active}
-            aria-label={opt.label}
-            data-testid={`${testIdPrefix}-${opt.value}`}
-            onClick={() => onChange(opt.value)}
-            className={cn(
-              'h-7 gap-1 px-2 text-xs',
-              !active && 'text-muted-foreground',
-            )}
-          >
-            <Icon className="size-3.5" aria-hidden="true" />
-            {opt.label}
-          </Button>
-        )
-      })}
-    </div>
+    <Tabs value={value} onValueChange={(next) => onChange(next as ViewLayout)}>
+      <TabsList
+        variant="pill"
+        aria-label={t.views.layout.groupLabel}
+        data-testid={testIdPrefix}
+      >
+        {OPTIONS.map((opt) => {
+          const active = opt.value === value
+          const Icon = opt.icon
+          return (
+            <TabsTrigger key={opt.value} value={opt.value} asChild>
+              <Button
+                type="button"
+                size="sm"
+                variant={active ? 'default' : 'ghost'}
+                aria-label={opt.label}
+                data-testid={`${testIdPrefix}-${opt.value}`}
+                className={cn(
+                  'h-7 gap-1 px-2 text-xs',
+                  !active && 'text-muted-foreground',
+                )}
+              >
+                <Icon className="size-3.5" aria-hidden="true" />
+                {opt.label}
+              </Button>
+            </TabsTrigger>
+          )
+        })}
+      </TabsList>
+    </Tabs>
   )
 }

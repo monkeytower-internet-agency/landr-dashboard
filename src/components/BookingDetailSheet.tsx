@@ -28,13 +28,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { BookingTimeline } from '@/components/booking/BookingTimeline'
 import { DayChips } from '@/components/booking/DayChips'
 import { MultiDayPicker } from '@/components/booking/MultiDayPicker'
 import { StageBadge } from '@/components/booking/StageBadge'
-import { cn } from '@/lib/utils'
 import {
   cancelBooking,
   customerDisplay,
@@ -328,45 +328,31 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         </SheetDescription>
       </SheetHeader>
 
-      {/* landr-5f8q — Details / Timeline tab strip. Inline tablist (the
-          codebase convention; see src/routes/Schedule.tsx tab toggle and
-          src/components/BookingsCalendar.tsx for the same pattern). */}
-      <div
-        role="tablist"
-        aria-label={t.bookings.detailsTitle}
-        className="border-input bg-background mx-4 mt-2 inline-flex w-fit shrink-0 self-start rounded-md border p-0.5"
+      {/* landr-5f8q — Details / Timeline tab strip. Built on the shared
+          shadcn Tabs primitive (landr-maat). Panels render conditionally
+          below to keep the form/sheet flex layout intact. */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(next) => setActiveTab(next as ActiveTab)}
+        className="mx-4 mt-2 w-fit shrink-0 self-start"
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'details'}
-          data-testid="booking-tab-details"
-          onClick={() => setActiveTab('details')}
-          className={cn(
-            'cursor-pointer rounded-sm px-3 py-1.5 text-xs font-medium transition-colors',
-            activeTab === 'details'
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-          )}
-        >
-          {t.bookings.timeline.tabDetails}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'timeline'}
-          data-testid="booking-tab-timeline"
-          onClick={() => setActiveTab('timeline')}
-          className={cn(
-            'cursor-pointer rounded-sm px-3 py-1.5 text-xs font-medium transition-colors',
-            activeTab === 'timeline'
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-          )}
-        >
-          {t.bookings.timeline.tabTimeline}
-        </button>
-      </div>
+        <TabsList variant="pill" aria-label={t.bookings.detailsTitle}>
+          <TabsTrigger
+            variant="pill"
+            value="details"
+            data-testid="booking-tab-details"
+          >
+            {t.bookings.timeline.tabDetails}
+          </TabsTrigger>
+          <TabsTrigger
+            variant="pill"
+            value="timeline"
+            data-testid="booking-tab-timeline"
+          >
+            {t.bookings.timeline.tabTimeline}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {activeTab === 'timeline' ? (
         <div
