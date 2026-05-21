@@ -340,3 +340,63 @@ describe('ViewToolbar column-by picker (landr-9nj9)', () => {
     expect(select.value).toBe('current_semantic_state')
   })
 })
+
+describe('ViewToolbar a11y (landr-8j1x)', () => {
+  // The sort/group/column-by/swimlane dropdowns have only a sibling
+  // visual span as their label — that span is not programmatically
+  // associated with the <select>. Assert each control carries an
+  // explicit aria-label so screen readers announce a name on focus.
+  it('sort dropdown has an accessible name', () => {
+    render(
+      <ViewToolbar
+        entityType="booking"
+        config={{}}
+        onChange={() => {}}
+      />,
+    )
+    const select = screen.getByTestId('view-toolbar-sort-key')
+    expect(select).toHaveAttribute('aria-label')
+    expect(select.getAttribute('aria-label')).toBeTruthy()
+  })
+
+  it('group-by dropdown has an accessible name', () => {
+    render(
+      <ViewToolbar
+        entityType="booking"
+        config={{}}
+        onChange={() => {}}
+      />,
+    )
+    const select = screen.getByTestId('view-toolbar-group-key')
+    expect(select).toHaveAttribute('aria-label')
+    expect(select.getAttribute('aria-label')).toBeTruthy()
+  })
+
+  it('column-by dropdown has an accessible name when board layout is active', () => {
+    render(
+      <ViewToolbar
+        entityType="booking"
+        config={{ layout: 'board' }}
+        onChange={() => {}}
+        layout="board"
+      />,
+    )
+    const select = screen.getByTestId('view-toolbar-column-by-key')
+    expect(select).toHaveAttribute('aria-label')
+    expect(select.getAttribute('aria-label')).toBeTruthy()
+  })
+
+  it('swimlane dropdown has an accessible name when board layout is active', () => {
+    render(
+      <ViewToolbar
+        entityType="booking"
+        config={{ layout: 'board' }}
+        onChange={() => {}}
+        layout="board"
+      />,
+    )
+    const select = screen.getByTestId('view-toolbar-swimlane-key')
+    expect(select).toHaveAttribute('aria-label')
+    expect(select.getAttribute('aria-label')).toBeTruthy()
+  })
+})

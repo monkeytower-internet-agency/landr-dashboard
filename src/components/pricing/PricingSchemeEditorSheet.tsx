@@ -25,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
@@ -103,6 +104,9 @@ function PricingSchemeEditorBody({ schemeId, operatorId, onClose: _onClose }: Bo
       <>
         <SheetHeader>
           <SheetTitle>Loading…</SheetTitle>
+          <SheetDescription className="sr-only">
+            Loading pricing scheme details.
+          </SheetDescription>
         </SheetHeader>
         <p className="text-muted-foreground p-4 text-sm">Loading pricing scheme…</p>
       </>
@@ -114,6 +118,9 @@ function PricingSchemeEditorBody({ schemeId, operatorId, onClose: _onClose }: Bo
       <>
         <SheetHeader>
           <SheetTitle>Error</SheetTitle>
+          <SheetDescription className="sr-only">
+            Failed to load the pricing scheme.
+          </SheetDescription>
         </SheetHeader>
         <p className="text-destructive p-4 text-sm">
           Failed to load scheme: {(error as Error | null)?.message ?? 'unknown error'}
@@ -282,6 +289,9 @@ function SchemeEditor({ scheme, operatorId, onRefetch }: EditorProps) {
           </Button>
         </div>
         <SheetTitle className="sr-only">{scheme.name}</SheetTitle>
+        <SheetDescription className="sr-only">
+          Edit pricing scheme rules, tiers, and metadata.
+        </SheetDescription>
       </SheetHeader>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">

@@ -188,6 +188,7 @@ export function ViewToolbar({
           onChange={(e) => setSortKey(e.target.value)}
           data-testid={`${testIdPrefix}-sort-key`}
           className="h-7 w-auto text-xs"
+          aria-label={t.views.toolbar.sortLabel}
         >
           <option value={NO_SORT_VALUE}>{t.views.toolbar.sortNone}</option>
           {sortableFields.map((f) => (
@@ -229,6 +230,7 @@ export function ViewToolbar({
             onChange={(e) => setGroupByKey(e.target.value)}
             data-testid={`${testIdPrefix}-group-key`}
             className="h-7 w-auto text-xs"
+            aria-label={t.views.toolbar.groupByLabel}
           >
             <option value={NO_GROUP_VALUE}>{t.views.toolbar.groupByNone}</option>
             {groupableFields.map((f) => (
@@ -257,6 +259,7 @@ export function ViewToolbar({
             onChange={(e) => setColumnBy(e.target.value)}
             data-testid={`${testIdPrefix}-column-by-key`}
             className="h-7 w-auto text-xs"
+            aria-label={t.views.toolbar.columnByLabel}
           >
             <option value={NO_COLUMN_BY_VALUE}>
               {t.views.toolbar.columnByNone}
@@ -287,6 +290,7 @@ export function ViewToolbar({
             onChange={(e) => setSwimlaneBy(e.target.value)}
             data-testid={`${testIdPrefix}-swimlane-key`}
             className="h-7 w-auto text-xs"
+            aria-label={t.views.toolbar.swimlaneLabel}
           >
             <option value={NO_SWIMLANE_VALUE}>
               {t.views.toolbar.swimlaneNone}
