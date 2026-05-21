@@ -11,6 +11,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth'
 
+/**
+ * landr-68a9 — service-date preset for the quick-filter strip above the
+ * Bookings table. A small enum of named windows rather than an arbitrary
+ * date range so the filter is round-trippable through localStorage and
+ * the active preset is easy to highlight in the strip. `null` means "no
+ * date constraint" (every booking matches).
+ */
+export type ServiceDateRangePreset = 'today' | 'this_week' | 'next_30d'
+
 export type BookingsFilters = {
   /** booking_lifecycle_stages.code values (free-text per operator). */
   lifecycleStates: string[]
@@ -30,6 +39,13 @@ export type BookingsFilters = {
    * parser below.
    */
   showPast: boolean
+  /**
+   * landr-68a9 — service-date preset driven by the quick-filter strip.
+   * `null` means no date constraint. Treated as a view toggle (not a
+   * chip) so it doesn't count toward activeFilterCount / isEmptyFilters,
+   * matching the showPast precedent.
+   */
+  serviceDateRange: ServiceDateRangePreset | null
 }
 
 export const EMPTY_FILTERS: BookingsFilters = {
@@ -39,9 +55,26 @@ export const EMPTY_FILTERS: BookingsFilters = {
   productKinds: [],
   serviceTimeShapes: [],
   showPast: false,
+  serviceDateRange: null,
 }
 
-type ChipDimension = Exclude<keyof BookingsFilters, 'showPast'>
+const SERVICE_DATE_RANGE_VALUES: ReadonlyArray<ServiceDateRangePreset> = [
+  'today',
+  'this_week',
+  'next_30d',
+]
+
+function isServiceDateRangePreset(v: unknown): v is ServiceDateRangePreset {
+  return (
+    typeof v === 'string' &&
+    (SERVICE_DATE_RANGE_VALUES as ReadonlyArray<string>).includes(v)
+  )
+}
+
+type ChipDimension = Exclude<
+  keyof BookingsFilters,
+  'showPast' | 'serviceDateRange'
+>
 
 const FILTER_KEYS: ReadonlyArray<ChipDimension> = [
   'lifecycleStates',
@@ -89,6 +122,14 @@ function readStored(userId: string): BookingsFilters {
     if (typeof parsed?.showPast === 'boolean') {
       out.showPast = parsed.showPast
     }
+    // landr-68a9 — preset parser is strict (enum-or-null) so a corrupted
+    // stored value falls back to "no constraint" rather than throwing.
+    if (
+      parsed?.serviceDateRange === null ||
+      isServiceDateRangePreset(parsed?.serviceDateRange)
+    ) {
+      out.serviceDateRange = parsed.serviceDateRange ?? null
+    }
     return out
   } catch {
     return EMPTY_FILTERS
@@ -112,6 +153,8 @@ export type UseBookingsFilters = {
   clearAll: () => void
   /** landr-qhi0 — flip the "Show past bookings" view toggle. */
   setShowPast: (value: boolean) => void
+  /** landr-68a9 — apply (or clear) the service-date preset. */
+  setServiceDateRange: (value: ServiceDateRangePreset | null) => void
 }
 
 /**
@@ -190,8 +233,36 @@ export function useBookingsFilters(): UseBookingsFilters {
     [userId],
   )
 
+  const setServiceDateRange = useCallback(
+    (value: ServiceDateRangePreset | null) => {
+      setFiltersState((current) => {
+        if (current.serviceDateRange === value) return current
+        const next: BookingsFilters = { ...current, serviceDateRange: value }
+        if (userId) writeStored(userId, next)
+        return next
+      })
+    },
+    [userId],
+  )
+
   return useMemo(
-    () => ({ filters, setFilters, toggle, clearDimension, clearAll, setShowPast }),
-    [filters, setFilters, toggle, clearDimension, clearAll, setShowPast],
+    () => ({
+      filters,
+      setFilters,
+      toggle,
+      clearDimension,
+      clearAll,
+      setShowPast,
+      setServiceDateRange,
+    }),
+    [
+      filters,
+      setFilters,
+      toggle,
+      clearDimension,
+      clearAll,
+      setShowPast,
+      setServiceDateRange,
+    ],
   )
 }

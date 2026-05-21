@@ -130,6 +130,8 @@ describe('useBookingsFilters', () => {
       // landr-qhi0 — showPast is part of the persisted shape; clearAll
       // resets it to the default (false).
       showPast: false,
+      // landr-68a9 — serviceDateRange preset; null = no date constraint.
+      serviceDateRange: null,
     })
   })
 
@@ -192,6 +194,74 @@ describe('useBookingsFilters', () => {
       act(() => result.current.setShowPast(true))
       expect(activeFilterCount(result.current.filters)).toBe(0)
       expect(isEmptyFilters(result.current.filters)).toBe(true)
+    })
+  })
+
+  // ----- landr-68a9 — serviceDateRange preset --------------------------
+  describe('serviceDateRange (landr-68a9)', () => {
+    it('defaults to null', () => {
+      const { result } = renderHook(() => useBookingsFilters())
+      expect(result.current.filters.serviceDateRange).toBeNull()
+    })
+
+    it('setServiceDateRange persists and survives reload', () => {
+      const first = renderHook(() => useBookingsFilters())
+      act(() => first.result.current.setServiceDateRange('this_week'))
+      expect(first.result.current.filters.serviceDateRange).toBe('this_week')
+
+      const raw = window.localStorage.getItem(storageKey('user-1'))
+      expect(JSON.parse(raw!).serviceDateRange).toBe('this_week')
+
+      const second = renderHook(() => useBookingsFilters())
+      expect(second.result.current.filters.serviceDateRange).toBe('this_week')
+    })
+
+    it('setServiceDateRange(null) clears the preset', () => {
+      const { result } = renderHook(() => useBookingsFilters())
+      act(() => result.current.setServiceDateRange('today'))
+      act(() => result.current.setServiceDateRange(null))
+      expect(result.current.filters.serviceDateRange).toBeNull()
+    })
+
+    it('serviceDateRange is not counted as a chip', () => {
+      const { result } = renderHook(() => useBookingsFilters())
+      act(() => result.current.setServiceDateRange('today'))
+      expect(activeFilterCount(result.current.filters)).toBe(0)
+      expect(isEmptyFilters(result.current.filters)).toBe(true)
+    })
+
+    it('rejects malformed stored values and falls back to null', () => {
+      window.localStorage.setItem(
+        storageKey('user-1'),
+        JSON.stringify({
+          lifecycleStates: [],
+          productIds: [],
+          pickupLocationIds: [],
+          productKinds: [],
+          serviceTimeShapes: [],
+          showPast: false,
+          serviceDateRange: 'nonsense',
+        }),
+      )
+      const { result } = renderHook(() => useBookingsFilters())
+      expect(result.current.filters.serviceDateRange).toBeNull()
+    })
+
+    it('older payloads without serviceDateRange default to null', () => {
+      window.localStorage.setItem(
+        storageKey('user-1'),
+        JSON.stringify({
+          lifecycleStates: ['cancelled'],
+          productIds: [],
+          pickupLocationIds: [],
+          productKinds: [],
+          serviceTimeShapes: [],
+          // serviceDateRange intentionally omitted (pre-68a9 payload).
+        }),
+      )
+      const { result } = renderHook(() => useBookingsFilters())
+      expect(result.current.filters.serviceDateRange).toBeNull()
+      expect(result.current.filters.lifecycleStates).toEqual(['cancelled'])
     })
   })
 })
