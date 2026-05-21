@@ -38,6 +38,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { CopyLinkButton } from '@/components/CopyLinkButton'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { BookingChecklist } from '@/components/booking/BookingChecklist'
+import { BookingNotes } from '@/components/booking/BookingNotes'
 import { BookingTimeline } from '@/components/booking/BookingTimeline'
 import { DayChips } from '@/components/booking/DayChips'
 import { MultiDayPicker } from '@/components/booking/MultiDayPicker'
@@ -164,7 +165,7 @@ function formatRangeLabel(days: string[]): string | null {
   return `${start} → ${end}`
 }
 
-type ActiveTab = 'details' | 'timeline' | 'checklist'
+type ActiveTab = 'details' | 'timeline' | 'checklist' | 'notes'
 
 function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const queryClient = useQueryClient()
@@ -490,6 +491,17 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           >
             {t.bookings.checklist.tabChecklist}
           </TabsTrigger>
+          {/* landr-9qo1 — Notes tab. Operator-internal free-text notes
+              per booking; never sent to the customer. The panel below
+              renders BookingNotes which manages its own list query +
+              create/delete mutations. */}
+          <TabsTrigger
+            variant="pill"
+            value="notes"
+            data-testid="booking-tab-notes"
+          >
+            {t.bookings.notes.tabNotes}
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -511,6 +523,23 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
             bookingId={row.id}
             operatorId={currentOperatorId}
           />
+        </div>
+      ) : activeTab === 'notes' ? (
+        <div
+          role="tabpanel"
+          aria-label={t.bookings.notes.tabNotes}
+          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3"
+        >
+          {currentOperatorId ? (
+            <BookingNotes
+              operatorId={currentOperatorId}
+              bookingId={row.id}
+            />
+          ) : (
+            <p className="text-muted-foreground text-xs italic">
+              {t.bookings.notes.loading}
+            </p>
+          )}
         </div>
       ) : (
       <form
