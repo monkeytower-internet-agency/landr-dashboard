@@ -1215,6 +1215,14 @@ export const t = {
       stubConfigHeading: 'Current view config',
       stubFilterCount: (n: number) =>
         `${n} filter${n === 1 ? '' : 's'} active`,
+      calendar: {
+        placeholderTitle: 'Pick a date field to use Calendar layout',
+        placeholderBody:
+          'Open the view settings and set a date field (e.g. Start date) for the Calendar layout to plot items on.',
+        loading: 'Loading items…',
+        loadError: 'Failed to load items.',
+        empty: 'No items to display.',
+      },
     },
   },
 } as const
