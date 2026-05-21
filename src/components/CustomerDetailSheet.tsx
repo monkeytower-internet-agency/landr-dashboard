@@ -37,7 +37,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { invalidateBookingCaches } from '@/lib/bookings'
+import { BookingDetailSheet } from '@/components/BookingDetailSheet'
+import { CustomerBookings } from '@/components/customer/CustomerBookings'
+import { invalidateBookingCaches, type BookingRow } from '@/lib/bookings'
 import {
   contactNameDisplay,
   fetchContact,
@@ -45,6 +47,7 @@ import {
   type ContactRow,
 } from '@/lib/contacts'
 import { t } from '@/lib/strings'
+import { cn } from '@/lib/utils'
 
 type Props = {
   contactId: string | null
@@ -115,10 +118,20 @@ type BodyProps = {
   onClose: () => void
 }
 
+type ActiveTab = 'details' | 'bookings'
+
 function CustomerDetailBody({ contactId, onClose }: BodyProps) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const [showDiscard, setShowDiscard] = useState(false)
+  // landr-7o2a — Details vs Bookings tab. Defaults to Details so the most
+  // common operator interaction (editing the contact) stays one click away.
+  // Bookings is read-only — click a row to drill into BookingDetailSheet.
+  const [activeTab, setActiveTab] = useState<ActiveTab>('details')
+  // landr-7o2a — clicking a booking row stacks BookingDetailSheet on top.
+  // We keep the row in local state so the nested sheet stays open even if
+  // the bookings query refetches in the background.
+  const [activeBooking, setActiveBooking] = useState<BookingRow | null>(null)
 
   const query = useQuery<ContactRow>({
     queryKey: ['contact', contactId],
@@ -142,6 +155,8 @@ function CustomerDetailBody({ contactId, onClose }: BodyProps) {
     )
   }, [user?.id, contactId, contactLabel])
 
+  const hasData = !!query.data && !query.isError
+
   return (
     <>
       <SheetHeader>
@@ -150,6 +165,48 @@ function CustomerDetailBody({ contactId, onClose }: BodyProps) {
           {query.data ? contactNameDisplay(query.data) : ' '}
         </SheetDescription>
       </SheetHeader>
+
+      {hasData ? (
+        // landr-7o2a — Details / Bookings tab strip. Inline tablist mirrors
+        // the codebase convention (see BookingDetailSheet.tsx — landr-5f8q
+        // — and Schedule.tsx).
+        <div
+          role="tablist"
+          aria-label={t.customerDetail.title}
+          className="border-input bg-background mx-4 mt-2 inline-flex w-fit shrink-0 self-start rounded-md border p-0.5"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'details'}
+            data-testid="customer-tab-details"
+            onClick={() => setActiveTab('details')}
+            className={cn(
+              'cursor-pointer rounded-sm px-3 py-1.5 text-xs font-medium transition-colors',
+              activeTab === 'details'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            )}
+          >
+            {t.customerDetail.bookings.tabDetails}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'bookings'}
+            data-testid="customer-tab-bookings"
+            onClick={() => setActiveTab('bookings')}
+            className={cn(
+              'cursor-pointer rounded-sm px-3 py-1.5 text-xs font-medium transition-colors',
+              activeTab === 'bookings'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            )}
+          >
+            {t.customerDetail.bookings.tabBookings}
+          </button>
+        </div>
+      ) : null}
 
       {query.isPending ? (
         <p className="text-muted-foreground px-4 text-sm">
@@ -161,6 +218,22 @@ function CustomerDetailBody({ contactId, onClose }: BodyProps) {
             {query.error?.message ?? t.customerDetail.error}
           </p>
           <SheetFooter className="px-0">
+            <Button type="button" variant="outline" onClick={onClose}>
+              {t.customerDetail.close}
+            </Button>
+          </SheetFooter>
+        </div>
+      ) : activeTab === 'bookings' ? (
+        <div
+          role="tabpanel"
+          aria-label={t.customerDetail.bookings.tabBookings}
+          className="flex flex-1 flex-col overflow-hidden"
+        >
+          <CustomerBookings
+            contactId={contactId}
+            onBookingClick={(row) => setActiveBooking(row)}
+          />
+          <SheetFooter className="flex flex-row items-center justify-end gap-2 border-t">
             <Button type="button" variant="outline" onClick={onClose}>
               {t.customerDetail.close}
             </Button>
@@ -182,6 +255,17 @@ function CustomerDetailBody({ contactId, onClose }: BodyProps) {
           }}
         />
       )}
+
+      {/* landr-7o2a — nested BookingDetailSheet stacks on top when the
+          operator clicks a row in the Bookings tab. Existing call sites of
+          CustomerDetailSheet stay unchanged: they don't need to wire a
+          separate BookingDetailSheet on the side. */}
+      <BookingDetailSheet
+        row={activeBooking}
+        onOpenChange={(open) => {
+          if (!open) setActiveBooking(null)
+        }}
+      />
     </>
   )
 }

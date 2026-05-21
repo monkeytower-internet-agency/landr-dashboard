@@ -27,9 +27,15 @@ const { mock } = vi.hoisted(() => {
     fetchError: null as { message: string } | null,
     updateError: null as { message: string } | null,
     updatePatch: null as Record<string, unknown> | null,
+    // landr-7o2a — bookings fixture for the Customer 360 "Bookings" tab.
+    // The fetcher chains .from('bookings').select().eq().is().order().limit()
+    // and then awaits the builder directly (no .single()), so the builder
+    // is made thenable below.
+    bookings: [] as unknown[],
+    bookingsError: null as { message: string } | null,
   }
 
-  const selectBuilder = () => {
+  const contactsBuilder = () => {
     const builder: Record<string, unknown> = {}
     Object.assign(builder, {
       select: vi.fn(() => builder),
@@ -52,8 +58,32 @@ const { mock } = vi.hoisted(() => {
     return builder
   }
 
+  // Thenable PostgREST builder for the bookings list query. await on the
+  // chain resolves to `{ data, error }` like the real client.
+  const bookingsBuilder = () => {
+    const builder: Record<string, unknown> = {}
+    const resolveAwait = (
+      onFulfilled?: (v: { data: unknown[]; error: unknown }) => unknown,
+    ) =>
+      Promise.resolve({
+        data: state.bookings,
+        error: state.bookingsError,
+      }).then(onFulfilled)
+    Object.assign(builder, {
+      select: vi.fn(() => builder),
+      eq: vi.fn(() => builder),
+      is: vi.fn(() => builder),
+      order: vi.fn(() => builder),
+      limit: vi.fn(() => builder),
+      then: resolveAwait,
+    })
+    return builder
+  }
+
   const supabase = {
-    from: vi.fn(() => selectBuilder()),
+    from: vi.fn((table: string) =>
+      table === 'bookings' ? bookingsBuilder() : contactsBuilder(),
+    ),
   }
   return { mock: { state, supabase } }
 })
@@ -77,6 +107,28 @@ vi.mock('@/lib/auth', () => ({
     loading: false,
     signOut: async () => {},
   }),
+}))
+
+// landr-7o2a — Bookings tab + nested BookingDetailSheet pull
+// useOperatorCalendarPrefs (date display) and useOperator (current
+// operator id). Stub both so the test renders without an
+// OperatorProvider wrapper.
+vi.mock('@/lib/operator', () => ({
+  useOperator: () => ({
+    currentOperatorId: 'op-1',
+    currentOperator: null,
+    operators: [],
+    loading: false,
+    switchOperator: () => {},
+    refreshOperators: async () => {},
+  }),
+  useOperatorCalendarPrefs: () => ({
+    workHoursStart: '08:00',
+    workHoursEnd: '20:00',
+    hour12: false,
+    firstDayOfWeek: 1,
+  }),
+  useOperatorAllowedProductKinds: () => ['service'],
 }))
 
 import { CustomerDetailSheet } from './CustomerDetailSheet'
@@ -117,6 +169,8 @@ beforeEach(() => {
   mock.state.fetchError = null
   mock.state.updateError = null
   mock.state.updatePatch = null
+  mock.state.bookings = []
+  mock.state.bookingsError = null
 })
 
 afterEach(() => {
@@ -239,5 +293,123 @@ describe('CustomerDetailSheet', () => {
     render(<CustomerDetailSheet contactId="c-1" onOpenChange={() => {}} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/no row/i)
+  })
+
+  // ----- landr-7o2a — Customer 360 "Bookings" tab ------------------------
+
+  describe('Bookings tab (landr-7o2a)', () => {
+    function makeBooking(overrides: Partial<Record<string, unknown>> = {}) {
+      return {
+        id: 'b-1',
+        created_at: '2026-04-01T09:00:00.000Z',
+        current_semantic_state: 'confirmed',
+        current_stage: { code: 'awaiting_payment' },
+        gross_total: 250,
+        currency: 'EUR',
+        customer: {
+          id: 'c-1',
+          first_name: 'Carol',
+          last_name: 'Chen',
+          email: 'carol@example.com',
+          phone: '+34600111222',
+        },
+        items: [
+          {
+            id: 'i-1',
+            date_range_start: '2026-04-10',
+            date_range_end: '2026-04-12',
+            selected_days: null,
+            products: {
+              id: 'p-1',
+              name: 'Tandem Flight',
+              product_kind: 'service',
+              service_time_shape: 'days_range',
+            },
+          },
+        ],
+        participants: [],
+        ...overrides,
+      }
+    }
+
+    it('shows the Details and Bookings tabs once the contact has loaded', async () => {
+      render(<CustomerDetailSheet contactId="c-1" onOpenChange={() => {}} />)
+
+      // Wait for the contact to land so the tablist is mounted.
+      await screen.findByLabelText(/first name/i)
+      expect(
+        screen.getByTestId('customer-tab-details'),
+      ).toHaveAttribute('aria-selected', 'true')
+      expect(
+        screen.getByTestId('customer-tab-bookings'),
+      ).toHaveAttribute('aria-selected', 'false')
+    })
+
+    it('renders the bookings list with summary + rows when the tab is clicked', async () => {
+      mock.state.bookings = [
+        makeBooking({ id: 'b-1', gross_total: 250 }),
+        makeBooking({
+          id: 'b-2',
+          gross_total: 100,
+          created_at: '2026-03-15T09:00:00.000Z',
+          current_semantic_state: 'finalised',
+          items: [
+            {
+              id: 'i-2',
+              date_range_start: '2026-03-20',
+              date_range_end: '2026-03-20',
+              selected_days: null,
+              products: {
+                id: 'p-2',
+                name: 'SIV Course',
+                product_kind: 'service',
+                service_time_shape: 'single_date',
+              },
+            },
+          ],
+        }),
+      ]
+      const user = userEvent.setup()
+      render(<CustomerDetailSheet contactId="c-1" onOpenChange={() => {}} />)
+
+      await user.click(await screen.findByTestId('customer-tab-bookings'))
+
+      // Summary: "2 bookings, €350.00 total" (€350 = 250 + 100, en-IE locale).
+      const summary = await screen.findByTestId('customer-bookings-summary')
+      expect(summary.textContent).toMatch(/2 bookings/i)
+      expect(summary.textContent).toMatch(/350/)
+
+      // Both rows render and are clickable.
+      expect(screen.getByTestId('customer-booking-row-b-1')).toBeInTheDocument()
+      expect(screen.getByTestId('customer-booking-row-b-2')).toBeInTheDocument()
+    })
+
+    it('shows the empty state when the contact has no bookings', async () => {
+      mock.state.bookings = []
+      const user = userEvent.setup()
+      render(<CustomerDetailSheet contactId="c-1" onOpenChange={() => {}} />)
+
+      await user.click(await screen.findByTestId('customer-tab-bookings'))
+      expect(
+        await screen.findByTestId('customer-bookings-empty'),
+      ).toBeInTheDocument()
+    })
+
+    it('opens the nested BookingDetailSheet when a booking row is clicked', async () => {
+      mock.state.bookings = [makeBooking({ id: 'b-99' })]
+      const user = userEvent.setup()
+      render(<CustomerDetailSheet contactId="c-1" onOpenChange={() => {}} />)
+
+      await user.click(await screen.findByTestId('customer-tab-bookings'))
+      const row = await screen.findByTestId('customer-booking-row-b-99')
+      await user.click(row)
+
+      // Nested BookingDetailSheet exposes the details tab (per landr-5f8q
+      // inline tablist) once it mounts. We rely on the testid added by that
+      // sheet rather than a fragile string match.
+      expect(
+        await screen.findByTestId('booking-tab-details'),
+      ).toBeInTheDocument()
+    })
   })
 })

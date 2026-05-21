@@ -422,6 +422,24 @@ export const t = {
     discardCancel: 'Keep editing',
     discardConfirm: 'Discard',
     openAriaLabel: (name: string) => `Open customer ${name}`,
+    // landr-7o2a — Customer 360 "Bookings" tab. Lists every booking
+    // (past + upcoming) the contact has placed. Mirrors the inline-tablist
+    // pattern from BookingDetailSheet (landr-5f8q).
+    bookings: {
+      tabDetails: 'Details',
+      tabBookings: 'Bookings',
+      loading: 'Loading bookings…',
+      error: 'Failed to load bookings.',
+      empty: 'No bookings yet.',
+      columnDate: 'Date',
+      columnProduct: 'Product',
+      columnStatus: 'Status',
+      columnTotal: 'Total',
+      // "12 bookings, €1,234 total" header — count + currency-formatted sum.
+      summary: (count: number, total: string): string =>
+        `${count} ${count === 1 ? 'booking' : 'bookings'}, ${total} total`,
+      rowAriaLabel: (label: string) => `Open booking ${label}`,
+    },
   },
   products: {
     title: 'Products & pricing',
