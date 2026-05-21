@@ -919,6 +919,10 @@ export const t = {
     toastCreated: 'Product created.',
     toastUpdated: 'Product updated.',
     toastDeleted: 'Product deleted.',
+    // landr-v6aq — fallback used in the undo toast when the product row
+    // is no longer in cache (e.g. the operator typed in the filter so
+    // hard the only matching row is the one being deleted).
+    deletedFallbackLabel: 'product',
     slugCollisionTitle: 'That slug is already taken',
     slugCollisionBody:
       'A product with this slug already exists for your operator. Pick a different name or edit the slug.',
@@ -2089,5 +2093,17 @@ export const t = {
       title: 'All caught up',
       description: 'No approvals are waiting on you right now. Nice work.',
     },
+  },
+  // landr-v6aq — shared strings for the delete + undo confirmation toast.
+  // Used by src/lib/undo-toast.ts so every soft-delete surface (booking
+  // cancel, product delete, future trash kinds) speaks the same copy.
+  undo: {
+    action: 'Undo',
+    restored: 'Restored.',
+    restoreError: 'Could not undo — please try again from the Trash page.',
+    // Per-kind toast headers. Composed in the call site as
+    // `t.undo.deleted(kind, label)` so the noun stays close to the action.
+    deletedBooking: (label: string): string => `Deleted booking — ${label}`,
+    deletedProduct: (label: string): string => `Deleted product — ${label}`,
   },
 } as const

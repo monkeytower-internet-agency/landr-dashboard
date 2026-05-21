@@ -36,6 +36,7 @@ import {
 } from '@/lib/products'
 import { useProductsFilters } from '@/lib/products-filters'
 import { useProductsSort } from '@/lib/products-sort'
+import { showDeleteUndoToast } from '@/lib/undo-toast'
 import {
   fetchLocationRoleTypes,
   fetchLocations,
@@ -280,11 +281,17 @@ export function ProductsManager({
       const previous = queryClient.getQueriesData<ProductRow[]>({
         queryKey: PRODUCTS_KEY_PREFIX,
       })
+      // Snapshot the product label BEFORE the optimistic filter strips the
+      // row from cache, so the undo toast can show its name after the
+      // server confirms the delete.
+      const flat = previous.flatMap(([, rows]) => rows ?? [])
+      const label =
+        flat.find((r) => r.id === id)?.name ?? t.products.deletedFallbackLabel
       queryClient.setQueriesData<ProductRow[]>(
         { queryKey: PRODUCTS_KEY_PREFIX },
         (rows) => (rows ? rows.filter((r) => r.id !== id) : rows),
       )
-      return { previous }
+      return { previous, label }
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) {
@@ -293,12 +300,29 @@ export function ProductsManager({
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, id, ctx) => {
       queryClient.invalidateQueries({
         queryKey: ['product-kind-counts', operatorId],
       })
       setSelection(null)
       setFeedback(t.products.toastDeleted)
+      // landr-v6aq — fire the undo toast (5s window). Undo calls the
+      // staff_trash restore router, which flips deleted_at back to NULL.
+      // The restored row reappears via the PRODUCTS_KEY_PREFIX invalidate
+      // inside the helper.
+      showDeleteUndoToast({
+        operatorId,
+        kind: 'products',
+        rowId: id,
+        message: t.undo.deletedProduct(
+          ctx?.label ?? t.products.deletedFallbackLabel,
+        ),
+        queryClient,
+        invalidateQueryKeys: [
+          PRODUCTS_KEY_PREFIX,
+          ['product-kind-counts', operatorId],
+        ],
+      })
     },
   })
 
