@@ -24,6 +24,11 @@ export type ViewFieldType =
   // linked record's display name (e.g. product_id → product_name from a
   // PostgREST embed). Filters compare the id itself.
   | 'id'
+  // landr-iz58 — operator-scoped tag. The filter expects tag id values
+  // ('eq' / 'in'); the filter-match layer checks BookingRow.tags for
+  // membership. Cells / sort intentionally unsupported (chips render via
+  // the dedicated Tags column on the table layout).
+  | 'tag'
 
 export type ViewField = {
   key: string
@@ -172,6 +177,15 @@ export const BOOKING_FIELDS: readonly ViewField[] = [
     filterable: true,
     sortable: false,
   },
+  // landr-iz58 — operator-applied tag membership ("has tag X"). Values
+  // are tag uuids; the picker hydrates labels + colors via fetchTags.
+  {
+    key: 'tag',
+    label: 'Tag',
+    type: 'tag',
+    filterable: true,
+    sortable: false,
+  },
 ] as const
 
 const FIELDS_BY_ENTITY: Record<string, readonly ViewField[]> = {
@@ -224,6 +238,11 @@ export function opsFor(type: ViewFieldType): FilterOp[] {
     case 'id':
       // landr-7w3s — FK columns: equality / membership only, no contains
       // (uuids aren't substring-meaningful) and no ordering.
+      return ['eq', 'in', 'is_null', 'is_not_null']
+    case 'tag':
+      // landr-iz58 — tag membership: equality + multi-value membership only.
+      // is_null / is_not_null map to "untagged" / "has any tag" which is
+      // useful enough to expose; eq is "has THIS tag", in is "has any of".
       return ['eq', 'in', 'is_null', 'is_not_null']
   }
 }

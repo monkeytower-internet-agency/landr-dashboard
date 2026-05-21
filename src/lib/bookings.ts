@@ -80,6 +80,15 @@ export type ApprovalTrace = {
   [key: string]: unknown
 }
 
+// landr-iz58 — operator-scoped tag projected through booking_tags JOIN
+// operator_tags. Soft-deleted tags fall out via the operator_tags
+// deleted_at IS NULL filter inside the embed.
+export type BookingTagRef = {
+  id: string
+  name: string
+  color: string
+}
+
 export type BookingRow = {
   id: string
   created_at: string
@@ -101,8 +110,18 @@ export type BookingRow = {
   } | null
   items: BookingProduct[]
   participants?: BookingParticipant[]
+  // landr-iz58 — chips on the row + picker pre-fill on the detail sheet.
+  // Optional on the type so legacy fixtures / mocks don't have to populate
+  // it. The Supabase embed filters out soft-deleted parent tags so this
+  // array only ever contains active labels.
+  tags?: BookingTagRef[]
 }
 
+// landr-iz58 — `tags` embed projects operator_tags through booking_tags.
+// We can't filter inside the nested embed for soft-deleted parent tags via
+// PostgREST without an inner-join; instead we map the result client-side
+// in fetchBookings + drop rows where the operator_tags side is null
+// (which happens when the tag was soft-deleted or hard-deleted).
 const SELECT = `
   id,
   created_at,
@@ -113,8 +132,28 @@ const SELECT = `
   approval_trace,
   customer:contacts!inner ( id, first_name, last_name, email, phone ),
   items:booking_products ( id, date_range_start, date_range_end, selected_days, products ( id, name, product_kind, service_time_shape ) ),
-  participants:booking_participants ( id, pickup_location:locations!pickup_location_id ( id, name ) )
+  participants:booking_participants ( id, pickup_location:locations!pickup_location_id ( id, name ) ),
+  booking_tags ( operator_tags ( id, name, color, deleted_at ) )
 `
+
+type RawBookingTagEmbed = {
+  operator_tags: { id: string; name: string; color: string; deleted_at: string | null } | null
+}
+type RawBookingRow = Omit<BookingRow, 'tags'> & {
+  booking_tags?: RawBookingTagEmbed[] | null
+}
+
+function flattenTags(raw: RawBookingRow): BookingRow {
+  const tags: BookingTagRef[] = []
+  for (const wrapper of raw.booking_tags ?? []) {
+    const ot = wrapper.operator_tags
+    if (!ot) continue // tag was hard-deleted
+    if (ot.deleted_at) continue // tag was soft-deleted
+    tags.push({ id: ot.id, name: ot.name, color: ot.color })
+  }
+  const { booking_tags: _omit, ...rest } = raw
+  return { ...rest, tags }
+}
 
 /** Convenience helper — falls back to null safely. */
 export function stageCode(row: BookingRow): string | null {
@@ -148,7 +187,7 @@ export async function fetchBookings(operatorId: string): Promise<BookingRow[]> {
     .limit(500)
 
   if (error) throw new Error(error.message)
-  return (data ?? []) as unknown as BookingRow[]
+  return ((data ?? []) as unknown as RawBookingRow[]).map(flattenTags)
 }
 
 // landr-7o2a — Customer 360 "Bookings" tab in CustomerDetailSheet. Scopes
@@ -169,7 +208,7 @@ export async function fetchBookingsForContact(
     .limit(500)
 
   if (error) throw new Error(error.message)
-  return (data ?? []) as unknown as BookingRow[]
+  return ((data ?? []) as unknown as RawBookingRow[]).map(flattenTags)
 }
 
 export function customerDisplay(row: BookingRow): string {
@@ -461,7 +500,7 @@ export async function fetchPendingGeneralApprovals(
     .order('created_at', { ascending: true })
 
   if (error) throw new Error(error.message)
-  return (data ?? []) as unknown as BookingRow[]
+  return ((data ?? []) as unknown as RawBookingRow[]).map(flattenTags)
 }
 
 export type ApprovalDecision = 'approve' | 'reject'

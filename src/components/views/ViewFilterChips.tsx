@@ -52,6 +52,10 @@ import {
   type RelativePreset,
 } from '@/lib/views-relative-dates'
 import { t } from '@/lib/strings'
+// landr-iz58 — tag-typed filter values resolve through the operator's tag list.
+import { useQuery } from '@tanstack/react-query'
+import { fetchTags, type Tag } from '@/lib/tags'
+import { useOperator } from '@/lib/operator'
 
 type Props = {
   entityType: string
@@ -181,6 +185,15 @@ function renderChipLabel(entityType: string, f: Filter): string {
   if (f.values.length === 0) return `${label} ${op} …`
 
   const field = findField(entityType, f.field)
+  // landr-iz58 — tag chips render "Tag is N selected" rather than the
+  // raw uuids, since labels live in operator_tags (not the registry).
+  // The popover surface still shows colored names; this keeps the chip
+  // bar compact + readable.
+  if (field?.type === 'tag') {
+    const count = f.values.length
+    if (count === 1) return `${label} ${op} 1 tag`
+    return `${label} ${op} ${count} tags`
+  }
   // landr-1zxt — date fields with relative tokens show the human label
   // ("This week") instead of resolved dates. For 'within' with two
   // relative tokens that match a known preset pair, compress to that
@@ -437,6 +450,13 @@ function ValueEditor({ field, op, values, onChange }: ValueEditorProps) {
   // 'today' or ['start_of_week','end_of_week'] depending on the op.
   if (field.type === 'date') {
     return <DateValueEditor op={op} values={values} onChange={onChange} />
+  }
+
+  // landr-iz58 — tag-typed fields render a checklist sourced from the
+  // operator's tag list. Same eq/in semantics as enums but the labels live
+  // in operator_tags rather than a hardcoded enum.
+  if (field.type === 'tag') {
+    return <TagValueEditor op={op} values={values} onChange={onChange} />
   }
 
   const inputType = field.type === 'number' ? 'number' : 'text'
@@ -763,5 +783,89 @@ function DateLiteralInputs({ op, values, onChange }: DateLiteralInputsProps) {
         className="mt-1 w-full"
       />
     </label>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// landr-iz58 — TagValueEditor renders a checklist of the operator's tags.
+// Values are tag uuids; the user picks one (eq) or many (in). Each row
+// shows the tag's color swatch + name for fast scanning.
+
+type TagValueEditorProps = {
+  op: FilterOp
+  values: FilterValue[]
+  onChange: (next: FilterValue[]) => void
+}
+
+function TagValueEditor({ op, values, onChange }: TagValueEditorProps) {
+  const allowMulti = MULTI_VALUE_OPS.has(op)
+  const { currentOperatorId } = useOperator()
+  const tagsQuery = useQuery<Tag[]>({
+    queryKey: ['tags', currentOperatorId ?? 'none'],
+    queryFn: () =>
+      currentOperatorId ? fetchTags(currentOperatorId) : Promise.resolve([]),
+    enabled: !!currentOperatorId,
+    staleTime: 30_000,
+  })
+
+  if (tagsQuery.isPending) {
+    return (
+      <p className="text-muted-foreground py-1 text-xs">
+        Loading tags…
+      </p>
+    )
+  }
+  if (tagsQuery.isError) {
+    return (
+      <p className="text-destructive py-1 text-xs" role="alert">
+        Could not load tags.
+      </p>
+    )
+  }
+  const tags = tagsQuery.data ?? []
+  if (tags.length === 0) {
+    return (
+      <p className="text-muted-foreground py-1 text-xs">
+        No tags defined yet. Add tags in Settings → Tags.
+      </p>
+    )
+  }
+
+  return (
+    <fieldset className="flex flex-col gap-1" data-testid="filter-editor-tags">
+      <legend className="text-xs font-medium">{t.views.filters.valueLabel}</legend>
+      {tags.map((tag) => {
+        const checked = values.includes(tag.id)
+        return (
+          <label
+            key={tag.id}
+            className="flex cursor-pointer items-center gap-2 text-xs"
+          >
+            <Checkbox
+              checked={checked}
+              onChange={(e) => {
+                const isChecked = e.target.checked
+                if (allowMulti) {
+                  onChange(
+                    isChecked
+                      ? [...values, tag.id]
+                      : values.filter((x) => x !== tag.id),
+                  )
+                } else {
+                  onChange(isChecked ? [tag.id] : [])
+                }
+              }}
+              data-testid={`filter-editor-tag-${tag.id}`}
+            />
+            <span
+              className="inline-block h-3 w-3 rounded-full"
+              style={{ backgroundColor: tag.color }}
+              aria-hidden="true"
+            />
+            {tag.name}
+          </label>
+        )
+      })}
+    </fieldset>
   )
 }

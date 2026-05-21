@@ -81,6 +81,16 @@ function extractor(fieldKey: string): FieldExtract | null {
           return Number.isFinite(n) ? n : null
         },
       }
+    case 'tag':
+      // landr-iz58 — tag membership. Returns the row's tag ids as a
+      // multi-value extract so 'eq' / 'in' against the picker's tag ids
+      // match via compareScalar's same-value semantics, and the
+      // is_null / is_not_null ops collapse correctly (no tags vs at
+      // least one).
+      return {
+        kind: 'multi',
+        get: (r) => (r.tags ?? []).map((tag) => tag.id),
+      }
     default:
       return null
   }

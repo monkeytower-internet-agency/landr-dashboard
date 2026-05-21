@@ -175,6 +175,8 @@ export const t = {
       pricing: 'Pricing',
       // landr-yp8x — operator branding shown in the embedded booking widget.
       branding: 'Branding',
+      // landr-iz58 — operator-scoped tags applied to bookings + contacts.
+      tags: 'Tags',
     },
     plan: {
       title: 'Plan',
@@ -231,6 +233,8 @@ export const t = {
     columnStatus: 'Status',
     columnPrice: 'Price',
     columnDays: 'Days',
+    // landr-iz58 — operator-applied tag chips.
+    columnTags: 'Tags',
     filterPlaceholder: 'Search bookings…',
     // landr-xnpc — download the filtered view as CSV.
     exportCsv: 'Download CSV',
@@ -302,6 +306,9 @@ export const t = {
       sectionStatus: 'Status',
       sectionCustomer: 'Customer',
       sectionDates: 'Dates',
+      // landr-iz58 — operator-applied tags.
+      sectionTags: 'Tags',
+      tagsToastError: 'Failed to update booking tags.',
       sectionPricing: 'Pricing',
       customerFirstName: 'First name',
       customerLastName: 'Last name',
@@ -428,6 +435,8 @@ export const t = {
     columnStatus: 'Status',
     columnActivity: 'Activity',
     columnActions: 'Actions',
+    // landr-iz58 — operator-applied tag chips.
+    columnTags: 'Tags',
     filterPlaceholder: 'Search contacts…',
     // landr-xnpc — download the filtered view as CSV.
     exportCsv: 'Download CSV',
@@ -495,6 +504,9 @@ export const t = {
     invalidEmail: 'Enter a valid email address.',
     toastSuccess: 'Customer updated.',
     toastError: 'Failed to update customer.',
+    // landr-iz58 — operator-scoped tag picker shown inside the form.
+    tagsLabel: 'Tags',
+    tagsToastError: 'Failed to update tags.',
     discardTitle: 'Discard unsaved changes?',
     discardDescription:
       'You have unsaved edits. Closing now will lose them.',
@@ -1110,6 +1122,38 @@ export const t = {
     roleTypeManagerToastDeleted: 'Type deleted.',
     roleTypeManagerToastError: 'Could not save type.',
     roleTypeManagerEditAffordanceAria: 'Manage pickup location types',
+  },
+  // landr-iz58 — operator-scoped tag CRUD (Settings → Tags).
+  tagsSettings: {
+    title: 'Tags',
+    subtitle:
+      'Operator-scoped labels with a color. Apply to bookings or contacts to slice and filter.',
+    noOperator: 'Select an operator to manage tags.',
+    loading: 'Loading tags…',
+    empty: 'No tags yet. Create one above.',
+
+    createTitle: 'New tag',
+    existingTitle: 'Your tags',
+    placeholderName: 'e.g. VIP, Returning, Hen party',
+    fieldName: 'Name',
+    fieldColor: 'Color',
+    create: 'Create',
+    creating: 'Creating…',
+    edit: 'Edit',
+    save: 'Save',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    deleting: 'Deleting…',
+    confirmDelete: 'Confirm delete',
+    dupeName: 'A tag with this name already exists on this operator.',
+
+    toastCreated: 'Tag created.',
+    toastCreateError: 'Could not create tag.',
+    toastUpdated: 'Tag updated.',
+    toastUpdateError: 'Could not update tag.',
+    toastDeleted: 'Tag deleted.',
+    toastDeleteError: 'Could not delete tag.',
   },
   reporting: {
     title: 'Reporting',

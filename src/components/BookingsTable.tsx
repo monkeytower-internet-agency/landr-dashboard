@@ -46,6 +46,7 @@ import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { DayChips } from '@/components/booking/DayChips'
 import { SkeletonTableRows } from '@/components/SkeletonTableRows'
 import { StageBadge } from '@/components/booking/StageBadge'
+import { TagChipRow } from '@/components/tags/TagChip'
 import { InlineEditCell } from '@/components/bookings/InlineEditCell'
 import {
   decisionFromSelection,
@@ -307,6 +308,15 @@ export function BookingsTable({
           }
           return <DayChips days={days} />
         },
+      },
+      {
+        // landr-iz58 — operator-applied tag chips. Truncated at 2 + "+N more"
+        // so list rows stay compact. Filter / sort intentionally off — the
+        // tag dimension uses ViewFilterChips (filter type 'tag') instead.
+        id: 'tags',
+        header: t.bookings.columnTags,
+        enableSorting: false,
+        cell: ({ row }) => <TagChipRow tags={row.original.tags ?? []} />,
       },
       {
         // landr-n2j2 — inline-edit status dropdown. Scoped to the approval

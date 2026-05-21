@@ -35,6 +35,7 @@ import {
   contactNameDisplay,
   type ContactRow,
 } from '@/lib/contacts'
+import { TagChipRow } from '@/components/tags/TagChip'
 import { t } from '@/lib/strings'
 import { highlightMatch } from '@/lib/text-highlight'
 import { useListKeyboardNav } from '@/lib/use-list-keyboard-nav'
@@ -105,6 +106,13 @@ export function ContactsTable({
         header: t.contacts.columnCreated,
         cell: ({ row }) => contactDate(row.original.created_at),
         sortingFn: 'datetime',
+      },
+      {
+        // landr-iz58 — operator-applied tag chips.
+        id: 'tags',
+        header: t.contacts.columnTags,
+        enableSorting: false,
+        cell: ({ row }) => <TagChipRow tags={row.original.tags ?? []} />,
       },
       {
         id: 'status',

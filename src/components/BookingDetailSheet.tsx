@@ -19,6 +19,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { TagPicker } from '@/components/tags/TagPicker'
+import { setBookingTags } from '@/lib/tags'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -438,6 +440,29 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           </CardContent>
         </Card>
 
+        {/* landr-iz58 — operator-applied tags. Persisted via the FastAPI
+            full-replace endpoint on every toggle (independent of the
+            form-level save button — same pattern as ContactTagsField on
+            CustomerDetailSheet). */}
+        {currentOperatorId ? (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">
+                {t.bookings.detail.sectionTags}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BookingTagsField
+                bookingId={row.id}
+                operatorId={currentOperatorId}
+                initialIds={(row.tags ?? []).map((tag) => tag.id)}
+                disabled={busy}
+                onSaved={invalidateAll}
+              />
+            </CardContent>
+          </Card>
+        ) : null}
+
         {/* Customer */}
         {row.customer ? (
           <Card>
@@ -712,5 +737,55 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         </AlertDialogContent>
       </AlertDialog>
     </>
+  )
+}
+
+// ---- TagPicker bridge (landr-iz58) ----------------------------------
+//
+// Renders a TagPicker pre-populated with the booking's current tag set
+// (BookingRow.tags is hydrated by the bookings SELECT's booking_tags
+// embed). Toggling fires setBookingTags() immediately — tags persist
+// independently of the form-level save button so a tag flip doesn't
+// have to ride along with pricing recompute / contact patches.
+
+type BookingTagsFieldProps = {
+  bookingId: string
+  operatorId: string
+  initialIds: string[]
+  disabled?: boolean
+  onSaved?: () => void
+}
+
+function BookingTagsField({
+  bookingId,
+  operatorId,
+  initialIds,
+  disabled,
+  onSaved,
+}: BookingTagsFieldProps) {
+  const [selected, setSelected] = useState<string[]>(initialIds)
+
+  const mutation = useMutation({
+    mutationFn: (nextIds: string[]) => setBookingTags(operatorId, bookingId, nextIds),
+    onSuccess: () => {
+      onSaved?.()
+    },
+    onError: (err: Error) => {
+      setSelected(initialIds)
+      toast.error(t.bookings.detail.tagsToastError, { description: err.message })
+    },
+  })
+
+  return (
+    <TagPicker
+      operatorId={operatorId}
+      selectedIds={selected}
+      onChange={(next) => {
+        setSelected(next)
+        mutation.mutate(next)
+      }}
+      disabled={disabled || mutation.isPending}
+      testIdPrefix="booking-tag-picker"
+    />
   )
 }

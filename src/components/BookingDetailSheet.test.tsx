@@ -76,6 +76,23 @@ vi.mock('@/lib/operator', () => ({
   }),
 }))
 
+// landr-iz58 — the Tags card opens a TagPicker that fires fetchTags() on
+// mount. Stub the lib so the tests' fetchSpy doesn't accidentally observe
+// the tag call and miscount the booking_product patches.
+vi.mock('@/lib/tags', () => ({
+  fetchTags: vi.fn().mockResolvedValue([]),
+  createTag: vi.fn(),
+  patchTag: vi.fn(),
+  deleteTag: vi.fn(),
+  setBookingTags: vi.fn().mockResolvedValue({ tag_ids: [] }),
+  setContactTags: vi.fn().mockResolvedValue({ tag_ids: [] }),
+  TAG_PALETTE: ['#3b82f6'],
+  defaultColorFor: () => '#3b82f6',
+  readableTextOn: () => '#ffffff',
+  fetchBookingTagIds: vi.fn().mockResolvedValue([]),
+  fetchContactTagIds: vi.fn().mockResolvedValue([]),
+}))
+
 const fetchSpy = vi.fn()
 vi.stubGlobal('fetch', fetchSpy)
 

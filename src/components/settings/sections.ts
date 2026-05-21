@@ -11,6 +11,7 @@ import {
   PaletteIcon,
   PlugIcon,
   TagIcon,
+  TagsIcon,
   UsersIcon,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -109,6 +110,12 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/pricing',
     label: t.settingsHub.sections.pricing,
     icon: TagIcon,
+  },
+  // landr-iz58 — operator-scoped tags (bookings + contacts).
+  {
+    to: '/settings/tags',
+    label: t.settingsHub.sections.tags,
+    icon: TagsIcon,
   },
 ]
 
