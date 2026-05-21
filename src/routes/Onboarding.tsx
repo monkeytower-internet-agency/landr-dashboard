@@ -99,7 +99,13 @@ function OnboardingInner({
     queryFn: () => fetchOperator(operatorId),
   })
 
-  const initialStep = useMemo(() => {
+  const [isCompleted, setIsCompleted] = useState(false)
+
+  // URL is the single source of truth for `step`. This way, in-SPA
+  // navigation to `/onboarding/start?step=N` (e.g. via the resume banner's
+  // <Link>) immediately changes which step is rendered — no remount needed.
+  // Fallback order: ?step=N → localStorage → 1.
+  const step = useMemo(() => {
     const fromUrl = Number(searchParams.get('step'))
     if (Number.isFinite(fromUrl) && fromUrl >= 1 && fromUrl <= TOTAL_STEPS) {
       return Math.floor(fromUrl)
@@ -107,17 +113,30 @@ function OnboardingInner({
     return readStoredStep(operatorId) ?? 1
   }, [searchParams, operatorId])
 
-  const [step, setStep] = useState<number>(initialStep)
-  const [isCompleted, setIsCompleted] = useState(false)
+  const setStep = useCallback(
+    (next: number) => {
+      const clamped = Math.min(TOTAL_STEPS, Math.max(1, Math.floor(next)))
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev)
+          params.set('step', String(clamped))
+          return params
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
 
+  // If the URL didn't carry `?step=`, mirror the derived step back into the
+  // URL so refreshes / shared links keep working. We do this in an effect so
+  // render stays pure. Persistence to localStorage also lives here, gated by
+  // isCompleted to avoid racing finishMutation.onSuccess's clearStoredStep.
   useEffect(() => {
-    // Once onboarding is completed, do NOT re-persist the step — otherwise
-    // this effect races with finishMutation.onSuccess's clearStoredStep and
-    // leaves a stale `step=9` localStorage key per-operator.
     if (isCompleted) return
     writeStoredStep(operatorId, step)
-    const current = Number(searchParams.get('step'))
-    if (current !== step) {
+    const current = searchParams.get('step')
+    if (current !== String(step)) {
       const next = new URLSearchParams(searchParams)
       next.set('step', String(step))
       setSearchParams(next, { replace: true })
@@ -125,12 +144,12 @@ function OnboardingInner({
   }, [step, operatorId, searchParams, setSearchParams, isCompleted])
 
   const advance = useCallback(() => {
-    setStep((s) => Math.min(TOTAL_STEPS, s + 1))
-  }, [])
+    setStep(step + 1)
+  }, [setStep, step])
 
   const back = useCallback(() => {
-    setStep((s) => Math.max(1, s - 1))
-  }, [])
+    setStep(step - 1)
+  }, [setStep, step])
 
   const finishMutation = useMutation({
     mutationFn: () => markOnboarded(operatorId),
