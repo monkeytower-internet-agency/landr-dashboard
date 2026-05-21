@@ -796,7 +796,6 @@ export const t = {
     confirmRejectAction: 'Reject',
     cancel: 'Cancel',
     working: 'Working…',
-    undo: 'Undo',
     toastApproved: (n: number) =>
       n === 1 ? 'Approved 1 booking' : `Approved ${n} bookings`,
     toastRejected: (n: number) =>
