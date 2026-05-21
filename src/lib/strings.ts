@@ -1142,4 +1142,17 @@ export const t = {
     templateSectionTitle: 'Start with a template',
     pickViewHelp: 'Pick a view from the sidebar to get started.',
   },
+  // landr-c58d — Views sub-list in the app sidebar (star + hide).
+  viewsSidebar: {
+    showHidden: 'Show hidden views',
+    hideHidden: 'Hide hidden views',
+    hideFromSidebar: 'Hide from sidebar',
+    unhide: 'Unhide',
+    starView: 'Star this view',
+    unstarView: 'Unstar this view',
+    emptyHint: 'No views yet — create one →',
+    starError: 'Failed to update star.',
+    hideError: 'Failed to update visibility.',
+    rowMenuLabel: (name: string): string => `More actions for ${name}`,
+  },
 } as const
