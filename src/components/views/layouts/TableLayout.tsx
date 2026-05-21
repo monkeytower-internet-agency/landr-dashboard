@@ -24,15 +24,16 @@
 // fields at the end (Decision: simplest "additive" behaviour; reorder UI
 // is out of scope for v1).
 
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import {
   flexRender,
   getCoreRowModel,
   useReactTable,
   type ColumnDef,
+  type Row,
   type SortingState,
 } from '@tanstack/react-table'
-import { ArrowDown, ArrowUp, ArrowUpDown, Columns3 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Columns3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -55,10 +56,12 @@ import {
   fieldsFor,
   findField,
   readColumns,
+  readGroupBy,
   valueLabel,
   type ColumnRef,
   type ViewField,
 } from '@/lib/views-entity-fields'
+import { groupRows, useGroupCollapse } from '@/lib/views-group-by'
 import type { BookingItem } from '@/lib/views-bookings-data'
 import { t } from '@/lib/strings'
 
@@ -70,6 +73,9 @@ type Props = {
   items: BookingItem[]
   onConfigChange: (patch: Record<string, unknown>) => void
   onRowClick?: (item: BookingItem) => void
+  /** Persists per-group collapse state in localStorage when set. Falls back
+   *  to in-memory state for unsaved Views. landr-1ztq. */
+  viewId?: string | null
 }
 
 export function TableLayout({
@@ -78,10 +84,12 @@ export function TableLayout({
   items,
   onConfigChange,
   onRowClick,
+  viewId,
 }: Props) {
   const columnRefs = readColumns(entityType, config)
   const allFields = fieldsFor(entityType)
   const sortState = readSort(config)
+  const groupBy = readGroupBy(entityType, config)
 
   const columns = useMemo<ColumnDef<BookingItem>[]>(
     () =>
@@ -138,6 +146,33 @@ export function TableLayout({
     () => new Set(columnRefs.map((c) => c.key)),
     [columnRefs],
   )
+
+  // landr-1ztq — collapse state is persisted per (viewId, groupKey) when
+  // viewId is set, in-memory otherwise. The hook always exists so the
+  // toolbar can flip in and out of grouped mode without remounting.
+  const collapse = useGroupCollapse(viewId ?? null)
+
+  const rows = table.getRowModel().rows
+  const groupField = groupBy ? findField(entityType, groupBy.key) : undefined
+
+  // landr-1ztq — group rows AFTER tanstack hands them back, so the
+  // operator's sort selection still orders rows within each bucket. When
+  // groupBy is null we render flat (the original v1 behaviour).
+  const rowGroups = useMemo(() => {
+    if (!groupBy || !groupField) return null
+    return groupRows(rows, {
+      entityType,
+      fieldKey: groupBy.key,
+      readValue: (row) => readCellValue(row.original, groupBy.key) as
+        | string
+        | number
+        | boolean
+        | null
+        | undefined,
+    })
+  }, [groupBy, groupField, rows, entityType])
+
+  const columnCount = Math.max(1, columns.length)
 
   return (
     <div className="flex flex-col gap-3" data-testid="view-table-layout">
@@ -204,32 +239,108 @@ export function TableLayout({
             {items.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={Math.max(1, columns.length)}
+                  colSpan={columnCount}
                   className="text-muted-foreground py-8 text-center text-sm"
                 >
                   {t.views.table.empty}
                 </TableCell>
               </TableRow>
+            ) : rowGroups ? (
+              rowGroups.map((g) => {
+                const collapsed = collapse.isCollapsed(g.key)
+                return (
+                  <Fragment key={g.key}>
+                    <GroupHeaderRow
+                      group={g}
+                      collapsed={collapsed}
+                      colSpan={columnCount}
+                      onToggle={() => collapse.toggle(g.key)}
+                    />
+                    {!collapsed
+                      ? g.items.map((row) => renderDataRow(row, onRowClick))
+                      : null}
+                  </Fragment>
+                )
+              })
             ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  onClick={() => onRowClick?.(row.original)}
-                  data-testid={`view-table-row-${row.original.id}`}
-                  className={onRowClick ? 'cursor-pointer' : undefined}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              rows.map((row) => renderDataRow(row, onRowClick))
             )}
           </TableBody>
         </Table>
       </div>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// landr-1ztq — row + group-header renderers extracted so the table body
+// switch (grouped vs flat) stays a one-liner per branch.
+
+function renderDataRow(
+  row: Row<BookingItem>,
+  onRowClick: ((item: BookingItem) => void) | undefined,
+) {
+  return (
+    <TableRow
+      key={row.id}
+      onClick={() => onRowClick?.(row.original)}
+      data-testid={`view-table-row-${row.original.id}`}
+      className={onRowClick ? 'cursor-pointer' : undefined}
+    >
+      {row.getVisibleCells().map((cell) => (
+        <TableCell key={cell.id}>
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </TableCell>
+      ))}
+    </TableRow>
+  )
+}
+
+type GroupHeaderRowProps<T> = {
+  group: { key: string; label: string; items: T[] }
+  collapsed: boolean
+  colSpan: number
+  onToggle: () => void
+}
+
+function GroupHeaderRow<T>({
+  group,
+  collapsed,
+  colSpan,
+  onToggle,
+}: GroupHeaderRowProps<T>) {
+  const Icon = collapsed ? ChevronRight : ChevronDown
+  const labelDisplay = group.label === '—' ? t.views.table.groupNullLabel : group.label
+  return (
+    <TableRow
+      data-testid={`view-table-group-${group.key}`}
+      data-collapsed={collapsed}
+      className="bg-muted/40 hover:bg-muted/60"
+    >
+      <TableCell colSpan={colSpan} className="py-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={!collapsed}
+          aria-label={
+            collapsed
+              ? t.views.table.groupExpand(labelDisplay)
+              : t.views.table.groupCollapse(labelDisplay)
+          }
+          className="inline-flex w-full items-center gap-2 text-left text-sm font-medium"
+          data-testid={`view-table-group-toggle-${group.key}`}
+        >
+          <Icon className="size-4 opacity-70" aria-hidden="true" />
+          <span>{labelDisplay}</span>
+          <span
+            className="text-muted-foreground text-xs"
+            data-testid={`view-table-group-count-${group.key}`}
+          >
+            {t.views.table.groupCountSuffix(group.items.length)}
+          </span>
+        </button>
+      </TableCell>
+    </TableRow>
   )
 }
 

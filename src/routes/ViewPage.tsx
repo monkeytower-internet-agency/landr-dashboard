@@ -686,6 +686,7 @@ function TableLayoutBranch({
         items={items}
         onConfigChange={setConfig}
         onRowClick={(item) => setOpenItem(item)}
+        viewId={view.id}
       />
       <BookingDetailSheet
         row={openItem}

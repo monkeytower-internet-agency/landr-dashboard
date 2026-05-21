@@ -9,12 +9,17 @@
 // State lives in the parent (ViewPage owns the View's config). The toolbar
 // is a controlled component over the in-memory config blob.
 
-import { Filter as FilterIcon, ArrowUpDown, Columns3 } from 'lucide-react'
+import { Filter as FilterIcon, ArrowUpDown, Columns3, Layers } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 import { ViewFilterChips } from '@/components/views/ViewFilterChips'
 import { readFilters, type Filter } from '@/lib/views-filters'
-import { fieldsFor } from '@/lib/views-entity-fields'
+import {
+  fieldsFor,
+  groupableFieldsFor,
+  readGroupBy,
+  type GroupByRef,
+} from '@/lib/views-entity-fields'
 import { t } from '@/lib/strings'
 
 type SortEntry = { source: 'system' | 'custom'; key: string; dir: 'asc' | 'desc' }
@@ -27,6 +32,7 @@ type Props = {
 }
 
 const NO_SORT_VALUE = '__none__'
+const NO_GROUP_VALUE = '__none__'
 
 export function ViewToolbar({
   entityType,
@@ -36,7 +42,9 @@ export function ViewToolbar({
 }: Props) {
   const filters = readFilters(config)
   const sort = readSort(config)
+  const groupBy = readGroupBy(entityType, config)
   const sortableFields = fieldsFor(entityType).filter((f) => f.sortable)
+  const groupableFields = groupableFieldsFor(entityType)
 
   function setFilters(next: Filter[]) {
     onChange({ ...config, filters: next })
@@ -62,8 +70,22 @@ export function ViewToolbar({
     onChange({ ...config, sort: [flipped, ...sort.slice(1)] })
   }
 
+  // landr-1ztq — group-by writes a GroupByRef (or clears the key) into the
+  // config blob. Layouts that don't care about groupBy (Board, Calendar)
+  // simply ignore it; only TableLayout reads it back.
+  function setGroupByKey(key: string) {
+    if (key === NO_GROUP_VALUE) {
+      const { groupBy: _drop, ...rest } = config as Record<string, unknown>
+      onChange(rest)
+      return
+    }
+    const next: GroupByRef = { source: 'system', key }
+    onChange({ ...config, groupBy: next })
+  }
+
   const activeSortKey = sort[0]?.key ?? NO_SORT_VALUE
   const activeSortDir = sort[0]?.dir ?? 'asc'
+  const activeGroupKey = groupBy?.key ?? NO_GROUP_VALUE
 
   return (
     <div
@@ -122,6 +144,31 @@ export function ViewToolbar({
           </Button>
         ) : null}
       </div>
+
+      {groupableFields.length > 0 ? (
+        <div className="flex items-center gap-1.5">
+          <Layers
+            className="text-muted-foreground size-4"
+            aria-hidden="true"
+          />
+          <span className="text-muted-foreground text-xs">
+            {t.views.toolbar.groupByLabel}
+          </span>
+          <NativeSelect
+            value={activeGroupKey}
+            onChange={(e) => setGroupByKey(e.target.value)}
+            data-testid={`${testIdPrefix}-group-key`}
+            className="h-7 w-auto text-xs"
+          >
+            <option value={NO_GROUP_VALUE}>{t.views.toolbar.groupByNone}</option>
+            {groupableFields.map((f) => (
+              <option key={f.key} value={f.key}>
+                {f.label}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+      ) : null}
 
       <Button
         type="button"

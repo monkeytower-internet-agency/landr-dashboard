@@ -33,6 +33,13 @@ export type ViewField = {
   sortable: boolean
   /** Whether the field appears in the default Table column set. landr-7w3s. */
   default_visible_in_table?: boolean
+  /**
+   * landr-1ztq — whether this field can be used to group rows in the Table
+   * layout. Defaults to true for enum + date types via `isGroupableField`;
+   * set explicitly to override. Free-text fields (names, emails) are NOT
+   * groupable by default because every row tends to be its own bucket.
+   */
+  groupable?: boolean
   /** For type='enum' only — fixed list of allowed values. */
   enumValues?: readonly string[]
   /** Optional friendly labels for enum values. */
@@ -232,6 +239,46 @@ export function defaultColumnsFor(entityType: string): ColumnRef[] {
   return fieldsFor(entityType)
     .filter((f) => f.default_visible_in_table)
     .map((f) => ({ source: 'system', key: f.key }))
+}
+
+// landr-1ztq — group-by helpers for the Table layout.
+
+/** Default rule: enums + dates are groupable; anything else opts in via the
+ *  explicit `groupable` flag on the field. Free-text fields would each
+ *  produce a single-row bucket, so we exclude them by default. */
+export function isGroupableField(field: ViewField): boolean {
+  if (field.groupable !== undefined) return field.groupable
+  return field.type === 'enum' || field.type === 'date'
+}
+
+/** Fields offered in the Table layout's "Group by" dropdown. */
+export function groupableFieldsFor(
+  entityType: string,
+): readonly ViewField[] {
+  return fieldsFor(entityType).filter(isGroupableField)
+}
+
+/** Shape of view.config.groupBy. Mirrors ColumnRef so v2 custom fields land
+ *  additively (source: 'custom'). null/undefined => flat (no grouping). */
+export type GroupByRef = { source: 'system' | 'custom'; key: string }
+
+/** Sanitise / parse a saved view's config.groupBy. Drops unknown system
+ *  field keys so a removed-from-registry field doesn't break the table. */
+export function readGroupBy(
+  entityType: string,
+  config: Record<string, unknown> | undefined | null,
+): GroupByRef | null {
+  if (!config) return null
+  const raw = (config as { groupBy?: unknown }).groupBy
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Partial<GroupByRef>
+  if (r.source !== 'system' && r.source !== 'custom') return null
+  if (typeof r.key !== 'string') return null
+  if (r.source === 'system') {
+    const field = findField(entityType, r.key)
+    if (!field || !isGroupableField(field)) return null
+  }
+  return { source: r.source, key: r.key }
 }
 
 /** Sanitise / parse a saved view's config.columns. Tolerates the field

@@ -11,7 +11,7 @@
 
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { TableLayout } from './TableLayout'
 import type { BookingItem } from '@/lib/views-bookings-data'
@@ -179,6 +179,167 @@ describe('TableLayout (landr-7w3s)', () => {
     )
     await user.click(screen.getByTestId('view-table-row-b-1'))
     expect(onRowClick).toHaveBeenCalledWith(item)
+  })
+})
+
+describe('TableLayout group-by (landr-1ztq)', () => {
+  const GROUPED_CONFIG = {
+    ...TABLE_CONFIG,
+    groupBy: { source: 'system', key: 'current_stage' },
+  }
+
+  beforeEach(() => {
+    window.localStorage.clear()
+  })
+
+  it('renders one section header per non-empty group with a count', () => {
+    render(
+      <TableLayout
+        entityType="booking"
+        config={GROUPED_CONFIG}
+        items={[
+          makeItem({
+            id: 'b-1',
+            current_stage: { code: 'awaiting_hotel_approval' },
+          }),
+          makeItem({
+            id: 'b-2',
+            current_stage: { code: 'awaiting_hotel_approval' },
+          }),
+          makeItem({ id: 'b-3', current_stage: { code: 'confirmed' } }),
+        ]}
+        onConfigChange={() => {}}
+      />,
+    )
+    expect(
+      screen.getByTestId('view-table-group-awaiting_hotel_approval'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByTestId('view-table-group-confirmed'),
+    ).toBeInTheDocument()
+    // Awaiting hotel bucket has 2 rows; Confirmed has 1.
+    expect(
+      screen.getByTestId('view-table-group-count-awaiting_hotel_approval'),
+    ).toHaveTextContent('(2)')
+    expect(
+      screen.getByTestId('view-table-group-count-confirmed'),
+    ).toHaveTextContent('(1)')
+    // All three data rows are rendered (no group is collapsed by default).
+    expect(screen.getByTestId('view-table-row-b-1')).toBeInTheDocument()
+    expect(screen.getByTestId('view-table-row-b-2')).toBeInTheDocument()
+    expect(screen.getByTestId('view-table-row-b-3')).toBeInTheDocument()
+  })
+
+  it('clicking the chevron collapses + expands a group; collapse hides rows', async () => {
+    const user = userEvent.setup()
+    render(
+      <TableLayout
+        entityType="booking"
+        config={GROUPED_CONFIG}
+        items={[
+          makeItem({
+            id: 'b-1',
+            current_stage: { code: 'awaiting_hotel_approval' },
+          }),
+          makeItem({ id: 'b-2', current_stage: { code: 'confirmed' } }),
+        ]}
+        onConfigChange={() => {}}
+        viewId="v-test-1"
+      />,
+    )
+    const toggle = screen.getByTestId(
+      'view-table-group-toggle-awaiting_hotel_approval',
+    )
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('view-table-row-b-1')).toBeInTheDocument()
+
+    await user.click(toggle)
+
+    expect(
+      screen.getByTestId('view-table-group-toggle-awaiting_hotel_approval'),
+    ).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('view-table-row-b-1')).not.toBeInTheDocument()
+    // Other group still expanded.
+    expect(screen.getByTestId('view-table-row-b-2')).toBeInTheDocument()
+
+    // Toggle back — row reappears.
+    await user.click(
+      screen.getByTestId(
+        'view-table-group-toggle-awaiting_hotel_approval',
+      ),
+    )
+    expect(screen.getByTestId('view-table-row-b-1')).toBeInTheDocument()
+  })
+
+  it('collapse state is persisted in localStorage keyed on viewId', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(
+      <TableLayout
+        entityType="booking"
+        config={GROUPED_CONFIG}
+        items={[
+          makeItem({
+            id: 'b-1',
+            current_stage: { code: 'awaiting_hotel_approval' },
+          }),
+        ]}
+        onConfigChange={() => {}}
+        viewId="v-persist"
+      />,
+    )
+    await user.click(
+      screen.getByTestId(
+        'view-table-group-toggle-awaiting_hotel_approval',
+      ),
+    )
+    unmount()
+
+    // Remount with the same viewId — collapse state should rehydrate.
+    render(
+      <TableLayout
+        entityType="booking"
+        config={GROUPED_CONFIG}
+        items={[
+          makeItem({
+            id: 'b-1',
+            current_stage: { code: 'awaiting_hotel_approval' },
+          }),
+        ]}
+        onConfigChange={() => {}}
+        viewId="v-persist"
+      />,
+    )
+    expect(
+      screen.getByTestId(
+        'view-table-group-toggle-awaiting_hotel_approval',
+      ),
+    ).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('view-table-row-b-1')).not.toBeInTheDocument()
+  })
+
+  it('groupBy=null preserves the original flat table layout', () => {
+    render(
+      <TableLayout
+        entityType="booking"
+        config={TABLE_CONFIG}
+        items={[
+          makeItem({
+            id: 'b-1',
+            current_stage: { code: 'awaiting_hotel_approval' },
+          }),
+          makeItem({ id: 'b-2', current_stage: { code: 'confirmed' } }),
+        ]}
+        onConfigChange={() => {}}
+      />,
+    )
+    expect(
+      screen.queryByTestId('view-table-group-awaiting_hotel_approval'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('view-table-group-confirmed'),
+    ).not.toBeInTheDocument()
+    expect(screen.getByTestId('view-table-row-b-1')).toBeInTheDocument()
+    expect(screen.getByTestId('view-table-row-b-2')).toBeInTheDocument()
   })
 })
 
