@@ -19,6 +19,9 @@ import { Products } from '@/routes/Products'
 import { Reporting } from '@/routes/Reporting'
 import { Schedule } from '@/routes/Schedule'
 import { Staff } from '@/routes/Staff'
+import { ViewsIndex } from '@/routes/ViewsIndex'
+import { ViewsNew } from '@/routes/ViewsNew'
+import { ViewPage } from '@/routes/ViewPage'
 import { EmailTemplates } from '@/routes/EmailTemplates'
 import { PickupLocations } from '@/routes/PickupLocations'
 import { SettingsLayout } from '@/routes/SettingsLayout'
@@ -89,6 +92,13 @@ function App() {
               }
             >
               <Route path="/" element={<Dashboard />} />
+              {/* landr-v0xg — Views (saved-view system, Phase 1).
+                  /views/new materialises a new Personal View (blank
+                  Untitled, or from ?from=template:<key>) then replaces
+                  navigation to /views/:newId. */}
+              <Route path="/views" element={<ViewsIndex />} />
+              <Route path="/views/new" element={<ViewsNew />} />
+              <Route path="/views/:viewId" element={<ViewPage />} />
               <Route path="/bookings" element={<Bookings />} />
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/contacts" element={<Contacts />} />

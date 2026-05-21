@@ -3,6 +3,7 @@ import {
   CalendarRangeIcon,
   ChartAreaIcon,
   CheckCircleIcon,
+  LayersIcon,
   LayoutDashboardIcon,
   MousePointerClickIcon,
   PanelLeftCloseIcon,
@@ -63,6 +64,17 @@ type NavItem = {
 // rather than a daily-ops view. Same rarely-used → settings pattern.
 const primaryItems: NavItem[] = [
   { to: '/', label: t.nav.dashboard, icon: LayoutDashboardIcon, exact: true },
+  // landr-v0xg — Views (saved-view system, Phase 1). Position-A per
+  // ADR-0001: between Dashboard and Bookings, so the new top-level
+  // section sits next to the existing daily-use cluster without
+  // displacing Bookings. Icon: LayersIcon (distinct from the
+  // LayoutDashboardIcon already used for Dashboard).
+  {
+    to: '/views',
+    label: t.app.views,
+    icon: LayersIcon,
+    exact: false,
+  },
   {
     to: '/bookings',
     label: t.nav.bookings,

@@ -21,6 +21,8 @@ export const t = {
     },
     account: 'Account',
     settings: 'Settings',
+    // landr-v0xg — Views section label (sidebar primary nav).
+    views: 'Views',
   },
   auth: {
     signInHeading: 'Sign in',
@@ -1125,5 +1127,19 @@ export const t = {
     listSeatsPerDay: (n: number) => `${n} seats/day`,
     listReservedHint: (reserved: number, total: number) =>
       `${reserved}/${total} reserved`,
+  },
+
+  // landr-v0xg — saved Views index page (empty-state with templates,
+  // 'pick a view' helper text, '+ New view' affordance). Phase 6
+  // (landr-c58d) will add starring/hiding controls; phase 2 (landr-hgtv)
+  // adds the per-view ViewPage chrome.
+  viewsIndex: {
+    title: 'Views',
+    emptyTitle: 'No views yet',
+    emptyDescription:
+      'Create your first view or pick a template to get started.',
+    newButton: '+ New view',
+    templateSectionTitle: 'Start with a template',
+    pickViewHelp: 'Pick a view from the sidebar to get started.',
   },
 } as const
