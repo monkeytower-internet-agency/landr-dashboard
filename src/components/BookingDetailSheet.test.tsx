@@ -67,6 +67,24 @@ function render(ui: ReactElement) {
   })
 }
 
+// landr-parv — return the spy so individual tests can assert on which
+// query-key prefixes were invalidated after a mutation runs. The Views
+// layer (lib/views-bookings-data.ts) keys under ['views-bookings'] which
+// is NOT matched by the ['bookings'] prefix, so we need an explicit
+// guard here to prevent regressions.
+function renderWithInvalidationSpy(ui: ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const spy = vi.spyOn(client, 'invalidateQueries')
+  const result = rtlRender(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  })
+  return { ...result, invalidateSpy: spy }
+}
+
 function makeRow(overrides: Partial<BookingRow> = {}): BookingRow {
   return {
     id: 'b-12345678-aaaa-bbbb-cccc-dddddddddddd',
@@ -295,5 +313,31 @@ describe('BookingDetailSheet', () => {
     )
     // Start was already 06-01 so it's unchanged; only end gets PATCHed.
     expect(body.date_range_end).toBe('2026-06-07')
+  })
+
+  it('invalidates both [bookings] and [views-bookings] on save (landr-parv)', async () => {
+    // Regression guard: BookingDetailSheet.invalidateAll used to invalidate
+    // only the ['bookings'] prefix, which left the Views layer's
+    // ['views-bookings', operatorId] cache stale until manual refresh.
+    const user = userEvent.setup()
+    const { invalidateSpy } = renderWithInvalidationSpy(
+      <BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />,
+    )
+
+    const phoneInput = screen.getByLabelText(/phone/i)
+    await user.clear(phoneInput)
+    await user.type(phoneInput, '+34699000111')
+
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => {
+      expect(mock.builder.update).toHaveBeenCalled()
+    })
+
+    const invalidatedKeys = invalidateSpy.mock.calls.map(
+      (call) => (call[0] as { queryKey: unknown[] }).queryKey,
+    )
+    expect(invalidatedKeys).toContainEqual(['bookings'])
+    expect(invalidatedKeys).toContainEqual(['views-bookings'])
   })
 })
