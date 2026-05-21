@@ -52,6 +52,17 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }))
 
+// landr-ne58 — ViewPage now records each open in the user-scoped
+// "Recently viewed" trail via useAuth(); stub the auth module.
+vi.mock('@/lib/auth', () => ({
+  useAuth: () => ({
+    session: null,
+    user: { id: 'test-user', email: 'test@example.com' },
+    loading: false,
+    signOut: async () => {},
+  }),
+}))
+
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     getSavedView: vi.fn(),

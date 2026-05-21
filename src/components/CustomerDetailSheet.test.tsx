@@ -67,6 +67,18 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }))
 
+// landr-ne58 — sheet now records each open in the user-scoped
+// "Recently viewed" trail via useAuth(); stub the auth module so the
+// test render does not need an AuthProvider wrapper.
+vi.mock('@/lib/auth', () => ({
+  useAuth: () => ({
+    session: null,
+    user: { id: 'test-user', email: 'test@example.com' },
+    loading: false,
+    signOut: async () => {},
+  }),
+}))
+
 import { CustomerDetailSheet } from './CustomerDetailSheet'
 
 function makeContact(overrides: Partial<ContactFixture> = {}): ContactFixture {
