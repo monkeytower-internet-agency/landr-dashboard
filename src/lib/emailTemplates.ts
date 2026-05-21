@@ -31,7 +31,18 @@ export type PreviewResult = {
   subject: string
   body_html: string
   body_text: string | null
-  fixture: Record<string, unknown>
+  // landr-tq6j: preview endpoint runs the same Jinja2 engine as the
+  // sender. A missing/invalid variable surfaces here as a string the
+  // dashboard renders inline so operators see the failure before send
+  // time. Still arrives with status 200.
+  render_error: string | null
+  fixture: {
+    note?: string
+    // landr-tq6j: the sample context the preview rendered against.
+    // The dashboard surfaces these keys as the variable catalog so
+    // template authors stop guessing names.
+    context?: Record<string, unknown>
+  } & Record<string, unknown>
 }
 
 export const templateFormSchema = z.object({

@@ -1,26 +1,42 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 
 import { EmailTemplatePreview } from './EmailTemplatePreview'
 import { buildPreviewSrcDoc } from '@/lib/emailPreview'
-import type { EmailTemplate } from '@/lib/emailTemplates'
+import type { EmailTemplate, PreviewResult } from '@/lib/emailTemplates'
+
+// --- Hoisted mocks ---
+
+const { mock } = vi.hoisted(() => {
+  const state = {
+    nextResult: null as PreviewResult | null,
+  }
+  return { mock: { state } }
+})
 
 vi.mock('@/lib/emailTemplates', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/emailTemplates')>()
   return {
     ...actual,
-    previewTemplate: vi.fn(async () => ({
-      template_kind: 'booking_received',
-      locale: 'de',
-      subject: 'Hallo',
-      body_html: '<p style="color:#111">Hallo {{customer_name}}</p>',
-      body_text: 'Hallo',
-      fixture: { note: 'not a stub' },
-    })),
+    previewTemplate: vi.fn(async () => {
+      if (!mock.state.nextResult) throw new Error('test: nextResult not set')
+      return mock.state.nextResult
+    }),
   }
 })
+
+const toastSuccess = vi.fn()
+const toastError = vi.fn()
+vi.mock('sonner', () => ({
+  toast: {
+    success: (msg: string) => toastSuccess(msg),
+    error: (msg: string) => toastError(msg),
+  },
+}))
+
+// --- Fixtures ---
 
 const TEMPLATE: EmailTemplate = {
   id: 't-1',
@@ -35,12 +51,45 @@ const TEMPLATE: EmailTemplate = {
   updated_at: '2026-05-19T00:00:00.000Z',
 }
 
+const SAMPLE_CONTEXT = {
+  customer_name: 'Sample Customer',
+  customer_first_name: 'Sample',
+  customer_last_name: 'Customer',
+  operator_name: 'Sample Operator',
+  start_date: '2026-06-01',
+}
+
+function buildResult(over: Partial<PreviewResult> = {}): PreviewResult {
+  return {
+    template_kind: 'booking_received',
+    locale: 'de',
+    subject: 'Hallo Sample Customer',
+    body_html: '<p style="color:#111">Hallo Sample Customer</p>',
+    body_text: 'Hallo Sample Customer',
+    render_error: null,
+    fixture: { note: 'sample', context: SAMPLE_CONTEXT },
+    ...over,
+  }
+}
+
 function Providers({ children }: { children: ReactNode }) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>
 }
+
+// --- Tests ---
+
+beforeEach(() => {
+  mock.state.nextResult = buildResult()
+  toastSuccess.mockReset()
+  toastError.mockReset()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe('buildPreviewSrcDoc', () => {
   it('wraps the body html in a full document with forced light styles', () => {
@@ -60,6 +109,9 @@ describe('buildPreviewSrcDoc', () => {
 
 describe('EmailTemplatePreview iframe', () => {
   it('renders the HTML body inside an iframe whose srcDoc forces a light surface', async () => {
+    mock.state.nextResult = buildResult({
+      body_html: '<p style="color:#111">Hallo {{customer_name}}</p>',
+    })
     render(
       <Providers>
         <EmailTemplatePreview operatorId="op-1" template={TEMPLATE} />
@@ -77,5 +129,106 @@ describe('EmailTemplatePreview iframe', () => {
     expect(srcDoc).toContain('background: #ffffff')
     expect(srcDoc).toContain('Hallo {{customer_name}}')
     expect(iframe.getAttribute('sandbox')).toBe('')
+  })
+})
+
+describe('EmailTemplatePreview render_error', () => {
+  it('shows the render_error banner below the iframe when set', async () => {
+    mock.state.nextResult = buildResult({
+      render_error: "'undefined_xyz' is undefined",
+    })
+    render(
+      <Providers>
+        <EmailTemplatePreview operatorId="op-1" template={TEMPLATE} />
+      </Providers>,
+    )
+
+    const banner = await screen.findByRole('alert')
+    expect(banner).toHaveTextContent(/template did not render/i)
+    expect(banner).toHaveTextContent("'undefined_xyz' is undefined")
+    // The iframe is still rendered alongside the banner so the operator
+    // can see whatever partial output the engine produced.
+    expect(screen.getByTitle(/email html preview/i)).toBeInTheDocument()
+  })
+
+  it('omits the render_error banner when render_error is null', async () => {
+    render(
+      <Providers>
+        <EmailTemplatePreview operatorId="op-1" template={TEMPLATE} />
+      </Providers>,
+    )
+
+    await screen.findByTitle(/email html preview/i)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+describe('EmailTemplatePreview variable catalog', () => {
+  it('renders one chip per fixture.context key with the Jinja placeholder', async () => {
+    render(
+      <Providers>
+        <EmailTemplatePreview operatorId="op-1" template={TEMPLATE} />
+      </Providers>,
+    )
+
+    const sidebar = await screen.findByRole('complementary', {
+      name: /available variables/i,
+    })
+    for (const key of Object.keys(SAMPLE_CONTEXT)) {
+      const chip = await screen.findByLabelText(
+        new RegExp(`copy {{ ${key} }} to clipboard`, 'i'),
+      )
+      expect(chip).toBeInTheDocument()
+      expect(chip).toHaveTextContent(`{{ ${key} }}`)
+    }
+    // Sanity: chips live inside the sidebar, not free-floating.
+    expect(sidebar).toHaveTextContent('{{ customer_name }}')
+  })
+
+  it('copies the Jinja placeholder to the clipboard when a chip is clicked', async () => {
+    // Install the clipboard stub BEFORE rendering so the component's
+    // click handler resolves against our spy rather than jsdom's
+    // missing-clipboard or userEvent's internal clipboard plumbing.
+    const writeText = vi.fn(async () => undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+    render(
+      <Providers>
+        <EmailTemplatePreview operatorId="op-1" template={TEMPLATE} />
+      </Providers>,
+    )
+
+    const chip = await screen.findByLabelText(
+      /copy {{ customer_name }} to clipboard/i,
+    )
+    // Use a raw click to bypass userEvent's clipboard interception
+    // (userEvent.setup wraps navigator.clipboard for paste/cut/copy key
+    // events, which can intercept ours in unexpected ways).
+    chip.click()
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('{{ customer_name }}')
+    })
+    await waitFor(() => {
+      expect(toastSuccess).toHaveBeenCalledWith('Copied to clipboard.')
+    })
+  })
+
+  it('falls back to the empty-state copy when the renderer omits context', async () => {
+    mock.state.nextResult = buildResult({
+      fixture: { note: 'no context here' },
+    })
+    render(
+      <Providers>
+        <EmailTemplatePreview operatorId="op-1" template={TEMPLATE} />
+      </Providers>,
+    )
+
+    await screen.findByTitle(/email html preview/i)
+    expect(
+      screen.getByText(/run the preview to load available variables\./i),
+    ).toBeInTheDocument()
   })
 })
