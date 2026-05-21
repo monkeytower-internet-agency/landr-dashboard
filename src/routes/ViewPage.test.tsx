@@ -256,6 +256,29 @@ describe('ViewPage shell (landr-hgtv)', () => {
     })
   })
 
+  // landr-a8fg — copy-link button in the page header. Same clipboard stub
+  // pattern as the BookingDetailSheet test (landr-7tyo): install the spy
+  // BEFORE render + raw .click() so userEvent.setup's internal clipboard
+  // wrapping does not intercept the writeText call. The copied path is
+  // computed from the view id (NOT window.location) so a copied link does
+  // not carry the operator's transient ?layout= override.
+  it('copies the deep-link URL (origin + /views/<id>) when the copy-link button is clicked', async () => {
+    mocks.getSavedView.mockResolvedValueOnce(makeView())
+    const writeText = vi.fn(async () => undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+    render(`/views/${VIEW_ID}?layout=board`)
+    const btn = await screen.findByTestId('view-copy-link')
+    btn.click()
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(
+        `${window.location.origin}/views/${VIEW_ID}`,
+      )
+    })
+  })
+
   it('renders the dirty banner only when a Shared view has unsaved changes', async () => {
     mocks.getSavedView.mockResolvedValueOnce(
       makeView({ visibility: 'shared' }),

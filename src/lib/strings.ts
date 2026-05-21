@@ -202,6 +202,14 @@ export const t = {
     viewAllApprovals: 'View all approvals',
     viewAllBookings: 'View all bookings',
   },
+  // landr-a8fg — shared "Copy link" affordance on detail sheets + ViewPage
+  // headers. Centralised so the tooltip, success toast and error toast stay
+  // consistent across every surface that mounts CopyLinkButton.
+  copyLink: {
+    tooltip: 'Copy link to this',
+    toastSuccess: 'Link copied',
+    toastError: 'Could not copy link.',
+  },
   bookings: {
     title: 'Bookings',
     empty: 'No bookings yet.',
