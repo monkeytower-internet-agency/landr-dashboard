@@ -46,6 +46,11 @@ function extractor(fieldKey: string): FieldExtract | null {
       return { kind: 'scalar', get: (r) => r.customer?.last_name ?? null }
     case 'customer_email':
       return { kind: 'scalar', get: (r) => r.customer?.email ?? null }
+    case 'product_name':
+      return {
+        kind: 'multi',
+        get: (r) => r.items.map((it) => it.products?.name ?? null),
+      }
     case 'current_stage':
       return { kind: 'scalar', get: (r) => stageCode(r) }
     case 'date_range_start':

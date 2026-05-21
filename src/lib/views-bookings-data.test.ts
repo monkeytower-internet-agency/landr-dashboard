@@ -157,6 +157,50 @@ describe('matchesViewFilters', () => {
       ]),
     ).toBe(true)
   })
+
+  // landr-kjls — product_name extractor added so the Board layout (and the
+  // shared Table layout) can filter on a multi-item field. ANY-item match
+  // semantics, mirrors date_range_start.
+  it('product_name matches when ANY booking item carries the named product', () => {
+    const r = row({
+      items: [
+        {
+          id: 'a',
+          date_range_start: '2026-05-10',
+          date_range_end: null,
+          selected_days: null,
+          products: {
+            id: 'p1',
+            name: 'Tandem flight',
+            product_kind: 'service',
+            service_time_shape: 'single_date',
+          },
+        },
+        {
+          id: 'b',
+          date_range_start: '2026-05-11',
+          date_range_end: null,
+          selected_days: null,
+          products: {
+            id: 'p2',
+            name: 'Hotel room',
+            product_kind: 'service',
+            service_time_shape: null,
+          },
+        },
+      ],
+    })
+    expect(
+      matchesViewFilters(r, [
+        { field: 'product_name', op: 'eq', values: ['Hotel room'] },
+      ]),
+    ).toBe(true)
+    expect(
+      matchesViewFilters(r, [
+        { field: 'product_name', op: 'eq', values: ['Bungee jump'] },
+      ]),
+    ).toBe(false)
+  })
 })
 
 describe('applyViewSort', () => {

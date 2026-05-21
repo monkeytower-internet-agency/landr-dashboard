@@ -60,10 +60,22 @@ import { useViewDirtyState } from '@/components/views/useViewDirtyState'
 import { StarButton } from '@/components/views/StarButton'
 import { CalendarLayout } from '@/components/views/layouts/CalendarLayout'
 import { TableLayout } from '@/components/views/layouts/TableLayout'
+import {
+  BoardLayout,
+  type BoardItemMutate,
+} from '@/components/views/layouts/BoardLayout'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
-import type { BookingItem } from '@/lib/views-bookings-data'
 import { readFilters } from '@/lib/views-filters'
-import { applyView, useViewBookings } from '@/lib/views-bookings-data'
+import {
+  applyView,
+  useViewBookings,
+  type BookingItem,
+} from '@/lib/views-bookings-data'
+import {
+  postGeneralApprovalDecision,
+  postHotelApprovalDecision,
+  stageCode,
+} from '@/lib/bookings'
 
 const LAYOUT_PARAM = 'layout'
 
@@ -582,6 +594,7 @@ function LayoutBody({ layout, view, setConfig }: LayoutBodyProps) {
     case 'table':
       return <TableLayoutBranch view={view} setConfig={setConfig} />
     case 'board':
+      return <BoardLayoutBranch view={view} />
     default:
       return (
         <LayoutStub
@@ -682,6 +695,142 @@ function TableLayoutBranch({
         }}
       />
     </>
+  )
+}
+
+// landr-kjls — board branch mirrors CalendarLayoutBranch: own the fetch +
+// the apply-view pipe + the onItemMutate wiring, then hand a pure props
+// payload to <BoardLayout>. Keeping the mutation glue here means the
+// layout component itself stays renderer-only.
+function BoardLayoutBranch({ view }: { view: SavedViewWithState }) {
+  const { currentOperatorId } = useOperator()
+  const qc = useQueryClient()
+  const bookings = useViewBookings(currentOperatorId)
+  const items = useMemo(
+    () => applyView(bookings.data ?? [], view.config, view.entity_type),
+    [bookings.data, view.config, view.entity_type],
+  )
+  const onItemMutate = useMemo<BoardItemMutate>(
+    () =>
+      buildBookingItemMutate({
+        items,
+        onSettled: () => {
+          // Heal optimistic state with the canonical server view.
+          void qc.invalidateQueries({
+            queryKey: ['views-bookings', currentOperatorId ?? 'none'],
+          })
+        },
+      }),
+    [items, qc, currentOperatorId],
+  )
+  if (bookings.isPending) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        {t.views.body.board.loading}
+      </p>
+    )
+  }
+  if (bookings.isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.views.body.board.loadError}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-sm">
+            {bookings.error instanceof Error ? bookings.error.message : ''}
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+  return (
+    <BoardLayout
+      view={view}
+      items={items}
+      onItemMutate={onItemMutate}
+    />
+  )
+}
+
+// ----------------------------------------------------------------------------
+// buildBookingItemMutate (landr-kjls) — maps a flat field change on a
+// BookingItem to the right write endpoint. v1 wires only `current_stage`;
+// everything else rejects so the optimistic UI in the layout reverts.
+//
+// Stage transitions:
+//   awaiting_general_approval  → confirmed | cancelled   → general approval
+//   awaiting_hotel_approval    → confirmed | cancelled   → hotel approval
+//
+// Any other (fromStage, toStage) pair is rejected. The Board layout's
+// per-column gating mirrors this set so disallowed columns visibly grey
+// out before the drop is even attempted; this is the belt-and-braces
+// check that prevents stale UI from sneaking a bad write through.
+//
+// Not prefixed with `use` — it's a plain factory, not a hook
+// (widget-no-use-prefix-on-helpers memory).
+// eslint-disable-next-line react-refresh/only-export-components
+export function buildBookingItemMutate(args: {
+  items: BookingItem[]
+  onSettled: () => void
+}): BoardItemMutate {
+  return async (
+    itemId: string,
+    fieldKey: string,
+    newValue: string,
+  ): Promise<void> => {
+    if (fieldKey !== 'current_stage') {
+      const err = new Error(
+        `View item mutation for field "${fieldKey}" is not supported in v1.`,
+      )
+      toast.error(t.views.body.board.mutateError, {
+        description: err.message,
+      })
+      throw err
+    }
+
+    const current = args.items.find((it) => it.id === itemId)
+    const fromStage = current ? stageCode(current) : null
+
+    try {
+      await dispatchStageTransition(itemId, fromStage, newValue)
+      args.onSettled()
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : 'Stage transition failed.'
+      toast.error(t.views.body.board.mutateError, { description: message })
+      args.onSettled()
+      throw e
+    }
+  }
+}
+
+async function dispatchStageTransition(
+  itemId: string,
+  fromStage: string | null,
+  toStage: string,
+): Promise<void> {
+  const decision =
+    toStage === 'confirmed'
+      ? 'approve'
+      : toStage === 'cancelled'
+        ? 'reject'
+        : null
+  if (!decision) {
+    throw new Error(
+      `Target stage "${toStage}" is not a known approval outcome.`,
+    )
+  }
+  if (fromStage === 'awaiting_general_approval') {
+    await postGeneralApprovalDecision({ bookingId: itemId, decision })
+    return
+  }
+  if (fromStage === 'awaiting_hotel_approval') {
+    await postHotelApprovalDecision({ bookingId: itemId, decision })
+    return
+  }
+  throw new Error(
+    `No approval endpoint for transition from "${fromStage ?? 'null'}" to "${toStage}".`,
   )
 }
 
