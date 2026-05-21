@@ -15,12 +15,14 @@ import {
   SidebarProvider,
 } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/AppSidebar'
+import { CommandPalette } from '@/components/CommandPalette'
 import { NotificationsBell } from '@/components/NotificationsBell'
 import { OnboardingBanner } from '@/components/OnboardingBanner'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { PageTitleDisplay } from '@/components/topbar/PageTitleDisplay'
 import { useAuth } from '@/lib/auth'
+import { CommandPaletteProvider } from '@/lib/command-palette-context'
 import { PageTitleProvider } from '@/lib/page-title'
 import { SidebarModeProvider } from '@/lib/sidebar-mode-context'
 import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
@@ -115,6 +117,10 @@ function AppShellInner({
         <OnboardingBanner />
         <main className="flex-1 px-4 py-6 sm:px-6">{children}</main>
       </SidebarInset>
+      {/* landr-wmsc — global Cmd/Ctrl+K palette. Mounted once at the
+          shell level so the hot-key listener (installed by the
+          CommandPaletteProvider) covers every protected route. */}
+      <CommandPalette />
     </SidebarProvider>
   )
 }
@@ -131,7 +137,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <SidebarModeProvider>
       <PageTitleProvider>
-        <AppShellInner onSignOut={onSignOut}>{children}</AppShellInner>
+        <CommandPaletteProvider>
+          <AppShellInner onSignOut={onSignOut}>{children}</AppShellInner>
+        </CommandPaletteProvider>
       </PageTitleProvider>
     </SidebarModeProvider>
   )

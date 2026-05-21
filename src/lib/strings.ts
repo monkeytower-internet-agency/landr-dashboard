@@ -24,6 +24,26 @@ export const t = {
     // landr-v0xg — Views section label (sidebar primary nav).
     views: 'Views',
   },
+  // landr-wmsc — Cmd/Ctrl+K command palette.
+  commandPalette: {
+    triggerLabel: 'Open command palette',
+    dialogTitle: 'Command palette',
+    dialogDescription:
+      'Search across bookings, contacts, products, and views. Jump to any page or run a quick action.',
+    inputPlaceholder: 'Type a command or search…',
+    empty: 'No results found.',
+    groupNav: 'Navigation',
+    groupActions: 'Quick actions',
+    groupBookings: 'Bookings',
+    groupContacts: 'Contacts',
+    groupProducts: 'Products',
+    groupViews: 'Views',
+    actionNewBooking: 'New booking',
+    actionNewView: 'New view',
+    actionOpenSettings: 'Open settings',
+    loadingHint: 'Loading…',
+    bookingMissingCustomer: 'Unknown customer',
+  },
   auth: {
     signInHeading: 'Sign in',
     signInDescription: 'Access your operator dashboard.',
