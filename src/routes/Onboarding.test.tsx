@@ -364,6 +364,28 @@ describe('Onboarding wizard', () => {
     await screen.findByText(/step 9 of 9/i)
   })
 
+  it('clears the per-operator localStorage key on finish (no stale step=9)', async () => {
+    const user = userEvent.setup()
+    // Seed a stored step so we can verify it gets cleared (and not re-written).
+    window.localStorage.setItem('landr.dashboard.onboarding.op-1.step', '8')
+    renderRoute('/onboarding/start?step=8')
+
+    await screen.findByText(/step 8 of 9/i)
+    await user.click(screen.getByRole('button', { name: /i've embedded it/i }))
+
+    await screen.findByText(/step 9 of 9/i)
+    await waitFor(() => {
+      expect(mocks.markOnboarded).toHaveBeenCalledWith('op-1')
+    })
+    // After completion, the per-operator key MUST be gone. Previously a
+    // step-sync useEffect re-wrote `step=9` right after clearStoredStep.
+    await waitFor(() => {
+      expect(
+        window.localStorage.getItem('landr.dashboard.onboarding.op-1.step'),
+      ).toBeNull()
+    })
+  })
+
   it('persists step number to localStorage and resumes from it', async () => {
     const user = userEvent.setup()
     renderRoute('/onboarding/start?step=3')
