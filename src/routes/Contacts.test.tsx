@@ -69,24 +69,9 @@ const { mock } = vi.hoisted(() => {
     return builder
   }
 
-  // landr-39nw — gdprEraseContact() resolves auth.uid → public.users.id via
-  // `.from('users').select('id').eq('supabase_auth_id', uid).maybeSingle()`
-  // before calling the rpc. Without a terminal maybeSingle() the chain
-  // throws and the rpc is never reached. We return `id: 'user-1'` so the
-  // bridged id matches the auth.uid stubbed by the useAuth() mock above —
-  // existing rpc assertions check `p_requested_by_user_id: 'user-1'`.
-  const usersBuilder = () => {
-    const builder: Record<string, unknown> = {}
-    Object.assign(builder, {
-      select: vi.fn(() => builder),
-      eq: vi.fn(() => builder),
-      maybeSingle: vi.fn(async () => ({
-        data: { id: 'user-1' },
-        error: null,
-      })),
-    })
-    return builder
-  }
+  // landr-mk8o — gdprEraseContact() no longer reads from public.users
+  // client-side. The RPC resolves auth.uid() → public.users.id server-side,
+  // so the users-table builder stub is gone.
 
   const auditBuilder = () => {
     const builder: Record<string, unknown> = {}
@@ -102,7 +87,6 @@ const { mock } = vi.hoisted(() => {
   const supabase = {
     from: vi.fn((table: string) => {
       if (table === 'audit_log') return auditBuilder()
-      if (table === 'users') return usersBuilder()
       return contactsBuilder()
     }),
     channel: vi.fn(() => channel),
@@ -483,14 +467,18 @@ describe('Contacts route', () => {
     await user.click(submit)
 
     await waitFor(() => {
+      // landr-mk8o — RPC signature dropped p_requested_by_user_id; the
+      // server now resolves auth.uid() → public.users.id internally.
       expect(mock.supabase.rpc).toHaveBeenCalledWith(
         'gdpr_erase_contact',
         expect.objectContaining({
           p_contact_id: 'c-1',
-          p_requested_by_user_id: 'user-1',
           p_jurisdiction_note: 'GDPR Art. 17 — email request 2026-05-18',
         }),
       )
+      const [, args] = (mock.supabase.rpc as ReturnType<typeof vi.fn>).mock
+        .calls[0]
+      expect(args).not.toHaveProperty('p_requested_by_user_id')
     })
 
     await waitFor(() => {
