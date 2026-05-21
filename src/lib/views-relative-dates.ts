@@ -331,3 +331,82 @@ export function findSinglePreset(token: string): RelativePreset | undefined {
     (p) => p.kind === 'single' && p.token === token,
   )
 }
+
+// ---------------------------------------------------------------------------
+// landr-qc72 — Configurable Next/Last N days ranges.
+//
+// These compress ['today', 'today+14d'] → "Next 14 days" and ['today-30d',
+// 'today'] → "Last 30 days" in chip labels, even when no static preset matches.
+
+/** Inclusive lower bound for the custom-N picker. */
+export const CUSTOM_N_DAYS_MIN = 1
+/** Inclusive upper bound for the custom-N picker (UX guard). */
+export const CUSTOM_N_DAYS_MAX = 365
+
+/**
+ * Validate a user-entered N (string or number). Returns the integer when
+ * valid, or null otherwise. Mirrors the UI's inline-error gate.
+ */
+export function validateCustomNDays(input: unknown): number | null {
+  const n =
+    typeof input === 'number'
+      ? input
+      : typeof input === 'string' && input.trim() !== ''
+        ? Number(input)
+        : NaN
+  if (!Number.isFinite(n)) return null
+  if (!Number.isInteger(n)) return null
+  if (n < CUSTOM_N_DAYS_MIN || n > CUSTOM_N_DAYS_MAX) return null
+  return n
+}
+
+const NEXT_N_DAYS_TO_RE = /^today\+(\d+)d$/
+const LAST_N_DAYS_FROM_RE = /^today-(\d+)d$/
+
+export type CustomNDaysRange =
+  | { kind: 'next'; n: number }
+  | { kind: 'last'; n: number }
+
+/**
+ * Detect a "Next N days" / "Last N days" range pair. Returns null if the
+ * tokens don't form such a pair or N is out of the supported bounds.
+ */
+export function detectCustomNDaysRange(
+  from: string,
+  to: string,
+): CustomNDaysRange | null {
+  // Next N: ['today', 'today+Nd']
+  if (from === 'today') {
+    const m = NEXT_N_DAYS_TO_RE.exec(to)
+    if (m && m[1]) {
+      const n = Number(m[1])
+      if (n >= CUSTOM_N_DAYS_MIN && n <= CUSTOM_N_DAYS_MAX) {
+        return { kind: 'next', n }
+      }
+    }
+  }
+  // Last N: ['today-Nd', 'today']
+  if (to === 'today') {
+    const m = LAST_N_DAYS_FROM_RE.exec(from)
+    if (m && m[1]) {
+      const n = Number(m[1])
+      if (n >= CUSTOM_N_DAYS_MIN && n <= CUSTOM_N_DAYS_MAX) {
+        return { kind: 'last', n }
+      }
+    }
+  }
+  return null
+}
+
+/** Build the token pair for a Next/Last N days range. */
+export function buildCustomNDaysRange(
+  kind: 'next' | 'last',
+  n: number,
+): [string, string] {
+  return kind === 'next' ? ['today', `today+${n}d`] : [`today-${n}d`, 'today']
+}
+
+/** Friendly label for a custom Next/Last N days range. */
+export function describeCustomNDaysRange(range: CustomNDaysRange): string {
+  return range.kind === 'next' ? `Next ${range.n} days` : `Last ${range.n} days`
+}

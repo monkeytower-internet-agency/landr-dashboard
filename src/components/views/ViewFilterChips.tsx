@@ -37,11 +37,17 @@ import {
   type ViewField,
 } from '@/lib/views-entity-fields'
 import {
+  CUSTOM_N_DAYS_MAX,
+  CUSTOM_N_DAYS_MIN,
   RELATIVE_PRESETS,
+  buildCustomNDaysRange,
+  describeCustomNDaysRange,
   describeRelativeToken,
+  detectCustomNDaysRange,
   findRangePreset,
   findSinglePreset,
   isRelativeToken,
+  validateCustomNDays,
   type RelativePreset,
 } from '@/lib/views-relative-dates'
 import { t } from '@/lib/strings'
@@ -184,6 +190,12 @@ function renderChipLabel(entityType: string, f: Filter): string {
       if (f.op === 'within' && f.values.length === 2) {
         const preset = findRangePreset(String(f.values[0]), String(f.values[1]))
         if (preset) return `${label} is in ${preset.label}`
+        // landr-qc72 — compress custom Next/Last N days ranges.
+        const custom = detectCustomNDaysRange(
+          String(f.values[0]),
+          String(f.values[1]),
+        )
+        if (custom) return `${label} is in ${describeCustomNDaysRange(custom)}`
         return `${label} is in ${describeRelativeToken(String(f.values[0]))} → ${describeRelativeToken(String(f.values[1]))}`
       }
       const tokens = f.values
@@ -467,11 +479,34 @@ function inferInitialMode(values: FilterValue[]): DateMode {
   return values.some((v) => isRelativeToken(v)) ? 'relative' : 'date'
 }
 
+type CustomKind = 'next' | 'last'
+
 function DateValueEditor({ op, values, onChange }: DateValueEditorProps) {
   const [mode, setMode] = useState<DateMode>(() => inferInitialMode(values))
   const isWithin = op === 'within'
 
+  // landr-qc72 — inline Next/Last N days picker state.
+  const initialCustom =
+    isWithin && values.length === 2
+      ? detectCustomNDaysRange(String(values[0]), String(values[1]))
+      : null
+  const [customKind, setCustomKind] = useState<CustomKind | null>(
+    initialCustom ? initialCustom.kind : null,
+  )
+  const [customNInput, setCustomNInput] = useState<string>(
+    initialCustom ? String(initialCustom.n) : '',
+  )
+  const customNValid = validateCustomNDays(customNInput)
+  const customNError =
+    customNInput.trim() === ''
+      ? null
+      : customNValid === null
+        ? `Enter a whole number between ${CUSTOM_N_DAYS_MIN} and ${CUSTOM_N_DAYS_MAX}.`
+        : null
+
   function selectPreset(preset: RelativePreset) {
+    // Selecting a static preset clears any in-flight custom-N picker.
+    setCustomKind(null)
     if (preset.kind === 'single') {
       // Single-token preset: works for any op. For 'within', mirror the
       // token to both bounds so a "Today" pick means just that day.
@@ -482,6 +517,30 @@ function DateValueEditor({ op, values, onChange }: DateValueEditorProps) {
       // for 'within').
       onChange(isWithin ? [preset.from, preset.to] : [preset.from])
     }
+  }
+
+  function openCustom(kind: CustomKind) {
+    setCustomKind(kind)
+    // Seed the input from current values if they already encode this kind.
+    if (initialCustom && initialCustom.kind === kind) {
+      setCustomNInput(String(initialCustom.n))
+    } else if (customNInput.trim() === '') {
+      // Sensible default when the field is empty.
+      setCustomNInput(kind === 'next' ? '14' : '14')
+    }
+  }
+
+  function applyCustom() {
+    if (customNValid === null || customKind === null) return
+    if (!isWithin) {
+      // Non-within ops can't express ranges; fall back to writing the
+      // single offset endpoint (mirrors selectPreset's range fallback).
+      const [from] = buildCustomNDaysRange(customKind, customNValid)
+      onChange([from])
+      return
+    }
+    const [from, to] = buildCustomNDaysRange(customKind, customNValid)
+    onChange([from, to])
   }
 
   const currentPresetKey = (() => {
@@ -535,27 +594,95 @@ function DateValueEditor({ op, values, onChange }: DateValueEditorProps) {
       {mode === 'date' ? (
         <DateLiteralInputs op={op} values={values} onChange={onChange} />
       ) : (
-        <fieldset
-          className="flex flex-wrap gap-1"
-          data-testid="filter-editor-relative-presets"
-        >
-          <legend className="sr-only">Relative presets</legend>
-          {RELATIVE_PRESETS.map((preset) => {
-            const selected = currentPresetKey === preset.key
-            return (
-              <button
-                key={preset.key}
-                type="button"
-                onClick={() => selectPreset(preset)}
-                className={`rounded border px-2 py-1 text-xs ${selected ? 'bg-accent border-input' : 'border-input bg-background'}`}
-                data-testid={`filter-editor-preset-${preset.key}`}
-                aria-pressed={selected}
-              >
-                {preset.label}
-              </button>
-            )
-          })}
-        </fieldset>
+        <div className="flex flex-col gap-2">
+          <fieldset
+            className="flex flex-wrap gap-1"
+            data-testid="filter-editor-relative-presets"
+          >
+            <legend className="sr-only">Relative presets</legend>
+            {RELATIVE_PRESETS.map((preset) => {
+              const selected = currentPresetKey === preset.key
+              return (
+                <button
+                  key={preset.key}
+                  type="button"
+                  onClick={() => selectPreset(preset)}
+                  className={`rounded border px-2 py-1 text-xs ${selected ? 'bg-accent border-input' : 'border-input bg-background'}`}
+                  data-testid={`filter-editor-preset-${preset.key}`}
+                  aria-pressed={selected}
+                >
+                  {preset.label}
+                </button>
+              )
+            })}
+            {/* landr-qc72 — configurable Next/Last N days picker. */}
+            <button
+              type="button"
+              onClick={() => openCustom('next')}
+              className={`rounded border px-2 py-1 text-xs ${customKind === 'next' ? 'bg-accent border-input' : 'border-input bg-background'}`}
+              data-testid="filter-editor-preset-next-n-days"
+              aria-pressed={customKind === 'next'}
+            >
+              Next N days
+            </button>
+            <button
+              type="button"
+              onClick={() => openCustom('last')}
+              className={`rounded border px-2 py-1 text-xs ${customKind === 'last' ? 'bg-accent border-input' : 'border-input bg-background'}`}
+              data-testid="filter-editor-preset-last-n-days"
+              aria-pressed={customKind === 'last'}
+            >
+              Last N days
+            </button>
+          </fieldset>
+
+          {customKind !== null ? (
+            <div
+              className="flex flex-col gap-1"
+              data-testid="filter-editor-custom-n-days"
+            >
+              <div className="flex items-end gap-2">
+                <label className="flex-1 text-xs font-medium">
+                  N (days)
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={CUSTOM_N_DAYS_MIN}
+                    max={CUSTOM_N_DAYS_MAX}
+                    step={1}
+                    value={customNInput}
+                    onChange={(e) => setCustomNInput(e.target.value)}
+                    data-testid="filter-editor-custom-n-input"
+                    aria-invalid={customNError !== null}
+                    aria-describedby={
+                      customNError ? 'filter-editor-custom-n-error' : undefined
+                    }
+                    className="mt-1 w-full"
+                  />
+                </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={customNValid === null}
+                  onClick={applyCustom}
+                  data-testid="filter-editor-custom-n-apply"
+                >
+                  {t.views.filters.apply}
+                </Button>
+              </div>
+              {customNError ? (
+                <p
+                  id="filter-editor-custom-n-error"
+                  className="text-destructive text-xs"
+                  data-testid="filter-editor-custom-n-error"
+                  role="alert"
+                >
+                  {customNError}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       )}
     </div>
   )
