@@ -14,6 +14,13 @@ import {
   type PricingRule,
   type RuleKind,
 } from '@/lib/pricingSchemes'
+import { explanationFor } from '@/lib/ui-explanations'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { TierTable } from './TierTable'
 
 type Props = {
@@ -30,6 +37,36 @@ type Props = {
   isDragging?: boolean
   /** Forwarded ref for dnd-kit setNodeRef. */
   innerRef?: (node: HTMLElement | null) => void
+}
+
+// ---- rule-kind chip with explanation tooltip (landr-12ux) ---------------
+
+function RuleKindChip({ kind }: { kind: RuleKind }) {
+  const label = RULE_KIND_LABELS[kind]
+  const explanation = explanationFor('ruleKind', kind)
+  const pill = (
+    <span
+      className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium"
+      // Native title so a11y / keyboard users still get the explanation
+      // when the shadcn Tooltip's hover affordance isn't available.
+      title={explanation ?? undefined}
+    >
+      {label}
+    </span>
+  )
+  if (!explanation) return pill
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex">{pill}</span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs text-balance">
+          {explanation}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
 }
 
 // ---- module-level params editor for non-tiered rule kinds ---------------
@@ -209,9 +246,10 @@ export function PricingRuleEditor({
       <div className="flex flex-wrap items-center gap-2">
         {dragHandle ?? null}
 
-        <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium">
-          {RULE_KIND_LABELS[rule.rule_kind]}
-        </span>
+        {/* landr-12ux — rule-kind chip with an explanation Tooltip so
+            operators can hover the chip to see what e.g. "Consecutive-day
+            tiers" actually computes. */}
+        <RuleKindChip kind={rule.rule_kind} />
 
         <Button
           type="button"

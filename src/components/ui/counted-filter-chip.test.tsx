@@ -118,4 +118,40 @@ describe('CountedFilterChip', () => {
       'Customer contacts (3 matches)',
     )
   })
+
+  // landr-12ux — enabled chips with an `explanation` get the explanation
+  // wired up as a native `title` (a11y / keyboard fallback for the
+  // shadcn Tooltip's hover affordance).
+  it('puts the explanation in the title attribute when enabled', () => {
+    render(
+      <CountedFilterChip
+        label="Operator review"
+        count={5}
+        selected={false}
+        onToggle={() => {}}
+        explanation="The operator's first review of a new booking."
+      />,
+    )
+    expect(screen.getByRole('button')).toHaveAttribute(
+      'title',
+      "The operator's first review of a new booking.",
+    )
+  })
+
+  it('keeps the disabledTooltip when the chip is disabled, even with an explanation', () => {
+    render(
+      <CountedFilterChip
+        label="Operator review"
+        count={0}
+        selected={false}
+        onToggle={() => {}}
+        disabledTooltip="No bookings in operator review"
+        explanation="The operator's first review of a new booking."
+      />,
+    )
+    expect(screen.getByRole('button')).toHaveAttribute(
+      'title',
+      'No bookings in operator review',
+    )
+  })
 })
