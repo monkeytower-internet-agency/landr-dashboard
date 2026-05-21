@@ -339,4 +339,109 @@ describe('CalendarLayout (landr-9kbl)', () => {
       screen.getByTestId('booking-detail-sheet-mock').dataset.open,
     ).toBe('false')
   })
+
+  // landr-mofm — view-variant switcher: month (default), week, day.
+  describe('view variants (landr-mofm)', () => {
+    it('defaults to dayGridMonth when calendarConfig.view is unset', () => {
+      const view = makeView({
+        layout: 'calendar',
+        calendarConfig: { dateField: 'date_range_start' },
+      })
+      render(<CalendarLayout view={view} items={[makeRow()]} />)
+      expect(
+        document.querySelector('.fc-dayGridMonth-view'),
+      ).not.toBeNull()
+      // Month button is the active (default) variant.
+      expect(
+        screen
+          .getByTestId('view-calendar-view-month')
+          .getAttribute('aria-pressed'),
+      ).toBe('true')
+    })
+
+    it('renders timeGridWeek when calendarConfig.view = "week"', () => {
+      const view = makeView({
+        layout: 'calendar',
+        calendarConfig: { dateField: 'date_range_start', view: 'week' },
+      })
+      render(<CalendarLayout view={view} items={[makeRow()]} />)
+      expect(
+        document.querySelector('.fc-timeGridWeek-view'),
+      ).not.toBeNull()
+      expect(
+        screen
+          .getByTestId('view-calendar-view-week')
+          .getAttribute('aria-pressed'),
+      ).toBe('true')
+    })
+
+    it('renders timeGridDay when calendarConfig.view = "day"', () => {
+      const view = makeView({
+        layout: 'calendar',
+        calendarConfig: { dateField: 'date_range_start', view: 'day' },
+      })
+      render(<CalendarLayout view={view} items={[makeRow()]} />)
+      expect(
+        document.querySelector('.fc-timeGridDay-view'),
+      ).not.toBeNull()
+      expect(
+        screen
+          .getByTestId('view-calendar-view-day')
+          .getAttribute('aria-pressed'),
+      ).toBe('true')
+    })
+
+    it('clicking a variant calls onConfigChange with the new calendarConfig.view', async () => {
+      const view = makeView({
+        layout: 'calendar',
+        calendarConfig: { dateField: 'date_range_start' },
+      })
+      const onConfigChange = vi.fn()
+      const user = userEvent.setup()
+      render(
+        <CalendarLayout
+          view={view}
+          items={[makeRow()]}
+          onConfigChange={onConfigChange}
+        />,
+      )
+
+      await user.click(screen.getByTestId('view-calendar-view-week'))
+      expect(onConfigChange).toHaveBeenCalledTimes(1)
+      const patch = onConfigChange.mock.calls[0][0] as Record<string, unknown>
+      const cal = patch.calendarConfig as Record<string, unknown>
+      expect(cal.view).toBe('week')
+      // Existing dateField is preserved.
+      expect(cal.dateField).toBe('date_range_start')
+    })
+
+    it('clicking the already-active variant is a no-op', async () => {
+      const view = makeView({
+        layout: 'calendar',
+        calendarConfig: { dateField: 'date_range_start', view: 'day' },
+      })
+      const onConfigChange = vi.fn()
+      const user = userEvent.setup()
+      render(
+        <CalendarLayout
+          view={view}
+          items={[makeRow()]}
+          onConfigChange={onConfigChange}
+        />,
+      )
+      await user.click(screen.getByTestId('view-calendar-view-day'))
+      expect(onConfigChange).not.toHaveBeenCalled()
+    })
+
+    it('ignores an invalid calendarConfig.view value (falls back to month)', () => {
+      const view = makeView({
+        layout: 'calendar',
+        calendarConfig: { dateField: 'date_range_start', view: 'fortnight' },
+      })
+      render(<CalendarLayout view={view} items={[makeRow()]} />)
+      expect(
+        document.querySelector('.fc-dayGridMonth-view'),
+      ).not.toBeNull()
+    })
+  })
 })
