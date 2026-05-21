@@ -6,12 +6,18 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  buildCustomNDaysRange,
+  CUSTOM_N_DAYS_MAX,
+  CUSTOM_N_DAYS_MIN,
+  describeCustomNDaysRange,
   describeRelativeToken,
+  detectCustomNDaysRange,
   findRangePreset,
   findSinglePreset,
   isRelativeToken,
   resolveRelativeDate,
   RELATIVE_PRESETS,
+  validateCustomNDays,
 } from '@/lib/views-relative-dates'
 
 // Helper: build a "now" Date for a specific local Y-M-D (months are 0-based).
@@ -292,5 +298,106 @@ describe('preset registry', () => {
   it('returns undefined for non-preset combinations', () => {
     expect(findRangePreset('today', '+99d')).toBeUndefined()
     expect(findSinglePreset('+5d')).toBeUndefined()
+  })
+})
+
+// landr-qc72 — configurable Next/Last N days range helpers.
+describe('validateCustomNDays', () => {
+  it('accepts integers within [MIN, MAX]', () => {
+    expect(validateCustomNDays(1)).toBe(1)
+    expect(validateCustomNDays(14)).toBe(14)
+    expect(validateCustomNDays(365)).toBe(365)
+    expect(validateCustomNDays('14')).toBe(14)
+    expect(validateCustomNDays('  30  ')).toBe(30)
+  })
+
+  it('rejects out-of-range values', () => {
+    expect(validateCustomNDays(0)).toBeNull()
+    expect(validateCustomNDays(-1)).toBeNull()
+    expect(validateCustomNDays(366)).toBeNull()
+    expect(validateCustomNDays(CUSTOM_N_DAYS_MIN - 1)).toBeNull()
+    expect(validateCustomNDays(CUSTOM_N_DAYS_MAX + 1)).toBeNull()
+  })
+
+  it('rejects non-integers and garbage', () => {
+    expect(validateCustomNDays(1.5)).toBeNull()
+    expect(validateCustomNDays('1.5')).toBeNull()
+    expect(validateCustomNDays('abc')).toBeNull()
+    expect(validateCustomNDays('')).toBeNull()
+    expect(validateCustomNDays(null)).toBeNull()
+    expect(validateCustomNDays(undefined)).toBeNull()
+    expect(validateCustomNDays(Number.NaN)).toBeNull()
+  })
+})
+
+describe('detectCustomNDaysRange', () => {
+  it('detects Next N: today → today+Nd', () => {
+    expect(detectCustomNDaysRange('today', 'today+14d')).toEqual({
+      kind: 'next',
+      n: 14,
+    })
+    expect(detectCustomNDaysRange('today', 'today+1d')).toEqual({
+      kind: 'next',
+      n: 1,
+    })
+    expect(detectCustomNDaysRange('today', 'today+365d')).toEqual({
+      kind: 'next',
+      n: 365,
+    })
+  })
+
+  it('detects Last N: today-Nd → today', () => {
+    expect(detectCustomNDaysRange('today-7d', 'today')).toEqual({
+      kind: 'last',
+      n: 7,
+    })
+    expect(detectCustomNDaysRange('today-30d', 'today')).toEqual({
+      kind: 'last',
+      n: 30,
+    })
+  })
+
+  it('returns null for ranges outside [MIN, MAX]', () => {
+    expect(detectCustomNDaysRange('today', 'today+0d')).toBeNull()
+    expect(detectCustomNDaysRange('today', 'today+999d')).toBeNull()
+    expect(detectCustomNDaysRange('today-999d', 'today')).toBeNull()
+  })
+
+  it('returns null for tokens that do not match the pattern', () => {
+    expect(detectCustomNDaysRange('today', '+14d')).toBeNull()
+    expect(detectCustomNDaysRange('start_of_week', 'end_of_week')).toBeNull()
+    expect(detectCustomNDaysRange('today', 'tomorrow')).toBeNull()
+    expect(detectCustomNDaysRange('today+1d', 'today+14d')).toBeNull()
+  })
+})
+
+describe('buildCustomNDaysRange', () => {
+  it('builds Next N token pairs', () => {
+    expect(buildCustomNDaysRange('next', 14)).toEqual(['today', 'today+14d'])
+    expect(buildCustomNDaysRange('next', 1)).toEqual(['today', 'today+1d'])
+  })
+
+  it('builds Last N token pairs', () => {
+    expect(buildCustomNDaysRange('last', 30)).toEqual(['today-30d', 'today'])
+  })
+
+  it('roundtrips with detectCustomNDaysRange', () => {
+    for (const kind of ['next', 'last'] as const) {
+      for (const n of [1, 7, 14, 30, 90, 365]) {
+        const [from, to] = buildCustomNDaysRange(kind, n)
+        expect(detectCustomNDaysRange(from, to)).toEqual({ kind, n })
+      }
+    }
+  })
+})
+
+describe('describeCustomNDaysRange', () => {
+  it('formats Next/Last N days', () => {
+    expect(describeCustomNDaysRange({ kind: 'next', n: 14 })).toBe(
+      'Next 14 days',
+    )
+    expect(describeCustomNDaysRange({ kind: 'last', n: 30 })).toBe(
+      'Last 30 days',
+    )
   })
 })

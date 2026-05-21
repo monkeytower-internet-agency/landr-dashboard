@@ -127,6 +127,45 @@ export const VIEW_TEMPLATES: ViewTemplate[] = [
     },
   },
   {
+    // landr-qc72 — configurable-N starter pack. Demonstrates the
+    // Next/Last N days picker idiom with a longer horizon than the
+    // 7-day default.
+    key: 'next-30-days',
+    name: 'Next 30 days',
+    description: 'Bookings starting any time in the next 30 days.',
+    entity_type: 'booking',
+    config: {
+      layout: 'table',
+      filters: [
+        {
+          field: 'date_range_start',
+          op: 'within',
+          values: ['today', 'today+30d'],
+        },
+      ],
+      sort: [{ source: 'system', key: 'date_range_start', dir: 'asc' }],
+    },
+  },
+  {
+    // landr-qc72 — counterpart to next-30-days; the Last-N idiom on
+    // the chip side ('today-Nd' → 'today').
+    key: 'last-30-days',
+    name: 'Last 30 days',
+    description: 'Bookings that started in the past 30 days.',
+    entity_type: 'booking',
+    config: {
+      layout: 'table',
+      filters: [
+        {
+          field: 'date_range_start',
+          op: 'within',
+          values: ['today-30d', 'today'],
+        },
+      ],
+      sort: [{ source: 'system', key: 'date_range_start', dir: 'desc' }],
+    },
+  },
+  {
     key: 'past-due',
     name: 'Past due bookings',
     description: 'Bookings whose start date has already passed.',

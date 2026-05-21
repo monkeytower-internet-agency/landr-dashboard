@@ -188,7 +188,8 @@ describe('setViewUserState', () => {
 
 describe('VIEW_TEMPLATES', () => {
   // landr-1zxt added three relative-date starters (next-7-days, this-month,
-  // past-due) on top of the original four.
+  // past-due) on top of the original four. landr-qc72 added next-30-days
+  // and last-30-days as configurable-N exemplars.
   const EXPECTED_KEYS = [
     'all-bookings',
     'pending-approvals',
@@ -196,6 +197,8 @@ describe('VIEW_TEMPLATES', () => {
     'todays-pickups',
     'next-7-days',
     'this-month',
+    'next-30-days',
+    'last-30-days',
     'past-due',
   ] as const
 
