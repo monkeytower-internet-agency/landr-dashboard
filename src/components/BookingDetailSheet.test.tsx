@@ -446,4 +446,191 @@ describe('BookingDetailSheet', () => {
       )
     })
   })
+
+  // -----------------------------------------------------------------------
+  // landr-ng3m — Mark-as-no-show workflow.
+  // -----------------------------------------------------------------------
+
+  it('hides the Mark-as-no-show button for a future-only booking', () => {
+    // Default fixture date_range_start = 2026-06-01 which is after the
+    // test env's "today" (2026-05-21). No event has happened yet, so the
+    // button should not be offered.
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(
+      screen.queryByRole('button', { name: /mark as no-show/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('hides the Mark-as-no-show button when stage is already no_show', () => {
+    const row = makeRow({
+      current_semantic_state: 'no_show',
+      current_stage: { code: 'no_show' },
+      items: [
+        {
+          id: 'i-1',
+          date_range_start: '2026-05-01',
+          date_range_end: '2026-05-01',
+          selected_days: ['2026-05-01'],
+          products: {
+            id: 'p-1',
+            name: 'Tandem Flight',
+            product_kind: 'service',
+            service_time_shape: 'time_slot',
+          },
+        },
+      ],
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+    expect(
+      screen.queryByRole('button', { name: /mark as no-show/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows Mark-as-no-show when an item has already started, POSTs with charge_cancellation_fee=false by default', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          booking_id: 'b',
+          previous_stage_code: 'confirmed',
+          new_stage_code: 'no_show',
+          new_semantic_state: 'no_show',
+        }),
+        { status: 200 },
+      ),
+    )
+    const row = makeRow({
+      items: [
+        {
+          id: 'i-1',
+          // before "today" (2026-05-21) per the env fixture date.
+          date_range_start: '2026-05-01',
+          date_range_end: '2026-05-02',
+          selected_days: ['2026-05-01', '2026-05-02'],
+          products: {
+            id: 'p-1',
+            name: 'Tandem Flight',
+            product_kind: 'service',
+            service_time_shape: 'time_slot',
+          },
+        },
+      ],
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+
+    const btn = screen.getByRole('button', { name: /mark as no-show/i })
+    await user.click(btn)
+
+    const dialog = await screen.findByRole('alertdialog')
+    // Confirm without flipping the cancellation-fee checkbox; the call
+    // should default the flag to false.
+    const confirmBtn = within(dialog).getByRole('button', {
+      name: /mark as no-show/i,
+    })
+    await user.click(confirmBtn)
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/staff/operators/op-test/bookings/')
+    expect(url).toContain('/no-show')
+    expect(opts.method).toBe('POST')
+    expect(JSON.parse(opts.body as string)).toEqual({
+      charge_cancellation_fee: false,
+    })
+  })
+
+  it('checking the cancellation-fee checkbox sends charge_cancellation_fee=true', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          booking_id: 'b',
+          previous_stage_code: 'confirmed',
+          new_stage_code: 'no_show',
+          new_semantic_state: 'no_show',
+        }),
+        { status: 200 },
+      ),
+    )
+    const row = makeRow({
+      items: [
+        {
+          id: 'i-1',
+          date_range_start: '2026-05-01',
+          date_range_end: '2026-05-01',
+          selected_days: ['2026-05-01'],
+          products: {
+            id: 'p-1',
+            name: 'Tandem Flight',
+            product_kind: 'service',
+            service_time_shape: 'time_slot',
+          },
+        },
+      ],
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+
+    await user.click(screen.getByRole('button', { name: /mark as no-show/i }))
+    const dialog = await screen.findByRole('alertdialog')
+
+    const checkbox = within(dialog).getByTestId('no-show-charge-fee')
+    await user.click(checkbox)
+
+    await user.click(
+      within(dialog).getByRole('button', { name: /mark as no-show/i }),
+    )
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(opts.body as string)).toEqual({
+      charge_cancellation_fee: true,
+    })
+  })
+
+  it('Mark-as-no-show invalidates [bookings] and [views-bookings] on success', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          booking_id: 'b',
+          previous_stage_code: 'confirmed',
+          new_stage_code: 'no_show',
+          new_semantic_state: 'no_show',
+        }),
+        { status: 200 },
+      ),
+    )
+    const row = makeRow({
+      items: [
+        {
+          id: 'i-1',
+          date_range_start: '2026-05-01',
+          date_range_end: '2026-05-01',
+          selected_days: ['2026-05-01'],
+          products: {
+            id: 'p-1',
+            name: 'Tandem Flight',
+            product_kind: 'service',
+            service_time_shape: 'time_slot',
+          },
+        },
+      ],
+    })
+    const { invalidateSpy } = renderWithInvalidationSpy(
+      <BookingDetailSheet row={row} onOpenChange={() => {}} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /mark as no-show/i }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(
+      within(dialog).getByRole('button', { name: /mark as no-show/i }),
+    )
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const invalidatedKeys = invalidateSpy.mock.calls.map(
+      (call) => (call[0] as { queryKey: unknown[] }).queryKey,
+    )
+    expect(invalidatedKeys).toContainEqual(['bookings'])
+    expect(invalidatedKeys).toContainEqual(['views-bookings'])
+  })
 })

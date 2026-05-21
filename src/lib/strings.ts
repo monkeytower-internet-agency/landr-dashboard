@@ -388,6 +388,24 @@ export const t = {
       toastSuccess: 'Booking unblocked.',
       toastError: 'Failed to unblock booking.',
     },
+    // landr-ng3m — terminal "customer never showed" transition. Distinct
+    // from cancel: the booking happened on paper, the customer didn't
+    // appear. Captures (but does not yet enforce) a cancellation-fee
+    // intent for a future auto-charge job.
+    noShow: {
+      action: 'Mark as no-show',
+      dialogTitle: 'Mark this booking as no-show?',
+      dialogDescription:
+        'The booking will move to the No-show terminal stage. This action cannot be undone from the dashboard.',
+      chargeFeeLabel: 'Charge cancellation fee',
+      chargeFeeHint:
+        'Records the intent in the audit log. No payment is collected automatically in this version.',
+      cancel: 'Keep as is',
+      confirm: 'Mark as no-show',
+      working: 'Marking…',
+      toastSuccess: 'Marked as no-show.',
+      toastError: 'Failed to mark as no-show.',
+    },
     stage: {
       pending: 'Pending',
       awaitingGeneralApproval: 'Awaiting approval',

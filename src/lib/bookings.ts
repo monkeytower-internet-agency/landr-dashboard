@@ -607,6 +607,56 @@ export async function bulkSendReminder(
   )
 }
 
+// ----- Mark as no-show (landr-ng3m) ---------------------------------------
+// Backs the Mark-as-no-show action in BookingDetailSheet. The endpoint
+// landed alongside in the api worktree:
+//   POST /api/staff/operators/{operator_id}/bookings/{booking_id}/no-show
+//   { charge_cancellation_fee?: boolean }  ->  { booking_id, ... }
+// charge_cancellation_fee is intent-only in v1 — recorded in audit_log
+// for a future auto-charge job, no money moves now.
+
+export type MarkAsNoShowResult = {
+  booking_id: string
+  previous_stage_code: string | null
+  new_stage_code: string
+  new_semantic_state: string
+}
+
+export async function markBookingAsNoShow(
+  operatorId: string,
+  bookingId: string,
+  chargeCancellationFee: boolean,
+): Promise<MarkAsNoShowResult> {
+  return api<MarkAsNoShowResult>(
+    'POST',
+    `/api/staff/operators/${operatorId}/bookings/${bookingId}/no-show`,
+    { charge_cancellation_fee: chargeCancellationFee },
+  )
+}
+
+/** UI-side eligibility — keep in sync with the server guards in
+ *  app/routers/staff_bookings_no_show.py. The button is hidden when this
+ *  returns false; the server re-checks defensively.
+ *
+ *  Eligible when:
+ *    - Not already in the no_show terminal stage.
+ *    - At least one item.date_range_start is on or before today
+ *      (there's an event to have not shown up to).
+ *    - Not a soft-cancelled booking (defensive — the list usually
+ *      excludes those already).
+ */
+export function canMarkAsNoShow(row: BookingRow, today?: Date): boolean {
+  if (stageCode(row) === 'no_show') return false
+  if (row.current_semantic_state === 'cancelled') return false
+  const todayIso = (today ?? new Date()).toISOString().slice(0, 10)
+  for (const item of row.items) {
+    if (item.date_range_start && item.date_range_start <= todayIso) {
+      return true
+    }
+  }
+  return false
+}
+
 // ----- Approval-queue helpers (landr-aqn4) --------------------------------
 // Pure derivations off BookingRow used by the Approvals page filters +
 // table. Kept here (rather than in src/components/approvals) so the

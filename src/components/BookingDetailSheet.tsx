@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Unlock } from 'lucide-react'
+import { Unlock, UserX } from 'lucide-react'
 
 import { useAuth } from '@/lib/auth'
 import { useOperator } from '@/lib/operator'
@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { TagPicker } from '@/components/tags/TagPicker'
 import { setBookingTags } from '@/lib/tags'
 import { Input } from '@/components/ui/input'
@@ -41,9 +42,11 @@ import { DayChips } from '@/components/booking/DayChips'
 import { MultiDayPicker } from '@/components/booking/MultiDayPicker'
 import { StageBadge } from '@/components/booking/StageBadge'
 import {
+  canMarkAsNoShow,
   cancelBooking,
   customerDisplay,
   invalidateBookingCaches,
+  markBookingAsNoShow,
   patchBookingProduct,
   patchCustomerContact,
   postHotelApprovalDecision,
@@ -165,6 +168,8 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const [showCancel, setShowCancel] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [showUnblock, setShowUnblock] = useState(false)
+  const [showNoShow, setShowNoShow] = useState(false)
+  const [chargeCancellationFee, setChargeCancellationFee] = useState(false)
   // landr-5f8q — Details vs Timeline tab. Defaults to Details so the most
   // common operator interaction (editing dates / customer) stays one click
   // away. Timeline is read-only.
@@ -187,6 +192,10 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
 
   const code = stageCode(row)
   const canUnblock = code === 'awaiting_hotel_approval'
+  // landr-ng3m — eligibility mirrors the server guards in
+  // app/routers/staff_bookings_no_show.py so the button only shows
+  // when the request would actually succeed.
+  const canNoShow = canMarkAsNoShow(row)
 
   const originalCustomer = customerDraftFromRow(row)
   const originalItems = itemDraftsFromRow(row)
@@ -293,10 +302,33 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     },
   })
 
+  // landr-ng3m — mark-as-no-show. Requires currentOperatorId because the
+  // endpoint lives under /api/staff/operators/{op}/... — the cross-tenant
+  // guard is path-based on the server.
+  const noShowMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentOperatorId) {
+        throw new Error('No operator selected.')
+      }
+      await markBookingAsNoShow(currentOperatorId, row.id, chargeCancellationFee)
+    },
+    onSuccess: () => {
+      toast.success(t.bookings.noShow.toastSuccess)
+      setShowNoShow(false)
+      setChargeCancellationFee(false)
+      invalidateAll()
+      onClose()
+    },
+    onError: (err: Error) => {
+      toast.error(t.bookings.noShow.toastError, { description: err.message })
+    },
+  })
+
   const busy =
     saveMutation.isPending ||
     cancelMutation.isPending ||
-    unblockMutation.isPending
+    unblockMutation.isPending ||
+    noShowMutation.isPending
 
   function updateItem(itemId: string, updater: (it: ItemDraft) => ItemDraft) {
     setItems((prev) => prev.map((it) => (it.id === itemId ? updater(it) : it)))
@@ -616,14 +648,28 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
       )}
 
       <SheetFooter className="flex flex-row items-center justify-between gap-2 border-t">
-        <Button
-          type="button"
-          variant="destructive"
-          onClick={() => setShowCancel(true)}
-          disabled={busy}
-        >
-          {t.bookings.cancel.action}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => setShowCancel(true)}
+            disabled={busy}
+          >
+            {t.bookings.cancel.action}
+          </Button>
+          {canNoShow ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowNoShow(true)}
+              disabled={busy}
+              className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <UserX className="size-4" />
+              {t.bookings.noShow.action}
+            </Button>
+          ) : null}
+        </div>
         <div className="flex items-center gap-2">
           <Button
             type="button"
@@ -732,6 +778,66 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
               {unblockMutation.isPending
                 ? t.bookings.hotelUnblock.working
                 : t.bookings.hotelUnblock.confirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* landr-ng3m — Mark-as-no-show confirmation */}
+      <AlertDialog
+        open={showNoShow}
+        onOpenChange={(next) => {
+          if (noShowMutation.isPending) return
+          if (!next) setChargeCancellationFee(false)
+          setShowNoShow(next)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.bookings.noShow.dialogTitle}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.bookings.noShow.dialogDescription}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex items-start gap-2">
+            <Checkbox
+              id="bk-no-show-charge-fee"
+              checked={chargeCancellationFee}
+              onChange={(e) =>
+                setChargeCancellationFee(
+                  (e.target as HTMLInputElement).checked,
+                )
+              }
+              disabled={noShowMutation.isPending}
+              data-testid="no-show-charge-fee"
+            />
+            <div className="flex flex-col gap-1">
+              <Label
+                htmlFor="bk-no-show-charge-fee"
+                className="text-sm font-normal"
+              >
+                {t.bookings.noShow.chargeFeeLabel}
+              </Label>
+              <p className="text-muted-foreground text-xs">
+                {t.bookings.noShow.chargeFeeHint}
+              </p>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={noShowMutation.isPending}>
+              {t.bookings.noShow.cancel}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={noShowMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault()
+                noShowMutation.mutate()
+              }}
+              variant="destructive"
+            >
+              {noShowMutation.isPending
+                ? t.bookings.noShow.working
+                : t.bookings.noShow.confirm}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
