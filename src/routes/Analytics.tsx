@@ -19,6 +19,7 @@
 // duplicate that control. We rely on the topbar switcher instead.
 
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { fetchBookings, type BookingRow } from '@/lib/bookings'
@@ -36,17 +37,25 @@ import {
   shapeBookingsPerProduct,
   shapeConversionFunnel,
   shapeOccupancyHeatmap,
+  shapePerStaffRevenue,
   shapeRevenueOverTime,
   shapeTopCustomers,
   todayUtcIso,
   type ProductBreakdownPoint,
   type RangePresetKey,
 } from '@/lib/analytics'
+import {
+  fetchAssignments,
+  fetchProviders,
+  type BookingDayProviderAssignmentRow,
+  type ProviderRow,
+} from '@/lib/assignments'
 import { RevenueLineChart } from '@/components/analytics/RevenueLineChart'
 import { ProductBarChart } from '@/components/analytics/ProductBarChart'
 import { ConversionFunnel } from '@/components/analytics/ConversionFunnel'
 import { TopCustomersTable } from '@/components/analytics/TopCustomersTable'
 import { OccupancyHeatmap } from '@/components/analytics/OccupancyHeatmap'
+import { RevenuePerStaff } from '@/components/analytics/RevenuePerStaff'
 
 const PRODUCT_TOP_N = 10
 
@@ -106,6 +115,26 @@ export function Analytics() {
     return { from, to, bucket: bucketForRange(preset) }
   }, [preset])
 
+  // landr-ce45 — per-day provider assignments + provider roster for the
+  // "Revenue per staff" card. Scoped to operator + the same window the
+  // rest of the page uses so totals line up.
+  const providersQuery = useQuery<ProviderRow[]>({
+    queryKey: ['providers', currentOperatorId ?? 'none'],
+    queryFn: () => fetchProviders(currentOperatorId as string),
+    enabled: !!currentOperatorId,
+  })
+  const assignmentsQuery = useQuery<BookingDayProviderAssignmentRow[]>({
+    queryKey: [
+      'assignments',
+      currentOperatorId ?? 'none',
+      window.from,
+      window.to,
+    ],
+    queryFn: () =>
+      fetchAssignments(currentOperatorId as string, window.from, window.to),
+    enabled: !!currentOperatorId,
+  })
+
   const filtered = useMemo(
     () => filterByCreatedAt(rows, window.from, window.to),
     [rows, window.from, window.to],
@@ -122,6 +151,19 @@ export function Analytics() {
   const funnel = useMemo(() => shapeConversionFunnel(filtered), [filtered])
   const topCustomers = useMemo(() => shapeTopCustomers(filtered), [filtered])
   const heatmap = useMemo(() => shapeOccupancyHeatmap(filtered), [filtered])
+  // Per-staff revenue: pass the FULL booking list (not the created_at
+  // window — bookings can be assigned to dates outside their created_at
+  // bucket). The shaper itself skips bookings it doesn't know about, so
+  // we just give it everything we already have client-side.
+  const perStaffRevenue = useMemo(
+    () =>
+      shapePerStaffRevenue({
+        assignments: assignmentsQuery.data ?? [],
+        providers: providersQuery.data ?? [],
+        bookings: rows,
+      }),
+    [assignmentsQuery.data, providersQuery.data, rows],
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -287,6 +329,28 @@ export function Analytics() {
                   columnBookings: t.analytics.topCustomersColumnBookings,
                   columnRevenue: t.analytics.topCustomersColumnRevenue,
                   empty: t.analytics.topCustomersEmpty,
+                }}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.analytics.perStaffTitle}</CardTitle>
+              <p className="text-muted-foreground text-xs">
+                {t.analytics.perStaffDescription}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <RevenuePerStaff
+                rows={perStaffRevenue}
+                currency={kpis.currency}
+                labels={{
+                  columnName: t.analytics.perStaffColumnName,
+                  columnBookings: t.analytics.perStaffColumnBookings,
+                  columnRevenue: t.analytics.perStaffColumnRevenue,
+                  columnAverage: t.analytics.perStaffColumnAverage,
+                  empty: t.analytics.perStaffEmpty,
                 }}
               />
             </CardContent>

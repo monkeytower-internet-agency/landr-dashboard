@@ -1209,6 +1209,19 @@ export const t = {
     heatmapHourAxis: 'Hour of day (UTC)',
     heatmapCellAria: (count: number, weekday: string, hour: number) =>
       `${count} booking${count === 1 ? '' : 's'} on ${weekday} at ${hour.toString().padStart(2, '0')}:00 UTC`,
+
+    // landr-ce45 — revenue per staff card. Attributes booking revenue via
+    // booking_day_provider_assignments; multi-provider days split evenly.
+    perStaffTitle: 'Revenue per staff',
+    perStaffDescription:
+      'Booking revenue attributed via per-day provider assignments. ' +
+      'When multiple providers work the same day, revenue is split evenly.',
+    perStaffColumnName: 'Staff',
+    perStaffColumnBookings: 'Bookings',
+    perStaffColumnRevenue: 'Revenue',
+    perStaffColumnAverage: 'Avg / booking',
+    perStaffEmpty:
+      'No provider assignments in the selected range yet.',
   },
   emailTemplates: {
     title: 'Email templates',

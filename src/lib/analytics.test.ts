@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { BookingRow } from '@/lib/bookings'
+import type {
+  BookingDayProviderAssignmentRow,
+  ProviderRow,
+} from '@/lib/assignments'
 import {
   bucketForRange,
   computeAnalyticsKpis,
@@ -9,6 +13,7 @@ import {
   shapeBookingsPerProduct,
   shapeConversionFunnel,
   shapeOccupancyHeatmap,
+  shapePerStaffRevenue,
   shapeRevenueOverTime,
   shapeTopCustomers,
   todayUtcIso,
@@ -380,5 +385,277 @@ describe('computeAnalyticsKpis', () => {
       makeRow({ id: '2', currency: 'USD' }),
     ]
     expect(computeAnalyticsKpis(rows).mixedCurrency).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// shapePerStaffRevenue (landr-ce45)
+// ---------------------------------------------------------------------------
+
+function makeProvider(over: Partial<ProviderRow> & { id: string }): ProviderRow {
+  return {
+    id: over.id,
+    operator_id: over.operator_id ?? 'op-1',
+    display_name: over.display_name ?? `Provider ${over.id}`,
+    active: over.active ?? true,
+    sort_order: over.sort_order ?? 0,
+  }
+}
+
+function makeAssignment(
+  over: Partial<BookingDayProviderAssignmentRow> & {
+    id: string
+    booking_id: string
+    provider_id: string
+    assignment_date: string
+  },
+): BookingDayProviderAssignmentRow {
+  return {
+    id: over.id,
+    operator_id: over.operator_id ?? 'op-1',
+    booking_id: over.booking_id,
+    provider_id: over.provider_id,
+    assignment_date: over.assignment_date,
+  }
+}
+
+describe('shapePerStaffRevenue', () => {
+  it('attributes a single-provider, single-day booking entirely to that provider', () => {
+    const bookings = [makeRow({ id: 'b-1', gross_total: 200 })]
+    const providers = [makeProvider({ id: 'p-1', display_name: 'Martin' })]
+    const assignments = [
+      makeAssignment({
+        id: 'a-1',
+        booking_id: 'b-1',
+        provider_id: 'p-1',
+        assignment_date: '2026-05-10',
+      }),
+    ]
+    const out = shapePerStaffRevenue({ bookings, providers, assignments })
+    expect(out).toEqual([
+      {
+        providerId: 'p-1',
+        providerName: 'Martin',
+        bookings: 1,
+        revenue: 200,
+        averagePerBooking: 200,
+      },
+    ])
+  })
+
+  it('splits a single-day booking with two providers evenly between them', () => {
+    const bookings = [makeRow({ id: 'b-1', gross_total: 300 })]
+    const providers = [
+      makeProvider({ id: 'p-1', display_name: 'Martin' }),
+      makeProvider({ id: 'p-2', display_name: 'Oz' }),
+    ]
+    const assignments = [
+      makeAssignment({
+        id: 'a-1',
+        booking_id: 'b-1',
+        provider_id: 'p-1',
+        assignment_date: '2026-05-10',
+      }),
+      makeAssignment({
+        id: 'a-2',
+        booking_id: 'b-1',
+        provider_id: 'p-2',
+        assignment_date: '2026-05-10',
+      }),
+    ]
+    const out = shapePerStaffRevenue({ bookings, providers, assignments })
+    // Both providers tied on revenue → sort falls through to name asc.
+    expect(out.map((r) => r.providerName)).toEqual(['Martin', 'Oz'])
+    expect(out.every((r) => r.revenue === 150)).toBe(true)
+    expect(out.every((r) => r.bookings === 1)).toBe(true)
+    expect(out.every((r) => r.averagePerBooking === 150)).toBe(true)
+    // Totals reconcile back to gross_total.
+    const sum = out.reduce((a, r) => a + r.revenue, 0)
+    expect(sum).toBeCloseTo(300)
+  })
+
+  it('splits a multi-day booking across the days it spans', () => {
+    // 2-day booking, one provider per day → each row carries half the gross.
+    const bookings = [makeRow({ id: 'b-1', gross_total: 400 })]
+    const providers = [
+      makeProvider({ id: 'p-1', display_name: 'Alice' }),
+      makeProvider({ id: 'p-2', display_name: 'Bob' }),
+    ]
+    const assignments = [
+      makeAssignment({
+        id: 'a-1',
+        booking_id: 'b-1',
+        provider_id: 'p-1',
+        assignment_date: '2026-05-10',
+      }),
+      makeAssignment({
+        id: 'a-2',
+        booking_id: 'b-1',
+        provider_id: 'p-2',
+        assignment_date: '2026-05-11',
+      }),
+    ]
+    const out = shapePerStaffRevenue({ bookings, providers, assignments })
+    expect(out).toEqual([
+      {
+        providerId: 'p-1',
+        providerName: 'Alice',
+        bookings: 1,
+        revenue: 200,
+        averagePerBooking: 200,
+      },
+      {
+        providerId: 'p-2',
+        providerName: 'Bob',
+        bookings: 1,
+        revenue: 200,
+        averagePerBooking: 200,
+      },
+    ])
+  })
+
+  it('excludes revenue from cancelled bookings but still counts the assignment', () => {
+    const bookings = [
+      makeRow({ id: 'b-1', gross_total: 500, current_semantic_state: 'cancelled' }),
+      makeRow({ id: 'b-2', gross_total: 100, current_semantic_state: 'finalised' }),
+    ]
+    const providers = [makeProvider({ id: 'p-1', display_name: 'Carla' })]
+    const assignments = [
+      makeAssignment({
+        id: 'a-1',
+        booking_id: 'b-1',
+        provider_id: 'p-1',
+        assignment_date: '2026-05-10',
+      }),
+      makeAssignment({
+        id: 'a-2',
+        booking_id: 'b-2',
+        provider_id: 'p-1',
+        assignment_date: '2026-05-11',
+      }),
+    ]
+    const out = shapePerStaffRevenue({ bookings, providers, assignments })
+    expect(out).toHaveLength(1)
+    expect(out[0]).toEqual({
+      providerId: 'p-1',
+      providerName: 'Carla',
+      bookings: 2, // both bookings counted
+      revenue: 100, // cancelled booking contributes 0
+      averagePerBooking: 50, // 100 / 2 distinct bookings
+    })
+  })
+
+  it('sorts results by revenue desc and resolves unknown provider ids gracefully', () => {
+    const bookings = [
+      makeRow({ id: 'b-1', gross_total: 100 }),
+      makeRow({ id: 'b-2', gross_total: 300 }),
+    ]
+    // p-2 is intentionally absent from the providers list (e.g. soft-deleted
+    // since the assignment was made) — the shaper must still emit a row.
+    const providers = [makeProvider({ id: 'p-1', display_name: 'Anna' })]
+    const assignments = [
+      makeAssignment({
+        id: 'a-1',
+        booking_id: 'b-1',
+        provider_id: 'p-1',
+        assignment_date: '2026-05-10',
+      }),
+      makeAssignment({
+        id: 'a-2',
+        booking_id: 'b-2',
+        provider_id: 'p-2-missing-id',
+        assignment_date: '2026-05-11',
+      }),
+    ]
+    const out = shapePerStaffRevenue({ bookings, providers, assignments })
+    expect(out).toHaveLength(2)
+    // p-2 has 300 revenue → ranks first.
+    expect(out[0].providerId).toBe('p-2-missing-id')
+    expect(out[0].providerName).toContain('unknown provider')
+    expect(out[0].revenue).toBe(300)
+    expect(out[1].providerId).toBe('p-1')
+    expect(out[1].revenue).toBe(100)
+  })
+
+  it('returns an empty array when there are no assignments', () => {
+    const out = shapePerStaffRevenue({
+      bookings: [makeRow({ id: 'b-1', gross_total: 100 })],
+      providers: [makeProvider({ id: 'p-1' })],
+      assignments: [],
+    })
+    expect(out).toEqual([])
+  })
+
+  it('skips assignments pointing at bookings outside the loaded set', () => {
+    // Orphan assignment — booking id not in `bookings` (e.g. soft-deleted or
+    // outside the fetched window). Should not contribute revenue or appear
+    // in the provider row at all.
+    const bookings = [makeRow({ id: 'b-1', gross_total: 100 })]
+    const providers = [makeProvider({ id: 'p-1', display_name: 'Eve' })]
+    const assignments = [
+      makeAssignment({
+        id: 'a-1',
+        booking_id: 'b-1',
+        provider_id: 'p-1',
+        assignment_date: '2026-05-10',
+      }),
+      makeAssignment({
+        id: 'a-2',
+        booking_id: 'b-unknown',
+        provider_id: 'p-1',
+        assignment_date: '2026-05-11',
+      }),
+    ]
+    const out = shapePerStaffRevenue({ bookings, providers, assignments })
+    expect(out).toHaveLength(1)
+    expect(out[0]).toEqual({
+      providerId: 'p-1',
+      providerName: 'Eve',
+      bookings: 1, // only b-1 counted; orphan b-unknown is skipped
+      revenue: 100,
+      averagePerBooking: 100,
+    })
+  })
+
+  it('correctly attributes a booking with two providers across two days (2×2 grid)', () => {
+    // 4 assignment rows total → each carries 1/4 of gross_total.
+    const bookings = [makeRow({ id: 'b-1', gross_total: 400 })]
+    const providers = [
+      makeProvider({ id: 'p-1', display_name: 'Alpha' }),
+      makeProvider({ id: 'p-2', display_name: 'Bravo' }),
+    ]
+    const assignments = [
+      makeAssignment({
+        id: 'a-1',
+        booking_id: 'b-1',
+        provider_id: 'p-1',
+        assignment_date: '2026-05-10',
+      }),
+      makeAssignment({
+        id: 'a-2',
+        booking_id: 'b-1',
+        provider_id: 'p-2',
+        assignment_date: '2026-05-10',
+      }),
+      makeAssignment({
+        id: 'a-3',
+        booking_id: 'b-1',
+        provider_id: 'p-1',
+        assignment_date: '2026-05-11',
+      }),
+      makeAssignment({
+        id: 'a-4',
+        booking_id: 'b-1',
+        provider_id: 'p-2',
+        assignment_date: '2026-05-11',
+      }),
+    ]
+    const out = shapePerStaffRevenue({ bookings, providers, assignments })
+    // Each provider has 2 of the 4 rows → 2/4 × 400 = 200 each.
+    // But it's only 1 distinct booking each.
+    expect(out).toHaveLength(2)
+    expect(out.every((r) => r.bookings === 1)).toBe(true)
+    expect(out.every((r) => r.revenue === 200)).toBe(true)
+    expect(out.every((r) => r.averagePerBooking === 200)).toBe(true)
   })
 })

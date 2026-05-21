@@ -23,6 +23,10 @@ import {
   type BookingRow,
   type BookingSemanticState,
 } from '@/lib/bookings'
+import type {
+  BookingDayProviderAssignmentRow,
+  ProviderRow,
+} from '@/lib/assignments'
 
 // ---------------------------------------------------------------------------
 // Range presets — drive both the data window AND the bucket granularity.
@@ -546,4 +550,148 @@ export function computeAnalyticsKpis(rows: BookingRow[]): AnalyticsKpis {
     mixedCurrency,
     cancelledExcluded,
   }
+}
+
+// ---------------------------------------------------------------------------
+// Revenue per staff (landr-ce45).
+//
+// Attribute booking revenue to providers via the
+// booking_day_provider_assignments join. A booking can have:
+//   - multiple assigned days (one provider per day, or several per day);
+//   - multiple providers on the same day (e.g. tandem pilot + driver).
+//
+// Attribution rule: split each booking's gross_total EVENLY across the set
+// of (provider, assignment_date) rows that point at it. That naturally
+// handles both axes — if a booking has two days × one provider each, every
+// row gets 50 %; if a booking has one day × two providers, every row gets
+// 50 %; if a booking has two days × two providers per day, every row gets
+// 25 %. Each row counts as one "assignment" for the provider's booking
+// count, so the totals across all rows sum back to the booking's total
+// revenue (within rounding).
+//
+// Cancelled bookings contribute 0 revenue (consistent with the rest of
+// analytics) but still count as assignments so an operator can see effort
+// invested in deals that fell through.
+// ---------------------------------------------------------------------------
+
+export type PerStaffRevenueRow = {
+  providerId: string
+  providerName: string
+  /** Number of distinct bookings the provider was assigned to in the
+   *  window (regardless of how many days per booking). This is the
+   *  "# bookings" column the operator sees. */
+  bookings: number
+  /** Sum of attributed revenue across all the provider's assignment rows
+   *  in the window (cancelled bookings contribute 0). */
+  revenue: number
+  /** revenue / bookings — average revenue per booking touched. 0 when
+   *  bookings == 0. */
+  averagePerBooking: number
+}
+
+export type PerStaffRevenueInput = {
+  assignments: BookingDayProviderAssignmentRow[]
+  providers: ProviderRow[]
+  bookings: BookingRow[]
+}
+
+/** Pretty-print an unknown provider_id so the table never silently drops
+ *  revenue when a provider row is soft-deleted or missing from the fetched
+ *  roster. Surfacing the short id helps operators trace it back. */
+function unknownProviderName(providerId: string): string {
+  return `(unknown provider · ${providerId.slice(0, 8)})`
+}
+
+export function shapePerStaffRevenue(
+  input: PerStaffRevenueInput,
+): PerStaffRevenueRow[] {
+  const { assignments, providers, bookings } = input
+
+  // Provider id -> display name. Inactive providers stay resolvable; only
+  // truly absent providers fall through to the unknownProviderName helper.
+  const providerName = new Map<string, string>()
+  for (const p of providers) {
+    providerName.set(p.id, p.display_name)
+  }
+
+  // Booking id -> { revenuePerRow, currency }. We split gross_total across
+  // every assignment row for the booking — so we first need to count rows
+  // per booking, THEN allocate. Cancelled bookings still get split (with
+  // 0 revenue) so assignment counts stay accurate.
+  type BookingMeta = {
+    gross: number
+    revenueRow: number // gross / row_count, set after counting
+    rowCount: number
+  }
+  const bookingMeta = new Map<string, BookingMeta>()
+  for (const b of bookings) {
+    const isRevenue = !EXCLUDED_FROM_REVENUE.includes(b.current_semantic_state)
+    bookingMeta.set(b.id, {
+      gross: isRevenue ? toNumber(b.gross_total) : 0,
+      revenueRow: 0,
+      rowCount: 0,
+    })
+  }
+
+  // Count assignment rows per booking — only count rows whose booking is
+  // known. Unknown bookings (orphan assignment, booking outside the
+  // fetched window) are skipped entirely so we don't double-allocate.
+  for (const a of assignments) {
+    const meta = bookingMeta.get(a.booking_id)
+    if (!meta) continue
+    meta.rowCount += 1
+  }
+  for (const meta of bookingMeta.values()) {
+    if (meta.rowCount > 0) {
+      meta.revenueRow = meta.gross / meta.rowCount
+    }
+  }
+
+  // Aggregate per provider.
+  type Acc = {
+    providerId: string
+    providerName: string
+    revenue: number
+    bookingSet: Set<string>
+  }
+  const acc = new Map<string, Acc>()
+
+  for (const a of assignments) {
+    const meta = bookingMeta.get(a.booking_id)
+    if (!meta) continue
+    const cur =
+      acc.get(a.provider_id) ??
+      ({
+        providerId: a.provider_id,
+        providerName:
+          providerName.get(a.provider_id) ?? unknownProviderName(a.provider_id),
+        revenue: 0,
+        bookingSet: new Set<string>(),
+      } satisfies Acc)
+    cur.revenue += meta.revenueRow
+    cur.bookingSet.add(a.booking_id)
+    acc.set(a.provider_id, cur)
+  }
+
+  // Finalise — compute distinct booking count + average + round + sort.
+  const out: PerStaffRevenueRow[] = []
+  for (const row of acc.values()) {
+    const revenue = round2(row.revenue)
+    const bookings = row.bookingSet.size
+    const average = bookings === 0 ? 0 : round2(revenue / bookings)
+    out.push({
+      providerId: row.providerId,
+      providerName: row.providerName,
+      bookings,
+      revenue,
+      averagePerBooking: average,
+    })
+  }
+  // Sort revenue desc, then bookings desc, then name asc for stability.
+  out.sort((a, b) => {
+    if (b.revenue !== a.revenue) return b.revenue - a.revenue
+    if (b.bookings !== a.bookings) return b.bookings - a.bookings
+    return a.providerName.localeCompare(b.providerName)
+  })
+  return out
 }
