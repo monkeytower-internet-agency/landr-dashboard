@@ -1,22 +1,47 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { DownloadIcon } from 'lucide-react'
 import { ContactAuditSheet } from '@/components/ContactAuditSheet'
 import { ContactsFilters } from '@/components/contacts/ContactsFilters'
 import { ContactsTable } from '@/components/ContactsTable'
 import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
 import { GdprEraseDialog } from '@/components/GdprEraseDialog'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
+  contactIsErased,
+  contactNameDisplay,
   fetchContacts,
   fetchContactTypeCounts,
   type ContactRow,
 } from '@/lib/contacts'
 import { useContactsFilters } from '@/lib/contacts-filters'
 import { useContactsSort } from '@/lib/contacts-sort'
+import { downloadCsv, todayStampUtc, type CsvColumn } from '@/lib/csv-export'
 import { useOperator } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { t } from '@/lib/strings'
+
+// landr-xnpc — CSV column set for the Contacts list export. Defined at
+// module scope so it's stable across renders. Status mirrors what the
+// table shows (Active / Erased) rather than dumping raw timestamps.
+const contactCsvColumns: CsvColumn<ContactRow>[] = [
+  { header: 'Contact ID', value: (r) => r.id },
+  { header: 'Name', value: (r) => contactNameDisplay(r) },
+  { header: 'First name', value: (r) => r.first_name ?? '' },
+  { header: 'Last name', value: (r) => r.last_name ?? '' },
+  { header: 'Email', value: (r) => r.email ?? '' },
+  { header: 'Phone', value: (r) => r.phone ?? '' },
+  { header: 'Preferred locale', value: (r) => r.preferred_locale ?? '' },
+  { header: 'Types', value: (r) => (r.types ?? []).join('|') },
+  { header: 'Created', value: (r) => r.created_at },
+  { header: 'Updated', value: (r) => r.updated_at },
+  {
+    header: 'Status',
+    value: (r) => (contactIsErased(r) ? 'erased' : 'active'),
+  },
+]
 
 export function Contacts() {
   const { currentOperatorId } = useOperator()
@@ -75,11 +100,33 @@ export function Contacts() {
 
   const rows = query.data ?? []
 
+  // landr-xnpc — `rows` IS the current filtered view: sort + types +
+  // includeErased are applied server-side via the query key, so we don't
+  // need a second client-side pass before exporting.
+  function onExportCsv() {
+    downloadCsv(
+      `contacts-${todayStampUtc()}.csv`,
+      rows,
+      contactCsvColumns,
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <PageTitle title={t.contacts.title} />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">{t.contacts.title}</h1>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onExportCsv}
+          disabled={rows.length === 0}
+          aria-label={t.contacts.exportCsvAria(rows.length)}
+          data-testid="contacts-export-csv"
+        >
+          <DownloadIcon className="size-4" />
+          {t.contacts.exportCsv}
+        </Button>
       </header>
       <ContactsFilters
         sortApi={sortApi}

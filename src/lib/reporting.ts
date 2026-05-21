@@ -17,6 +17,11 @@
 // numbers match between the API and the dashboard regardless of viewer TZ.
 
 import type { BookingRow, BookingSemanticState } from '@/lib/bookings'
+import {
+  csvEscape as csvEscapeShared,
+  downloadCsvString,
+  rowsToCsv as rowsToCsvShared,
+} from '@/lib/csv-export'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -268,34 +273,14 @@ function round2(n: number): number {
 // ---------------------------------------------------------------------------
 // CSV export
 // ---------------------------------------------------------------------------
+//
+// landr-xnpc — the low-level CSV primitives live in lib/csv-export.ts now
+// so the per-page download buttons share the same RFC 4180 implementation
+// as the Reporting export. We re-export them here for back-compat with the
+// existing call sites + tests.
 
-/**
- * Escape a single CSV field per RFC 4180:
- *   - if it contains "," `"` `\n` or `\r`, wrap in double-quotes
- *   - any embedded `"` is doubled
- */
-export function csvEscape(value: unknown): string {
-  if (value === null || value === undefined) return ''
-  const s = typeof value === 'string' ? value : String(value)
-  if (s === '') return ''
-  if (/[",\r\n]/.test(s)) {
-    return `"${s.replace(/"/g, '""')}"`
-  }
-  return s
-}
-
-export function rowsToCsv(
-  headers: readonly string[],
-  rows: readonly (readonly unknown[])[],
-): string {
-  const lines: string[] = []
-  lines.push(headers.map(csvEscape).join(','))
-  for (const row of rows) {
-    lines.push(row.map(csvEscape).join(','))
-  }
-  // Trailing newline keeps it POSIX-friendly.
-  return `${lines.join('\r\n')}\r\n`
-}
+export const csvEscape = csvEscapeShared
+export const rowsToCsv = rowsToCsvShared
 
 /**
  * Build the bookings CSV string. Columns chosen to mirror what staff would
@@ -342,22 +327,12 @@ export function buildBookingsCsv(rows: BookingRow[]): string {
 /**
  * Trigger a CSV file download in the browser. Returns the object URL so
  * tests can assert against it (also lets callers `URL.revokeObjectURL` it).
+ *
+ * landr-xnpc — string-in variant delegates to the shared csv-export
+ * primitive so all download paths use the same Blob/anchor mechanics.
  */
 export function downloadCsv(filename: string, csv: string): string {
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.style.display = 'none'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  // Give the click handler a tick before revoking, so the browser has a
-  // chance to start the download. Most browsers also tolerate immediate
-  // revoke, but the timeout is the documented-safe pattern.
-  setTimeout(() => URL.revokeObjectURL(url), 0)
-  return url
+  return downloadCsvString(filename, csv)
 }
 
 // ---------------------------------------------------------------------------
