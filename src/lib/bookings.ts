@@ -263,7 +263,7 @@ export function productDisplay(row: BookingRow): string {
 }
 
 const numberFormatCache = new Map<string, Intl.NumberFormat>()
-function numberFormatter(currency: string): Intl.NumberFormat {
+export function numberFormatter(currency: string): Intl.NumberFormat {
   const key = currency || 'EUR'
   let fmt = numberFormatCache.get(key)
   if (!fmt) {
@@ -846,6 +846,123 @@ export function canMarkAsPaid(row: BookingRow): boolean {
   if (stageCode(row) !== 'awaiting_payment') return false
   const due = balanceDueOf(row)
   return due === null ? true : due > 0
+}
+
+// ----- Refund (landr-uzup) ------------------------------------------------
+// Operator records a manual refund (cash / bank transfer / other) returned
+// outside Stripe against a previously succeeded payment. Hits POST
+// /api/staff/operators/{op}/bookings/{bid}/payments/{pid}/refund which
+// inserts a payment_refunds row at status='succeeded'. The existing
+// payments.refunded_amount + bookings.balance_due triggers recompute
+// automatically, so the dashboard just has to invalidate caches on success.
+
+export type RefundPaymentResult = {
+  booking_id: string
+  payment_id: string
+  refund_id: string
+  refund_amount: string
+  currency: string
+  refundable_remaining_after: string
+  payment_status_after: string
+  booking_balance_due_after: string
+  reason: string | null
+}
+
+export async function refundPayment(
+  operatorId: string,
+  bookingId: string,
+  paymentId: string,
+  body: { amount?: string | null; reason?: string | null },
+): Promise<RefundPaymentResult> {
+  const payload: Record<string, unknown> = {}
+  if (body.amount != null && body.amount !== '') payload.amount = body.amount
+  if (body.reason != null && body.reason !== '') payload.reason = body.reason
+  return api<RefundPaymentResult>(
+    'POST',
+    `/api/staff/operators/${operatorId}/bookings/${bookingId}/payments/${paymentId}/refund`,
+    payload,
+  )
+}
+
+// ----- Payments + refunds list (landr-uzup) -------------------------------
+// Plain row reads via Supabase REST (no side effects → no need for a
+// FastAPI endpoint per the hybrid write-routing convention). RLS already
+// scopes both tables to the caller's operator_memberships, so a stray
+// row id from another tenant returns an empty list rather than leaking.
+
+export type BookingPaymentRow = {
+  id: string
+  amount: string
+  currency: string
+  provider: string
+  status: string
+  refunded_amount: string
+  paid_at: string | null
+  created_at: string
+}
+
+export type BookingRefundRow = {
+  id: string
+  payment_id: string
+  refund_amount: string
+  currency: string
+  reason: string | null
+  status: string
+  initiated_at: string
+  completed_at: string | null
+}
+
+export type BookingPaymentsView = {
+  payments: BookingPaymentRow[]
+  refunds: BookingRefundRow[]
+}
+
+export async function fetchBookingPayments(
+  bookingId: string,
+): Promise<BookingPaymentsView> {
+  const [paymentsRes, refundsRes] = await Promise.all([
+    supabase
+      .from('payments')
+      .select(
+        'id, amount, currency, provider, status, refunded_amount, paid_at, created_at',
+      )
+      .eq('booking_id', bookingId)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('payment_refunds')
+      .select(
+        'id, payment_id, refund_amount, currency, reason, status, initiated_at, completed_at',
+      )
+      .eq('booking_id', bookingId)
+      .order('initiated_at', { ascending: true }),
+  ])
+  if (paymentsRes.error) throw new Error(paymentsRes.error.message)
+  if (refundsRes.error) throw new Error(refundsRes.error.message)
+  return {
+    payments: (paymentsRes.data ?? []) as BookingPaymentRow[],
+    refunds: (refundsRes.data ?? []) as BookingRefundRow[],
+  }
+}
+
+/** Numeric remaining-refundable for a payment row — same formula the
+ *  server uses to gate the refund endpoint. Returns 0 when the math
+ *  doesn't parse (defensive). */
+export function refundableRemainingOf(p: BookingPaymentRow): number {
+  const amt = Number(p.amount)
+  const ref = Number(p.refunded_amount)
+  if (!Number.isFinite(amt) || !Number.isFinite(ref)) return 0
+  const remaining = amt - ref
+  return remaining > 0 ? remaining : 0
+}
+
+/** UI-side eligibility for the Refund button on a payment row. Keep in
+ *  sync with app/routers/staff_bookings_refund.py: only succeeded and
+ *  partially_refunded payments with refundable_remaining > 0 qualify. */
+export function canRefundPayment(p: BookingPaymentRow): boolean {
+  if (p.status !== 'succeeded' && p.status !== 'partially_refunded') {
+    return false
+  }
+  return refundableRemainingOf(p) > 0
 }
 
 /** Numeric balance_due, falling back to gross_total when the column is
