@@ -34,6 +34,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { invalidateBookingCaches } from '@/lib/bookings'
 import {
   contactNameDisplay,
   fetchContact,
@@ -153,7 +154,10 @@ function CustomerDetailBody({ contactId, onClose }: BodyProps) {
           onSaved={() => {
             queryClient.invalidateQueries({ queryKey: ['contact', contactId] })
             queryClient.invalidateQueries({ queryKey: ['contacts'] })
-            queryClient.invalidateQueries({ queryKey: ['bookings'] })
+            // landr-399m — bookings list AND Views layer (['views-bookings'])
+            // both denormalise customer fields, so patching a contact must
+            // invalidate both via the shared helper.
+            void invalidateBookingCaches(queryClient)
           }}
         />
       )}

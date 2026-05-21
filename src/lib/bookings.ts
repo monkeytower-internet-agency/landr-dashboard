@@ -1,3 +1,5 @@
+import type { QueryClient } from '@tanstack/react-query'
+
 import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api-client'
 // landr-g2m5 — single source of truth for the product_kind enum lives in
@@ -117,6 +119,23 @@ const SELECT = `
 /** Convenience helper — falls back to null safely. */
 export function stageCode(row: BookingRow): string | null {
   return row.current_stage?.code ?? null
+}
+
+// landr-399m — shared cache-invalidation helper. Bookings are read through
+// two query-key prefixes that DO NOT match each other:
+//   - ['bookings']        → fetchBookings / fetchPendingGeneralApprovals
+//   - ['views-bookings']  → lib/views-bookings-data.ts:useViewBookings
+// Any write that mutates a booking (edit, cancel, approve/reject, contact
+// patch on the customer FK) must invalidate BOTH so the Views layer
+// (Bookings/Reporting/ViewPage) doesn't go stale until a manual refresh.
+// landr-parv fixed BookingDetailSheet; this helper makes the contract a
+// single source of truth so CustomerDetailSheet + GeneralApprovals (and
+// any future caller) can't drift again.
+export function invalidateBookingCaches(qc: QueryClient): Promise<void> {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: ['bookings'] }),
+    qc.invalidateQueries({ queryKey: ['views-bookings'] }),
+  ]).then(() => undefined)
 }
 
 export async function fetchBookings(operatorId: string): Promise<BookingRow[]> {

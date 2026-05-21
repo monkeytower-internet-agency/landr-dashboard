@@ -50,6 +50,7 @@ import {
   dateDisplay,
   fetchPendingGeneralApprovals,
   firstActivityDate,
+  invalidateBookingCaches,
   postGeneralApprovalDecision,
   priceDisplay,
   productDisplay,
@@ -100,7 +101,10 @@ export function GeneralApprovals() {
           ? t.generalApprovals.toastApproved
           : t.generalApprovals.toastRejected,
       )
-      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      // landr-399m — approve/reject mutates the booking row; invalidate both
+      // ['bookings'] and ['views-bookings'] via the shared helper so the
+      // Views layer's queue badge / counters refresh in lock-step.
+      void invalidateBookingCaches(queryClient)
       handleClose()
     },
     onError: (err: Error) => {
