@@ -8,6 +8,7 @@ import { fetchBookings, type BookingRow } from '@/lib/bookings'
 import { filterBookings } from '@/lib/bookings-filter-match'
 import { useBookingsFilters } from '@/lib/bookings-filters'
 import { useOperator } from '@/lib/operator'
+import { PageTitle } from '@/lib/page-title'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { t } from '@/lib/strings'
 
@@ -37,6 +38,7 @@ export function Bookings() {
 
   return (
     <div className="flex flex-col gap-6">
+      <PageTitle title={t.bookings.title} />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">{t.bookings.title}</h1>
       </header>

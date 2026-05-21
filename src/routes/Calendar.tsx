@@ -14,6 +14,7 @@ import { filterBookings } from '@/lib/bookings-filter-match'
 import { useBookingsFilters } from '@/lib/bookings-filters'
 import { useCalendarView } from '@/lib/calendar-view-memory'
 import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
+import { PageTitle } from '@/lib/page-title'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { t } from '@/lib/strings'
 
@@ -78,6 +79,7 @@ export function Calendar() {
 
   return (
     <div className="flex flex-col gap-6">
+      <PageTitle title={t.calendar.title} />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">{t.calendar.title}</h1>
       </header>

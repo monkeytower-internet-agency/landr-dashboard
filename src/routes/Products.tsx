@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 
 import { ProductsManager } from '@/components/products/ProductsManager'
 import { useOperator } from '@/lib/operator'
+import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
 
 export function Products() {
@@ -27,6 +28,16 @@ export function Products() {
   if (!currentOperatorId) {
     return (
       <div className="flex flex-col gap-6">
+        {/* landr-fx2i — set the topbar breadcrumb even before the
+            operator id is available so the loading shell doesn't
+            momentarily show the parent SettingsLayout's "Settings"
+            title. */}
+        <PageTitle
+          crumbs={[
+            { label: t.app.settings, to: '/settings' },
+            { label: t.products.title },
+          ]}
+        />
         <header>
           <h1 className="text-xl font-semibold">{t.products.title}</h1>
         </header>

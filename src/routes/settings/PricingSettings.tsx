@@ -13,6 +13,8 @@ import {
 } from '@/lib/pricingSchemes'
 import { fetchPricingSchemes, type PricingSchemeRef } from '@/lib/products'
 import { useOperator } from '@/lib/operator'
+import { PageTitle } from '@/lib/page-title'
+import { t } from '@/lib/strings'
 
 /**
  * Settings → Pricing subsection.
@@ -85,6 +87,12 @@ function PricingSettingsInner({ operatorId }: InnerProps) {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
+      <PageTitle
+        crumbs={[
+          { label: t.app.settings, to: '/settings' },
+          { label: t.settingsHub.sections.pricing },
+        ]}
+      />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Pricing</h1>
         <Button

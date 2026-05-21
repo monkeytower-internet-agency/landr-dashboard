@@ -1,11 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useOperator } from '@/lib/operator'
+import { PageTitle } from '@/lib/page-title'
+import { t } from '@/lib/strings'
 
 export function Dashboard() {
   const { currentOperator } = useOperator()
 
   return (
     <div className="flex flex-col gap-6">
+      <PageTitle title={t.nav.dashboard} />
       <header>
         <h1 className="text-xl font-semibold">
           {currentOperator?.name ?? currentOperator?.slug ?? 'Dashboard'}

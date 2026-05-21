@@ -19,6 +19,7 @@ import {
   type OperatorPatch,
   type OperatorSettings,
 } from '@/lib/operatorSettings'
+import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
 import { OperatorSection } from './_shared'
 
@@ -27,15 +28,23 @@ import { OperatorSection } from './_shared'
 // a tiny PATCH instead of having to round-trip the entire Company payload.
 export function DisplayPreferencesSettings() {
   return (
-    <OperatorSection>
-      {({ operator, operatorId, invalidate }) => (
-        <DisplayPreferencesForm
-          operator={operator}
-          operatorId={operatorId}
-          onSaved={invalidate}
-        />
-      )}
-    </OperatorSection>
+    <>
+      <PageTitle
+        crumbs={[
+          { label: t.app.settings, to: '/settings' },
+          { label: t.settingsHub.sections.displayPreferences },
+        ]}
+      />
+      <OperatorSection>
+        {({ operator, operatorId, invalidate }) => (
+          <DisplayPreferencesForm
+            operator={operator}
+            operatorId={operatorId}
+            onSaved={invalidate}
+          />
+        )}
+      </OperatorSection>
+    </>
   )
 }
 
