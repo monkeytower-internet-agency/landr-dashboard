@@ -429,3 +429,8 @@ function RangeButton({
     </Button>
   )
 }
+
+// landr-mhhq — default export so the route can be lazy-loaded via
+// React.lazy() in App.tsx (recharts + 5 chart components ≈ ~150KB
+// off the initial bundle). Named export stays for direct test imports.
+export default Analytics
