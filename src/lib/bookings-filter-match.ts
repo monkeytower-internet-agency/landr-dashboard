@@ -9,8 +9,72 @@
 //   - Multi-participant bookings match if ANY participant satisfies the
 //     pickup_location filter.
 
-import { isPastBooking, type BookingRow } from '@/lib/bookings'
-import type { BookingsFilters } from '@/lib/bookings-filters'
+import {
+  earliestServiceDate,
+  isPastBooking,
+  type BookingRow,
+} from '@/lib/bookings'
+import type {
+  BookingsFilters,
+  ServiceDateRangePreset,
+} from '@/lib/bookings-filters'
+
+// landr-68a9 — half-open service-date window helpers for the quick-filter
+// presets. Bounds are computed in LOCAL time so "today" / "this week"
+// match the operator's wall-clock expectation rather than UTC. Booking
+// service dates are ISO YYYY-MM-DD strings (see earliestServiceDate); we
+// compare on the same calendar-day grid.
+
+function ymd(date: Date): string {
+  // Pad month/day; toISOString would shift by TZ which is exactly what we
+  // want to avoid here. Format mirrors what booking_products stores.
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function addDays(date: Date, n: number): Date {
+  const next = new Date(date)
+  next.setDate(next.getDate() + n)
+  return next
+}
+
+/** Half-open window [start, end) of ISO YYYY-MM-DD strings for a preset. */
+export function serviceDateRangeWindow(
+  preset: ServiceDateRangePreset,
+  now: Date = new Date(),
+): { start: string; endExclusive: string } {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  switch (preset) {
+    case 'today': {
+      return { start: ymd(today), endExclusive: ymd(addDays(today, 1)) }
+    }
+    case 'this_week': {
+      // ISO week: Monday → Sunday. JS getDay(): 0=Sun..6=Sat. Compute the
+      // offset back to Monday so weekday choice doesn't matter.
+      const dow = today.getDay()
+      const offsetToMonday = (dow + 6) % 7
+      const monday = addDays(today, -offsetToMonday)
+      return { start: ymd(monday), endExclusive: ymd(addDays(monday, 7)) }
+    }
+    case 'next_30d': {
+      // Inclusive of today, next 30 days → 30-day half-open window.
+      return { start: ymd(today), endExclusive: ymd(addDays(today, 30)) }
+    }
+  }
+}
+
+function matchesServiceDatePreset(
+  booking: BookingRow,
+  preset: ServiceDateRangePreset,
+  now: Date,
+): boolean {
+  const start = earliestServiceDate(booking)
+  if (!start) return false
+  const { start: from, endExclusive: to } = serviceDateRangeWindow(preset, now)
+  return start >= from && start < to
+}
 
 export function matchesFilters(
   booking: BookingRow,
@@ -21,6 +85,16 @@ export function matchesFilters(
   // showPast is false (the default). Applied BEFORE chip filters so a
   // hidden past row never contributes to e.g. lifecycle counts.
   if (!filters.showPast && isPastBooking(booking, now)) return false
+
+  // landr-68a9 — quick-filter strip service-date preset. Applied after
+  // showPast so the preset windows ("today" / "this week" / "next 30d")
+  // can intentionally include rows even when showPast is off, as long as
+  // they land inside the preset window.
+  if (filters.serviceDateRange) {
+    if (!matchesServiceDatePreset(booking, filters.serviceDateRange, now)) {
+      return false
+    }
+  }
 
   // Lifecycle state (current_stage.code).
   if (filters.lifecycleStates.length > 0) {

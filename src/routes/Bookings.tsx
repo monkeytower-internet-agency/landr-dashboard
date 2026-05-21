@@ -4,6 +4,7 @@ import { DownloadIcon } from 'lucide-react'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { BookingsTable } from '@/components/BookingsTable'
 import { BookingsFilters } from '@/components/bookings/BookingsFilters'
+import { QuickFilterStrip } from '@/components/bookings/QuickFilterStrip'
 import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -141,6 +142,11 @@ export function Bookings() {
         <p className="text-muted-foreground text-sm">{t.bookings.loading}</p>
       ) : (
         <>
+          {/* landr-68a9 — pill strip lives ABOVE the dropdown filter bar
+              so the operator hits common windows in one click. Clicking a
+              preset replaces the chip state; the dropdowns below still
+              work for finer-grained selections. */}
+          <QuickFilterStrip filtersApi={filtersApi} />
           <BookingsFilters
             bookings={rows}
             filtersApi={filtersApi}

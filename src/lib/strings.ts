@@ -236,6 +236,17 @@ export const t = {
       // on upcoming work.
       showPastLabel: 'Show past bookings',
     },
+    // landr-68a9 — pill strip above the Bookings table with hardcoded
+    // presets that programmatically set the underlying filter state. The
+    // active pill mirrors the current filters; "All" clears every filter.
+    quickFilters: {
+      ariaLabel: 'Quick filter presets',
+      all: 'All',
+      today: 'Today',
+      thisWeek: 'This week',
+      pendingPayment: 'Pending payment',
+      upcoming: 'Upcoming (next 30d)',
+    },
     detail: {
       sectionStatus: 'Status',
       sectionCustomer: 'Customer',

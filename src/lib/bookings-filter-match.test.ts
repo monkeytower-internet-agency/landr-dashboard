@@ -9,7 +9,11 @@ import { describe, expect, it } from 'vitest'
 
 import type { BookingRow } from './bookings'
 import { EMPTY_FILTERS, type BookingsFilters } from './bookings-filters'
-import { filterBookings, matchesFilters } from './bookings-filter-match'
+import {
+  filterBookings,
+  matchesFilters,
+  serviceDateRangeWindow,
+} from './bookings-filter-match'
 
 function row(overrides: Partial<BookingRow>): BookingRow {
   return {
@@ -314,6 +318,123 @@ describe('matchesFilters', () => {
         NOW,
       )
       expect(out2.map((r) => r.id)).toEqual(['past'])
+    })
+  })
+
+  // ----- landr-68a9 — quick-filter strip serviceDateRange preset -------
+  describe('serviceDateRange preset (landr-68a9)', () => {
+    // Wednesday 2026-05-20 local. NOW uses local construction so the
+    // helper's ymd() (which reads local components) lines up regardless
+    // of the host TZ.
+    const NOW = new Date(2026, 4, 20, 12, 0, 0)
+
+    function withStart(id: string, start: string | null): BookingRow {
+      return row({
+        id,
+        items: [
+          {
+            id: `${id}-i`,
+            date_range_start: start,
+            // mirror end so isPastBooking treats it as today/future and
+            // doesn't pre-filter the row before the preset runs.
+            date_range_end: start,
+            selected_days: null,
+            products: {
+              id: 'p-1',
+              name: 'X',
+              product_kind: 'service',
+              service_time_shape: 'time_slot',
+            },
+          },
+        ],
+      })
+    }
+
+    describe('serviceDateRangeWindow', () => {
+      it('today is a 1-day half-open window', () => {
+        expect(serviceDateRangeWindow('today', NOW)).toEqual({
+          start: '2026-05-20',
+          endExclusive: '2026-05-21',
+        })
+      })
+
+      it('this_week anchors to Monday and runs 7 days', () => {
+        // 2026-05-20 is a Wednesday → Monday is 2026-05-18.
+        expect(serviceDateRangeWindow('this_week', NOW)).toEqual({
+          start: '2026-05-18',
+          endExclusive: '2026-05-25',
+        })
+      })
+
+      it('this_week handles Sunday correctly (anchors back to Monday)', () => {
+        // 2026-05-24 is a Sunday → Monday is 2026-05-18.
+        const sun = new Date(2026, 4, 24, 12, 0, 0)
+        expect(serviceDateRangeWindow('this_week', sun)).toEqual({
+          start: '2026-05-18',
+          endExclusive: '2026-05-25',
+        })
+      })
+
+      it('next_30d is a 30-day half-open window starting today', () => {
+        expect(serviceDateRangeWindow('next_30d', NOW)).toEqual({
+          start: '2026-05-20',
+          endExclusive: '2026-06-19',
+        })
+      })
+    })
+
+    it('today preset matches only same-day bookings', () => {
+      const today = withStart('today', '2026-05-20')
+      const yesterday = withStart('yesterday', '2026-05-19')
+      const tomorrow = withStart('tomorrow', '2026-05-21')
+      const out = filterBookings(
+        [today, yesterday, tomorrow],
+        // showPast=true so the past-row guard doesn't preempt the preset.
+        f({ serviceDateRange: 'today', showPast: true }),
+        NOW,
+      )
+      expect(out.map((r) => r.id)).toEqual(['today'])
+    })
+
+    it('this_week preset matches Mon..Sun of the current week', () => {
+      const monday = withStart('monday', '2026-05-18')
+      const sunday = withStart('sunday', '2026-05-24')
+      const nextMonday = withStart('next-mon', '2026-05-25')
+      const out = filterBookings(
+        [monday, sunday, nextMonday],
+        f({ serviceDateRange: 'this_week', showPast: true }),
+        NOW,
+      )
+      expect(out.map((r) => r.id).sort()).toEqual(['monday', 'sunday'])
+    })
+
+    it('next_30d preset includes today and excludes day 30', () => {
+      const today = withStart('today', '2026-05-20')
+      const day29 = withStart('day29', '2026-06-18')
+      const day30 = withStart('day30', '2026-06-19')
+      const out = filterBookings(
+        [today, day29, day30],
+        f({ serviceDateRange: 'next_30d' }),
+        NOW,
+      )
+      expect(out.map((r) => r.id).sort()).toEqual(['day29', 'today'])
+    })
+
+    it('bookings with no scheduled date never match a date preset', () => {
+      const nodate = withStart('nodate', null)
+      const out = filterBookings(
+        [nodate],
+        f({ serviceDateRange: 'today', showPast: true }),
+        NOW,
+      )
+      expect(out).toEqual([])
+    })
+
+    it('null preset (no constraint) leaves the dataset unchanged', () => {
+      const a = withStart('a', '2026-05-20')
+      const b = withStart('b', '2026-06-20')
+      const out = filterBookings([a, b], EMPTY_FILTERS, NOW)
+      expect(out.map((r) => r.id).sort()).toEqual(['a', 'b'])
     })
   })
 })
