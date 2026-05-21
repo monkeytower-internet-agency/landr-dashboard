@@ -59,6 +59,9 @@ import { ViewToolbar } from '@/components/views/ViewToolbar'
 import { useViewDirtyState } from '@/components/views/useViewDirtyState'
 import { StarButton } from '@/components/views/StarButton'
 import { CalendarLayout } from '@/components/views/layouts/CalendarLayout'
+import { TableLayout } from '@/components/views/layouts/TableLayout'
+import { BookingDetailSheet } from '@/components/BookingDetailSheet'
+import type { BookingItem } from '@/lib/views-bookings-data'
 import { readFilters } from '@/lib/views-filters'
 import { applyView, useViewBookings } from '@/lib/views-bookings-data'
 
@@ -558,6 +561,7 @@ export function ViewPage() {
           <LayoutBody
             layout={effectiveLayout}
             view={{ ...view, config: dirty.config }}
+            setConfig={dirty.setConfig}
           />
         </>
       )}
@@ -568,13 +572,15 @@ export function ViewPage() {
 type LayoutBodyProps = {
   layout: ViewLayout
   view: SavedViewWithState
+  setConfig: (config: Record<string, unknown>) => void
 }
 
-function LayoutBody({ layout, view }: LayoutBodyProps) {
+function LayoutBody({ layout, view, setConfig }: LayoutBodyProps) {
   switch (layout) {
     case 'calendar':
       return <CalendarLayoutBranch view={view} />
     case 'table':
+      return <TableLayoutBranch view={view} setConfig={setConfig} />
     case 'board':
     default:
       return (
@@ -620,6 +626,63 @@ function CalendarLayoutBranch({ view }: { view: SavedViewWithState }) {
     )
   }
   return <CalendarLayout view={view} items={items} />
+}
+
+// landr-7w3s — Table branch owns its data fetch + view-pipe application.
+// Mirrors CalendarLayoutBranch shape; layout component stays pure (props in,
+// render out). Row click opens BookingDetailSheet via local state.
+function TableLayoutBranch({
+  view,
+  setConfig,
+}: {
+  view: SavedViewWithState
+  setConfig: (config: Record<string, unknown>) => void
+}) {
+  const { currentOperatorId } = useOperator()
+  const bookings = useViewBookings(currentOperatorId)
+  const items = useMemo(
+    () => applyView(bookings.data ?? [], view.config, view.entity_type),
+    [bookings.data, view.config, view.entity_type],
+  )
+  const [openItem, setOpenItem] = useState<BookingItem | null>(null)
+  if (bookings.isPending) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        {t.views.body.calendar.loading}
+      </p>
+    )
+  }
+  if (bookings.isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.views.body.calendar.loadError}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-sm">
+            {bookings.error instanceof Error ? bookings.error.message : ''}
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+  return (
+    <>
+      <TableLayout
+        entityType={view.entity_type}
+        config={view.config}
+        items={items}
+        onConfigChange={setConfig}
+        onRowClick={(item) => setOpenItem(item)}
+      />
+      <BookingDetailSheet
+        row={openItem}
+        onOpenChange={(open) => {
+          if (!open) setOpenItem(null)
+        }}
+      />
+    </>
+  )
 }
 
 function readConfigLayout(config: Record<string, unknown>): ViewLayout {

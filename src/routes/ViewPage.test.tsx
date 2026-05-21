@@ -64,6 +64,26 @@ vi.mock('@/lib/saved-views', async (importOriginal) => {
   }
 })
 
+// landr-7w3s — Table layout fetches bookings via fetchBookingsForView and
+// resolves the legacy BookingRow for BookingDetailSheet. Stub both so the
+// existing shell tests don't try to hit Supabase.
+vi.mock('@/lib/views-bookings-data', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/lib/views-bookings-data')>()
+  return {
+    ...actual,
+    fetchBookingsForView: vi.fn(async () => []),
+  }
+})
+
+vi.mock('@/lib/bookings', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/bookings')>()
+  return {
+    ...actual,
+    fetchBookings: vi.fn(async () => []),
+  }
+})
+
 import { ViewPage } from './ViewPage'
 
 // Canonical v4 UUIDs (Zod 4 enforces version+variant nibbles).
@@ -135,14 +155,12 @@ afterEach(() => {
 })
 
 describe('ViewPage shell (landr-hgtv)', () => {
-  it('renders the view name, layout switcher, toolbar, and body placeholder', async () => {
+  it('renders the view name, layout switcher, toolbar, and table layout body', async () => {
     mocks.getSavedView.mockResolvedValueOnce(makeView())
     render()
-    // Wait for the body to mount — the layout stub only appears once the
-    // useQuery resolves. The header (view-name h1, layout switcher) is
-    // present from first render but its text depends on the query result.
+    // landr-7w3s — the Table case now renders TableLayout (not LayoutStub).
     expect(
-      await screen.findByTestId('view-layout-stub-table'),
+      await screen.findByTestId('view-table-layout'),
     ).toBeInTheDocument()
     expect(screen.getByTestId('view-name')).toHaveTextContent('My bookings')
     expect(screen.getByTestId('layout-switcher')).toBeInTheDocument()
@@ -154,6 +172,7 @@ describe('ViewPage shell (landr-hgtv)', () => {
       makeView({ config: { layout: 'board', filters: [], sort: [] } }),
     )
     render()
+    // Board still uses the stub (sibling landr-kjls replaces it).
     expect(
       await screen.findByTestId('view-layout-stub-board'),
     ).toBeInTheDocument()
