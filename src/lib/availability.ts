@@ -1,5 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api-client'
+// landr-g2m5 — single source of truth for the product_kind enum lives in
+// lib/products.ts. Avoid re-declaring a narrower local Literal here.
+import type { ProductKind } from '@/lib/products'
 
 export type AvailabilityStatus = 'open' | 'closed' | 'fully_booked'
 export type AvailabilitySource = 'template' | 'manual'
@@ -109,7 +112,7 @@ export async function deleteAvailability(availabilityId: string): Promise<void> 
 export type ProductForSchedule = {
   id: string
   name: string
-  product_kind: 'service' | 'digital_good' | 'physical_good' | 'gift_card'
+  product_kind: ProductKind
   service_time_shape:
     | 'single_date'
     | 'days_range'
