@@ -1,6 +1,13 @@
 import type { BookingSemanticState } from '@/lib/bookings'
 import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
+import { explanationFor } from '@/lib/ui-explanations'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 type Props = {
   state: BookingSemanticState
@@ -41,19 +48,53 @@ export function StageBadge({ state, stageCode, className }: Props) {
     stageCode ??
     state
   const tone = SEMANTIC_STATE_TONE[state] ?? 'bg-muted text-muted-foreground'
-  const tooltip = stageCode ? t.bookings.detail.stageTooltip(stageCode) : label
-  return (
+
+  // landr-12ux — prefer the rich (concept, key) explanation: stage codes
+  // are the operator-customisable text (e.g. 'awaiting_hotel_approval'),
+  // semantic_state is the 5-value enum that drives color. Fall back to
+  // the existing `Stage: <code>` debug string when neither lookup hits,
+  // so unknown operator-defined stages still get a discoverable title.
+  const stageExplanation = explanationFor('approvalStage', stageCode)
+  const semanticExplanation = explanationFor('bookingStage', state)
+  const explanation = stageExplanation ?? semanticExplanation
+  const titleFallback = stageCode
+    ? t.bookings.detail.stageTooltip(stageCode)
+    : label
+
+  const pill = (
     <span
       className={cn(
         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
         tone,
         className,
       )}
-      title={tooltip}
+      // landr-12ux — keep the native title for keyboard / a11y users and
+      // for the existing tests that assert the raw stage code is
+      // surfaced via `title`.
+      title={explanation ?? titleFallback}
       data-state={state}
       data-stage-code={stageCode ?? undefined}
     >
       {label}
     </span>
+  )
+
+  if (!explanation) return pill
+
+  // landr-12ux — wrap the pill in an inline-flex span so Radix Tooltip
+  // owns the trigger element's data-state (open/closed) without
+  // overwriting the pill's semantic `data-state` attribute that the
+  // bookings table styling and tests rely on.
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex">{pill}</span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs text-balance">
+          {explanation}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }

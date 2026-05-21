@@ -11,6 +11,12 @@
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 export type CountedFilterChipProps = {
   /** Visible label, e.g. 'Customer' or 'Tandem'. */
@@ -25,6 +31,11 @@ export type CountedFilterChipProps = {
   ariaLabel?: string
   /** Tooltip shown when count=0 (defaults to 'No items of this type'). */
   disabledTooltip?: string
+  /** Optional explanation surfaced as a shadcn Tooltip on hover / focus
+   *  when the chip is enabled (landr-12ux). Use this for chips whose
+   *  label is jargon — e.g. approval-branch buckets like "Operator
+   *  review" — so the operator can hover for a one-line definition. */
+  explanation?: string | null
   /** Test id forwarded to the underlying button. */
   testId?: string
   /** Extra classes merged onto the button. */
@@ -46,6 +57,7 @@ export function CountedFilterChip({
   onToggle,
   ariaLabel,
   disabledTooltip = 'No items of this type',
+  explanation,
   testId,
   className,
 }: CountedFilterChipProps) {
@@ -53,7 +65,7 @@ export function CountedFilterChip({
   const display = `${label} (${count})`
   const computedAriaLabel = ariaLabel ?? display
 
-  return (
+  const button = (
     <Button
       type="button"
       size="sm"
@@ -62,12 +74,41 @@ export function CountedFilterChip({
       disabled={disabled}
       aria-pressed={selected}
       aria-label={computedAriaLabel}
-      title={disabled ? disabledTooltip : undefined}
+      // landr-12ux — keep the disabled-state native title (existing
+      // tests assert on it); enabled chips with an `explanation` also
+      // get the same string as a native title so keyboard / a11y users
+      // see it without the shadcn Tooltip's hover requirement.
+      title={
+        disabled
+          ? disabledTooltip
+          : explanation
+            ? explanation
+            : undefined
+      }
       data-testid={testId}
       data-count={count}
       className={cn('h-7 px-2 text-xs', selected && 'shadow-sm', className)}
     >
       {display}
     </Button>
+  )
+
+  if (disabled || !explanation) return button
+
+  // landr-12ux — wrap the button in an inline-flex span so Radix
+  // Tooltip's `data-state` (open/closed) lands on the wrapper instead
+  // of clobbering any data-* attributes future callers may attach
+  // directly to the button.
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex">{button}</span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs text-balance">
+          {explanation}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }

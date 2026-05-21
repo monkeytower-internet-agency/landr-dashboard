@@ -41,6 +41,7 @@ import {
   type UrgencyBucket,
 } from '@/lib/bookings'
 import { t } from '@/lib/strings'
+import { explanationFor } from '@/lib/ui-explanations'
 
 type Props = {
   bookings: BookingRow[]
@@ -259,6 +260,10 @@ export function ApprovalsFilters({
         selected={filters.stages}
         onToggle={(v) => toggle('stages', v)}
         onClear={() => clearDimension('stages')}
+        // landr-12ux — surface a per-option Tooltip explaining each
+        // approval branch (general / secondary / hotel). Unknown
+        // operator-custom stage buckets get no entry → no tooltip.
+        optionExplanation={(value) => explanationFor('approvalBranch', value)}
       />
       {total > 0 ? (
         <Button
@@ -284,6 +289,10 @@ type FilterDropdownProps = {
   selected: string[]
   onToggle: (value: string) => void
   onClear: () => void
+  /** Per-option hover-tooltip resolver (landr-12ux). Returning null
+   *  leaves the chip un-annotated; populated entries are forwarded to
+   *  CountedFilterChip's `explanation` prop. */
+  optionExplanation?: (value: string) => string | null
 }
 
 function FilterDropdown({
@@ -293,6 +302,7 @@ function FilterDropdown({
   selected,
   onToggle,
   onClear,
+  optionExplanation,
 }: FilterDropdownProps) {
   const count = selected.length
   const triggerLabel =
@@ -341,6 +351,7 @@ function FilterDropdown({
                   disabledTooltip={t.generalApprovals.filters.noOfValue(
                     opt.label,
                   )}
+                  explanation={optionExplanation?.(opt.value) ?? undefined}
                 />
               )
             })}

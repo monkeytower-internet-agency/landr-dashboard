@@ -14,9 +14,19 @@
 // We deliberately do NOT reuse src/components/booking/StageBadge.tsx —
 // that one colors by semantic_state for the bookings table; here we want
 // stage-code-driven hues for the Approvals page.
+//
+// landr-12ux — known canonical stages also surface a shadcn Tooltip
+// explaining what the stage means (looked up via lib/ui-explanations).
 
 import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
+import { explanationFor } from '@/lib/ui-explanations'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 type Props = {
   code: string | null | undefined
@@ -51,7 +61,9 @@ export function StageChip({ code, className }: Props) {
     (code ? STAGE_LABEL[code] : null) ??
     (code ? t.bookings.filters.stageFallback(code) : '—')
   const tone = (code ? STAGE_TONE[code] : null) ?? FALLBACK_TONE
-  return (
+  const explanation = explanationFor('approvalStage', code)
+
+  const pill = (
     <span
       className={cn(
         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap',
@@ -59,9 +71,30 @@ export function StageChip({ code, className }: Props) {
         className,
       )}
       data-stage-code={code ?? undefined}
-      title={code ?? undefined}
+      // landr-12ux — keep the native title fallback so keyboard / a11y
+      // users still get the explanation when the hover Tooltip is not
+      // available; falls back to the raw code (existing behavior).
+      title={explanation ?? code ?? undefined}
     >
       {label}
     </span>
+  )
+
+  if (!explanation) return pill
+
+  // landr-12ux — wrap the pill so Radix Tooltip's `data-state` lands on
+  // the wrapper, not on the pill (where data-stage-code and tone
+  // classes live for the tests / table styling).
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex">{pill}</span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs text-balance">
+          {explanation}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
