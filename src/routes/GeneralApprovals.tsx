@@ -74,6 +74,7 @@ import { downloadCsv, todayStampUtc, type CsvColumn } from '@/lib/csv-export'
 import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
+import { useListKeyboardNav } from '@/lib/use-list-keyboard-nav'
 
 type DialogState = {
   row: BookingRow
@@ -334,6 +335,30 @@ export function GeneralApprovals() {
     getSortedRowModel: getSortedRowModel(),
   })
 
+  // landr-euta — vim-style j/k row navigation. Enter opens the detail
+  // sheet (same as a row click); 'x' toggles bulk-select on the focused
+  // row, reusing the shared selectedIds Set so x and the checkbox
+  // column write to the same state.
+  const visibleApprovalRows = table.getRowModel().rows
+  const nav = useListKeyboardNav({
+    rowCount: visibleApprovalRows.length,
+    onOpen: (index) => {
+      const row = visibleApprovalRows[index]
+      if (row) setActiveRow(row.original)
+    },
+    onToggleSelect: (index) => {
+      const row = visibleApprovalRows[index]
+      if (!row) return
+      const id = row.original.id
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) next.delete(id)
+        else next.add(id)
+        return next
+      })
+    },
+  })
+
   const pendingCount = rows.length
 
   // landr-xnpc — export the CURRENT FILTERED view (post chip filters), not
@@ -547,23 +572,28 @@ export function GeneralApprovals() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      onClick={() => setActiveRow(row.original)}
-                      className="cursor-pointer"
-                      data-testid={`approvals-row-${row.original.id}`}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
+                  visibleApprovalRows.map((row, index) => {
+                    const rowProps = nav.getRowProps(index)
+                    return (
+                      <TableRow
+                        key={row.id}
+                        onClick={() => setActiveRow(row.original)}
+                        className="cursor-pointer data-[focused]:bg-muted/60"
+                        data-testid={`approvals-row-${row.original.id}`}
+                        ref={rowProps.ref}
+                        data-focused={rowProps['data-focused']}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id}>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>

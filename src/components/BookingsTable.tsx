@@ -55,6 +55,7 @@ import {
 import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { t } from '@/lib/strings'
 import { highlightMatch } from '@/lib/text-highlight'
+import { useListKeyboardNav } from '@/lib/use-list-keyboard-nav'
 
 type Props = {
   rows: BookingRow[]
@@ -376,6 +377,31 @@ export function BookingsTable({
     initialState: { pagination: { pageSize: 25 } },
   })
 
+  // landr-euta — vim-style j/k row navigation. The hook owns the
+  // window-level keydown listener; we pass it the post-pagination row
+  // count and wire Enter → onRowClick + x → toggle bulk-select on the
+  // focused row. Toggle re-uses the same Set<id> state the checkbox
+  // column writes to, so 'x' and a checkbox click stay in lock-step.
+  const visibleRows = table.getRowModel().rows
+  const nav = useListKeyboardNav({
+    rowCount: visibleRows.length,
+    onOpen: (index) => {
+      const row = visibleRows[index]
+      if (row) onRowClick(row.original)
+    },
+    onToggleSelect: (index) => {
+      const row = visibleRows[index]
+      if (!row) return
+      const id = row.original.id
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) next.delete(id)
+        else next.add(id)
+        return next
+      })
+    },
+  })
+
   // landr-lbbj — bulk-action handlers. Bookings page has no approve/
   // reject context (those live on the Approvals queue) so we only
   // surface export-csv + send-reminder here.
@@ -501,19 +527,25 @@ export function BookingsTable({
                 </TableCell>
               </TableRow>
             ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  onClick={() => onRowClick(row.original)}
-                  className="cursor-pointer"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              visibleRows.map((row, index) => {
+                const rowProps = nav.getRowProps(index)
+                return (
+                  <TableRow
+                    key={row.id}
+                    onClick={() => onRowClick(row.original)}
+                    className="cursor-pointer data-[focused]:bg-muted/60"
+                    data-testid={`bookings-row-${row.original.id}`}
+                    ref={rowProps.ref}
+                    data-focused={rowProps['data-focused']}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>

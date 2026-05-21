@@ -122,6 +122,30 @@ const GROUPS: ShortcutGroup[] = [
       },
     ],
   },
+  {
+    // landr-euta — vim-style row navigation on the list-bearing routes
+    // (Bookings, Contacts, Approvals). Documented as its own group so
+    // operators discover the cluster as a single muscle-memory pattern.
+    heading: t.keyboardShortcuts.groupLists,
+    shortcuts: [
+      {
+        chords: [['j']],
+        description: t.keyboardShortcuts.shortcuts.rowDown,
+      },
+      {
+        chords: [['k']],
+        description: t.keyboardShortcuts.shortcuts.rowUp,
+      },
+      {
+        chords: [['Enter']],
+        description: t.keyboardShortcuts.shortcuts.rowOpen,
+      },
+      {
+        chords: [['x']],
+        description: t.keyboardShortcuts.shortcuts.rowToggleSelect,
+      },
+    ],
+  },
 ]
 
 export function KeyboardShortcutsHelp() {

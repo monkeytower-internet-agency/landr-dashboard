@@ -52,6 +52,9 @@ export const t = {
     closeLabel: 'Close',
     groupGlobal: 'Global',
     groupNavigation: 'Navigation',
+    // landr-euta — j/k/Enter/x row navigation on Bookings, Contacts,
+    // Approvals.
+    groupLists: 'Lists & tables',
     groupDialogs: 'Dialogs & sheets',
     shortcuts: {
       commandPalette: 'Open command palette',
@@ -62,6 +65,12 @@ export const t = {
         'Sort a table column (click the header arrow; arrow keys cycle directions)',
       calendarPrevNext:
         'Previous / next period in the calendar (use the toolbar buttons)',
+      // landr-euta — row navigation shortcuts. j/k move the cursor;
+      // Enter opens the row's detail surface; x toggles bulk-select.
+      rowDown: 'Move to next row',
+      rowUp: 'Move to previous row',
+      rowOpen: 'Open focused row',
+      rowToggleSelect: 'Toggle selection of focused row',
     },
   },
   auth: {

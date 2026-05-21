@@ -37,6 +37,7 @@ import {
 } from '@/lib/contacts'
 import { t } from '@/lib/strings'
 import { highlightMatch } from '@/lib/text-highlight'
+import { useListKeyboardNav } from '@/lib/use-list-keyboard-nav'
 
 type Props = {
   rows: ContactRow[]
@@ -192,6 +193,20 @@ export function ContactsTable({
     initialState: { pagination: { pageSize: 25 } },
   })
 
+  // landr-euta — vim-style j/k row navigation. Contacts has no bulk-
+  // select column today, so we wire only the Enter → onEdit branch.
+  // 'x' is still listed in the global help sheet but is a no-op here
+  // until a contacts bulk-select column ships (BookingsTable +
+  // GeneralApprovals carry the toggle today).
+  const visibleRows = table.getRowModel().rows
+  const nav = useListKeyboardNav({
+    rowCount: visibleRows.length,
+    onOpen: (index) => {
+      const row = visibleRows[index]
+      if (row) onEdit(row.original)
+    },
+  })
+
   // landr-s1mr / landr-sj2z — When there are zero contacts AND the fetch
   // has settled, show the friendly empty-state card. During the loading
   // window we fall through so the skeleton placeholder takes over below,
@@ -280,19 +295,25 @@ export function ContactsTable({
                 </TableCell>
               </TableRow>
             ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  onClick={() => onEdit(row.original)}
-                  className="cursor-pointer"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              visibleRows.map((row, index) => {
+                const rowProps = nav.getRowProps(index)
+                return (
+                  <TableRow
+                    key={row.id}
+                    onClick={() => onEdit(row.original)}
+                    className="cursor-pointer data-[focused]:bg-muted/60"
+                    data-testid={`contacts-row-${row.original.id}`}
+                    ref={rowProps.ref}
+                    data-focused={rowProps['data-focused']}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>
