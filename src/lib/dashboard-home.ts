@@ -15,6 +15,7 @@
 //     contact.created_at. Cancelled bookings are excluded from revenue
 //     (matches lib/reporting.ts semantics).
 
+import type { ProductForSchedule } from '@/lib/availability'
 import type { BookingRow, BookingSemanticState } from '@/lib/bookings'
 import type { ContactRow } from '@/lib/contacts'
 
@@ -48,6 +49,21 @@ export type RevenueDayPoint = {
   /** ISO date YYYY-MM-DD. */
   date: string
   revenue: number
+}
+
+// landr-kav4 — one row in the Today's-capacity card. `booked` is the sum
+// of `participants.length` across today's bookings that include this
+// product as an item. `capacity` mirrors product.capacity_per_unit (a >=1
+// integer when set, NULL when the product doesn't carry a per-unit limit
+// — e.g. non-hotel_room services where seats are tracked on the
+// availability row, not the product). `percent` is `booked / capacity`
+// rounded to the nearest int (0 when capacity is 0 to avoid /0).
+export type CapacityRow = {
+  productId: string
+  name: string
+  booked: number
+  capacity: number
+  percent: number
 }
 
 // ---------------------------------------------------------------------------
@@ -303,4 +319,66 @@ export function recentActivity(args: {
 
   events.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
   return events.slice(0, limit)
+}
+
+// ---------------------------------------------------------------------------
+// Today's capacity (landr-kav4)
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute per-product seats-booked vs capacity for the viewer's local
+ * today. Driven by the same fetchers the Dashboard already uses
+ * (fetchBookings + fetchSchedulableProducts) — no new backend.
+ *
+ * Booked = sum of `participants.length` across today's non-cancelled
+ * bookings that include the product as an item. Falls back to 1 per
+ * booking when the participants array is missing/empty so a brand-new
+ * booking with no participant rows still contributes a seat. Multi-
+ * product bookings attribute the same participant count to each item
+ * — Para42 bookings are overwhelmingly single-product, so the
+ * approximation is acceptable for v1.
+ *
+ * Products without a capacity_per_unit (most non-hotel_room services)
+ * are filtered out — the card only renders rows where X/Y is
+ * meaningful. Products with zero today-bookings AND a capacity_per_unit
+ * still render (0/Y) so operators see the empty-but-bookable load.
+ *
+ * Output is sorted by percent DESC, then name ASC, so the most-loaded
+ * product floats to the top.
+ */
+export function todaysCapacity(
+  bookings: BookingRow[],
+  products: Array<Pick<ProductForSchedule, 'id' | 'name' | 'capacity_per_unit'>>,
+  now: Date = new Date(),
+): CapacityRow[] {
+  const today = localDateOnly(now)
+
+  // Seats booked per product id, derived from today's bookings only.
+  const bookedByProduct = new Map<string, number>()
+  for (const row of bookings) {
+    if (!isRevenueState(row.current_semantic_state)) continue
+    if (earliestItemDate(row) !== today) continue
+    const seats = row.participants?.length ?? 0
+    const contribution = seats > 0 ? seats : 1
+    for (const item of row.items) {
+      const pid = item.products?.id
+      if (!pid) continue
+      bookedByProduct.set(pid, (bookedByProduct.get(pid) ?? 0) + contribution)
+    }
+  }
+
+  const rows: CapacityRow[] = []
+  for (const p of products) {
+    if (p.capacity_per_unit == null || p.capacity_per_unit <= 0) continue
+    const booked = bookedByProduct.get(p.id) ?? 0
+    const capacity = p.capacity_per_unit
+    const percent = capacity > 0 ? Math.round((booked / capacity) * 100) : 0
+    rows.push({ productId: p.id, name: p.name, booked, capacity, percent })
+  }
+
+  rows.sort((a, b) => {
+    if (a.percent !== b.percent) return b.percent - a.percent
+    return a.name.localeCompare(b.name)
+  })
+  return rows
 }

@@ -7,6 +7,7 @@ import {
   localDateOnly,
   recentActivity,
   todaysBookings,
+  todaysCapacity,
   weekBoundsForLocal,
   weekRevenueDaily,
   weekSummary,
@@ -306,5 +307,148 @@ describe('recentActivity', () => {
     expect(events.find((e) => e.id === 'booking:b-none')?.label).toBe(
       'Unknown customer',
     )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// landr-kav4 — todaysCapacity
+// ---------------------------------------------------------------------------
+
+describe('todaysCapacity', () => {
+  const TODAY = '2026-05-21'
+  const now = new Date(`${TODAY}T10:00:00`)
+
+  function bookingForProduct(
+    overrides: Partial<BookingRow> & {
+      productId?: string
+      productName?: string
+      participantCount?: number
+      itemDate?: string | null
+    },
+  ): BookingRow {
+    const pid = overrides.productId ?? 'p-1'
+    const pname = overrides.productName ?? 'Tandem'
+    const itemDate = overrides.itemDate === undefined ? TODAY : overrides.itemDate
+    const count = overrides.participantCount ?? 0
+    return makeBooking({
+      ...overrides,
+      items: [
+        {
+          id: `item-${pid}`,
+          date_range_start: itemDate,
+          date_range_end: itemDate,
+          selected_days: null,
+          products: {
+            id: pid,
+            name: pname,
+            product_kind: 'service',
+            service_time_shape: 'single_date',
+          },
+        },
+      ],
+      participants: Array.from({ length: count }, (_, i) => ({
+        id: `pt-${pid}-${i}`,
+        pickup_location: null,
+      })),
+    })
+  }
+
+  it('sums participants per product across today only', () => {
+    const bookings = [
+      bookingForProduct({
+        id: 'b1',
+        productId: 'p-1',
+        participantCount: 3,
+      }),
+      bookingForProduct({
+        id: 'b2',
+        productId: 'p-1',
+        participantCount: 2,
+      }),
+      // tomorrow — must NOT count.
+      bookingForProduct({
+        id: 'b3',
+        productId: 'p-1',
+        participantCount: 99,
+        itemDate: '2099-01-01',
+      }),
+    ]
+    const products = [
+      { id: 'p-1', name: 'Tandem', capacity_per_unit: 10 },
+    ]
+    const rows = todaysCapacity(bookings, products, now)
+    expect(rows).toEqual([
+      { productId: 'p-1', name: 'Tandem', booked: 5, capacity: 10, percent: 50 },
+    ])
+  })
+
+  it('falls back to 1 participant when the array is empty', () => {
+    const bookings = [
+      bookingForProduct({ id: 'b1', productId: 'p-1', participantCount: 0 }),
+    ]
+    const rows = todaysCapacity(
+      bookings,
+      [{ id: 'p-1', name: 'Tandem', capacity_per_unit: 4 }],
+      now,
+    )
+    expect(rows[0].booked).toBe(1)
+    expect(rows[0].percent).toBe(25)
+  })
+
+  it('excludes cancelled bookings', () => {
+    const bookings = [
+      bookingForProduct({
+        id: 'b1',
+        productId: 'p-1',
+        participantCount: 3,
+        current_semantic_state: 'cancelled',
+      }),
+    ]
+    const rows = todaysCapacity(
+      bookings,
+      [{ id: 'p-1', name: 'Tandem', capacity_per_unit: 4 }],
+      now,
+    )
+    expect(rows[0].booked).toBe(0)
+  })
+
+  it('skips products without a capacity_per_unit', () => {
+    const rows = todaysCapacity(
+      [],
+      [
+        { id: 'p-1', name: 'A', capacity_per_unit: null },
+        { id: 'p-2', name: 'B', capacity_per_unit: 0 },
+        { id: 'p-3', name: 'C', capacity_per_unit: 5 },
+      ],
+      now,
+    )
+    expect(rows.map((r) => r.productId)).toEqual(['p-3'])
+  })
+
+  it('sorts by percent DESC then name ASC', () => {
+    const bookings = [
+      bookingForProduct({ id: 'b1', productId: 'p-a', participantCount: 8 }),
+      bookingForProduct({ id: 'b2', productId: 'p-b', participantCount: 2 }),
+      bookingForProduct({ id: 'b3', productId: 'p-c', participantCount: 2 }),
+    ]
+    const products = [
+      { id: 'p-a', name: 'Alpha', capacity_per_unit: 10 }, // 80%
+      { id: 'p-b', name: 'Bravo', capacity_per_unit: 10 }, // 20%
+      { id: 'p-c', name: 'Charlie', capacity_per_unit: 10 }, // 20%
+    ]
+    const rows = todaysCapacity(bookings, products, now)
+    expect(rows.map((r) => r.productId)).toEqual(['p-a', 'p-b', 'p-c'])
+  })
+
+  it('rounds percent and tolerates over-100%', () => {
+    const bookings = [
+      bookingForProduct({ id: 'b1', productId: 'p-1', participantCount: 5 }),
+    ]
+    const rows = todaysCapacity(
+      bookings,
+      [{ id: 'p-1', name: 'Tandem', capacity_per_unit: 3 }],
+      now,
+    )
+    expect(rows[0].percent).toBe(167)
   })
 })

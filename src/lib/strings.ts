@@ -1610,6 +1610,11 @@ export const t = {
     activityContactCreated: 'New contact',
     activityApprovalPending: 'Awaiting approval',
     customerFallback: 'Unknown customer',
+    // landr-kav4 — today's-capacity card on the dashboard home.
+    capacityHeading: "Today's capacity",
+    capacityEmpty: 'No schedulable products with a per-unit capacity yet.',
+    capacityRowAria: (name: string, booked: number, capacity: number): string =>
+      `${name}: ${booked} of ${capacity} booked`,
   },
   // landr-s1mr — Copy for the shared <EmptyState> cards across surfaces.
   // Each surface gets a friendly title + sub-copy + CTA so the empty
