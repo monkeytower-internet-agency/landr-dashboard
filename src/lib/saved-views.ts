@@ -40,10 +40,15 @@ export const SavedViewSchema = z.object({
 export type SavedView = z.infer<typeof SavedViewSchema>
 
 // Server attaches `updated_at` inside user_state too — accept and ignore.
+//
+// landr-45pb: `starred` renamed to `pinned`; `sort_order` added for the
+// per-user DnD-persisted order within the Primary (pinned) bucket of the
+// Gmail-style sidebar.
 export const ViewUserStateSchema = z
   .object({
-    starred: z.boolean().default(false),
+    pinned: z.boolean().default(false),
     hidden: z.boolean().default(false),
+    sort_order: z.number().int().default(0),
   })
   .passthrough()
 
@@ -136,11 +141,28 @@ export async function duplicateSavedView(
 export async function setViewUserState(
   operatorId: string,
   id: string,
-  state: Partial<{ starred: boolean; hidden: boolean }>,
+  state: Partial<{ pinned: boolean; hidden: boolean; sort_order: number }>,
 ): Promise<void> {
   await api<void>(
     'PUT',
     `${basePath(operatorId)}/${encodeURIComponent(id)}/state`,
     state,
   )
+}
+
+// landr-45pb — bulk per-user reorder used by DnD within the Primary bucket.
+// One round-trip persists N (view_id, sort_order) pairs; the server preserves
+// each row's existing pinned/hidden state, only updating sort_order.
+export type ViewReorderItem = { view_id: string; sort_order: number }
+
+export async function reorderSavedViews(
+  operatorId: string,
+  items: ReadonlyArray<ViewReorderItem>,
+): Promise<{ updated: number }> {
+  const raw = await api<{ updated: number }>(
+    'PATCH',
+    `${basePath(operatorId)}/reorder`,
+    items,
+  )
+  return raw ?? { updated: 0 }
 }

@@ -113,7 +113,7 @@ function makeView(config: Record<string, unknown>): SavedViewWithState {
     sort_order: 0,
     created_at: '2026-05-21T10:00:00Z',
     updated_at: '2026-05-21T10:00:00Z',
-    user_state: { starred: false, hidden: false },
+    user_state: { pinned: false, hidden: false, sort_order: 0 },
   }
 }
 

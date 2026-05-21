@@ -83,25 +83,27 @@ describe('SavedViewSchema', () => {
 })
 
 describe('SavedViewWithStateSchema', () => {
-  it('requires user_state with starred + hidden flags', () => {
+  it('requires user_state with pinned + hidden flags + sort_order', () => {
     const parsed = SavedViewWithStateSchema.parse({
       ...makeViewRow(),
-      user_state: { starred: true, hidden: false },
+      user_state: { pinned: true, hidden: false, sort_order: 3 },
     })
-    expect(parsed.user_state.starred).toBe(true)
+    expect(parsed.user_state.pinned).toBe(true)
     expect(parsed.user_state.hidden).toBe(false)
+    expect(parsed.user_state.sort_order).toBe(3)
   })
 
   it('passes through extra user_state keys (server sends updated_at too)', () => {
     const parsed = SavedViewWithStateSchema.parse({
       ...makeViewRow(),
       user_state: {
-        starred: false,
+        pinned: false,
         hidden: false,
+        sort_order: 0,
         updated_at: '2026-05-21T10:00:00Z',
       },
     })
-    expect(parsed.user_state.starred).toBe(false)
+    expect(parsed.user_state.pinned).toBe(false)
   })
 })
 
@@ -109,7 +111,12 @@ describe('listSavedViews', () => {
   it('GETs the saved-views endpoint and parses the array response', async () => {
     const row = {
       ...makeViewRow(),
-      user_state: { starred: true, hidden: false, updated_at: null },
+      user_state: {
+        pinned: true,
+        hidden: false,
+        sort_order: 0,
+        updated_at: null,
+      },
     }
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify([row]), { status: 200 }),
@@ -118,7 +125,7 @@ describe('listSavedViews', () => {
     const result = await listSavedViews(OP_ID)
 
     expect(result).toHaveLength(1)
-    expect(result[0].user_state.starred).toBe(true)
+    expect(result[0].user_state.pinned).toBe(true)
     const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
     expect(url).toContain(`/api/staff/operators/${OP_ID}/saved-views`)
     expect(opts.method).toBe('GET')
@@ -176,13 +183,44 @@ describe('duplicateSavedView', () => {
 describe('setViewUserState', () => {
   it('PUTs to the /state sub-resource', async () => {
     fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }))
-    await setViewUserState(OP_ID, VIEW_ID, { starred: true })
+    await setViewUserState(OP_ID, VIEW_ID, { pinned: true })
     const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
     expect(url).toContain(
       `/api/staff/operators/${OP_ID}/saved-views/${VIEW_ID}/state`,
     )
     expect(opts.method).toBe('PUT')
-    expect(JSON.parse(opts.body as string)).toEqual({ starred: true })
+    expect(JSON.parse(opts.body as string)).toEqual({ pinned: true })
+  })
+
+  it('accepts sort_order alongside pinned', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    await setViewUserState(OP_ID, VIEW_ID, { pinned: true, sort_order: 7 })
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(opts.body as string)).toEqual({
+      pinned: true,
+      sort_order: 7,
+    })
+  })
+})
+
+describe('reorderSavedViews', () => {
+  it('PATCHes a list of {view_id, sort_order} to /reorder', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ updated: 2 }), { status: 200 }),
+    )
+    const { reorderSavedViews } = await import('./saved-views')
+    const result = await reorderSavedViews(OP_ID, [
+      { view_id: VIEW_ID, sort_order: 0 },
+      { view_id: USER_ID, sort_order: 1 },
+    ])
+    expect(result).toEqual({ updated: 2 })
+    const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain(`/api/staff/operators/${OP_ID}/saved-views/reorder`)
+    expect(opts.method).toBe('PATCH')
+    expect(JSON.parse(opts.body as string)).toEqual([
+      { view_id: VIEW_ID, sort_order: 0 },
+      { view_id: USER_ID, sort_order: 1 },
+    ])
   })
 })
 
