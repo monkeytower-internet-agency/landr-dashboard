@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Printer, Unlock, UserX } from 'lucide-react'
+import { Download, Printer, Unlock, UserX } from 'lucide-react'
 
 import { useAuth } from '@/lib/auth'
 import { useOperator } from '@/lib/operator'
@@ -54,6 +54,7 @@ import {
   stageCode,
   type BookingRow,
 } from '@/lib/bookings'
+import { downloadInvoicePdf } from '@/lib/invoice-download'
 import { t } from '@/lib/strings'
 
 type Props = {
@@ -330,11 +331,31 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     },
   })
 
+  // landr-irds — server-rendered invoice PDF download. Requires
+  // currentOperatorId because the endpoint is operator-scoped
+  // (/api/staff/operators/{op}/bookings/{id}/invoice.pdf). Cache
+  // doesn't need invalidation — the download is read-only.
+  const invoiceMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentOperatorId) {
+        throw new Error('No operator selected.')
+      }
+      await downloadInvoicePdf({
+        operatorId: currentOperatorId,
+        bookingId: row.id,
+      })
+    },
+    onError: (err: Error) => {
+      toast.error(t.bookings.invoice.toastError, { description: err.message })
+    },
+  })
+
   const busy =
     saveMutation.isPending ||
     cancelMutation.isPending ||
     unblockMutation.isPending ||
-    noShowMutation.isPending
+    noShowMutation.isPending ||
+    invoiceMutation.isPending
 
   function updateItem(itemId: string, updater: (it: ItemDraft) => ItemDraft) {
     setItems((prev) => prev.map((it) => (it.id === itemId ? updater(it) : it)))
@@ -677,6 +698,27 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           ) : null}
         </div>
         <div className="flex items-center gap-2">
+          {/* landr-irds — server-rendered invoice PDF download. The button
+              fetches the auth-protected endpoint with the bearer token,
+              reads the response as a blob, and triggers a download. Hidden
+              when no operator is selected (the endpoint requires an
+              operator path param). */}
+          {currentOperatorId ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => invoiceMutation.mutate()}
+              disabled={busy}
+              aria-label={t.bookings.invoice.action}
+              title={t.bookings.invoice.action}
+              data-testid="booking-invoice-btn"
+            >
+              <Download className="size-4" />
+              {invoiceMutation.isPending
+                ? t.bookings.invoice.working
+                : t.bookings.invoice.action}
+            </Button>
+          ) : null}
           {/* landr-pztv — explicit print trigger. Ctrl+P already works
               thanks to the @media print stylesheet in src/index.css; this
               button surfaces the affordance for operators who don't know

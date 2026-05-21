@@ -393,6 +393,15 @@ export const t = {
       toastSuccess: 'Booking unblocked.',
       toastError: 'Failed to unblock booking.',
     },
+    // landr-irds — server-rendered invoice PDF download. The button lives
+    // in the BookingDetailSheet footer next to Print and fetches the
+    // auth-protected GET /api/staff/operators/{op}/bookings/{id}/invoice.pdf
+    // endpoint, then triggers a browser download via createObjectURL.
+    invoice: {
+      action: 'Download invoice',
+      working: 'Generating…',
+      toastError: 'Failed to download invoice.',
+    },
     // landr-ng3m — terminal "customer never showed" transition. Distinct
     // from cancel: the booking happened on paper, the customer didn't
     // appear. Captures (but does not yet enforce) a cancellation-fee

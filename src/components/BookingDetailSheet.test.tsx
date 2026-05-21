@@ -662,4 +662,48 @@ describe('BookingDetailSheet', () => {
     expect(invalidatedKeys).toContainEqual(['bookings'])
     expect(invalidatedKeys).toContainEqual(['views-bookings'])
   })
+
+  // landr-irds — Download invoice button. Verifies the button renders +
+  // GETs the auth-protected operator-scoped invoice endpoint on click. The
+  // download-trigger side-effect (createObjectURL + synthetic anchor) is
+  // covered exhaustively in src/lib/invoice-download.test.ts.
+  it('renders a Download invoice button in the footer (landr-irds)', () => {
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(screen.getByTestId('booking-invoice-btn')).toBeInTheDocument()
+  })
+
+  it('Download invoice button GETs the operator-scoped invoice.pdf endpoint (landr-irds)', async () => {
+    const user = userEvent.setup()
+    // Stub createObjectURL/revokeObjectURL so the synthetic-anchor download
+    // path doesn't blow up in jsdom (which doesn't implement them).
+    const createObjectURL = vi.fn(() => 'blob:fake')
+    const revokeObjectURL = vi.fn()
+    Object.defineProperty(window.URL, 'createObjectURL', {
+      configurable: true,
+      value: createObjectURL,
+    })
+    Object.defineProperty(window.URL, 'revokeObjectURL', {
+      configurable: true,
+      value: revokeObjectURL,
+    })
+    fetchSpy.mockResolvedValueOnce(
+      new Response(new Uint8Array([0x25, 0x50, 0x44, 0x46]), {
+        status: 200,
+        headers: { 'content-type': 'application/pdf' },
+      }),
+    )
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    await user.click(screen.getByTestId('booking-invoice-btn'))
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/staff/operators/op-test/bookings/')
+    expect(url).toContain('/invoice.pdf')
+    expect(opts.method).toBe('GET')
+    expect((opts.headers as Record<string, string>).Authorization).toBe(
+      'Bearer test-token',
+    )
+    await waitFor(() => expect(createObjectURL).toHaveBeenCalledOnce())
+  })
 })
