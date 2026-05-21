@@ -1220,6 +1220,11 @@ export const t = {
       sortDesc: 'Descending',
       columns: 'Columns',
       columnsPlaceholderTip: 'Column picker arrives with the Table layout.',
+      // landr-1ztq — Group-by dropdown (Table layout only). Other layouts
+      // ignore the value; the dropdown stays in the toolbar so the operator
+      // sees one consistent control surface across layouts.
+      groupByLabel: 'Group:',
+      groupByNone: 'No grouping',
     },
     filters: {
       addFilter: '+ Filter',
@@ -1266,6 +1271,11 @@ export const t = {
       columnPickerEmpty: 'No columns available for this entity.',
       moneyFallback: '—',
       dateFallback: '—',
+      // landr-1ztq — group header chrome.
+      groupCountSuffix: (n: number): string => `(${n})`,
+      groupNullLabel: '— Empty —',
+      groupCollapse: (label: string): string => `Collapse ${label}`,
+      groupExpand: (label: string): string => `Expand ${label}`,
     },
   },
 } as const
