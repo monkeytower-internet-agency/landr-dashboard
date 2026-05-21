@@ -1224,5 +1224,20 @@ export const t = {
         empty: 'No items to display.',
       },
     },
+    // landr-7w3s — Table layout copy.
+    table: {
+      loading: 'Loading items…',
+      loadError: 'Failed to load items.',
+      empty: 'No items match this view.',
+      rowCount: (visible: number, total: number) =>
+        visible === total
+          ? `${total} item${total === 1 ? '' : 's'}`
+          : `${visible} of ${total} items`,
+      columnPickerLabel: 'Columns',
+      columnPickerHeading: 'Visible columns',
+      columnPickerEmpty: 'No columns available for this entity.',
+      moneyFallback: '—',
+      dateFallback: '—',
+    },
   },
 } as const
