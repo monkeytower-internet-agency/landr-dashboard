@@ -79,6 +79,28 @@ vi.mock('@/lib/operator', () => ({
 // landr-iz58 — the Tags card opens a TagPicker that fires fetchTags() on
 // mount. Stub the lib so the tests' fetchSpy doesn't accidentally observe
 // the tag call and miscount the booking_product patches.
+// landr-r87i — BookingChecklist now fetches the operator's server-side
+// template via useChecklistTemplate. The smoke test below only cares
+// about the localStorage v2 contract + add/remove flow; mock the fetcher
+// to return the same four hardcoded defaults landr-84n1 shipped so the
+// test stays focused on those behaviours.
+vi.mock('@/lib/checklistTemplate', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/lib/checklistTemplate')>()
+  return {
+    ...actual,
+    fetchChecklistTemplate: vi.fn().mockResolvedValue({
+      items: [
+        { key: 'default-called-customer', label: 'Called customer', order: 0 },
+        { key: 'default-payment-received', label: 'Payment received', order: 1 },
+        { key: 'default-equipment-ready', label: 'Equipment ready', order: 2 },
+        { key: 'default-emailed-pickup', label: 'Emailed pickup details', order: 3 },
+      ],
+    }),
+    putChecklistTemplate: vi.fn(),
+  }
+})
+
 vi.mock('@/lib/tags', () => ({
   fetchTags: vi.fn().mockResolvedValue([]),
   createTag: vi.fn(),
@@ -378,15 +400,14 @@ describe('BookingDetailSheet', () => {
     expect(calledCheckbox).toBeChecked()
 
     // Persisted under the (operator, booking) key.
+    // landr-r87i — v2 storage shape: {v:2, done:{<id>:true}, custom:[]}.
     const raw = window.localStorage.getItem(
       'landr.dashboard.booking-checklist.op-test.b-12345678-aaaa-bbbb-cccc-dddddddddddd',
     )
     expect(raw).not.toBeNull()
     const parsed = JSON.parse(raw as string)
-    const calledItem = parsed.items.find(
-      (i: { id: string; done: boolean }) => i.id === 'default-called-customer',
-    )
-    expect(calledItem.done).toBe(true)
+    expect(parsed.v).toBe(2)
+    expect(parsed.done['default-called-customer']).toBe(true)
 
     // Custom items add + remove.
     const addInput = screen.getByTestId('booking-checklist-add-input')

@@ -113,8 +113,10 @@ describe('useBookingChecklist', () => {
 
     const raw = window.localStorage.getItem(storageKey('op-1', 'b-1'))
     expect(raw).not.toBeNull()
+    // landr-r87i — v2 storage shape is {v:2, done:{<id>:true}, custom:[]}.
     const parsed = JSON.parse(raw as string)
-    expect(parsed.items[0].done).toBe(true)
+    expect(parsed.v).toBe(2)
+    expect(parsed.done['default-called-customer']).toBe(true)
     expect(parsed.lastUpdatedAt).toBeGreaterThan(0)
   })
 
@@ -208,5 +210,56 @@ describe('useBookingChecklist', () => {
     expect(result.current.progress).toEqual({ done: 1, total: 4 })
     act(() => result.current.addCustom('Sign waiver'))
     expect(result.current.progress).toEqual({ done: 1, total: 5 })
+  })
+
+  // landr-r87i — the hook now accepts a template arg (typically pulled
+  // from the operator's server-side operator_checklist_templates row).
+  // The hardcoded fallback only kicks in when the caller omits it.
+  it('renders the supplied server template instead of the hardcoded fallback', () => {
+    const template = [
+      { id: 'tpl-server-1', label: 'Receive cash' },
+      { id: 'tpl-server-2', label: 'Hand over kit' },
+    ]
+    const { result } = renderHook(() =>
+      useBookingChecklist('op-1', 'b-1', template),
+    )
+    expect(result.current.state.items.map((i) => i.label)).toEqual([
+      'Receive cash',
+      'Hand over kit',
+    ])
+    expect(result.current.progress.total).toBe(2)
+  })
+
+  it('persists done flags against template ids and re-projects after template edits', () => {
+    const v1Template = [
+      { id: 'k-call', label: 'Call' },
+      { id: 'k-pay', label: 'Pay' },
+    ]
+    // First render: tick 'k-call' done.
+    const first = renderHook(
+      ({ tpl }) => useBookingChecklist('op-1', 'b-1', tpl),
+      { initialProps: { tpl: v1Template } },
+    )
+    act(() => first.result.current.toggle('k-call'))
+    expect(first.result.current.state.items[0].done).toBe(true)
+    first.unmount()
+
+    // Second render with a NEW template (operator renamed labels + added
+    // a third item). Done flag for 'k-call' survives because it is keyed
+    // on the stable id.
+    const v2Template = [
+      { id: 'k-call', label: 'Called customer (renamed)' },
+      { id: 'k-pay', label: 'Pay' },
+      { id: 'k-ship', label: 'Ship tickets' },
+    ]
+    const second = renderHook(() =>
+      useBookingChecklist('op-1', 'b-1', v2Template),
+    )
+    const callRow = second.result.current.state.items.find(
+      (i) => i.id === 'k-call',
+    )
+    expect(callRow?.done).toBe(true)
+    expect(callRow?.label).toBe('Called customer (renamed)')
+    expect(second.result.current.progress).toEqual({ done: 1, total: 3 })
   })
 })

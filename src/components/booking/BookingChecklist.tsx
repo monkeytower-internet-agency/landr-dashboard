@@ -1,9 +1,13 @@
-// landr-84n1 — operator-facing per-booking checklist. v1 is localStorage
-// only (scoped on operator + booking id) so we can validate the workflow
-// before committing to a schema. See lib/booking-checklist.ts for the
-// storage contract and reconciliation behaviour.
+// landr-84n1 / landr-r87i — operator-facing per-booking checklist.
+// v1 (84n1) stored every default + done flag + custom in localStorage.
+// v2 (r87i) fetches the DEFAULT item set from the operator's server-side
+// template (operator_checklist_templates) so each operator can curate
+// their own seed list via Settings -> Operations. Per-booking done flags
+// + custom items continue to live in localStorage. See
+// lib/booking-checklist.ts for the storage contract and
+// lib/checklistTemplate.ts for the server fetch.
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -11,7 +15,15 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
-import { useBookingChecklist } from '@/lib/booking-checklist'
+import {
+  DEFAULT_CHECKLIST_ITEMS,
+  useBookingChecklist,
+  type ChecklistTemplateItem,
+} from '@/lib/booking-checklist'
+import {
+  useChecklistTemplate,
+  wireItemsToTemplate,
+} from '@/lib/checklistTemplate'
 
 type Props = {
   bookingId: string
@@ -24,8 +36,22 @@ type Props = {
 }
 
 export function BookingChecklist({ bookingId, operatorId }: Props) {
+  // landr-r87i — fetch the operator's server-side template. While the
+  // query is in-flight (or when no operator is signed in) we fall back
+  // to the hardcoded V1 defaults so the UI never flashes empty. The
+  // server's _V1_DEFAULTS match these ids, so done flags survive the
+  // swap from fallback to fetched.
+  const { data: templateData } = useChecklistTemplate(operatorId)
+  const template: ReadonlyArray<ChecklistTemplateItem> = useMemo(
+    () =>
+      templateData
+        ? wireItemsToTemplate(templateData.items)
+        : DEFAULT_CHECKLIST_ITEMS,
+    [templateData],
+  )
+
   const { state, progress, toggle, addCustom, removeCustom } =
-    useBookingChecklist(operatorId, bookingId)
+    useBookingChecklist(operatorId, bookingId, template)
   const [draft, setDraft] = useState('')
 
   const submitDraft = () => {

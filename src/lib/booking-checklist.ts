@@ -1,27 +1,35 @@
-// landr-84n1 — per-(operator, booking) checklist persisted to localStorage.
+// landr-r87i — per-(operator, booking) checklist with server-defined defaults.
 //
-// v1 is deliberately client-side: no migration, no server round-trip — the
-// operator just wants a private "what have I done for this booking" memo
-// pad that survives a page refresh. v2 will lift this to a Postgres table
-// keyed on (operator_id, booking_id) once the team validates the workflow.
+// History:
+//   v1 (landr-84n1) stored EVERY item (defaults + done flags + customs) in
+//   localStorage. Defaults were a hardcoded array in this module.
+//   v2 (landr-r87i) lifts the DEFAULT item set to the server table
+//   `operator_checklist_templates`. localStorage now holds only the per-
+//   booking diff: done flags keyed on item id, plus operator-added custom
+//   items. Defaults flow in as a `template` argument to useBookingChecklist
+//   so the UI can show per-operator-curated seed lists.
 //
-// Storage shape (single JSON object per booking):
+// v2 storage shape (under the same `landr.dashboard.booking-checklist.<op>.<bk>`
+// key for migration compatibility):
 //
-//   landr.dashboard.booking-checklist.<operatorId>.<bookingId> = {
-//     items: [{ id, label, done, custom? }, ...],
+//   {
+//     v: 2,
+//     done: { '<itemId>': true, ... },
+//     custom: [{ id, label, done, custom: true }, ...],
 //     lastUpdatedAt: 1716297600000
 //   }
 //
-// Custom items carry `custom: true` and can be removed; defaults are
-// seeded on first read and cannot be removed (toggling done is the only
-// op). Default labels can drift in code without orphaning existing state:
-// we re-seed any default that disappeared while preserving its `done`
-// flag by matching on stable id.
+// Backwards-compat: if a v1 record is present (no `v` field, items[] array),
+// we project it into the v2 shape transparently on read — the done flags
+// for defaults carry over, customs are preserved, and the next write
+// persists in v2 format.
 //
-// Why scope on operator AND booking?  An operator (in landr terms) is the
-// business tenant — different operators editing the SAME booking in a
-// shared device should not see each other's checklist state, and the
-// same operator should keep their checklist when re-opening the booking.
+// The hardcoded V1 defaults remain exported as DEFAULT_CHECKLIST_ITEMS so
+// the BookingChecklist component can fall back to them when the server
+// template hasn't arrived yet (initial render, fetch in flight). They
+// match the server-side _V1_DEFAULTS in
+// app/routers/staff_operator_checklist_template.py so behaviour is
+// indistinguishable before the operator customises.
 
 import { useCallback, useMemo, useState } from 'react'
 
@@ -29,7 +37,8 @@ export type ChecklistItem = {
   id: string
   label: string
   done: boolean
-  /** True for items the operator added; defaults are seeded and not removable. */
+  /** True for items the operator added per-booking; defaults come from
+   *  the server template and aren't removable per-booking. */
   custom?: boolean
 }
 
@@ -39,107 +48,112 @@ export type ChecklistState = {
   lastUpdatedAt: number
 }
 
+/** Default item passed to useBookingChecklist as the seed list (typically
+ *  from the server template). `id` is the stable key used for done-flag
+ *  storage. */
+export type ChecklistTemplateItem = {
+  id: string
+  label: string
+}
+
 /**
- * Seeded defaults. Order matters — they render top-to-bottom and the
- * progress denominator includes them. Ids are stable so adding/renaming
- * a default in code does not orphan stored `done` flags for the others.
+ * Hardcoded fallback defaults — the same four landr-84n1 shipped, mirrored
+ * server-side in app/routers/staff_operator_checklist_template.py._V1_DEFAULTS.
+ *
+ * Two reasons this still lives in code:
+ *   1. The BookingChecklist component renders BEFORE the server template
+ *      arrives; we show this list so the UI never flashes empty.
+ *   2. Tests + isolated previews that don't wire a template still get a
+ *      sensible default — no behaviour change for callers that omit the
+ *      `template` argument.
+ *
+ * `id`s match the server defaults so done flags survive when the server
+ * template hydrates and replaces the fallback.
  */
-export const DEFAULT_CHECKLIST_ITEMS: ReadonlyArray<
-  Pick<ChecklistItem, 'id' | 'label'>
-> = [
+export const DEFAULT_CHECKLIST_ITEMS: ReadonlyArray<ChecklistTemplateItem> = [
   { id: 'default-called-customer', label: 'Called customer' },
   { id: 'default-payment-received', label: 'Payment received' },
   { id: 'default-equipment-ready', label: 'Equipment ready' },
   { id: 'default-emailed-pickup', label: 'Emailed pickup details' },
 ]
 
-const DEFAULT_IDS = new Set(DEFAULT_CHECKLIST_ITEMS.map((i) => i.id))
+// ---- storage ---------------------------------------------------------
 
 export function storageKey(operatorId: string, bookingId: string): string {
   return `landr.dashboard.booking-checklist.${operatorId}.${bookingId}`
 }
 
-function isChecklistItem(v: unknown): v is ChecklistItem {
-  if (!v || typeof v !== 'object') return false
-  const i = v as Partial<ChecklistItem>
-  return (
-    typeof i.id === 'string' &&
-    typeof i.label === 'string' &&
-    typeof i.done === 'boolean'
-  )
+/** v2 record shape persisted to localStorage. */
+type StoredV2 = {
+  v: 2
+  done: Record<string, boolean>
+  custom: ChecklistItem[]
+  lastUpdatedAt: number
 }
 
-function isChecklistState(v: unknown): v is ChecklistState {
+function isStoredV2(v: unknown): v is StoredV2 {
   if (!v || typeof v !== 'object') return false
-  const s = v as Partial<ChecklistState>
+  const s = v as Partial<StoredV2>
   return (
-    Array.isArray(s.items) &&
-    s.items.every(isChecklistItem) &&
+    s.v === 2 &&
+    !!s.done &&
+    typeof s.done === 'object' &&
+    Array.isArray(s.custom) &&
     typeof s.lastUpdatedAt === 'number'
   )
 }
 
-/**
- * Build a fresh state seeded with the defaults — all unchecked. Used for
- * first-time opens and when stored JSON is unreadable.
- */
-export function seedState(): ChecklistState {
-  return {
-    items: DEFAULT_CHECKLIST_ITEMS.map((d) => ({
-      id: d.id,
-      label: d.label,
-      done: false,
-    })),
-    lastUpdatedAt: 0,
-  }
+/** v1 record shape — left for migration only. */
+type StoredV1 = {
+  items: ChecklistItem[]
+  lastUpdatedAt: number
 }
 
-/**
- * Merge stored state with the current defaults: any default missing from
- * storage is appended (preserving the operator's custom items at the end);
- * any stored default has its label refreshed from code so renamed defaults
- * surface without losing the `done` flag.
- *
- * Order: defaults first (in the canonical order), then customs (in their
- * stored order). Stored-but-unknown default ids are dropped — that's the
- * forward-compat path when a default is removed in code.
- */
-function reconcileWithDefaults(stored: ChecklistState): ChecklistState {
-  const storedById = new Map(stored.items.map((it) => [it.id, it]))
-  const merged: ChecklistItem[] = []
-  for (const d of DEFAULT_CHECKLIST_ITEMS) {
-    const existing = storedById.get(d.id)
-    merged.push({
-      id: d.id,
-      label: d.label,
-      done: existing?.done ?? false,
-    })
-  }
-  for (const it of stored.items) {
-    if (DEFAULT_IDS.has(it.id)) continue
-    if (!it.custom) continue
-    merged.push({ ...it, custom: true })
-  }
-  return { items: merged, lastUpdatedAt: stored.lastUpdatedAt }
+function isStoredV1(v: unknown): v is StoredV1 {
+  if (!v || typeof v !== 'object') return false
+  const s = v as Partial<StoredV1>
+  return Array.isArray(s.items) && typeof s.lastUpdatedAt === 'number'
 }
 
-function readStored(operatorId: string, bookingId: string): ChecklistState {
-  if (typeof window === 'undefined') return seedState()
+function v1ToV2(v1: StoredV1): StoredV2 {
+  const done: Record<string, boolean> = {}
+  const custom: ChecklistItem[] = []
+  for (const it of v1.items) {
+    if (it.custom) {
+      custom.push({ ...it, custom: true })
+    } else if (it.done) {
+      // Carry over done flags for defaults; the new default list might
+      // not include this id (operator since removed it from their
+      // template) — that's fine, the flag is silently dropped on render
+      // but stays in storage so a template revert can resurrect it.
+      done[it.id] = true
+    }
+  }
+  return { v: 2, done, custom, lastUpdatedAt: v1.lastUpdatedAt }
+}
+
+function emptyV2(): StoredV2 {
+  return { v: 2, done: {}, custom: [], lastUpdatedAt: 0 }
+}
+
+function readStoredV2(operatorId: string, bookingId: string): StoredV2 {
+  if (typeof window === 'undefined') return emptyV2()
   try {
     const raw = window.localStorage.getItem(storageKey(operatorId, bookingId))
-    if (!raw) return seedState()
+    if (!raw) return emptyV2()
     const parsed = JSON.parse(raw)
-    if (!isChecklistState(parsed)) return seedState()
-    return reconcileWithDefaults(parsed)
+    if (isStoredV2(parsed)) return parsed
+    if (isStoredV1(parsed)) return v1ToV2(parsed)
+    return emptyV2()
   } catch {
-    return seedState()
+    return emptyV2()
   }
 }
 
-function writeStored(
+function writeStoredV2(
   operatorId: string,
   bookingId: string,
-  state: ChecklistState,
+  state: StoredV2,
 ): void {
   if (typeof window === 'undefined') return
   try {
@@ -152,16 +166,53 @@ function writeStored(
   }
 }
 
-/** Pure read — no React. Returns seeded defaults when nothing is stored. */
+// ---- projection ------------------------------------------------------
+
+/**
+ * Project the v2 stored state through the current template into the
+ * rendered ChecklistState. Order: template items first (template order),
+ * then customs (stored order). Done flags survive across template edits
+ * for any id that's still in the template.
+ */
+function project(
+  template: ReadonlyArray<ChecklistTemplateItem>,
+  stored: StoredV2,
+): ChecklistState {
+  const items: ChecklistItem[] = template.map((t) => ({
+    id: t.id,
+    label: t.label,
+    done: !!stored.done[t.id],
+  }))
+  for (const c of stored.custom) {
+    items.push({ ...c, custom: true })
+  }
+  return { items, lastUpdatedAt: stored.lastUpdatedAt }
+}
+
+/**
+ * Pure read — no React. Returns the projected state. When `operatorId` or
+ * `bookingId` is null we still return a sensible ChecklistState (all
+ * unchecked, no customs) so tests + isolated previews keep rendering.
+ */
 export function getChecklist(
   operatorId: string | null,
   bookingId: string | null,
+  template: ReadonlyArray<ChecklistTemplateItem> = DEFAULT_CHECKLIST_ITEMS,
 ): ChecklistState {
-  if (!operatorId || !bookingId) return seedState()
-  return readStored(operatorId, bookingId)
+  if (!operatorId || !bookingId) {
+    return project(template, emptyV2())
+  }
+  return project(template, readStoredV2(operatorId, bookingId))
 }
 
-/** Count of done items vs total. Total includes defaults and customs. */
+/** Fresh, unchecked state — used by tests + the null-scope render path. */
+export function seedState(
+  template: ReadonlyArray<ChecklistTemplateItem> = DEFAULT_CHECKLIST_ITEMS,
+): ChecklistState {
+  return project(template, emptyV2())
+}
+
+/** Count of done items vs total. */
 export function checklistProgress(state: ChecklistState): {
   done: number
   total: number
@@ -175,12 +226,14 @@ export function checklistProgress(state: ChecklistState): {
 /**
  * Generate a stable id for a custom item. Includes a short random suffix
  * so two operators adding the same label on the same booking don't
- * collide if v2 ever consolidates client state.
+ * collide if v3 ever consolidates client state.
  */
 export function makeCustomItemId(): string {
   const rand = Math.random().toString(36).slice(2, 8)
   return `custom-${Date.now().toString(36)}-${rand}`
 }
+
+// ---- hook ------------------------------------------------------------
 
 export type UseBookingChecklist = {
   state: ChecklistState
@@ -192,36 +245,35 @@ export type UseBookingChecklist = {
   persisted: boolean
 }
 
-/**
- * Restore-and-persist the checklist for (operatorId, bookingId). When
- * either id is null the hook still works in-memory (so the UI keeps
- * rendering in tests / signed-out previews) but skips persistence.
- *
- * Implementation note: we follow the same shape as useRecentlyViewed —
- * a "tick" counter bumped on every write triggers a re-read inside a
- * useMemo keyed on (scope, tick, override). This avoids the
- * react-hooks/set-state-in-effect lint we'd hit if we mirrored
- * localStorage into useState and re-synced on scope change. The
- * `override` slot lets in-memory edits (when persistence is skipped
- * because operatorId is null) survive without a localStorage round-trip.
- */
 type ScopedOverride = {
   scope: string
-  state: ChecklistState
+  stored: StoredV2
 }
 
 function scopeKeyOf(operatorId: string | null, bookingId: string | null): string {
   return `${operatorId ?? ''}::${bookingId ?? ''}`
 }
 
+/**
+ * Restore-and-persist the checklist for (operatorId, bookingId), driven by
+ * the supplied template (typically loaded from the server via
+ * `useChecklistTemplate`). When either id is null the hook still works
+ * in-memory but skips localStorage persistence.
+ *
+ * The template ids are the source of truth for which items render —
+ * stored done flags whose ids aren't in the template are silently
+ * dropped from display (but stay in storage until the next write so a
+ * template revert can resurrect them).
+ *
+ * Implementation note: matches the v1 shape — a `tick` counter triggers a
+ * re-read after each persisted write, an `override` slot carries in-
+ * memory state for the null-scope path.
+ */
 export function useBookingChecklist(
   operatorId: string | null,
   bookingId: string | null,
+  template: ReadonlyArray<ChecklistTemplateItem> = DEFAULT_CHECKLIST_ITEMS,
 ): UseBookingChecklist {
-  // `tick` triggers a localStorage re-read after each persisted write.
-  // `override` carries in-memory state for the null-operator path; it
-  // remembers its own scope so a scope change naturally drops stale data
-  // without needing setState-in-effect or setState-in-render.
   const [tick, setTick] = useState(0)
   const [override, setOverride] = useState<ScopedOverride | null>(null)
   const bump = useCallback(() => setTick((n) => n + 1), [])
@@ -229,25 +281,31 @@ export function useBookingChecklist(
   const scope = scopeKeyOf(operatorId, bookingId)
   const persisted = !!operatorId && !!bookingId
   const activeOverride =
-    override && override.scope === scope ? override.state : null
+    override && override.scope === scope ? override.stored : null
 
-  const state = useMemo<ChecklistState>(
-    () => activeOverride ?? getChecklist(operatorId, bookingId),
-    // `tick` participates as a cache-buster so writes re-read storage.
+  const stored = useMemo<StoredV2>(
+    () => {
+      if (activeOverride) return activeOverride
+      if (!operatorId || !bookingId) return emptyV2()
+      return readStoredV2(operatorId, bookingId)
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [operatorId, bookingId, tick, activeOverride],
   )
 
+  const state = useMemo<ChecklistState>(
+    () => project(template, stored),
+    [template, stored],
+  )
+
   const apply = useCallback(
-    (next: ChecklistState) => {
+    (next: StoredV2) => {
       if (persisted) {
-        writeStored(operatorId as string, bookingId as string, next)
-        // Drop any stale override left over from a previous null-scope
-        // session so subsequent reads come from storage.
+        writeStoredV2(operatorId as string, bookingId as string, next)
         setOverride(null)
         bump()
       } else {
-        setOverride({ scope, state: next })
+        setOverride({ scope, stored: next })
       }
     },
     [persisted, operatorId, bookingId, scope, bump],
@@ -255,51 +313,86 @@ export function useBookingChecklist(
 
   const toggle = useCallback(
     (id: string) => {
-      const current = activeOverride ?? getChecklist(operatorId, bookingId)
-      const next: ChecklistState = {
-        items: current.items.map((it) =>
-          it.id === id ? { ...it, done: !it.done } : it,
-        ),
-        lastUpdatedAt: Date.now(),
+      const current =
+        activeOverride ??
+        (persisted
+          ? readStoredV2(operatorId as string, bookingId as string)
+          : emptyV2())
+      // Custom item toggle lives in the `custom` array.
+      const customIdx = current.custom.findIndex((c) => c.id === id)
+      if (customIdx >= 0) {
+        const nextCustom = current.custom.slice()
+        nextCustom[customIdx] = {
+          ...nextCustom[customIdx],
+          done: !nextCustom[customIdx].done,
+        }
+        apply({
+          ...current,
+          custom: nextCustom,
+          lastUpdatedAt: Date.now(),
+        })
+        return
       }
-      apply(next)
+      // Template/default item toggle lives in `done` map.
+      const nextDone = { ...current.done }
+      if (nextDone[id]) {
+        delete nextDone[id]
+      } else {
+        nextDone[id] = true
+      }
+      apply({
+        ...current,
+        done: nextDone,
+        lastUpdatedAt: Date.now(),
+      })
     },
-    [activeOverride, operatorId, bookingId, apply],
+    [activeOverride, operatorId, bookingId, persisted, apply],
   )
 
   const addCustom = useCallback(
     (label: string) => {
       const trimmed = label.trim()
       if (!trimmed) return
-      const current = activeOverride ?? getChecklist(operatorId, bookingId)
+      const current =
+        activeOverride ??
+        (persisted
+          ? readStoredV2(operatorId as string, bookingId as string)
+          : emptyV2())
       const item: ChecklistItem = {
         id: makeCustomItemId(),
         label: trimmed,
         done: false,
         custom: true,
       }
-      const next: ChecklistState = {
-        items: [...current.items, item],
+      apply({
+        ...current,
+        custom: [...current.custom, item],
         lastUpdatedAt: Date.now(),
-      }
-      apply(next)
+      })
     },
-    [activeOverride, operatorId, bookingId, apply],
+    [activeOverride, operatorId, bookingId, persisted, apply],
   )
 
   const removeCustom = useCallback(
     (id: string) => {
-      // Defaults are protected — guard at the storage layer so a misuse
-      // from the UI side cannot silently drop a default item.
-      if (DEFAULT_IDS.has(id)) return
-      const current = activeOverride ?? getChecklist(operatorId, bookingId)
-      const next: ChecklistState = {
-        items: current.items.filter((it) => it.id !== id),
-        lastUpdatedAt: Date.now(),
+      const current =
+        activeOverride ??
+        (persisted
+          ? readStoredV2(operatorId as string, bookingId as string)
+          : emptyV2())
+      const nextCustom = current.custom.filter((c) => c.id !== id)
+      if (nextCustom.length === current.custom.length) {
+        // Id wasn't a custom — defaults aren't removable per-booking
+        // (operator must edit the template in Settings -> Operations).
+        return
       }
-      apply(next)
+      apply({
+        ...current,
+        custom: nextCustom,
+        lastUpdatedAt: Date.now(),
+      })
     },
-    [activeOverride, operatorId, bookingId, apply],
+    [activeOverride, operatorId, bookingId, persisted, apply],
   )
 
   const progress = useMemo(() => checklistProgress(state), [state])

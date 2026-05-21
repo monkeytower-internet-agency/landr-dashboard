@@ -252,9 +252,10 @@ describe('SettingsLayout', () => {
     // landr-yp8x — Branding joined Settings → 9 sections (was 8).
     // landr-iz58 — Tags joined Settings → 10 sections.
     // landr-qg4q — Email log joined Settings → 11 sections.
+    // landr-r87i — Operations joined Settings → 12 sections.
     const nav = screen.getByRole('navigation', { name: /settings sections/i })
     const links = nav.querySelectorAll('a')
-    expect(links).toHaveLength(11)
+    expect(links).toHaveLength(12)
     expect(nav).toHaveTextContent(/calendar & display/i)
     expect(nav).toHaveTextContent(/display preferences/i)
     expect(nav).toHaveTextContent(/branding/i)
@@ -266,6 +267,7 @@ describe('SettingsLayout', () => {
     expect(nav).toHaveTextContent(/email log/i)
     expect(nav).toHaveTextContent(/pricing/i)
     expect(nav).toHaveTextContent(/tags/i)
+    expect(nav).toHaveTextContent(/operations/i)
     // Account-group items must NOT appear here.
     expect(nav).not.toHaveTextContent(/connected accounts/i)
     expect(nav).not.toHaveTextContent(/gmail/i)

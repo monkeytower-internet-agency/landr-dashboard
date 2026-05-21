@@ -214,6 +214,10 @@ export const t = {
       branding: 'Branding',
       // landr-iz58 — operator-scoped tags applied to bookings + contacts.
       tags: 'Tags',
+      // landr-r87i — default per-booking checklist items the operator
+      // customises (v2 of landr-84n1; defaults move from hardcoded to
+      // operator_checklist_templates).
+      operations: 'Operations',
     },
     // landr-fnhz — one-line description for each settings subsection,
     // rendered as the PageTitle subtitle on the matching sub-page so the
@@ -240,6 +244,9 @@ export const t = {
       pricing: 'Discounts, surcharges, and pricing modifiers.',
       branding: 'Apply your logo and brand colour to the booking widget.',
       tags: 'Define operator-scoped tags to apply to bookings and contacts.',
+      // landr-r87i — default per-booking checklist editor.
+      operations:
+        'Default checklist items that seed every new booking. Per-booking progress stays local.',
     },
     plan: {
       title: 'Plan',
@@ -1316,6 +1323,41 @@ export const t = {
     toastUpdateError: 'Could not update tag.',
     toastDeleted: 'Tag deleted.',
     toastDeleteError: 'Could not delete tag.',
+  },
+  // landr-r87i — Settings → Operations. v2 of landr-84n1: operators
+  // curate the DEFAULT per-booking checklist items (saved server-side
+  // in operator_checklist_templates). Per-booking done flags + custom
+  // items continue to live in dashboard localStorage.
+  operationsSettings: {
+    title: 'Operations',
+    subtitle:
+      'Default checklist items that seed every new booking. Per-booking progress + custom items stay on each device.',
+    noOperator: 'Select an operator to manage the checklist template.',
+    loading: 'Loading template…',
+    error: 'Failed to load checklist template.',
+
+    sectionChecklist: 'Default booking checklist',
+    sectionChecklistDesc:
+      'Reorder, rename, add, or remove the items every new booking starts with.',
+
+    empty: 'No default items yet — add one below or save an empty list for fully bespoke checklists.',
+
+    labelPlaceholder: 'e.g. Sign waiver',
+    addAction: 'Add item',
+    addAria: 'Add a new default checklist item',
+    removeAria: (label: string) => `Remove "${label}"`,
+    moveUpAria: (label: string) => `Move "${label}" up`,
+    moveDownAria: (label: string) => `Move "${label}" down`,
+    labelAria: (idx: number) => `Item ${idx + 1} label`,
+    editAria: (label: string) => `Edit "${label}"`,
+    save: 'Save changes',
+    saving: 'Saving…',
+    revert: 'Discard',
+
+    toastSaved: 'Checklist template saved.',
+    toastSaveError: 'Could not save the checklist template.',
+    duplicateLabelError: 'Each item must have a unique label.',
+    emptyLabelError: 'Item labels cannot be blank.',
   },
   // landr-qg4q — Settings → Email log. Read-only viewer over the
   // public.outbound_emails queue so operators can debug why a customer
