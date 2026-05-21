@@ -56,13 +56,6 @@ export const BOOKING_FIELDS: readonly ViewField[] = [
     sortable: true,
   },
   {
-    key: 'customer_last_name',
-    label: 'Last name',
-    type: 'text',
-    filterable: true,
-    sortable: true,
-  },
-  {
     key: 'customer_email',
     label: 'Email',
     type: 'text',
@@ -114,13 +107,6 @@ export const BOOKING_FIELDS: readonly ViewField[] = [
     filterable: true,
     sortable: true,
     default_visible_in_table: true,
-  },
-  {
-    key: 'date_range_end',
-    label: 'End date',
-    type: 'date',
-    filterable: true,
-    sortable: true,
   },
   {
     key: 'date_range_end',

@@ -65,7 +65,6 @@ import {
   type BoardItemMutate,
 } from '@/components/views/layouts/BoardLayout'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
-import { readFilters } from '@/lib/views-filters'
 import {
   applyView,
   useViewBookings,
@@ -81,38 +80,12 @@ const LAYOUT_PARAM = 'layout'
 
 // ----------------------------------------------------------------------------
 // Layouts registry — downstream tickets D / E / F mount real renderers here.
-// landr-9kbl wired the calendar branch; landr-7w3s / -kjls will replace the
-// table / board stubs with their renderers in the LayoutBody switch below.
-
-type LayoutStubProps = {
-  layout: ViewLayout
-  config: Record<string, unknown>
-  entityType: string
-}
-
-function LayoutStub({ layout, config, entityType }: LayoutStubProps) {
-  const filterCount = readFilters(config).length
-  return (
-    <Card data-testid={`view-layout-stub-${layout}`}>
-      <CardHeader>
-        <CardTitle>{t.views.body.stubHeading(layout)}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3 text-sm">
-        <p className="text-muted-foreground">{t.views.body.stubBody}</p>
-        <div className="rounded-md border bg-muted/30 p-3 text-xs">
-          <p className="font-medium">{t.views.body.stubConfigHeading}</p>
-          <p className="text-muted-foreground">
-            entity: {entityType} · layout: {layout} ·{' '}
-            {t.views.body.stubFilterCount(filterCount)}
-          </p>
-          <pre className="text-muted-foreground mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all">
-            {JSON.stringify(config, null, 2)}
-          </pre>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
+// landr-9kbl wired the calendar branch; landr-7w3s / -kjls replaced the
+// table / board stubs with their real renderers. landr-lx7s removed the
+// LayoutStub fallback because `effectiveLayout: ViewLayout` is a closed
+// union ('table' | 'board' | 'calendar') — every case is covered by the
+// switch in LayoutBody and the TS exhaustiveness check guards future
+// additions.
 
 // ----------------------------------------------------------------------------
 
@@ -595,14 +568,13 @@ function LayoutBody({ layout, view, setConfig }: LayoutBodyProps) {
       return <TableLayoutBranch view={view} setConfig={setConfig} />
     case 'board':
       return <BoardLayoutBranch view={view} />
-    default:
-      return (
-        <LayoutStub
-          layout={layout}
-          config={view.config}
-          entityType={view.entity_type}
-        />
-      )
+    default: {
+      // landr-lx7s — exhaustiveness check. `ViewLayout` is a closed union
+      // ('table' | 'board' | 'calendar'); adding a new variant without
+      // handling it here is a compile error.
+      const _exhaustive: never = layout
+      return _exhaustive
+    }
   }
 }
 
@@ -631,7 +603,7 @@ function CalendarLayoutBranch({ view }: { view: SavedViewWithState }) {
   if (bookings.isPending) {
     return (
       <p className="text-muted-foreground text-sm">
-        {t.views.body.calendar.loading}
+        {t.views.body.loading}
       </p>
     )
   }
@@ -639,7 +611,7 @@ function CalendarLayoutBranch({ view }: { view: SavedViewWithState }) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{t.views.body.calendar.loadError}</CardTitle>
+          <CardTitle>{t.views.body.loadError}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
@@ -688,7 +660,7 @@ function TableLayoutBranch({
   if (bookings.isPending) {
     return (
       <p className="text-muted-foreground text-sm">
-        {t.views.body.calendar.loading}
+        {t.views.body.loading}
       </p>
     )
   }
@@ -696,7 +668,7 @@ function TableLayoutBranch({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{t.views.body.calendar.loadError}</CardTitle>
+          <CardTitle>{t.views.body.loadError}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
@@ -762,7 +734,7 @@ function BoardLayoutBranch({ view }: { view: SavedViewWithState }) {
   if (bookings.isPending) {
     return (
       <p className="text-muted-foreground text-sm">
-        {t.views.body.board.loading}
+        {t.views.body.loading}
       </p>
     )
   }
@@ -770,7 +742,7 @@ function BoardLayoutBranch({ view }: { view: SavedViewWithState }) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{t.views.body.board.loadError}</CardTitle>
+          <CardTitle>{t.views.body.loadError}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
