@@ -2067,21 +2067,18 @@ export const t = {
     typeProduct: 'Product',
     typeView: 'View',
   },
-  // landr-c58d / landr-45pb — Views sub-list in the app sidebar
-  // (Gmail-style Primary / More / Hidden buckets + DnD pin).
+  // landr-c58d / landr-45pb / landr-79f5 — Views sub-list in the app sidebar.
+  // landr-79f5 simplifies the IA: pinned-only sidebar (no More / Hidden buckets).
+  // Pin = appears in sidebar; Unpin = does not. The `hidden` schema column
+  // still exists but is a no-op in the sidebar (treated as "not visible").
   viewsSidebar: {
-    showHidden: 'Show hidden views',
-    hideHidden: 'Hide hidden views',
-    hideFromSidebar: 'Hide from sidebar',
-    unhide: 'Unhide',
+    unpin: 'Unpin from sidebar',
     pinView: 'Pin this view',
     unpinView: 'Unpin this view',
-    emptyHint: 'No views yet — create one →',
-    primaryEmptyHint: 'Drag a view here to pin it',
-    moreLabel: 'More',
-    hiddenLabel: 'Hidden',
+    emptyHint: 'No views pinned. Pin views from /views to add them here.',
+    emptyHintLinkLabel: '/views',
+    newViewButton: '+ New view',
     pinError: 'Failed to update pin.',
-    hideError: 'Failed to update visibility.',
     reorderError: 'Failed to reorder views.',
     rowMenuLabel: (name: string): string => `More actions for ${name}`,
   },
@@ -2135,11 +2132,19 @@ export const t = {
       // landr-4cwh — Board swimlanes (secondary grouping).
       swimlaneLabel: 'Swimlanes:',
       swimlaneNone: 'None (flat)',
+      // landr-79f5 — layout-locked placeholder shown on non-Board layouts
+      // so operators can see the control exists. The Tooltip explains the
+      // gate: switch to Board to use it.
+      swimlanePlaceholder: 'Swimlanes (Board only)',
+      swimlaneLockedTip: 'Switch to Board layout to use swimlanes.',
       // landr-9nj9 — Board column-by picker (primary grouping). "None"
       // clears the key so the BoardLayout default fallback kicks in
       // (first enum field, typically current_stage).
       columnByLabel: 'Column by:',
       columnByNone: 'Default',
+      // landr-79f5 — layout-locked placeholder shown on non-Board layouts.
+      columnByPlaceholder: 'Column by (Board only)',
+      columnByLockedTip: 'Switch to Board layout to use column-by.',
     },
     filters: {
       addFilter: '+ Filter',

@@ -101,6 +101,25 @@ describe('PinButton (landr-45pb)', () => {
     ).toHaveAttribute('aria-pressed', 'true')
   })
 
+  // landr-79f5 — brighter pinned affordance: the button gets an amber chip
+  // background (not just an amber icon) so pinned-ness is obvious at a glance.
+  it('applies amber chip background when pinned', () => {
+    renderWithClient(
+      [makeView({ user_state: { pinned: true, hidden: false, sort_order: 0 } })],
+      true,
+    )
+    const btn = screen.getByRole('button', { name: /unpin this view/i })
+    expect(btn.className).toContain('bg-amber-500/15')
+    expect(btn.className).toContain('text-amber-500')
+    expect(btn.className).toContain('rounded-full')
+  })
+
+  it('does NOT apply the amber chip background when unpinned', () => {
+    renderWithClient([makeView()], false)
+    const btn = screen.getByRole('button', { name: /pin this view/i })
+    expect(btn.className).not.toContain('bg-amber-500/15')
+  })
+
   it('clicking calls setViewUserState with the toggled value', async () => {
     mocks.setViewUserState.mockResolvedValueOnce(undefined)
     renderWithClient([makeView()], false)

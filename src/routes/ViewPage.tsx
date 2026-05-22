@@ -28,18 +28,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { MoreHorizontalIcon, Pencil, Copy, Trash2 } from 'lucide-react'
+import { Pencil, Copy, Trash2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { trackView } from '@/lib/recently-viewed'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import {
@@ -47,11 +41,9 @@ import {
   duplicateSavedView,
   getSavedView,
   patchSavedView,
-  setViewUserState,
   type SavedViewWithState,
 } from '@/lib/saved-views'
 import { t } from '@/lib/strings'
-import { cn } from '@/lib/utils'
 import {
   LayoutSwitcher,
   isViewLayout,
@@ -281,58 +273,10 @@ export function ViewPage() {
     deleteMutation.mutate()
   }
 
-  // ------------------------ hide / unhide (landr-c58d) --------------------
-  //
-  // Lifted from the sibling landr-c58d stub. Optimistically patches both
-  // the per-view cache key and the sidebar list key so the sidebar toggle
-  // reflects immediately even before the server confirms.
-  const hideMutation = useMutation({
-    mutationFn: async (nextHidden: boolean) => {
-      if (!currentOperatorId || !viewId) return nextHidden
-      await setViewUserState(currentOperatorId, viewId, { hidden: nextHidden })
-      return nextHidden
-    },
-    onMutate: async (nextHidden) => {
-      const detailKey = [
-        'saved-view',
-        currentOperatorId ?? 'none',
-        viewId ?? 'none',
-      ] as const
-      const listKey = ['saved-views', currentOperatorId] as const
-      await Promise.all([
-        qc.cancelQueries({ queryKey: detailKey }),
-        qc.cancelQueries({ queryKey: listKey }),
-      ])
-      const previousDetail = qc.getQueryData<SavedViewWithState>(detailKey)
-      const previousList = qc.getQueryData<SavedViewWithState[]>(listKey)
-      if (previousDetail) {
-        qc.setQueryData<SavedViewWithState>(detailKey, {
-          ...previousDetail,
-          user_state: { ...previousDetail.user_state, hidden: nextHidden },
-        })
-      }
-      if (previousList && viewId) {
-        qc.setQueryData<SavedViewWithState[]>(
-          listKey,
-          previousList.map((v) =>
-            v.id === viewId
-              ? { ...v, user_state: { ...v.user_state, hidden: nextHidden } }
-              : v,
-          ),
-        )
-      }
-      return { previousDetail, previousList, detailKey, listKey }
-    },
-    onError: (_err, _next, ctx) => {
-      if (ctx?.previousDetail) qc.setQueryData(ctx.detailKey, ctx.previousDetail)
-      if (ctx?.previousList) qc.setQueryData(ctx.listKey, ctx.previousList)
-      toast.error(t.viewsSidebar.hideError)
-    },
-    onSettled: () => {
-      void qc.invalidateQueries({ queryKey: ['saved-view'] })
-      void qc.invalidateQueries({ queryKey: ['saved-views'] })
-    },
-  })
+  // landr-79f5 — The hide / unhide mutation was removed alongside the
+  // overflow menu. The `hidden` schema column is preserved (other surfaces
+  // may still set it) but the ViewPage no longer offers a toggle since
+  // sidebar visibility is now driven entirely by Pin.
 
   // ------------------------ permission gate -------------------------------
   //
@@ -480,39 +424,10 @@ export function ViewPage() {
                 {deleteMutation.isPending ? t.views.deleting : null}
               </Button>
             ) : null}
-            {/* landr-c58d — overflow menu carrying Hide/Unhide. */}
-            {view && currentOperatorId ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label={t.viewsSidebar.rowMenuLabel(view.name)}
-                    data-testid="view-overflow-menu"
-                    className={cn(
-                      'inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md',
-                      'text-muted-foreground transition-colors',
-                      'hover:bg-accent hover:text-foreground',
-                      'focus-visible:outline-2 focus-visible:outline-ring',
-                    )}
-                  >
-                    <MoreHorizontalIcon className="size-4" aria-hidden />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    data-testid="view-hide-toggle"
-                    onSelect={(e) => {
-                      e.preventDefault()
-                      hideMutation.mutate(!view.user_state.hidden)
-                    }}
-                  >
-                    {view.user_state.hidden
-                      ? t.viewsSidebar.unhide
-                      : t.viewsSidebar.hideFromSidebar}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
+            {/* landr-79f5 — the Hide/Unhide overflow menu was removed.
+                Pin is now the only sidebar control (Pin = appears in
+                sidebar; Unpin = does not). The `hidden` schema column
+                still exists but is a no-op in the sidebar UI. */}
           </div>
         </div>
 

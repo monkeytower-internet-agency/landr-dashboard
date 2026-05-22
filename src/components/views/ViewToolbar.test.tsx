@@ -102,8 +102,8 @@ describe('ViewToolbar group-by dropdown (landr-1ztq)', () => {
   })
 })
 
-describe('ViewToolbar swimlanes (landr-4cwh)', () => {
-  it('does not render the Swimlanes control for non-board layouts', () => {
+describe('ViewToolbar swimlanes (landr-4cwh / landr-79f5)', () => {
+  it('does not render the active Swimlanes dropdown for non-board layouts', () => {
     render(
       <ViewToolbar
         entityType="booking"
@@ -112,9 +112,49 @@ describe('ViewToolbar swimlanes (landr-4cwh)', () => {
         layout="table"
       />,
     )
+    // The interactive dropdown is gone.
     expect(
       screen.queryByTestId('view-toolbar-swimlane'),
     ).not.toBeInTheDocument()
+  })
+
+  // landr-79f5 — instead of hiding completely, non-Board layouts get a
+  // disabled placeholder so the operator sees the feature exists.
+  it('renders a layout-locked Swimlanes placeholder on non-board layouts', () => {
+    render(
+      <ViewToolbar
+        entityType="booking"
+        config={{ layout: 'table', filters: [], sort: [] }}
+        onChange={vi.fn()}
+        layout="table"
+      />,
+    )
+    const placeholder = screen.getByTestId('view-toolbar-swimlane-locked')
+    expect(placeholder).toBeInTheDocument()
+    expect(placeholder.getAttribute('aria-disabled')).toBe('true')
+    expect(placeholder.textContent).toMatch(/swimlanes \(board only\)/i)
+  })
+
+  it('does NOT render the layout-locked placeholder when board layout is active', () => {
+    render(
+      <ViewToolbar
+        entityType="booking"
+        config={{
+          layout: 'board',
+          filters: [],
+          sort: [],
+          boardConfig: { columnBy: 'current_stage', swimlaneBy: null },
+        }}
+        onChange={vi.fn()}
+        layout="board"
+      />,
+    )
+    expect(
+      screen.queryByTestId('view-toolbar-swimlane-locked'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByTestId('view-toolbar-swimlane'),
+    ).toBeInTheDocument()
   })
 
   it('renders Swimlanes for board layouts with a "None (flat)" default', () => {
@@ -213,8 +253,8 @@ describe('ViewToolbar swimlanes (landr-4cwh)', () => {
   })
 })
 
-describe('ViewToolbar column-by picker (landr-9nj9)', () => {
-  it('does not render the Column-by control for non-board layouts', () => {
+describe('ViewToolbar column-by picker (landr-9nj9 / landr-79f5)', () => {
+  it('does not render the active Column-by dropdown for non-board layouts', () => {
     render(
       <ViewToolbar
         entityType="booking"
@@ -226,6 +266,22 @@ describe('ViewToolbar column-by picker (landr-9nj9)', () => {
     expect(
       screen.queryByTestId('view-toolbar-column-by'),
     ).not.toBeInTheDocument()
+  })
+
+  // landr-79f5 — same layout-lock affordance as Swimlanes.
+  it('renders a layout-locked Column-by placeholder on non-board layouts', () => {
+    render(
+      <ViewToolbar
+        entityType="booking"
+        config={{ layout: 'table', filters: [], sort: [] }}
+        onChange={vi.fn()}
+        layout="table"
+      />,
+    )
+    const placeholder = screen.getByTestId('view-toolbar-column-by-locked')
+    expect(placeholder).toBeInTheDocument()
+    expect(placeholder.getAttribute('aria-disabled')).toBe('true')
+    expect(placeholder.textContent).toMatch(/column by \(board only\)/i)
   })
 
   it('renders Column-by for board layouts with a "Default" option plus enum/id fields', () => {
