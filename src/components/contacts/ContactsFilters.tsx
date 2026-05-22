@@ -12,15 +12,17 @@
 // this component, so the same control could be re-mounted elsewhere
 // without losing selection — same pattern as BookingsFilters (landr-1lj).
 
-import { Filter, X } from 'lucide-react'
+import { CalendarIcon, Filter, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { CountedFilterChip } from '@/components/ui/counted-filter-chip'
 import { NativeSelect } from '@/components/ui/native-select'
 import type { ContactTypeCounts } from '@/lib/contacts'
 import {
+  CONTACT_BOOKING_WINDOWS,
   CONTACT_TYPES,
   activeFilterCount,
+  type ContactBookingWindow,
   type UseContactsFilters,
 } from '@/lib/contacts-filters'
 import type { ContactsSort, UseContactsSort } from '@/lib/contacts-sort'
@@ -33,6 +35,17 @@ const ZERO_COUNTS: ContactTypeCounts = {
   agent: 0,
 }
 
+// landr-6993 — booking-window chip counts (today / future bookings).
+// Empty default keeps the chips disabled while the parallel query is
+// in flight — same UX as the type-count chips during their loading
+// window (landr-knz3).
+export type ContactBookingWindowCounts = Record<ContactBookingWindow, number>
+
+const ZERO_BOOKING_COUNTS: ContactBookingWindowCounts = {
+  today: 0,
+  future: 0,
+}
+
 type Props = {
   sortApi: UseContactsSort
   filtersApi: UseContactsFilters
@@ -42,6 +55,11 @@ type Props = {
    * count query resolves.
    */
   typeCounts?: ContactTypeCounts
+  /**
+   * landr-6993 — per-window counts for the booking-window chips. Defaults
+   * to all-zero (chips disabled until the upcoming-bookings query resolves).
+   */
+  bookingWindowCounts?: ContactBookingWindowCounts
   /** Test-id prefix so multiple bars on the same page stay distinguishable. */
   testIdPrefix?: string
 }
@@ -50,20 +68,36 @@ const SORT_VALUES: ContactsSort[] = [
   'created_at_desc',
   'updated_at_desc',
   'name_asc',
+  // landr-6993 — Next booking date (nearest-future first, nulls last).
+  'next_booking_asc',
 ]
 
 function isSort(v: string): v is ContactsSort {
   return (SORT_VALUES as string[]).includes(v)
 }
 
+// landr-6993 — labels for the booking-window chips. Sourced from
+// `lib/strings.ts` so a future locale split has a single anchor.
+const BOOKING_WINDOW_LABELS: Record<ContactBookingWindow, string> = {
+  today: t.contacts.filters.bookingTodayLabel,
+  future: t.contacts.filters.bookingFutureLabel,
+}
+
 export function ContactsFilters({
   sortApi,
   filtersApi,
   typeCounts = ZERO_COUNTS,
+  bookingWindowCounts = ZERO_BOOKING_COUNTS,
   testIdPrefix = 'contacts-filters',
 }: Props) {
   const { sort, setSort } = sortApi
-  const { filters, toggleType, setIncludeErased, clearAll } = filtersApi
+  const {
+    filters,
+    toggleType,
+    toggleBookingWindow,
+    setIncludeErased,
+    clearAll,
+  } = filtersApi
   const total = activeFilterCount(filters)
 
   return (
@@ -95,6 +129,9 @@ export function ContactsFilters({
             <option value="name_asc">
               {t.contacts.filters.sortAlphabetical}
             </option>
+            <option value="next_booking_asc">
+              {t.contacts.filters.sortNextBooking}
+            </option>
           </NativeSelect>
         </span>
       </label>
@@ -117,6 +154,38 @@ export function ContactsFilters({
             onToggle={() => toggleType(type)}
             testId={`${testIdPrefix}-type-${type}`}
             disabledTooltip={t.contacts.filters.noOfType(label)}
+          />
+        )
+      })}
+      {/* landr-6993 — booking-window chip row. Uses the same chip primitive
+          as the type chips so the bar reads as a single filter surface.
+          Chips are disabled (count=0) until the upcoming-bookings query
+          resolves and at least one match exists. */}
+      <span
+        className="text-muted-foreground/40 hidden sm:inline"
+        aria-hidden
+      >
+        |
+      </span>
+      <CalendarIcon
+        className="text-muted-foreground size-4"
+        aria-hidden="true"
+      />
+      <span className="text-muted-foreground text-xs">
+        {t.contacts.filters.bookingLabel}
+      </span>
+      {CONTACT_BOOKING_WINDOWS.map((window) => {
+        const active = filters.bookingWindows.includes(window)
+        const label = BOOKING_WINDOW_LABELS[window]
+        return (
+          <CountedFilterChip
+            key={window}
+            label={label}
+            count={bookingWindowCounts[window]}
+            selected={active}
+            onToggle={() => toggleBookingWindow(window)}
+            testId={`${testIdPrefix}-booking-${window}`}
+            disabledTooltip={label}
           />
         )
       })}

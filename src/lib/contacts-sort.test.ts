@@ -18,6 +18,8 @@ vi.mock('@/lib/auth', () => ({
 
 import {
   DEFAULT_CONTACTS_SORT,
+  compareNextBookingAsc,
+  isClientSideSort,
   parseContactsSortFromUrl,
   serialiseContactsSortToUrl,
   storageKey,
@@ -132,6 +134,50 @@ describe('useContactsSort', () => {
         useContactsSort({ initialOverride: null }),
       )
       expect(result.current.sort).toBe('name_asc')
+    })
+  })
+
+  // ----- landr-6993 — next_booking_asc client-side sort -----------------
+  describe('next_booking_asc (landr-6993)', () => {
+    it('parses and persists next_booking_asc as a valid sort', () => {
+      expect(
+        parseContactsSortFromUrl(new URLSearchParams('?sort=next_booking_asc')),
+      ).toBe('next_booking_asc')
+      const { result } = renderHook(() => useContactsSort())
+      act(() => result.current.setSort('next_booking_asc'))
+      expect(result.current.sort).toBe('next_booking_asc')
+      expect(window.localStorage.getItem(storageKey('user-1'))).toBe(
+        'next_booking_asc',
+      )
+    })
+
+    it('isClientSideSort is true only for next_booking_asc', () => {
+      expect(isClientSideSort('next_booking_asc')).toBe(true)
+      expect(isClientSideSort('created_at_desc')).toBe(false)
+      expect(isClientSideSort('updated_at_desc')).toBe(false)
+      expect(isClientSideSort('name_asc')).toBe(false)
+    })
+
+    it('compareNextBookingAsc puts nearest-future first and nulls last', () => {
+      const rows = [
+        { id: 'a', next_booking_date: '2026-06-10' },
+        { id: 'b', next_booking_date: null },
+        { id: 'c', next_booking_date: '2026-05-22' },
+        { id: 'd', next_booking_date: undefined },
+        { id: 'e', next_booking_date: '2026-05-25' },
+      ]
+      const sorted = rows.slice().sort(compareNextBookingAsc)
+      expect(sorted.map((r) => r.id)).toEqual(['c', 'e', 'a', 'b', 'd'])
+    })
+
+    it('is stable across equal next_booking_date values (id secondary)', () => {
+      const rows = [
+        { id: 'z', next_booking_date: '2026-05-25' },
+        { id: 'a', next_booking_date: '2026-05-25' },
+        { id: 'm', next_booking_date: '2026-05-25' },
+      ]
+      const sorted = rows.slice().sort(compareNextBookingAsc)
+      expect(sorted.map((r) => r.id)).toEqual(['a', 'm', 'z'])
     })
   })
 })
