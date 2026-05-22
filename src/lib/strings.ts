@@ -853,6 +853,13 @@ export const t = {
       summary: (count: number, total: string): string =>
         `${count} ${count === 1 ? 'booking' : 'bookings'}, ${total} total`,
       rowAriaLabel: (label: string) => `Open booking ${label}`,
+      // landr-ajb4 — Open / Past section split. "Open" = current or
+      // upcoming bookings (non-terminal stage OR service date today/later);
+      // "Past" = terminal stage AND service date strictly before today.
+      sectionOpenLabel: 'Open',
+      sectionPastLabel: 'Past',
+      sectionOpenEmpty: 'No open bookings',
+      sectionPastEmpty: 'No past bookings',
     },
   },
   products: {

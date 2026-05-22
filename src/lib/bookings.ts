@@ -666,6 +666,49 @@ export function isPastBooking(row: BookingRow, now: Date = new Date()): boolean 
   return latest < toDateOnlyIso(now)
 }
 
+// ----- Open / Past partition (landr-ajb4) ---------------------------------
+// Used by CustomerBookings to split the Customer 360 "Bookings" tab into
+// two sections. Lives here next to isPastBooking so the same "what counts
+// as a past booking?" logic stays in one module — but the rule is stricter
+// here: a row must ALSO be in a terminal semantic state to land in Past.
+// That mirrors operator intent ("Past = nothing more will happen to this
+// booking") and keeps confirmed-but-stale rows visible in Open until the
+// operator finalises or cancels them.
+
+/** Semantic states that mean "no further changes expected". */
+export const TERMINAL_BOOKING_STATES: ReadonlySet<BookingSemanticState> =
+  new Set(['finalised', 'cancelled', 'no_show'])
+
+export function isTerminalBookingState(row: BookingRow): boolean {
+  return TERMINAL_BOOKING_STATES.has(row.current_semantic_state)
+}
+
+/**
+ * Split a contact's bookings into "open" (current / upcoming) and
+ * "past" (terminal AND service-date < today) lists. Rows without any
+ * scheduled item.date_range_start fall into Open so undated drafts
+ * remain visible to the operator (same fall-through as isPastBooking).
+ *
+ * `today` is the YYYY-MM-DD anchor in the operator's local timezone —
+ * callers compute it via `toDateOnlyIso(new Date())`.
+ */
+export function partitionBookingsByLifecycle(
+  rows: BookingRow[],
+  today: string,
+): { open: BookingRow[]; past: BookingRow[] } {
+  const open: BookingRow[] = []
+  const past: BookingRow[] = []
+  for (const row of rows) {
+    const start = earliestServiceDate(row)
+    if (isTerminalBookingState(row) && start && start < today) {
+      past.push(row)
+    } else {
+      open.push(row)
+    }
+  }
+  return { open, past }
+}
+
 // ----- General approval queue ---------------------------------------------
 
 /** Fetch all bookings awaiting_general_approval for an operator. */

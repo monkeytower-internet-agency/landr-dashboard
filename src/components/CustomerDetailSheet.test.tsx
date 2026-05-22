@@ -387,7 +387,10 @@ describe('CustomerDetailSheet', () => {
 
     it('renders the bookings list with summary + rows when the tab is clicked', async () => {
       mock.state.bookings = [
+        // b-1: confirmed (non-terminal) → Open section.
         makeBooking({ id: 'b-1', gross_total: 250 }),
+        // b-2: finalised + service date 2026-03-20 (past today=2026-05-22) →
+        // Past section (landr-ajb4 split rule).
         makeBooking({
           id: 'b-2',
           gross_total: 100,
@@ -414,10 +417,18 @@ describe('CustomerDetailSheet', () => {
 
       await user.click(await screen.findByTestId('customer-tab-bookings'))
 
-      // Summary: "2 bookings, €350.00 total" (€350 = 250 + 100, en-IE locale).
-      const summary = await screen.findByTestId('customer-bookings-summary')
-      expect(summary.textContent).toMatch(/2 bookings/i)
-      expect(summary.textContent).toMatch(/350/)
+      // landr-ajb4 — summary is now per-section. b-1 lands in Open
+      // (€250), b-2 lands in Past (€100).
+      const openSummary = await screen.findByTestId(
+        'customer-bookings-open-summary',
+      )
+      expect(openSummary.textContent).toMatch(/1 booking/i)
+      expect(openSummary.textContent).toMatch(/250/)
+      const pastSummary = await screen.findByTestId(
+        'customer-bookings-past-summary',
+      )
+      expect(pastSummary.textContent).toMatch(/1 booking/i)
+      expect(pastSummary.textContent).toMatch(/100/)
 
       // Both rows render and are clickable.
       expect(screen.getByTestId('customer-booking-row-b-1')).toBeInTheDocument()
