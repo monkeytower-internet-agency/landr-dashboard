@@ -773,6 +773,8 @@ export const t = {
       sortRecentlyAdded: 'Recently added',
       sortRecentlyChanged: 'Recently changed',
       sortAlphabetical: 'Alphabetical',
+      // landr-6993 — sort by the next booking date (nearest-future first).
+      sortNextBooking: 'Next booking',
       typeLabel: 'Type',
       typeLabels: {
         customer: 'Customer',
@@ -787,6 +789,17 @@ export const t = {
       // operator understands the chip is intentionally non-clickable.
       noOfType: (label: string): string =>
         `No contacts of type ${label.toLowerCase()}`,
+      // landr-6993 — booking-window chips ('today' / 'future'). Labels
+      // are short imperative so they stack with the type chip row.
+      bookingLabel: 'Bookings',
+      bookingTodayLabel: 'Has booking today',
+      bookingFutureLabel: 'Has future booking',
+      // landr-6993 — per-row icon + tooltip for the upcoming-booking cell.
+      iconNextBookingTooltip: (dateLabel: string): string =>
+        `Next booking: ${dateLabel}`,
+      iconNoUpcomingTooltip: 'No upcoming bookings',
+      iconTodayAria: 'Has booking today',
+      iconFutureAria: 'Has future booking',
     },
     // landr-panu — customer segments (tag-based saved groups). Operators
     // pick a tag combination once, save it as a named segment, and reuse

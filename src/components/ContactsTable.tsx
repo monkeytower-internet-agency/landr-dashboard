@@ -13,6 +13,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  CalendarIcon,
   ClockIcon,
   Trash2Icon,
   UsersIcon,
@@ -34,6 +35,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
+  contactBookingWindow,
   contactDate,
   contactIsErased,
   contactNameDisplay,
@@ -159,11 +161,48 @@ export function ContactsTable({
         id: 'name',
         header: t.contacts.columnName,
         accessorFn: (row) => contactNameDisplay(row),
-        cell: ({ getValue }) => (
-          <span className="truncate font-medium">
-            {highlightMatch(getValue<string>(), globalFilter)}
-          </span>
-        ),
+        cell: ({ row, getValue }) => {
+          // landr-6993 — calendar dot next to the name. Green when the
+          // contact has a booking TODAY, blue when only FUTURE, hidden
+          // otherwise. The wrapping span carries a native `title=` so the
+          // date is one hover away without pulling in TooltipProvider on
+          // every row; the icon itself has an aria-label since the
+          // colour-coded state isn't conveyed by text.
+          const window = contactBookingWindow(row.original)
+          const dateLabel = row.original.next_booking_date
+            ? contactDate(row.original.next_booking_date)
+            : null
+          const showIcon = window !== 'none' && !!dateLabel
+          return (
+            <span className="flex items-center gap-2">
+              {showIcon ? (
+                <span
+                  title={t.contacts.filters.iconNextBookingTooltip(
+                    dateLabel as string,
+                  )}
+                  data-testid={`contacts-next-booking-${window}-${row.original.id}`}
+                  className="inline-flex shrink-0 items-center"
+                >
+                  <CalendarIcon
+                    aria-label={
+                      window === 'today'
+                        ? t.contacts.filters.iconTodayAria
+                        : t.contacts.filters.iconFutureAria
+                    }
+                    className={
+                      window === 'today'
+                        ? 'size-3.5 text-emerald-600'
+                        : 'size-3.5 text-sky-600'
+                    }
+                  />
+                </span>
+              ) : null}
+              <span className="truncate font-medium">
+                {highlightMatch(getValue<string>(), globalFilter)}
+              </span>
+            </span>
+          )
+        },
       },
       {
         id: 'email',

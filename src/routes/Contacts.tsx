@@ -15,14 +15,20 @@ import {
   contactNameDisplay,
   fetchContacts,
   fetchContactTypeCounts,
+  fetchUpcomingBookingsByContact,
+  mergeNextBookingDates,
+  todayIsoDate,
   type ContactRow,
 } from '@/lib/contacts'
 import {
+  matchesBookingWindowFilter,
   parseContactsFiltersFromUrl,
   serialiseContactsFiltersToUrl,
   useContactsFilters,
 } from '@/lib/contacts-filters'
 import {
+  compareNextBookingAsc,
+  isClientSideSort,
   parseContactsSortFromUrl,
   serialiseContactsSortToUrl,
   useContactsSort,
@@ -132,6 +138,43 @@ export function Contacts() {
     staleTime: 30_000,
   })
 
+  // landr-6993 — parallel query for the upcoming-bookings join. Operator-
+  // scoped, returns a Map<contactId, earliestDate>. We anchor `today` to
+  // the local-clock day once per mount so the query key stays stable
+  // across re-renders (otherwise every render would invalidate the cache).
+  // Subscribes to the bookings table via useRealtimeQuery so a new /
+  // cancelled / rescheduled booking nudges the icons + chip counts
+  // without waiting for the staleTime to expire.
+  const [today] = useState(() => todayIsoDate())
+  const upcomingQuery = useRealtimeQuery<Map<string, string>>({
+    queryKey: ['contacts-upcoming-bookings', currentOperatorId ?? 'none', today],
+    queryFn: () =>
+      fetchUpcomingBookingsByContact(currentOperatorId as string, { today }),
+    enabled: !!currentOperatorId,
+    staleTime: 60_000,
+    realtime: currentOperatorId
+      ? {
+          table: 'bookings',
+          filter: `operator_id=eq.${currentOperatorId}`,
+        }
+      : null,
+  })
+
+  // landr-6993 — derive per-window counts from the upcoming-bookings map
+  // so the chip badges show how many contacts each chip will surface.
+  // Counts reflect the operator-wide totals (not the current type / tag
+  // filter), matching the per-type-counts behaviour from landr-knz3.
+  const bookingWindowCounts = useMemo(() => {
+    const out = { today: 0, future: 0 }
+    const map = upcomingQuery.data
+    if (!map) return out
+    for (const d of map.values()) {
+      if (d === today) out.today += 1
+      else if (d > today) out.future += 1
+    }
+    return out
+  }, [upcomingQuery.data, today])
+
   // landr-panu — ad-hoc tag filter (AND-of-tag-ids). Lifted here so the
   // SegmentChips bar can drive the table's visible row set. Sort + types
   // + includeErased still go through the server (via the query key); the
@@ -144,10 +187,44 @@ export function Contacts() {
   // — same identity stability TanStack Query guarantees — keeping the
   // react-hooks/exhaustive-deps linter happy without a second useMemo.
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
-  const rows = useMemo(
-    () => filterByTagIds(query.data ?? [], selectedTagIds),
-    [query.data, selectedTagIds],
-  )
+  const rows = useMemo(() => {
+    // landr-6993 — merge in each contact's next_booking_date (parallel
+    // query result) BEFORE the tag / booking-window / sort passes so the
+    // window filter + next_booking_asc sort have data to operate on.
+    // mergeNextBookingDates is null-safe — when upcomingQuery hasn't
+    // resolved yet we get a row set with next_booking_date: null on
+    // every entry, which means the chip filter behaves consistently
+    // (no rows pass during the loading window — same UX as the type
+    // filter while the list is loading).
+    const base = filterByTagIds(query.data ?? [], selectedTagIds)
+    const withDates = mergeNextBookingDates(
+      base,
+      upcomingQuery.data ?? new Map<string, string>(),
+    )
+    // Booking-window chip filter — empty selection passes-through.
+    const filtered = withDates.filter((row) =>
+      matchesBookingWindowFilter(
+        row.next_booking_date,
+        filters.bookingWindows,
+        today,
+      ),
+    )
+    // landr-6993 — next_booking_asc is applied client-side because
+    // next_booking_date is derived from the parallel query. Every other
+    // sort mode stays on the server-side ORDER BY in fetchContacts.
+    if (isClientSideSort(sort)) {
+      const sorted = filtered.slice().sort(compareNextBookingAsc)
+      return sorted
+    }
+    return filtered
+  }, [
+    query.data,
+    selectedTagIds,
+    upcomingQuery.data,
+    filters.bookingWindows,
+    today,
+    sort,
+  ])
 
   // landr-xnpc — CSV export mirrors the visible rows so the operator
   // gets exactly what's on screen (incl. the segment / tag filter pass).
@@ -230,6 +307,7 @@ export function Contacts() {
         sortApi={sortApi}
         filtersApi={filtersApi}
         typeCounts={countsQuery.data}
+        bookingWindowCounts={bookingWindowCounts}
       />
       {/* landr-panu — saved customer segments (tag-AND quick filters)
           between the primary filter bar and the table so the operator

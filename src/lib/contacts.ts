@@ -44,6 +44,16 @@ export type ContactRow = {
    * Filtered client-side to drop soft-deleted parent tags.
    */
   tags?: ContactTagRef[]
+  /**
+   * landr-6993 — earliest non-cancelled future booking service date
+   * (YYYY-MM-DD) for this contact, scoped to the operator. Populated
+   * client-side by merging the result of fetchUpcomingBookingsByContact
+   * into the rows returned by fetchContacts. `null` means "no upcoming
+   * booking on or after today". Optional on the type so fixtures /
+   * legacy callers that don't merge upcoming-booking data still type-
+   * check; downstream UI treats undefined the same as null.
+   */
+  next_booking_date?: string | null
 }
 
 const CONTACT_SELECT = `
@@ -143,11 +153,18 @@ export async function fetchContacts(
     query = query.order('created_at', { ascending: false })
   } else if (sort === 'updated_at_desc') {
     query = query.order('updated_at', { ascending: false })
-  } else {
+  } else if (sort === 'name_asc') {
     // Alphabetical — nulls last so '—'/anonymous contacts don't lead.
     query = query
       .order('last_name', { ascending: true, nullsFirst: false })
       .order('first_name', { ascending: true, nullsFirst: false })
+  } else {
+    // landr-6993 — next_booking_asc is applied CLIENT-SIDE after the
+    // upcoming-bookings query is zipped in (next_booking_date isn't a
+    // column on contacts_with_types). Pick a stable server-side order
+    // so the pre-merge row set is deterministic — created_at DESC
+    // matches the default-sort fallthrough.
+    query = query.order('created_at', { ascending: false })
   }
 
   const { data, error } = await query.limit(500)
@@ -369,4 +386,132 @@ export function contactDateTime(
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   return _dateTimeFormatters[opts?.hour12 ? 'h12' : 'h23'].format(d)
+}
+
+// ----- landr-6993 — Upcoming bookings join --------------------------------
+//
+// Approach (Option B from the ticket): a second PostgREST query against
+// bookings + booking_products embed, then zip into the contacts list
+// client-side. PostgREST embeds through the contacts_with_types VIEW
+// don't surface the bookings FK metadata, so the cleaner contract is
+// "two parallel queries, merge by id".
+//
+// We only need the EARLIEST future / today date_range_start per contact
+// — the per-row icon doesn't care about further-out bookings. The query
+// drops cancelled bookings + GDPR-erased contacts; soft-deleted bookings
+// already fall out via the deleted_at IS NULL filter.
+
+/**
+ * landr-6993 — return today's date in YYYY-MM-DD (local-clock day). The
+ * underlying booking_products.date_range_start column is `date` (no time
+ * zone), so we compare day-strings — no risk of off-by-one across midnight
+ * conversions. Caller may pass an explicit `now` for tests.
+ */
+export function todayIsoDate(now: Date = new Date()): string {
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+/**
+ * landr-6993 — derived booking-window state for a contact row, given a
+ * reference "today" (defaults to local-clock today). UI maps:
+ *   'today'  → green calendar dot, has a service date == today
+ *   'future' → blue calendar dot, earliest service date > today
+ *   'none'   → no icon, no upcoming booking
+ *
+ * Treats undefined / null `next_booking_date` as 'none'. We compare
+ * lexicographically because both inputs are YYYY-MM-DD.
+ */
+export type ContactBookingWindow = 'today' | 'future' | 'none'
+
+export function contactBookingWindow(
+  row: Pick<ContactRow, 'next_booking_date'>,
+  today: string = todayIsoDate(),
+): ContactBookingWindow {
+  const d = row.next_booking_date ?? null
+  if (!d) return 'none'
+  if (d === today) return 'today'
+  if (d > today) return 'future'
+  return 'none'
+}
+
+/**
+ * landr-6993 — row shape returned from the bookings query used to derive
+ * each contact's next booking. We only need the date + contact id; the
+ * minimum projection keeps the request narrow.
+ */
+type UpcomingBookingRow = {
+  customer_contact_id: string
+  items: { date_range_start: string | null }[] | null
+}
+
+/**
+ * landr-6993 — fetch the earliest non-cancelled future booking
+ * (date_range_start >= today) per contact for an operator. Returns a
+ * Map keyed by contact id → ISO date string (YYYY-MM-DD).
+ *
+ * Contacts with no future booking are simply absent from the map; the
+ * caller can default to null. Filters:
+ *   - operator_id = current operator (RLS also enforces this)
+ *   - deleted_at IS NULL (live bookings only)
+ *   - current_semantic_state <> 'cancelled' (drops cancelled bookings)
+ *
+ * We can't filter inside the booking_products embed via PostgREST's
+ * .gte without an inner-join, so we fetch all date_range_start values
+ * per booking and pick the earliest future one client-side. The bookings
+ * list is already capped by RLS + the operator scope; the per-booking
+ * items array is small (1-3 typical).
+ */
+export async function fetchUpcomingBookingsByContact(
+  operatorId: string,
+  opts: { today?: string } = {},
+): Promise<Map<string, string>> {
+  const today = opts.today ?? todayIsoDate()
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('customer_contact_id, items:booking_products ( date_range_start )')
+    .eq('operator_id', operatorId)
+    .is('deleted_at', null)
+    .neq('current_semantic_state', 'cancelled')
+    .limit(2000)
+
+  if (error) throw new Error(error.message)
+
+  const out = new Map<string, string>()
+  for (const raw of (data ?? []) as unknown as UpcomingBookingRow[]) {
+    const contactId = raw.customer_contact_id
+    if (!contactId) continue
+    let earliest: string | null = null
+    for (const item of raw.items ?? []) {
+      const d = item.date_range_start
+      if (!d) continue
+      // Only count today-or-future dates.
+      if (d < today) continue
+      if (earliest === null || d < earliest) earliest = d
+    }
+    if (earliest === null) continue
+    const existing = out.get(contactId)
+    if (existing === undefined || earliest < existing) {
+      out.set(contactId, earliest)
+    }
+  }
+  return out
+}
+
+/**
+ * landr-6993 — merge the per-contact next-booking map into the rows
+ * returned by fetchContacts. Returns a NEW array so a TanStack-Query
+ * derived state can use referential equality to detect changes. Missing
+ * contacts get `next_booking_date: null`.
+ */
+export function mergeNextBookingDates(
+  rows: ContactRow[],
+  byContact: Map<string, string>,
+): ContactRow[] {
+  return rows.map((row) => ({
+    ...row,
+    next_booking_date: byContact.get(row.id) ?? null,
+  }))
 }

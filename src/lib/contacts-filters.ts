@@ -30,9 +30,25 @@ export const CONTACT_TYPES = [
 
 export type ContactType = (typeof CONTACT_TYPES)[number]
 
+// landr-6993 — booking-window chip filter dimension. Operators want to
+// answer "who's got a booking today?" or "anyone with a future booking?"
+// without scanning the whole list. Empty array = no booking-window filter
+// applied (default). Selecting both is a UNION (rows that match EITHER
+// window pass).
+export const CONTACT_BOOKING_WINDOWS = ['today', 'future'] as const
+
+export type ContactBookingWindow = (typeof CONTACT_BOOKING_WINDOWS)[number]
+
 export type ContactsFilters = {
   /** Subset of CONTACT_TYPES; empty = match all. */
   types: ContactType[]
+  /**
+   * landr-6993 — booking-window chips ('today' / 'future'). Empty array
+   * means no booking-window filter is applied. The match runs client-side
+   * over each row's `next_booking_date`, supplied by the parallel
+   * fetchUpcomingBookingsByContact query.
+   */
+  bookingWindows: ContactBookingWindow[]
   /**
    * landr-dp45 — when true, GDPR-erased tombstones are included in the
    * fetched list. Default false. Persisted alongside `types` so the
@@ -44,6 +60,7 @@ export type ContactsFilters = {
 
 export const EMPTY_FILTERS: ContactsFilters = {
   types: [],
+  bookingWindows: [],
   includeErased: false,
 }
 
@@ -52,20 +69,33 @@ export function storageKey(userId: string): string {
 }
 
 export function isEmptyFilters(f: ContactsFilters): boolean {
-  return f.types.length === 0 && !f.includeErased
+  return (
+    f.types.length === 0 &&
+    f.bookingWindows.length === 0 &&
+    !f.includeErased
+  )
 }
 
 export function activeFilterCount(f: ContactsFilters): number {
   // landr-dp45 — `includeErased` is a view toggle, not a filter chip.
   // Don't count it so the "Clear filters" affordance only appears when
   // a real type chip is active (matches landr-pqk semantics).
-  return f.types.length
+  // landr-6993 — booking-window chips count the same as type chips so
+  // selecting "Has booking today" by itself still surfaces "Clear filters".
+  return f.types.length + f.bookingWindows.length
 }
 
 function isContactType(v: unknown): v is ContactType {
   return (
     typeof v === 'string' &&
     (CONTACT_TYPES as ReadonlyArray<string>).includes(v)
+  )
+}
+
+function isContactBookingWindow(v: unknown): v is ContactBookingWindow {
+  return (
+    typeof v === 'string' &&
+    (CONTACT_BOOKING_WINDOWS as ReadonlyArray<string>).includes(v)
   )
 }
 
@@ -78,9 +108,14 @@ function readStored(userId: string): ContactsFilters {
     const types = Array.isArray(parsed?.types)
       ? parsed.types.filter(isContactType)
       : []
+    // landr-6993 — legacy payloads (pre booking-window chips) won't have
+    // this key; default to empty so they still hydrate without error.
+    const bookingWindows = Array.isArray(parsed?.bookingWindows)
+      ? parsed.bookingWindows.filter(isContactBookingWindow)
+      : []
     const includeErased =
       typeof parsed?.includeErased === 'boolean' ? parsed.includeErased : false
-    return { types, includeErased }
+    return { types, bookingWindows, includeErased }
   } catch {
     return EMPTY_FILTERS
   }
@@ -99,6 +134,8 @@ export type UseContactsFilters = {
   filters: ContactsFilters
   setFilters: (next: ContactsFilters) => void
   toggleType: (value: ContactType) => void
+  /** landr-6993 — flip a booking-window chip ('today' / 'future'). */
+  toggleBookingWindow: (value: ContactBookingWindow) => void
   /** landr-dp45 — flip the "Show erased contacts" view toggle. */
   setIncludeErased: (value: boolean) => void
   clearAll: () => void
@@ -172,6 +209,23 @@ export function useContactsFilters(
     [userId],
   )
 
+  const toggleBookingWindow = useCallback(
+    (value: ContactBookingWindow) => {
+      setFiltersState((current) => {
+        const exists = current.bookingWindows.includes(value)
+        const next: ContactsFilters = {
+          ...current,
+          bookingWindows: exists
+            ? current.bookingWindows.filter((w) => w !== value)
+            : [...current.bookingWindows, value],
+        }
+        if (userId) writeStored(userId, next)
+        return next
+      })
+    },
+    [userId],
+  )
+
   const setIncludeErased = useCallback(
     (value: boolean) => {
       setFiltersState((current) => {
@@ -190,8 +244,22 @@ export function useContactsFilters(
   }, [userId])
 
   return useMemo(
-    () => ({ filters, setFilters, toggleType, setIncludeErased, clearAll }),
-    [filters, setFilters, toggleType, setIncludeErased, clearAll],
+    () => ({
+      filters,
+      setFilters,
+      toggleType,
+      toggleBookingWindow,
+      setIncludeErased,
+      clearAll,
+    }),
+    [
+      filters,
+      setFilters,
+      toggleType,
+      toggleBookingWindow,
+      setIncludeErased,
+      clearAll,
+    ],
   )
 }
 
@@ -200,6 +268,7 @@ export function useContactsFilters(
 //
 // URL param shape (all optional):
 //   ?type=<csv>     contact type values (customer/attendee/employee/agent)
+//   ?bw=<csv>       booking-window chips (today/future) — landr-6993
 //   ?erased=1       include GDPR-erased tombstones (includeErased toggle)
 //
 // Unknown type values are silently dropped (forward-compat with future
@@ -234,10 +303,15 @@ function parseBool(raw: string | null): boolean {
 export function parseContactsFiltersFromUrl(
   params: URLSearchParams,
 ): ContactsFilters | null {
-  if (!params.has('type') && !params.has('erased')) return null
+  if (!params.has('type') && !params.has('bw') && !params.has('erased')) {
+    return null
+  }
   const types = parseCsv(params.get('type')).filter(isContactType)
+  const bookingWindows = parseCsv(params.get('bw')).filter(
+    isContactBookingWindow,
+  )
   const includeErased = parseBool(params.get('erased'))
-  return { types, includeErased }
+  return { types, bookingWindows, includeErased }
 }
 
 /**
@@ -260,6 +334,17 @@ export function serialiseContactsFiltersToUrl(
     params.delete('type')
     dirty = true
   }
+  // landr-6993 — `?bw=today,future` round-trip for the booking-window chips.
+  if (filters.bookingWindows.length > 0) {
+    const next = filters.bookingWindows.join(',')
+    if (params.get('bw') !== next) {
+      params.set('bw', next)
+      dirty = true
+    }
+  } else if (params.has('bw')) {
+    params.delete('bw')
+    dirty = true
+  }
   if (filters.includeErased) {
     if (params.get('erased') !== '1') {
       params.set('erased', '1')
@@ -270,4 +355,31 @@ export function serialiseContactsFiltersToUrl(
     dirty = true
   }
   return dirty
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// landr-6993 — booking-window client-side filter
+//
+// `bookingWindows` is applied client-side because it depends on the
+// merged-in `next_booking_date` field, which the contacts query itself
+// doesn't know about (fetched via fetchUpcomingBookingsByContact).
+// Empty selection = pass-through (don't narrow the result).
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns true if the row's `next_booking_date` matches at least one of
+ * the selected booking-window chips. Empty `bookingWindows` always passes.
+ * `today` defaults to the local-clock today (YYYY-MM-DD).
+ */
+export function matchesBookingWindowFilter(
+  nextBookingDate: string | null | undefined,
+  bookingWindows: ContactBookingWindow[],
+  today: string,
+): boolean {
+  if (bookingWindows.length === 0) return true
+  const d = nextBookingDate ?? null
+  if (!d) return false
+  if (bookingWindows.includes('today') && d === today) return true
+  if (bookingWindows.includes('future') && d > today) return true
+  return false
 }

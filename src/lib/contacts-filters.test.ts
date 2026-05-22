@@ -20,6 +20,7 @@ import {
   EMPTY_FILTERS,
   activeFilterCount,
   isEmptyFilters,
+  matchesBookingWindowFilter,
   parseContactsFiltersFromUrl,
   serialiseContactsFiltersToUrl,
   storageKey,
@@ -66,6 +67,7 @@ describe('useContactsFilters', () => {
     expect(raw).not.toBeNull()
     expect(JSON.parse(raw!)).toEqual({
       types: ['attendee'],
+      bookingWindows: [],
       includeErased: false,
     })
   })
@@ -119,7 +121,7 @@ describe('useContactsFilters', () => {
     expect(isEmptyFilters(result.current.filters)).toBe(true)
     expect(
       JSON.parse(window.localStorage.getItem(storageKey('user-1'))!),
-    ).toEqual({ types: [], includeErased: false })
+    ).toEqual({ types: [], bookingWindows: [], includeErased: false })
   })
 
   it('tolerates malformed JSON in storage without throwing', () => {
@@ -143,7 +145,7 @@ describe('useContactsFilters', () => {
       expect(result.current.filters.includeErased).toBe(true)
       expect(
         JSON.parse(window.localStorage.getItem(storageKey('user-1'))!),
-      ).toEqual({ types: [], includeErased: true })
+      ).toEqual({ types: [], bookingWindows: [], includeErased: true })
     })
 
     it('preserves selected types when flipping includeErased', () => {
@@ -208,6 +210,7 @@ describe('useContactsFilters', () => {
     it('serialiseContactsFiltersToUrl writes non-empty filters', () => {
       const filters: ContactsFilters = {
         types: ['agent', 'employee'],
+        bookingWindows: [],
         includeErased: true,
       }
       const params = new URLSearchParams()
@@ -230,6 +233,7 @@ describe('useContactsFilters', () => {
       expect(
         serialiseContactsFiltersToUrl(params, {
           types: ['customer'],
+          bookingWindows: [],
           includeErased: false,
         }),
       ).toBe(false)
@@ -242,6 +246,7 @@ describe('useContactsFilters', () => {
       )
       const override: ContactsFilters = {
         types: ['customer', 'attendee'],
+        bookingWindows: [],
         includeErased: true,
       }
       const { result } = renderHook(() =>
@@ -253,7 +258,11 @@ describe('useContactsFilters', () => {
       // reflects the deep-linked view.
       expect(
         JSON.parse(window.localStorage.getItem(storageKey('user-1'))!),
-      ).toEqual({ types: ['customer', 'attendee'], includeErased: true })
+      ).toEqual({
+        types: ['customer', 'attendee'],
+        bookingWindows: [],
+        includeErased: true,
+      })
     })
 
     it('with no override, falls back to localStorage as before', () => {
@@ -266,5 +275,164 @@ describe('useContactsFilters', () => {
       )
       expect(result.current.filters.types).toEqual(['agent'])
     })
+  })
+
+  // ----- landr-6993 — booking-window chip dimension ----------------------
+  describe('bookingWindows (landr-6993)', () => {
+    it('defaults to empty and is counted in activeFilterCount when populated', () => {
+      const { result } = renderHook(() => useContactsFilters())
+      expect(result.current.filters.bookingWindows).toEqual([])
+      expect(activeFilterCount(result.current.filters)).toBe(0)
+    })
+
+    it('toggleBookingWindow adds, then removes, a window from the selection', () => {
+      const { result } = renderHook(() => useContactsFilters())
+      act(() => result.current.toggleBookingWindow('today'))
+      act(() => result.current.toggleBookingWindow('future'))
+      expect(result.current.filters.bookingWindows.sort()).toEqual([
+        'future',
+        'today',
+      ])
+      act(() => result.current.toggleBookingWindow('today'))
+      expect(result.current.filters.bookingWindows).toEqual(['future'])
+    })
+
+    it('toggleBookingWindow contributes to activeFilterCount', () => {
+      const { result } = renderHook(() => useContactsFilters())
+      act(() => result.current.toggleBookingWindow('today'))
+      expect(activeFilterCount(result.current.filters)).toBe(1)
+      act(() => result.current.toggleType('customer'))
+      expect(activeFilterCount(result.current.filters)).toBe(2)
+    })
+
+    it('persists toggled windows to localStorage', () => {
+      const { result } = renderHook(() => useContactsFilters())
+      act(() => result.current.toggleBookingWindow('today'))
+      expect(
+        JSON.parse(window.localStorage.getItem(storageKey('user-1'))!),
+      ).toEqual({ types: [], bookingWindows: ['today'], includeErased: false })
+    })
+
+    it('restores bookingWindows on remount, with legacy payloads defaulting to empty', () => {
+      // Legacy payload without bookingWindows still hydrates cleanly.
+      window.localStorage.setItem(
+        storageKey('user-1'),
+        JSON.stringify({ types: ['customer'], includeErased: false }),
+      )
+      const { result } = renderHook(() => useContactsFilters())
+      expect(result.current.filters.bookingWindows).toEqual([])
+      expect(result.current.filters.types).toEqual(['customer'])
+    })
+
+    it('drops unknown booking-window values from storage', () => {
+      window.localStorage.setItem(
+        storageKey('user-1'),
+        JSON.stringify({
+          types: [],
+          bookingWindows: ['today', 'next-week', 42, null],
+          includeErased: false,
+        }),
+      )
+      const { result } = renderHook(() => useContactsFilters())
+      expect(result.current.filters.bookingWindows).toEqual(['today'])
+    })
+
+    it('clearAll wipes booking-window chips alongside types', () => {
+      const { result } = renderHook(() => useContactsFilters())
+      act(() => result.current.toggleBookingWindow('today'))
+      act(() => result.current.toggleType('customer'))
+      act(() => result.current.clearAll())
+      expect(result.current.filters.bookingWindows).toEqual([])
+      expect(result.current.filters.types).toEqual([])
+      expect(isEmptyFilters(result.current.filters)).toBe(true)
+    })
+  })
+
+  // ----- landr-6993 — URL round-trip for ?bw= ----------------------------
+  describe('booking-window URL round-trip (landr-6993)', () => {
+    it('parses ?bw=today,future into bookingWindows', () => {
+      const out = parseContactsFiltersFromUrl(
+        new URLSearchParams('?bw=today,future'),
+      )!
+      expect(out.bookingWindows).toEqual(['today', 'future'])
+    })
+
+    it('drops unknown ?bw= values silently', () => {
+      const out = parseContactsFiltersFromUrl(
+        new URLSearchParams('?bw=today,never,bogus'),
+      )!
+      expect(out.bookingWindows).toEqual(['today'])
+    })
+
+    it('serialises bookingWindows to ?bw= CSV and drops when empty', () => {
+      const filters: ContactsFilters = {
+        types: [],
+        bookingWindows: ['today', 'future'],
+        includeErased: false,
+      }
+      const params = new URLSearchParams()
+      expect(serialiseContactsFiltersToUrl(params, filters)).toBe(true)
+      expect(params.get('bw')).toBe('today,future')
+
+      const drop = new URLSearchParams('?bw=today')
+      expect(serialiseContactsFiltersToUrl(drop, EMPTY_FILTERS)).toBe(true)
+      expect(drop.has('bw')).toBe(false)
+    })
+
+    it('returns null when only unrelated params are present (incl. just ?bw= still parses)', () => {
+      // bw alone DOES trigger parse (so a deep-link with only ?bw= works).
+      expect(
+        parseContactsFiltersFromUrl(new URLSearchParams('?bw=today')),
+      ).not.toBeNull()
+      // Just ?open= alone does NOT trigger parse.
+      expect(
+        parseContactsFiltersFromUrl(new URLSearchParams('?open=abc')),
+      ).toBeNull()
+    })
+  })
+})
+
+// ──────────────────────────────────────────────────────────────────────
+// landr-6993 — matchesBookingWindowFilter (client-side predicate)
+// ──────────────────────────────────────────────────────────────────────
+
+describe('matchesBookingWindowFilter (landr-6993)', () => {
+  const today = '2026-05-22'
+
+  it('passes through when no booking windows are selected', () => {
+    expect(matchesBookingWindowFilter(null, [], today)).toBe(true)
+    expect(matchesBookingWindowFilter('2026-05-30', [], today)).toBe(true)
+  })
+
+  it("matches 'today' chip when date equals today", () => {
+    expect(matchesBookingWindowFilter(today, ['today'], today)).toBe(true)
+    expect(matchesBookingWindowFilter('2026-05-30', ['today'], today)).toBe(
+      false,
+    )
+  })
+
+  it("matches 'future' chip when date is after today", () => {
+    expect(matchesBookingWindowFilter('2026-06-01', ['future'], today)).toBe(
+      true,
+    )
+    expect(matchesBookingWindowFilter(today, ['future'], today)).toBe(false)
+  })
+
+  it("matches union when both chips are selected", () => {
+    expect(
+      matchesBookingWindowFilter(today, ['today', 'future'], today),
+    ).toBe(true)
+    expect(
+      matchesBookingWindowFilter('2026-06-15', ['today', 'future'], today),
+    ).toBe(true)
+    expect(
+      matchesBookingWindowFilter(null, ['today', 'future'], today),
+    ).toBe(false)
+  })
+
+  it('rejects past dates even when a chip is selected', () => {
+    expect(
+      matchesBookingWindowFilter('2026-05-01', ['today', 'future'], today),
+    ).toBe(false)
   })
 })

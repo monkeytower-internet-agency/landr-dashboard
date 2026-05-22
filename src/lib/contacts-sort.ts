@@ -13,6 +13,7 @@ export type ContactsSort =
   | 'created_at_desc' // Recently added (default)
   | 'updated_at_desc' // Recently changed
   | 'name_asc' // Alphabetical (last_name ASC + first_name ASC)
+  | 'next_booking_asc' // landr-6993 — Next booking date (nulls last)
 
 export const DEFAULT_CONTACTS_SORT: ContactsSort = 'created_at_desc'
 
@@ -20,7 +21,40 @@ const VALID_SORTS: ReadonlyArray<ContactsSort> = [
   'created_at_desc',
   'updated_at_desc',
   'name_asc',
+  'next_booking_asc',
 ]
+
+/**
+ * landr-6993 — `next_booking_asc` is applied CLIENT-SIDE because
+ * `next_booking_date` is not a column on `contacts_with_types` — it's
+ * derived by zipping in the parallel fetchUpcomingBookingsByContact
+ * query. fetchContacts maps this sort key to a stable server-side
+ * fallback (created_at DESC) so the order is deterministic before the
+ * client re-sorts.
+ */
+export function isClientSideSort(sort: ContactsSort): boolean {
+  return sort === 'next_booking_asc'
+}
+
+/**
+ * landr-6993 — comparator that sorts rows by `next_booking_date` ASC
+ * (nearest-future first), with nulls/undefined pushed to the end. Stable
+ * via the secondary key on `id` so re-sorts don't shuffle equal rows.
+ * Exported for re-use by the route + unit tests; the route applies it
+ * over the already-merged row set.
+ */
+export function compareNextBookingAsc<
+  T extends { id: string; next_booking_date?: string | null },
+>(a: T, b: T): number {
+  const ad = a.next_booking_date ?? null
+  const bd = b.next_booking_date ?? null
+  if (ad === bd) return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+  if (ad === null) return 1 // nulls last
+  if (bd === null) return -1
+  if (ad < bd) return -1
+  if (ad > bd) return 1
+  return 0
+}
 
 export function storageKey(userId: string): string {
   return `landr.dashboard.contactsSort.${userId}`

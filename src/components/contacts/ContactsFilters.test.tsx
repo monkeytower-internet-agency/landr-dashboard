@@ -5,7 +5,10 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ContactsFilters } from './ContactsFilters'
-import type { ContactType } from '@/lib/contacts-filters'
+import type {
+  ContactBookingWindow,
+  ContactType,
+} from '@/lib/contacts-filters'
 import type { ContactsSort } from '@/lib/contacts-sort'
 import type { ContactTypeCounts } from '@/lib/contacts'
 
@@ -16,11 +19,16 @@ const SOME_COUNTS: ContactTypeCounts = {
   agent: 2,
 }
 
-function makeFiltersApi(types: ContactType[] = [], includeErased = false) {
+function makeFiltersApi(
+  types: ContactType[] = [],
+  includeErased = false,
+  bookingWindows: ContactBookingWindow[] = [],
+) {
   return {
-    filters: { types, includeErased },
+    filters: { types, includeErased, bookingWindows },
     setFilters: vi.fn(),
     toggleType: vi.fn(),
+    toggleBookingWindow: vi.fn(),
     setIncludeErased: vi.fn(),
     clearAll: vi.fn(),
   }
@@ -222,5 +230,100 @@ describe('ContactsFilters', () => {
     expect(screen.getByTestId('contacts-filters-type-customer')).toHaveTextContent(
       'Customer (0)',
     )
+  })
+
+  // landr-6993 — booking-window chips + Next booking sort option.
+  describe('booking-window chips + next-booking sort (landr-6993)', () => {
+    it('renders both booking-window chips with their count badges', () => {
+      render(
+        <ContactsFilters
+          sortApi={makeSortApi()}
+          filtersApi={makeFiltersApi()}
+          typeCounts={SOME_COUNTS}
+          bookingWindowCounts={{ today: 2, future: 7 }}
+        />,
+      )
+      expect(screen.getByText('Has booking today (2)')).toBeInTheDocument()
+      expect(screen.getByText('Has future booking (7)')).toBeInTheDocument()
+    })
+
+    it("toggleBookingWindow fires with the clicked window's value", async () => {
+      const filtersApi = makeFiltersApi([], false, [])
+      render(
+        <ContactsFilters
+          sortApi={makeSortApi()}
+          filtersApi={filtersApi}
+          typeCounts={SOME_COUNTS}
+          bookingWindowCounts={{ today: 1, future: 1 }}
+        />,
+      )
+      const user = userEvent.setup()
+      await user.click(screen.getByTestId('contacts-filters-booking-today'))
+      expect(filtersApi.toggleBookingWindow).toHaveBeenCalledWith('today')
+      await user.click(screen.getByTestId('contacts-filters-booking-future'))
+      expect(filtersApi.toggleBookingWindow).toHaveBeenCalledWith('future')
+    })
+
+    it('disables a booking-window chip when its count is zero', () => {
+      render(
+        <ContactsFilters
+          sortApi={makeSortApi()}
+          filtersApi={makeFiltersApi()}
+          typeCounts={SOME_COUNTS}
+          bookingWindowCounts={{ today: 0, future: 4 }}
+        />,
+      )
+      expect(
+        screen.getByTestId('contacts-filters-booking-today'),
+      ).toBeDisabled()
+      expect(
+        screen.getByTestId('contacts-filters-booking-future'),
+      ).not.toBeDisabled()
+    })
+
+    it('reflects an active booking-window selection via aria-pressed', () => {
+      render(
+        <ContactsFilters
+          sortApi={makeSortApi()}
+          filtersApi={makeFiltersApi([], false, ['today'])}
+          typeCounts={SOME_COUNTS}
+          bookingWindowCounts={{ today: 3, future: 0 }}
+        />,
+      )
+      expect(
+        screen.getByTestId('contacts-filters-booking-today'),
+      ).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('Clear filters surfaces when only a booking-window chip is active', () => {
+      render(
+        <ContactsFilters
+          sortApi={makeSortApi()}
+          filtersApi={makeFiltersApi([], false, ['today'])}
+          typeCounts={SOME_COUNTS}
+          bookingWindowCounts={{ today: 1, future: 0 }}
+        />,
+      )
+      expect(
+        screen.getByTestId('contacts-filters-clear-all'),
+      ).toBeInTheDocument()
+    })
+
+    it('exposes the Next booking sort option and propagates the selection', async () => {
+      const sortApi = makeSortApi('created_at_desc')
+      render(
+        <ContactsFilters
+          sortApi={sortApi}
+          filtersApi={makeFiltersApi()}
+          typeCounts={SOME_COUNTS}
+        />,
+      )
+      const user = userEvent.setup()
+      await user.selectOptions(
+        screen.getByTestId('contacts-filters-sort-select'),
+        'next_booking_asc',
+      )
+      expect(sortApi.setSort).toHaveBeenCalledWith('next_booking_asc')
+    })
   })
 })

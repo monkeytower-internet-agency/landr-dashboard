@@ -114,3 +114,86 @@ describe('ContactsTable — loading / empty / loaded states (landr-sj2z)', () =>
     ).not.toBeInTheDocument()
   })
 })
+
+// landr-6993 — booking-window indicator next to the contact name.
+describe('ContactsTable — next-booking icon (landr-6993)', () => {
+  // The icon's window classification compares against the LOCAL-CLOCK
+  // today inside contactBookingWindow(). To keep this test stable across
+  // timezones / dates, we set next_booking_date to a far-future date for
+  // the 'future' case and synthesise 'today' from the same Date the
+  // component uses (Intl.DateTimeFormat-free).
+  function localTodayIso(): string {
+    const d = new Date()
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${dd}`
+  }
+
+  it('renders the green TODAY icon when next_booking_date is today', () => {
+    render(
+      <ContactsTable
+        rows={[
+          makeRow({
+            id: 'c-today',
+            first_name: 'Today',
+            last_name: 'Booker',
+            next_booking_date: localTodayIso(),
+          }),
+        ]}
+        onEdit={() => {}}
+        onErase={() => {}}
+        onAudit={() => {}}
+      />,
+    )
+    expect(
+      screen.getByTestId('contacts-next-booking-today-c-today'),
+    ).toBeInTheDocument()
+  })
+
+  it('renders the blue FUTURE icon when next_booking_date is later', () => {
+    render(
+      <ContactsTable
+        rows={[
+          makeRow({
+            id: 'c-future',
+            first_name: 'Future',
+            last_name: 'Booker',
+            // Far enough out that this test stays 'future' for years.
+            next_booking_date: '2099-01-01',
+          }),
+        ]}
+        onEdit={() => {}}
+        onErase={() => {}}
+        onAudit={() => {}}
+      />,
+    )
+    expect(
+      screen.getByTestId('contacts-next-booking-future-c-future'),
+    ).toBeInTheDocument()
+  })
+
+  it('renders NO icon when next_booking_date is null/undefined', () => {
+    render(
+      <ContactsTable
+        rows={[
+          makeRow({
+            id: 'c-none',
+            first_name: 'No',
+            last_name: 'Booking',
+            next_booking_date: null,
+          }),
+        ]}
+        onEdit={() => {}}
+        onErase={() => {}}
+        onAudit={() => {}}
+      />,
+    )
+    expect(
+      screen.queryByTestId('contacts-next-booking-today-c-none'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('contacts-next-booking-future-c-none'),
+    ).not.toBeInTheDocument()
+  })
+})
