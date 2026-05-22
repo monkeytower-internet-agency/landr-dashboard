@@ -48,6 +48,16 @@ import {
   SIDEBAR_MODE_STORAGE_KEY,
   type SidebarMode,
 } from '@/lib/sidebar-mode'
+// landr-gka7 — pin the AppSidebar Settings/Account hrefs to the same
+// source of truth used by the production code (SETTINGS_SECTIONS[0] /
+// ACCOUNT_SECTIONS[0] via landingPathFor) so the tests track section-
+// list reorders without drift.
+import {
+  ACCOUNT_SECTIONS,
+  SETTINGS_SECTIONS,
+  groupForPath,
+  landingPathFor,
+} from '@/components/settings/sections'
 
 // landr-sydf — Products is no longer a top-level sidebar item. The
 // assertions below pin both the removal (no Products top-level link) and
@@ -120,12 +130,76 @@ describe('AppSidebar (landr-sydf)', () => {
       '/contacts',
       '/reporting',
       '/approvals/general',
-      // landr-fzcg — Account + Settings are both top-level now.
-      '/account',
-      '/settings',
+      // landr-gka7 — Account + Settings top-level entries now point at
+      // the first sub-section of each group (via landingPathFor) so the
+      // click lands directly on a leaf URL whose groupForPath() matches
+      // the clicked icon. Previously bare /account and /settings both
+      // resolved to /settings/company (ACCOUNT) and briefly rendered the
+      // wrong sub-sidebar.
+      landingPathFor('account'),
+      landingPathFor('settings'),
     ]) {
       expect(hrefs.has(href)).toBe(true)
     }
+  })
+})
+
+// landr-gka7 — Settings gear must land directly on a SETTINGS section,
+// not the first ACCOUNT section. Bug repro before the fix: the sidebar
+// Settings entry had `to: '/settings'`, App.tsx's /settings index
+// redirected to /settings/company (ACCOUNT_SECTIONS[0]), and the
+// SettingsLayout briefly rendered the Account sub-sidebar before the
+// user re-navigated. These tests pin both the AppSidebar href contract
+// and the assumption that the Account/Settings hrefs come from
+// landingPathFor (so they stay in sync with sections.ts).
+describe('AppSidebar — Settings gear lands on a Settings section (landr-gka7)', () => {
+  it('Settings link href is NOT the bare /settings path', () => {
+    renderSidebar()
+    const settingsLink = screen
+      .queryAllByRole('link')
+      .find((a) => {
+        const txt = (a.textContent ?? '').trim().toLowerCase()
+        // Filter for the Settings primary nav entry (icon + label) by
+        // label text, not href — we don't yet know the href contract
+        // here, just that it must NOT be the bare /settings.
+        return txt === 'settings'
+      })
+    expect(settingsLink).toBeDefined()
+    const href = settingsLink!.getAttribute('href')
+    expect(href).not.toBe('/settings')
+    // It must point INSIDE the Settings section list (deeper path under
+    // /settings/*), not at a virtual top-level redirect URL.
+    expect(href).toMatch(/^\/settings\/.+/)
+  })
+
+  it('Settings link href is the first SETTINGS_SECTIONS entry', () => {
+    renderSidebar()
+    const expected = landingPathFor('settings')
+    expect(expected).toBe(SETTINGS_SECTIONS[0].to)
+    const links = screen.queryAllByRole('link')
+    const match = links.find((a) => a.getAttribute('href') === expected)
+    expect(match).toBeDefined()
+    expect((match!.textContent ?? '').trim().toLowerCase()).toBe('settings')
+  })
+
+  it('Account link href is the first ACCOUNT_SECTIONS entry', () => {
+    renderSidebar()
+    const expected = landingPathFor('account')
+    expect(expected).toBe(ACCOUNT_SECTIONS[0].to)
+    const links = screen.queryAllByRole('link')
+    const match = links.find((a) => a.getAttribute('href') === expected)
+    expect(match).toBeDefined()
+    expect((match!.textContent ?? '').trim().toLowerCase()).toBe('account')
+  })
+
+  it('Settings href groupForPath resolves to "settings" (not "account")', () => {
+    // The repro: groupForPath('/settings/company') === 'account', so a
+    // bare /settings click would briefly render the Account sub-sidebar.
+    // This assertion guards against a regression where someone changes
+    // landingPathFor('settings') to a path that secretly belongs to the
+    // ACCOUNT group.
+    expect(groupForPath(landingPathFor('settings'))).toBe('settings')
+    expect(groupForPath(landingPathFor('account'))).toBe('account')
   })
 })
 
@@ -197,11 +271,16 @@ describe('AppSidebar — Views entry at Position-A (landr-v0xg)', () => {
 })
 
 describe('AppSidebar — Account/Settings split (landr-fzcg)', () => {
-  it('Account link points to /account (lands on /settings/company)', () => {
+  it('Account link points at the first ACCOUNT_SECTIONS entry', () => {
     renderSidebar()
+    // landr-gka7 — href is now landingPathFor('account') (the deep leaf
+    // URL) instead of the bare /account virtual path. The /account
+    // route still exists in App.tsx as a redirect for legacy bookmarks
+    // and the CommandPalette, but the sidebar now skips the redirect
+    // hop.
     const accountLinks = screen
       .queryAllByRole('link')
-      .filter((a) => a.getAttribute('href') === '/account')
+      .filter((a) => a.getAttribute('href') === landingPathFor('account'))
     expect(accountLinks.length).toBeGreaterThan(0)
     const txt = (accountLinks[0].textContent ?? '').toLowerCase()
     expect(txt).toContain('account')
@@ -213,7 +292,7 @@ describe('AppSidebar — Account/Settings split (landr-fzcg)', () => {
     // row should be marked active and Settings should NOT be.
     const accountLink = screen
       .queryAllByRole('link')
-      .find((a) => a.getAttribute('href') === '/account')
+      .find((a) => a.getAttribute('href') === landingPathFor('account'))
     expect(accountLink).toBeDefined()
     const accountButton = accountLink!.closest(
       '[data-sidebar="menu-button"]',
@@ -222,7 +301,7 @@ describe('AppSidebar — Account/Settings split (landr-fzcg)', () => {
 
     const settingsLink = screen
       .queryAllByRole('link')
-      .find((a) => a.getAttribute('href') === '/settings')
+      .find((a) => a.getAttribute('href') === landingPathFor('settings'))
     const settingsButton = settingsLink!.closest(
       '[data-sidebar="menu-button"]',
     ) as HTMLElement | null
@@ -233,7 +312,7 @@ describe('AppSidebar — Account/Settings split (landr-fzcg)', () => {
     renderSidebar('/settings/team')
     const settingsLink = screen
       .queryAllByRole('link')
-      .find((a) => a.getAttribute('href') === '/settings')
+      .find((a) => a.getAttribute('href') === landingPathFor('settings'))
     const settingsButton = settingsLink!.closest(
       '[data-sidebar="menu-button"]',
     ) as HTMLElement | null
@@ -241,7 +320,7 @@ describe('AppSidebar — Account/Settings split (landr-fzcg)', () => {
 
     const accountLink = screen
       .queryAllByRole('link')
-      .find((a) => a.getAttribute('href') === '/account')
+      .find((a) => a.getAttribute('href') === landingPathFor('account'))
     const accountButton = accountLink!.closest(
       '[data-sidebar="menu-button"]',
     ) as HTMLElement | null
@@ -250,7 +329,7 @@ describe('AppSidebar — Account/Settings split (landr-fzcg)', () => {
 
   it('does NOT highlight either when on an unrelated route', () => {
     renderSidebar('/bookings')
-    for (const href of ['/account', '/settings']) {
+    for (const href of [landingPathFor('account'), landingPathFor('settings')]) {
       const link = screen
         .queryAllByRole('link')
         .find((a) => a.getAttribute('href') === href)

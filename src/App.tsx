@@ -45,6 +45,7 @@ import { Staff } from '@/routes/Staff'
 import { EmailTemplates } from '@/routes/EmailTemplates'
 import { PickupLocations } from '@/routes/PickupLocations'
 import { SettingsLayout } from '@/routes/SettingsLayout'
+import { landingPathFor } from '@/components/settings/sections'
 import { BrandingSettings } from '@/routes/settings/BrandingSettings'
 import { CompanySettings } from '@/routes/settings/CompanySettings'
 import { CalendarDisplaySettings } from '@/routes/settings/CalendarDisplaySettings'
@@ -89,6 +90,22 @@ function ProductsRedirect() {
 function ScheduleRedirect() {
   const { search } = useLocation()
   return <Navigate to={`/settings/schedule${search}`} replace />
+}
+
+// landr-gka7 — /settings (the hub root) and /account (the Account
+// virtual top-level) both need a Navigate target that tracks the
+// section lists in sections.ts. Hard-coding /settings/company landed
+// users on the first ACCOUNT_SECTIONS entry no matter which group they
+// clicked, so the bottom-left Settings gear briefly showed the Account
+// sub-sidebar before the user re-navigated. Routing the index through
+// landingPathFor() keeps this in sync as the section lists are reordered
+// and ensures /settings actually lands on a SETTINGS section.
+function SettingsIndexRedirect() {
+  return <Navigate to={landingPathFor('settings')} replace />
+}
+
+function AccountIndexRedirect() {
+  return <Navigate to={landingPathFor('account')} replace />
 }
 
 function App() {
@@ -155,14 +172,11 @@ function App() {
                   the Account group's section list because the URL is
                   in ACCOUNT_PATHS. Keeping leaf URLs under /settings/*
                   preserves every existing deep link. */}
-              <Route
-                path="/account"
-                element={<Navigate to="/settings/company" replace />}
-              />
+              <Route path="/account" element={<AccountIndexRedirect />} />
 
               {/* Settings hub — left sub-sidebar wraps every subsection. */}
               <Route path="/settings" element={<SettingsLayout />}>
-                <Route index element={<Navigate to="/settings/company" replace />} />
+                <Route index element={<SettingsIndexRedirect />} />
                 <Route path="company" element={<CompanySettings />} />
                 <Route path="calendar-display" element={<CalendarDisplaySettings />} />
                 <Route path="display-preferences" element={<DisplayPreferencesSettings />} />
