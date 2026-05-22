@@ -39,6 +39,7 @@ import { CopyLinkButton } from '@/components/CopyLinkButton'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { BookingChecklist } from '@/components/booking/BookingChecklist'
 import { BookingNotes } from '@/components/booking/BookingNotes'
+import { BookingParticipants } from '@/components/booking/BookingParticipants'
 import { BookingPayments } from '@/components/booking/BookingPayments'
 import { BookingTimeline } from '@/components/booking/BookingTimeline'
 import { DayChips } from '@/components/booking/DayChips'
@@ -169,7 +170,13 @@ function formatRangeLabel(days: string[]): string | null {
   return `${start} → ${end}`
 }
 
-type ActiveTab = 'details' | 'timeline' | 'checklist' | 'notes' | 'payments'
+type ActiveTab =
+  | 'details'
+  | 'participants'
+  | 'timeline'
+  | 'checklist'
+  | 'notes'
+  | 'payments'
 
 function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const queryClient = useQueryClient()
@@ -524,6 +531,16 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           >
             {t.bookings.timeline.tabDetails}
           </TabsTrigger>
+          {/* landr-z4lj — Participants tab. Sits between Details and
+              Timeline so the service-recipient roster is one click from
+              the booker information operators land on by default. */}
+          <TabsTrigger
+            variant="pill"
+            value="participants"
+            data-testid="booking-tab-participants"
+          >
+            {t.bookings.participants.tabParticipants}
+          </TabsTrigger>
           <TabsTrigger
             variant="pill"
             value="timeline"
@@ -566,7 +583,23 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         </TabsList>
       </Tabs>
 
-      {activeTab === 'timeline' ? (
+      {activeTab === 'participants' ? (
+        <div
+          role="tabpanel"
+          aria-label={t.bookings.participants.tabParticipants}
+          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3"
+        >
+          {/* landr-z4lj — clicking a participant name forwards to the same
+              onCustomerClick the booker name in the sheet header uses. The
+              parent route (routes/Bookings.tsx etc.) wires that to
+              setOpenCustomerId, which stacks a ContactDetailSheet over this
+              BookingDetailSheet — Customer 360 pattern (landr-7o2a). */}
+          <BookingParticipants
+            bookingId={row.id}
+            onContactClick={onCustomerClick}
+          />
+        </div>
+      ) : activeTab === 'timeline' ? (
         <div
           role="tabpanel"
           aria-label={t.bookings.timeline.tabTimeline}

@@ -510,6 +510,29 @@ export const t = {
       toastSuccess: 'Booking unblocked.',
       toastError: 'Failed to unblock booking.',
     },
+    // landr-z4lj — Participants tab: read-only roster of booking_participants
+    // (service-recipients on this booking). Distinct from the booker, who
+    // is shown in the Details tab's Customer card. Clicking a participant
+    // name opens ContactDetailSheet over the BookingDetailSheet (same
+    // stacked-sheets pattern as Customer 360 / landr-7o2a).
+    participants: {
+      tabParticipants: 'Participants',
+      loading: 'Loading participants…',
+      error: 'Could not load participants.',
+      empty: 'No participants recorded.',
+      columnName: 'Name',
+      columnRole: 'Role',
+      columnEmail: 'Email',
+      columnPhone: 'Phone',
+      // landr-h46a — small badge next to participants who flipped the
+      // contacts.do_not_contact flag (set via the CustomerDetailSheet
+      // checkbox). EmailSenderService still sends transactional kinds
+      // (confirmations, hotel requests, no-show) — the badge is purely
+      // an operator-facing nudge before they manually trigger a reminder.
+      doNotContactBadge: 'no marketing',
+      doNotContactHint:
+        'This contact opted out of non-transactional emails (reminders / marketing). Booking-flow confirmations still send.',
+    },
     // landr-9qo1 — operator-internal notes on a booking. Never sent to
     // the customer; staff-side only.
     notes: {

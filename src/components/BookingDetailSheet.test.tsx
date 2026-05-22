@@ -101,6 +101,19 @@ vi.mock('@/lib/checklistTemplate', async (importOriginal) => {
   }
 })
 
+// landr-z4lj — the Participants tab fires fetchBookingParticipants on
+// mount. Default to an empty list so the existing tab tests don't hit
+// the supabase stub through this code path; individual tests below override.
+vi.mock('@/lib/booking-participants', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/booking-participants')
+  >('@/lib/booking-participants')
+  return {
+    ...actual,
+    fetchBookingParticipants: vi.fn().mockResolvedValue([]),
+  }
+})
+
 vi.mock('@/lib/tags', () => ({
   fetchTags: vi.fn().mockResolvedValue([]),
   createTag: vi.fn(),
@@ -417,6 +430,50 @@ describe('BookingDetailSheet', () => {
       name: /toggle "sign waiver"/i,
     })
     expect(waiverCheckbox).toBeInTheDocument()
+  })
+
+  // landr-z4lj — Participants tab wires the BookingParticipants component
+  // into the existing inline tablist. Smoke test only — the fetcher
+  // contract is covered exhaustively in lib/booking-participants.test.ts
+  // and the component shape in components/booking/BookingParticipants.test.tsx.
+  it('exposes a Participants tab that lists rows and forwards onCustomerClick (landr-z4lj)', async () => {
+    const user = userEvent.setup()
+    const bookingParticipants = await import('@/lib/booking-participants')
+    const fetchSpy = vi.mocked(bookingParticipants.fetchBookingParticipants)
+    fetchSpy.mockResolvedValueOnce([
+      {
+        id: 'p-1',
+        booking_id: 'b-12345678-aaaa-bbbb-cccc-dddddddddddd',
+        notes: null,
+        contact: {
+          id: 'c-99',
+          first_name: 'Pat',
+          last_name: 'Pilot',
+          email: 'pat@example.com',
+          phone: '+34611112222',
+          do_not_contact: false,
+        },
+        service_role: { id: 'sr-1', code: 'pilot', label: 'Pilot' },
+      },
+    ])
+
+    const onCustomerClick = vi.fn()
+    render(
+      <BookingDetailSheet
+        row={makeRow()}
+        onOpenChange={() => {}}
+        onCustomerClick={onCustomerClick}
+      />,
+    )
+
+    await user.click(screen.getByRole('tab', { name: /^participants$/i }))
+
+    await waitFor(() => expect(screen.getByText('Pat Pilot')).toBeInTheDocument())
+    expect(screen.getByText('Pilot')).toBeInTheDocument()
+
+    // Click-name → parent's onCustomerClick (stacked ContactDetailSheet).
+    await user.click(screen.getByText('Pat Pilot'))
+    expect(onCustomerClick).toHaveBeenCalledWith('c-99')
   })
 
   it('invalidates both [bookings] and [views-bookings] on save (landr-parv)', async () => {
