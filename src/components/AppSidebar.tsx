@@ -34,7 +34,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { groupForPath } from '@/components/settings/sections'
+import { groupForPath, landingPathFor } from '@/components/settings/sections'
 import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
 import type { SidebarMode } from '@/lib/sidebar-mode'
 import { t } from '@/lib/strings'
@@ -151,16 +151,25 @@ const primaryItems: NavItem[] = [
 // active-highlight code to compare via groupForPath() instead of a path
 // prefix check (otherwise /settings/* would always also highlight Settings
 // when the user is on an Account subsection).
+// landr-gka7 — `to` resolves to the first sub-section of each group via
+// landingPathFor() so the click lands directly on a Settings (or Account)
+// leaf URL. Previously these were the bare /account and /settings
+// virtual paths, both of which resolved (via Route-level Navigate) to
+// /settings/company — an ACCOUNT section. Clicking the bottom "Settings"
+// gear would briefly render the Account sub-sidebar before the user
+// re-navigated, and Account-group highlighting was wrong on first paint.
+// landingPathFor() pulls from sections.ts so this stays in sync as the
+// section lists are reordered.
 const secondaryItems: NavItem[] = [
   {
-    to: '/account',
+    to: landingPathFor('account'),
     label: t.nav.account,
     icon: UserCircleIcon,
     exact: false,
     matchGroup: 'account',
   },
   {
-    to: '/settings',
+    to: landingPathFor('settings'),
     label: t.nav.settings,
     icon: SettingsIcon,
     exact: false,

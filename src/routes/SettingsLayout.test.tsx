@@ -152,13 +152,21 @@ import { Staff } from './Staff'
 import { EmailTemplates } from './EmailTemplates'
 import { PickupLocations } from './PickupLocations'
 
+// landr-gka7 — index redirect now resolves via landingPathFor('settings')
+// in App.tsx, not a hard-coded /settings/company. We mirror that here so
+// the routing test exercises the same redirect target as the real app.
+import { landingPathFor } from '@/components/settings/sections'
+
 function renderSettingsTree(initialPath: string) {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route element={<Outlet />}>
           <Route path="/settings" element={<SettingsLayout />}>
-            <Route index element={<Navigate to="/settings/company" replace />} />
+            <Route
+              index
+              element={<Navigate to={landingPathFor('settings')} replace />}
+            />
             <Route path="company" element={<CompanySettings />} />
             <Route path="calendar-display" element={<CalendarDisplaySettings />} />
             <Route
@@ -224,10 +232,21 @@ afterEach(() => {
 })
 
 describe('SettingsLayout', () => {
-  it('redirects /settings to /settings/company', async () => {
+  // landr-gka7 — /settings index redirect now resolves to
+  // landingPathFor('settings'), i.e. SETTINGS_SECTIONS[0].to
+  // (calendar-display today). The previous hard-coded /settings/company
+  // landed users on an ACCOUNT section, which is precisely the bug that
+  // ticket fixed — clicking the Settings gear briefly rendered the
+  // Account sub-sidebar before re-navigating. We assert on the Settings
+  // sub-sidebar (group resolved by groupForPath) instead of the deeper
+  // CalendarDisplaySettings form so the test stays stable as the first
+  // SETTINGS_SECTIONS entry changes.
+  it('redirects /settings to the first SETTINGS section (landr-gka7)', async () => {
     renderSettingsTree('/settings')
-    // CompanySettings renders the operator name via the Input default value.
-    expect(await screen.findByDisplayValue('Para42')).toBeInTheDocument()
+    const nav = await screen.findByRole('navigation', {
+      name: /settings sections/i,
+    })
+    expect(nav).toBeInTheDocument()
   })
 
   it('renders the Account sub-sidebar when on an account URL (landr-fzcg)', () => {
