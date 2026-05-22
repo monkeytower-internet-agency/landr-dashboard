@@ -29,6 +29,12 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { ViewFilterChips } from '@/components/views/ViewFilterChips'
 import { readFilters, type Filter } from '@/lib/views-filters'
 import {
@@ -271,7 +277,32 @@ export function ViewToolbar({
             ))}
           </NativeSelect>
         </div>
-      ) : null}
+      ) : (
+        // landr-79f5 — disabled placeholder so non-Board layouts still
+        // advertise the existence of Column-by. Tooltip explains the gate.
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                className="flex items-center gap-1.5 opacity-50"
+                data-testid={`${testIdPrefix}-column-by-locked`}
+                aria-disabled="true"
+              >
+                <Columns2
+                  className="text-muted-foreground size-4"
+                  aria-hidden="true"
+                />
+                <span className="text-muted-foreground text-xs italic">
+                  {t.views.toolbar.columnByPlaceholder}
+                </span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              {t.views.toolbar.columnByLockedTip}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
 
       {layout === 'board' ? (
         <div
@@ -302,7 +333,32 @@ export function ViewToolbar({
             ))}
           </NativeSelect>
         </div>
-      ) : null}
+      ) : (
+        // landr-79f5 — disabled Swimlanes placeholder on non-Board layouts
+        // so the operator sees the feature exists. Tooltip explains the gate.
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                className="flex items-center gap-1.5 opacity-50"
+                data-testid={`${testIdPrefix}-swimlane-locked`}
+                aria-disabled="true"
+              >
+                <Rows3
+                  className="text-muted-foreground size-4"
+                  aria-hidden="true"
+                />
+                <span className="text-muted-foreground text-xs italic">
+                  {t.views.toolbar.swimlanePlaceholder}
+                </span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              {t.views.toolbar.swimlaneLockedTip}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
 
       <Button
         type="button"
