@@ -90,12 +90,16 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // (operator-scoped marketing campaigns for booking attribution).
   // landr-v198 — Vouchers joined the SETTINGS group below Commissions
   // (operator promo-code editor; feeds the pricing engine).
-  it('settings group contains the seventeen program subsections', () => {
+  // landr-funh — Providers joined the SETTINGS group below Team
+  // (operational delivery roster + per-booking-day assignment picker).
+  it('settings group contains the eighteen program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
       '/settings/branding',
       '/settings/team',
+      // landr-funh — Settings → Providers: operational delivery roster.
+      '/settings/providers',
       '/settings/pickup-locations',
       '/settings/products',
       '/settings/schedule',

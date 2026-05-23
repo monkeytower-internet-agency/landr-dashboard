@@ -223,6 +223,10 @@ export const t = {
       calendarDisplay: 'Calendar & display',
       displayPreferences: 'Display preferences',
       team: 'Team',
+      // landr-funh — operational delivery roster (instructors, pilots,
+      // drivers). Distinct from Team (operator_memberships / dashboard
+      // sign-in). landr-genericity-northstar.
+      providers: 'Providers',
       pickupLocations: 'Pickup locations',
       products: 'Products',
       // landr-e8jf — Schedule moved from main sidebar into Settings
@@ -269,6 +273,8 @@ export const t = {
       calendarDisplay: 'Default work hours and time format.',
       displayPreferences: 'Toggles for dashboard hints and teasers.',
       team: 'Add and remove operator staff members.',
+      providers:
+        'Manage the people who deliver your service (instructors, pilots, drivers) and assign them to booking days.',
       pickupLocations: 'Manage pickup sites and sub-points for bookings.',
       products: 'Configure bookable products and their availability rules.',
       schedule: 'Plan capacity windows and one-off closures.',
@@ -685,6 +691,8 @@ export const t = {
     timeline: {
       tabDetails: 'Details',
       tabTimeline: 'Timeline',
+      // landr-funh — per-booking-day provider assignment tab label.
+      tabProviders: 'Providers',
       loading: 'Loading timeline…',
       error: 'Failed to load timeline.',
       empty: 'No timeline events yet.',
@@ -1589,6 +1597,79 @@ export const t = {
     roleTypeManagerToastDeleted: 'Type deleted.',
     roleTypeManagerToastError: 'Could not save type.',
     roleTypeManagerEditAffordanceAria: 'Manage pickup location types',
+  },
+  // landr-funh — delivery roster (Settings → Providers) + per-booking-day
+  // assignment picker (BookingDetailSheet).
+  providers: {
+    title: 'Providers',
+    subtitle:
+      'The people who deliver your service — instructors, pilots, drivers. Assign them to booking days from the booking detail.',
+    noOperator: 'Select an operator to manage providers.',
+    loading: 'Loading providers…',
+    error: 'Failed to load providers.',
+    empty: 'No providers yet. Add one to get started.',
+    addProvider: 'Add provider',
+
+    columnName: 'Name',
+    columnRole: 'Default role',
+    columnStatus: 'Status',
+    columnActions: 'Actions',
+    statusActive: 'Active',
+    statusInactive: 'Inactive',
+    roleNone: '—',
+
+    actionEdit: 'Edit',
+    actionActivate: 'Activate',
+    actionDeactivate: 'Deactivate',
+    actionDelete: 'Delete',
+
+    formCreateTitle: 'Add provider',
+    formEditTitle: 'Edit provider',
+    fieldName: 'Display name',
+    fieldNamePlaceholder: 'e.g. Marie Dubois',
+    fieldRole: 'Default role',
+    fieldRoleNone: '— No default —',
+    fieldActive: 'Active',
+    errorNameRequired: 'Name is required.',
+
+    save: 'Save changes',
+    saving: 'Saving…',
+    create: 'Add provider',
+    creating: 'Adding…',
+    cancel: 'Cancel',
+
+    toastCreated: 'Provider added.',
+    toastUpdated: 'Provider updated.',
+    toastDeleted: 'Provider removed.',
+    toastError: 'Action failed.',
+
+    deleteDialogTitle: 'Remove provider?',
+    deleteDialogDescription:
+      'This soft-deletes the provider from the roster. Existing assignments and revenue history are preserved.',
+    deleteDialogConfirm: 'Remove',
+    deleteDialogDeleting: 'Removing…',
+    deleteDialogCancel: 'Cancel',
+
+    // ---- per-booking-day assignment picker (BookingDetailSheet) ----
+    assignSectionTitle: 'Who delivers each day',
+    assignSectionHint:
+      'Assign a provider to each day of this booking. Days come from the booking line items above.',
+    assignLoading: 'Loading assignments…',
+    assignError: 'Failed to load assignments.',
+    assignNoDays:
+      'This booking has no scheduled days yet. Pick dates above first.',
+    assignNoProviders:
+      'No providers in your roster yet. Add some under Settings → Providers.',
+    assignDayLabel: (day: string) => `Day — ${day}`,
+    assignProviderPlaceholder: '— Assign a provider —',
+    assignAdd: 'Assign',
+    assignAdding: 'Assigning…',
+    assignRemoveAria: (name: string, day: string) =>
+      `Unassign ${name} on ${day}`,
+    assignToastAdded: 'Provider assigned.',
+    assignToastRemoved: 'Assignment removed.',
+    assignToastError: 'Could not update assignment.',
+    assignedBadge: (name: string) => name,
   },
   // landr-iz58 — operator-scoped tag CRUD (Settings → Tags).
   tagsSettings: {

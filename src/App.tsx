@@ -44,6 +44,7 @@ import { Schedule } from '@/routes/Schedule'
 import { Staff } from '@/routes/Staff'
 import { EmailTemplates } from '@/routes/EmailTemplates'
 import { PickupLocations } from '@/routes/PickupLocations'
+import { Providers } from '@/routes/Providers'
 import { SettingsLayout } from '@/routes/SettingsLayout'
 import { landingPathFor } from '@/components/settings/sections'
 import { BrandingSettings } from '@/routes/settings/BrandingSettings'
@@ -188,6 +189,7 @@ function App() {
                     the embedded booking widget). */}
                 <Route path="branding" element={<BrandingSettings />} />
                 <Route path="team" element={<Staff />} />
+                <Route path="providers" element={<Providers />} />
                 <Route path="pickup-locations" element={<PickupLocations />} />
                 {/* landr-sydf — Products lives under Settings now (operators
                     edit rarely, not daily). The :productId variant preserves
