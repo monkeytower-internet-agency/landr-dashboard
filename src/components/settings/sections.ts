@@ -3,6 +3,7 @@ import {
   CalendarClockIcon,
   CalendarDaysIcon,
   CheckSquareIcon,
+  CoinsIcon,
   CreditCardIcon,
   IdCardIcon,
   LinkIcon,
@@ -130,6 +131,13 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/pricing',
     label: t.settingsHub.sections.pricing,
     icon: TagIcon,
+  },
+  // landr-9n0l — commission schemes + agent-earnings report. Sits next
+  // to Pricing because both configure how booking value is split.
+  {
+    to: '/settings/commissions',
+    label: t.settingsHub.sections.commissions,
+    icon: CoinsIcon,
   },
   // landr-iz58 — operator-scoped tags (bookings + contacts).
   {

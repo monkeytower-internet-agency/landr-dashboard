@@ -237,6 +237,9 @@ export const t = {
       connectedAccounts: 'Connected accounts',
       plan: 'Plan',
       pricing: 'Pricing',
+      // landr-9n0l — commission schemes (platform/agent/provider) + the
+      // read-only agent-earnings report.
+      commissions: 'Commissions',
       // landr-yp8x — operator branding shown in the embedded booking widget.
       branding: 'Branding',
       // landr-iz58 — operator-scoped tags applied to bookings + contacts.
@@ -278,6 +281,9 @@ export const t = {
         'Identity links (Google, Apple, GitHub) for this operator.',
       plan: 'Your current subscription plan.',
       pricing: 'Discounts, surcharges, and pricing modifiers.',
+      // landr-9n0l — commission scheme editor + agent-earnings report.
+      commissions:
+        'Commission schemes for agents, providers, and the platform, plus per-agent earnings.',
       branding: 'Apply your logo and brand colour to the booking widget.',
       tags: 'Define operator-scoped tags to apply to bookings and contacts.',
       // landr-1tqx — participant service-role catalogue read by the widget.

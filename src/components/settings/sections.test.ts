@@ -82,7 +82,11 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // scoped labels for bookings + contacts).
   // landr-qg4q — Email log joined the SETTINGS group between Email
   // templates and Pricing (outbound_emails viewer for operator debug).
-  it('settings group contains the fourteen program subsections', () => {
+  // landr-9n0l — Commissions joined the SETTINGS group between Pricing
+  // and Tags (commission scheme editor + agent-earnings report).
+  // landr-1tqx — Service roles joined the SETTINGS group below Tags
+  // (operator-scoped participant role catalogue read by the booking widget).
+  it('settings group contains the fifteen program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -94,6 +98,7 @@ describe('account/settings grouping (landr-fzcg)', () => {
       '/settings/email-templates',
       '/settings/email-log',
       '/settings/pricing',
+      '/settings/commissions',
       '/settings/tags',
       // landr-1tqx — Settings → Service roles: operator-scoped participant
       // role catalogue (Pilot/Passenger/Diver…) read by the booking widget.

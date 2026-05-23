@@ -276,9 +276,10 @@ describe('SettingsLayout', () => {
     // landr-r87i — Operations joined Settings → 12 sections.
     // landr-ah9u — Webhooks joined Settings → 13 sections.
     // landr-1tqx — Service roles joined Settings → 14 sections.
+    // landr-9n0l — Commissions joined Settings → 15 sections.
     const nav = screen.getByRole('navigation', { name: /settings sections/i })
     const links = nav.querySelectorAll('a')
-    expect(links).toHaveLength(14)
+    expect(links).toHaveLength(15)
     expect(nav).toHaveTextContent(/calendar & display/i)
     expect(nav).toHaveTextContent(/display preferences/i)
     expect(nav).toHaveTextContent(/branding/i)
@@ -289,6 +290,7 @@ describe('SettingsLayout', () => {
     expect(nav).toHaveTextContent(/email templates/i)
     expect(nav).toHaveTextContent(/email log/i)
     expect(nav).toHaveTextContent(/pricing/i)
+    expect(nav).toHaveTextContent(/commissions/i)
     expect(nav).toHaveTextContent(/tags/i)
     expect(nav).toHaveTextContent(/service roles/i)
     expect(nav).toHaveTextContent(/operations/i)
