@@ -82,7 +82,7 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // scoped labels for bookings + contacts).
   // landr-qg4q — Email log joined the SETTINGS group between Email
   // templates and Pricing (outbound_emails viewer for operator debug).
-  it('settings group contains the thirteen program subsections', () => {
+  it('settings group contains the fourteen program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -95,6 +95,9 @@ describe('account/settings grouping (landr-fzcg)', () => {
       '/settings/email-log',
       '/settings/pricing',
       '/settings/tags',
+      // landr-1tqx — Settings → Service roles: operator-scoped participant
+      // role catalogue (Pilot/Passenger/Diver…) read by the booking widget.
+      '/settings/service-roles',
       // landr-r87i — Settings → Operations: operator-customisable
       // default per-booking checklist items (v2 of landr-84n1).
       '/settings/operations',

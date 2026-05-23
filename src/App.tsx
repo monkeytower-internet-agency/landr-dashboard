@@ -57,6 +57,7 @@ import { EmailLog } from '@/routes/settings/EmailLog'
 import { PlanSettings } from '@/routes/settings/PlanSettings'
 import { PricingSettings } from '@/routes/settings/PricingSettings'
 import { TagsSettings } from '@/routes/settings/TagsSettings'
+import { ServiceRolesSettings } from '@/routes/settings/ServiceRolesSettings'
 import { OperationsSettings } from '@/routes/settings/OperationsSettings'
 import { WebhooksSettings } from '@/routes/settings/WebhooksSettings'
 import { AuthProvider } from '@/lib/auth'
@@ -204,6 +205,12 @@ function App() {
                 <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
                 <Route path="pricing" element={<PricingSettings />} />
                 <Route path="tags" element={<TagsSettings />} />
+                {/* landr-1tqx — Settings → Service roles: operator-scoped
+                    participant role catalogue (Pilot/Passenger/Diver…). */}
+                <Route
+                  path="service-roles"
+                  element={<ServiceRolesSettings />}
+                />
                 {/* landr-r87i — Settings → Operations: operator-customisable
                     default booking-checklist items (v2 of landr-84n1). */}
                 <Route path="operations" element={<OperationsSettings />} />

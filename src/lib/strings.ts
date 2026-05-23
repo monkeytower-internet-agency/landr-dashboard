@@ -241,6 +241,9 @@ export const t = {
       branding: 'Branding',
       // landr-iz58 — operator-scoped tags applied to bookings + contacts.
       tags: 'Tags',
+      // landr-1tqx — operator-scoped participant service roles
+      // (Pilot/Passenger/Diver…) read by the booking widget.
+      serviceRoles: 'Service roles',
       // landr-r87i — default per-booking checklist items the operator
       // customises (v2 of landr-84n1; defaults move from hardcoded to
       // operator_checklist_templates).
@@ -277,6 +280,9 @@ export const t = {
       pricing: 'Discounts, surcharges, and pricing modifiers.',
       branding: 'Apply your logo and brand colour to the booking widget.',
       tags: 'Define operator-scoped tags to apply to bookings and contacts.',
+      // landr-1tqx — participant service-role catalogue read by the widget.
+      serviceRoles:
+        'Define the participant roles (Pilot, Passenger, Diver…) customers pick on the booking form.',
       // landr-r87i — default per-booking checklist editor.
       operations:
         'Default checklist items that seed every new booking. Per-booking progress stays local.',
@@ -1598,6 +1604,52 @@ export const t = {
     toastUpdateError: 'Could not update tag.',
     toastDeleted: 'Tag deleted.',
     toastDeleteError: 'Could not delete tag.',
+  },
+  // landr-1tqx — Settings → Service roles. Operator-scoped catalogue of
+  // participant roles (Pilot/Passenger/Diver…) the booking widget reads.
+  serviceRolesSettings: {
+    title: 'Service roles',
+    subtitle:
+      'Participant roles customers choose on the booking form. Every operator starts with one role; add, rename, reorder, or deactivate them here.',
+    noOperator: 'Select an operator to manage service roles.',
+    loading: 'Loading service roles…',
+    empty: 'No service roles yet. Add one above.',
+
+    createTitle: 'New service role',
+    existingTitle: 'Your service roles',
+    placeholderLabel: 'e.g. Pilot, Passenger, Diver',
+    fieldLabel: 'Label',
+    fieldCode: 'Code',
+    codeHint: 'Auto-generated from the label. Used internally; not editable later.',
+    fieldActive: 'Active',
+    create: 'Add',
+    creating: 'Adding…',
+    edit: 'Edit',
+    save: 'Save',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    deleting: 'Deleting…',
+    confirmDelete: 'Confirm delete',
+    activate: 'Activate',
+    deactivate: 'Deactivate',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+    inactiveBadge: 'Inactive',
+    codeBadge: (code: string) => `(${code})`,
+
+    dupeCode: 'A service role with this code already exists. Try a different label.',
+    lastActiveRole:
+      'You must keep at least one active service role — the booking form needs it.',
+
+    toastCreated: 'Service role added.',
+    toastCreateError: 'Could not add service role.',
+    toastUpdated: 'Service role updated.',
+    toastUpdateError: 'Could not update service role.',
+    toastDeleted: 'Service role deleted.',
+    toastDeleteError: 'Could not delete service role.',
+    toastReordered: 'Order updated.',
+    toastReorderError: 'Could not reorder.',
   },
   // landr-r87i — Settings → Operations. v2 of landr-84n1: operators
   // curate the DEFAULT per-booking checklist items (saved server-side
