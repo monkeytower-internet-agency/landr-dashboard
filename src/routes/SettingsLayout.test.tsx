@@ -279,13 +279,15 @@ describe('SettingsLayout', () => {
     // landr-1tqx — Service roles joined Settings → 15 sections.
     // landr-sp4r — Campaigns joined Settings → 16 sections.
     // landr-v198 — Vouchers joined Settings → 17 sections.
+    // landr-funh — Providers joined Settings → 18 sections.
     const nav = screen.getByRole('navigation', { name: /settings sections/i })
     const links = nav.querySelectorAll('a')
-    expect(links).toHaveLength(17)
+    expect(links).toHaveLength(18)
     expect(nav).toHaveTextContent(/calendar & display/i)
     expect(nav).toHaveTextContent(/display preferences/i)
     expect(nav).toHaveTextContent(/branding/i)
     expect(nav).toHaveTextContent(/team/i)
+    expect(nav).toHaveTextContent(/providers/i)
     expect(nav).toHaveTextContent(/pickup locations/i)
     expect(nav).toHaveTextContent(/products/i)
     expect(nav).toHaveTextContent(/schedule/i)

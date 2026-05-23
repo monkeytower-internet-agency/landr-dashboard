@@ -41,6 +41,7 @@ import { BookingChecklist } from '@/components/booking/BookingChecklist'
 import { BookingNotes } from '@/components/booking/BookingNotes'
 import { BookingParticipants } from '@/components/booking/BookingParticipants'
 import { BookingPayments } from '@/components/booking/BookingPayments'
+import { BookingProviderAssignments } from '@/components/booking/BookingProviderAssignments'
 import { BookingTimeline } from '@/components/booking/BookingTimeline'
 import { DayChips } from '@/components/booking/DayChips'
 import { MultiDayPicker } from '@/components/booking/MultiDayPicker'
@@ -173,6 +174,7 @@ function formatRangeLabel(days: string[]): string | null {
 type ActiveTab =
   | 'details'
   | 'participants'
+  | 'providers'
   | 'timeline'
   | 'checklist'
   | 'notes'
@@ -541,6 +543,16 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           >
             {t.bookings.participants.tabParticipants}
           </TabsTrigger>
+          {/* landr-funh — Providers tab. Per-booking-day provider
+              assignment picker (who delivers each day). Sits after
+              Participants — both are "people on this booking" surfaces. */}
+          <TabsTrigger
+            variant="pill"
+            value="providers"
+            data-testid="booking-tab-providers"
+          >
+            {t.bookings.timeline.tabProviders}
+          </TabsTrigger>
           <TabsTrigger
             variant="pill"
             value="timeline"
@@ -598,6 +610,24 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
             bookingId={row.id}
             onContactClick={onCustomerClick}
           />
+        </div>
+      ) : activeTab === 'providers' ? (
+        <div
+          role="tabpanel"
+          aria-label={t.bookings.timeline.tabProviders}
+          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3"
+        >
+          {currentOperatorId ? (
+            <BookingProviderAssignments
+              operatorId={currentOperatorId}
+              bookingId={row.id}
+              items={row.items}
+            />
+          ) : (
+            <p className="text-muted-foreground text-xs italic">
+              {t.providers.assignLoading}
+            </p>
+          )}
         </div>
       ) : activeTab === 'timeline' ? (
         <div

@@ -19,6 +19,7 @@ import {
   TagsIcon,
   TicketIcon,
   UsersIcon,
+  UsersRoundIcon,
   WebhookIcon,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -100,6 +101,14 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/team',
     label: t.settingsHub.sections.team,
     icon: UsersIcon,
+  },
+  // landr-funh — delivery roster (instructors, pilots, drivers). Sits next
+  // to Team because both manage "people", but Providers is the operational
+  // delivery roster while Team is dashboard sign-in (operator_memberships).
+  {
+    to: '/settings/providers',
+    label: t.settingsHub.sections.providers,
+    icon: UsersRoundIcon,
   },
   {
     to: '/settings/pickup-locations',
