@@ -88,7 +88,9 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // (operator-scoped participant role catalogue read by the booking widget).
   // landr-sp4r — Campaigns joined the SETTINGS group below Service roles
   // (operator-scoped marketing campaigns for booking attribution).
-  it('settings group contains the sixteen program subsections', () => {
+  // landr-v198 — Vouchers joined the SETTINGS group below Commissions
+  // (operator promo-code editor; feeds the pricing engine).
+  it('settings group contains the seventeen program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -101,6 +103,7 @@ describe('account/settings grouping (landr-fzcg)', () => {
       '/settings/email-log',
       '/settings/pricing',
       '/settings/commissions',
+      '/settings/vouchers',
       '/settings/tags',
       // landr-1tqx — Settings → Service roles: operator-scoped participant
       // role catalogue (Pilot/Passenger/Diver…) read by the booking widget.
