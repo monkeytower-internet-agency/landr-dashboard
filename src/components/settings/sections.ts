@@ -4,6 +4,7 @@ import {
   CalendarDaysIcon,
   CheckSquareIcon,
   CreditCardIcon,
+  IdCardIcon,
   LinkIcon,
   MailIcon,
   MailOpenIcon,
@@ -135,6 +136,13 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/tags',
     label: t.settingsHub.sections.tags,
     icon: TagsIcon,
+  },
+  // landr-1tqx — operator-scoped participant service roles
+  // (Pilot/Passenger/Diver…) the booking widget reads.
+  {
+    to: '/settings/service-roles',
+    label: t.settingsHub.sections.serviceRoles,
+    icon: IdCardIcon,
   },
   // landr-r87i — operator-customisable default per-booking checklist
   // (v2 of landr-84n1). Sits at the bottom of SETTINGS because it
