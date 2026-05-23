@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 import { productSummaryLine, type ProductRow } from '@/lib/products'
+import { ProductShortcodeMenu } from '@/components/products/ProductShortcodeMenu'
 import { t } from '@/lib/strings'
 
 // landr-u34k — persist the "show add-on products" toggle per user so
@@ -107,6 +108,12 @@ type Props = {
   onCreate: () => void
   onDuplicate: (row: ProductRow) => void
   duplicatingId: string | null
+  // landr-up1b — operator id + slug so each row's actions menu can offer
+  // a one-click "copy product shortcode". Optional: the onboarding embed
+  // mounts ProductsList before the operator slug is known, in which case
+  // the copy-shortcode item is simply omitted.
+  operatorId?: string
+  operatorSlug?: string
   // landr-sj2z — paint skeleton list items in place of real chips while
   // the parent's fetch is in flight. Mirrors the table-side prop on the
   // other surfaces.
@@ -120,6 +127,8 @@ export function ProductsList({
   onCreate,
   onDuplicate,
   duplicatingId,
+  operatorId,
+  operatorSlug,
   isLoading = false,
 }: Props) {
   const [filter, setFilter] = useState('')
@@ -357,6 +366,18 @@ export function ProductsList({
                               ? t.products.duplicating
                               : t.products.duplicate}
                           </DropdownMenuItem>
+                          {/* landr-up1b — one-click copy of this product's
+                              widget shortcode. Omitted when the operator
+                              slug isn't available (onboarding embed). */}
+                          {operatorId && operatorSlug ? (
+                            <ProductShortcodeMenu
+                              operatorId={operatorId}
+                              operatorSlug={operatorSlug}
+                              productSlug={row.slug}
+                              productGroupId={row.product_group_id}
+                              variant="row"
+                            />
+                          ) : null}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>

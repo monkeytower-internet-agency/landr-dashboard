@@ -229,6 +229,11 @@ export const t = {
       providers: 'Providers',
       pickupLocations: 'Pickup locations',
       products: 'Products',
+      // landr-up1b — nested product categories (the operator-owned
+      // product_groups tree). Sits right after Products in the IA.
+      categories: 'Categories',
+      // landr-up1b — booking-widget embed/shortcode generator.
+      embed: 'Embed widget',
       // landr-e8jf — Schedule moved from main sidebar into Settings
       // (capacity pills now on Calendar; Schedule is a setup tool).
       schedule: 'Schedule',
@@ -277,6 +282,10 @@ export const t = {
         'Manage the people who deliver your service (instructors, pilots, drivers) and assign them to booking days.',
       pickupLocations: 'Manage pickup sites and sub-points for bookings.',
       products: 'Configure bookable products and their availability rules.',
+      categories:
+        'Organise products into a nested category tree. Drag-free reparenting, rename, and reorder.',
+      embed:
+        'Generate the [landr_booking] shortcode/iframe to embed your booking widget on any website.',
       schedule: 'Plan capacity windows and one-off closures.',
       emailTemplates:
         'Customise transactional emails sent to customers for each booking event.',
@@ -1670,6 +1679,92 @@ export const t = {
     assignToastRemoved: 'Assignment removed.',
     assignToastError: 'Could not update assignment.',
     assignedBadge: (name: string) => name,
+  },
+  // landr-up1b — nested category tree editor (Settings → Categories).
+  categoriesSettings: {
+    title: 'Categories',
+    subtitle:
+      'Organise products into a nested category tree. Categories drive the booking widget filter and the [landr_booking group="…"] shortcode.',
+    noOperator: 'Select an operator to manage categories.',
+    loading: 'Loading categories…',
+    empty: 'No categories yet. Add your first one below.',
+    createTitle: 'Add category',
+    fieldName: 'Name',
+    fieldParent: 'Parent category',
+    parentRoot: '— Top level —',
+    placeholderName: 'e.g. Courses',
+    create: 'Add',
+    creating: 'Adding…',
+    dupeName: 'A category with this name already exists.',
+    rootBadge: 'Top level',
+    inactiveBadge: 'Inactive',
+    edit: 'Rename',
+    save: 'Save',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    deleting: 'Deleting…',
+    confirmDelete: 'Confirm delete',
+    moveLabel: 'Move under',
+    moveAria: (name: string) => `Move category "${name}" under another`,
+    copyShortcode: 'Copy shortcode',
+    copyShortcodeAria: (name: string) => `Copy widget shortcode for "${name}"`,
+    deleteConfirmText: (name: string) =>
+      `Delete category "${name}"? Its sub-categories move up to its parent and any products on it fall back to no category.`,
+    toastCreated: 'Category added.',
+    toastUpdated: 'Category updated.',
+    toastMoved: 'Category moved.',
+    toastDeleted: 'Category deleted.',
+    toastError: 'Could not save category.',
+    toastReparentCycle: 'Cannot move a category under one of its own sub-categories.',
+    toastCopied: 'Shortcode copied.',
+    childCount: (n: number) =>
+      n === 1 ? '1 sub-category' : `${n} sub-categories`,
+  },
+  // landr-up1b — booking-widget embed / shortcode generator (Settings → Embed).
+  embedSettings: {
+    title: 'Embed your booking widget',
+    subtitle:
+      'Generate the shortcode (and matching iframe) to embed your LANDR booking widget on any website. Paste the shortcode into a WordPress page with the LANDR Booking plugin installed.',
+    noOperator: 'Select an operator to generate an embed.',
+    modeLabel: 'What to show',
+    modeAll: 'All products',
+    modeCategory: 'A category (and its sub-categories)',
+    modeProduct: 'A single product',
+    categoryLabel: 'Category',
+    categoryPlaceholder: 'Select a category…',
+    productLabel: 'Product',
+    productPlaceholder: 'Select a product…',
+    heightLabel: 'Height (px)',
+    heightHint: 'Optional. The iframe height in pixels. Leave blank for the default (800).',
+    srcLabel: 'Widget URL override',
+    srcHint:
+      'Optional. Pin a specific widget origin (e.g. a preview deploy). Leave blank to use the site default.',
+    srcPlaceholder: 'https://bw.landr.de/',
+    shortcodeLabel: 'Shortcode',
+    iframeLabel: 'Raw iframe (non-WordPress sites)',
+    copy: 'Copy',
+    copied: 'Copied!',
+    copyShortcodeAria: 'Copy shortcode',
+    copyIframeAria: 'Copy iframe HTML',
+    loadingCategories: 'Loading categories…',
+    loadingProducts: 'Loading products…',
+    noCategories: 'No categories yet — create some under Settings → Categories.',
+    noProducts: 'No products yet.',
+    toastCopied: 'Copied to clipboard.',
+    toastCopyError: 'Could not copy to clipboard.',
+  },
+  // landr-up1b — per-product copy-shortcode affordance (list row + detail).
+  productShortcode: {
+    menuLabel: 'Embed shortcode',
+    copyProductRow: 'Copy product shortcode',
+    copyProductDetail: 'Copy this single product',
+    categoryLevelsLabel: 'Copy for a category level',
+    copyCategoryLevel: (name: string) => `Copy "${name}"`,
+    loading: 'Loading categories…',
+    noCategory: 'This product has no category.',
+    toastCopied: 'Shortcode copied.',
+    toastError: 'Could not copy to clipboard.',
   },
   // landr-iz58 — operator-scoped tag CRUD (Settings → Tags).
   tagsSettings: {

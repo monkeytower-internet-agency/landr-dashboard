@@ -92,7 +92,9 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // (operator promo-code editor; feeds the pricing engine).
   // landr-funh — Providers joined the SETTINGS group below Team
   // (operational delivery roster + per-booking-day assignment picker).
-  it('settings group contains the eighteen program subsections', () => {
+  // landr-up1b — Categories + Embed joined the SETTINGS group right after
+  // Products (nested category tree editor + booking-widget embed generator).
+  it('settings group contains the twenty program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -102,6 +104,10 @@ describe('account/settings grouping (landr-fzcg)', () => {
       '/settings/providers',
       '/settings/pickup-locations',
       '/settings/products',
+      // landr-up1b — nested category tree editor + booking-widget embed
+      // generator, grouped right after Products.
+      '/settings/categories',
+      '/settings/embed',
       '/settings/schedule',
       '/settings/email-templates',
       '/settings/email-log',
