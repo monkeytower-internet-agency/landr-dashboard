@@ -250,6 +250,8 @@ export const t = {
       // landr-sp4r — operator-scoped marketing campaigns for booking
       // attribution (bookings.campaign_id).
       campaigns: 'Campaigns',
+      // landr-v198 — operator-scoped voucher / promo-code editor.
+      vouchers: 'Vouchers',
       // landr-r87i — default per-booking checklist items the operator
       // customises (v2 of landr-84n1; defaults move from hardcoded to
       // operator_checklist_templates).
@@ -295,6 +297,9 @@ export const t = {
       // landr-sp4r — marketing campaigns for booking attribution.
       campaigns:
         'Create marketing campaigns and codes to attribute bookings against.',
+      // landr-v198 — promo-code editor.
+      vouchers:
+        'Create and manage discount codes customers redeem at booking.',
       // landr-r87i — default per-booking checklist editor.
       operations:
         'Default checklist items that seed every new booking. Per-booking progress stays local.',
@@ -1723,6 +1728,78 @@ export const t = {
     toastUpdateError: 'Could not update campaign.',
     toastDeactivated: 'Campaign deactivated.',
     toastDeactivateError: 'Could not deactivate campaign.',
+  },
+  // landr-v198 — Settings → Vouchers. Operator-scoped promo-code editor
+  // over the vouchers table (create/edit/list/deactivate). Distinct from
+  // the read-only voucher-performance card on /analytics.
+  vouchersSettings: {
+    title: 'Vouchers',
+    subtitle:
+      'Discount codes customers redeem at booking. Percent or flat amount, with optional usage caps and a validity window.',
+    noOperator: 'Select an operator to manage vouchers.',
+    loading: 'Loading vouchers…',
+    empty: 'No vouchers yet. Create one to start offering discount codes.',
+
+    newVoucher: 'New voucher',
+
+    colCode: 'Code',
+    colKind: 'Type',
+    colAmount: 'Amount',
+    colUsage: 'Used',
+    colWindow: 'Valid',
+    colActive: 'Status',
+
+    kindPercent: 'Percentage',
+    kindFlat: 'Flat amount',
+
+    statusActive: 'Active',
+    statusInactive: 'Inactive',
+
+    windowAlways: 'Always',
+    windowFrom: 'From',
+    windowUntil: 'Until',
+
+    scopes: {
+      booking: 'Bookings',
+      subscription: 'Subscriptions',
+      any: 'Any',
+    },
+
+    dialogCreateTitle: 'New voucher',
+    dialogEditTitle: 'Edit voucher',
+    dialogDescription:
+      'Codes are stored upper-cased. Customers enter them at checkout.',
+
+    fieldCode: 'Code',
+    fieldKind: 'Type',
+    fieldAmount: 'Amount',
+    fieldScope: 'Applies to',
+    fieldMaxUses: 'Max uses',
+    fieldValidFrom: 'Valid from',
+    fieldValidUntil: 'Valid until',
+    fieldDescription: 'Description',
+    fieldActive: 'Active (customers can redeem this code)',
+
+    maxUsesHint: 'Leave blank for unlimited.',
+    placeholderCode: 'e.g. SUMMER25',
+    placeholderUnlimited: 'Unlimited',
+    placeholderDescription: 'Internal note (optional)',
+
+    create: 'Create',
+    save: 'Save',
+    saving: 'Saving…',
+    edit: 'Edit',
+    cancel: 'Cancel',
+    deactivate: 'Deactivate',
+    deactivating: 'Deactivating…',
+    confirmDeactivate: 'Confirm',
+
+    toastCreated: 'Voucher created.',
+    toastCreateError: 'Could not create voucher.',
+    toastUpdated: 'Voucher updated.',
+    toastUpdateError: 'Could not update voucher.',
+    toastDeactivated: 'Voucher deactivated.',
+    toastDeactivateError: 'Could not deactivate voucher.',
   },
   // landr-r87i — Settings → Operations. v2 of landr-84n1: operators
   // curate the DEFAULT per-booking checklist items (saved server-side

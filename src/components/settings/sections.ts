@@ -17,6 +17,7 @@ import {
   PlugIcon,
   TagIcon,
   TagsIcon,
+  TicketIcon,
   UsersIcon,
   WebhookIcon,
 } from 'lucide-react'
@@ -139,6 +140,13 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/commissions',
     label: t.settingsHub.sections.commissions,
     icon: CoinsIcon,
+  },
+  // landr-v198 — operator-scoped vouchers / promo codes. Sits next to
+  // Pricing because vouchers feed the pricing engine as discount rules.
+  {
+    to: '/settings/vouchers',
+    label: t.settingsHub.sections.vouchers,
+    icon: TicketIcon,
   },
   // landr-iz58 — operator-scoped tags (bookings + contacts).
   {
