@@ -247,6 +247,9 @@ export const t = {
       // landr-1tqx — operator-scoped participant service roles
       // (Pilot/Passenger/Diver…) read by the booking widget.
       serviceRoles: 'Service roles',
+      // landr-sp4r — operator-scoped marketing campaigns for booking
+      // attribution (bookings.campaign_id).
+      campaigns: 'Campaigns',
       // landr-r87i — default per-booking checklist items the operator
       // customises (v2 of landr-84n1; defaults move from hardcoded to
       // operator_checklist_templates).
@@ -289,6 +292,9 @@ export const t = {
       // landr-1tqx — participant service-role catalogue read by the widget.
       serviceRoles:
         'Define the participant roles (Pilot, Passenger, Diver…) customers pick on the booking form.',
+      // landr-sp4r — marketing campaigns for booking attribution.
+      campaigns:
+        'Create marketing campaigns and codes to attribute bookings against.',
       // landr-r87i — default per-booking checklist editor.
       operations:
         'Default checklist items that seed every new booking. Per-booking progress stays local.',
@@ -1656,6 +1662,67 @@ export const t = {
     toastDeleteError: 'Could not delete service role.',
     toastReordered: 'Order updated.',
     toastReorderError: 'Could not reorder.',
+  },
+  // landr-sp4r — Settings → Campaigns. Operator-scoped marketing
+  // campaigns + codes used for booking attribution (bookings.campaign_id).
+  campaignsSettings: {
+    title: 'Campaigns',
+    subtitle:
+      'Marketing campaigns with a unique code per operator. Attribute bookings against them to measure reach.',
+    noOperator: 'Select an operator to manage campaigns.',
+    loading: 'Loading campaigns…',
+    empty: 'No campaigns yet. Create one to start attributing bookings.',
+    errorTitle: 'Could not load campaigns.',
+
+    newButton: 'New campaign',
+    existingTitle: 'Your campaigns',
+
+    // dialog
+    createTitle: 'New campaign',
+    editTitle: 'Edit campaign',
+    dialogDescription:
+      'Code must be unique per operator. Inactive campaigns stay attributable but are hidden from new pickers.',
+
+    fieldCode: 'Code',
+    fieldCodeHint: 'Short, unique identifier (e.g. SUMMER25).',
+    fieldLabel: 'Label',
+    fieldKind: 'Kind',
+    fieldScope: 'Scope',
+    fieldDescription: 'Description',
+    fieldStartDate: 'Start date',
+    fieldEndDate: 'End date',
+    fieldEndDateHint: 'Leave blank for an open-ended campaign.',
+    fieldActive: 'Active',
+
+    placeholderCode: 'e.g. SUMMER25',
+    placeholderLabel: 'e.g. Summer 2025 push',
+    placeholderDescription: 'Optional internal note.',
+
+    scopeBooking: 'Booking',
+    scopeSubscription: 'Subscription',
+    scopeAny: 'Any',
+
+    statusActive: 'Active',
+    statusInactive: 'Inactive',
+
+    save: 'Save',
+    saving: 'Saving…',
+    create: 'Create',
+    creating: 'Creating…',
+    cancel: 'Cancel',
+    edit: 'Edit',
+    deactivate: 'Deactivate',
+    deactivating: 'Deactivating…',
+    confirmDeactivate: 'Confirm deactivate',
+
+    dateWindowError: 'End date must not be before the start date.',
+
+    toastCreated: 'Campaign created.',
+    toastCreateError: 'Could not create campaign.',
+    toastUpdated: 'Campaign updated.',
+    toastUpdateError: 'Could not update campaign.',
+    toastDeactivated: 'Campaign deactivated.',
+    toastDeactivateError: 'Could not deactivate campaign.',
   },
   // landr-r87i — Settings → Operations. v2 of landr-84n1: operators
   // curate the DEFAULT per-booking checklist items (saved server-side

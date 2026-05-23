@@ -55,6 +55,7 @@ import { IntegrationsGmailSettings } from '@/routes/settings/IntegrationsGmailSe
 import { ConnectedAccountsSettings } from '@/routes/settings/ConnectedAccountsSettings'
 import { EmailLog } from '@/routes/settings/EmailLog'
 import { PlanSettings } from '@/routes/settings/PlanSettings'
+import { CampaignsSettings } from '@/routes/settings/CampaignsSettings'
 import { PricingSettings } from '@/routes/settings/PricingSettings'
 import { CommissionsSettings } from '@/routes/settings/CommissionsSettings'
 import { TagsSettings } from '@/routes/settings/TagsSettings'
@@ -215,6 +216,9 @@ function App() {
                   path="service-roles"
                   element={<ServiceRolesSettings />}
                 />
+                {/* landr-sp4r — Settings → Campaigns: operator-scoped
+                    marketing campaigns for booking attribution. */}
+                <Route path="campaigns" element={<CampaignsSettings />} />
                 {/* landr-r87i — Settings → Operations: operator-customisable
                     default booking-checklist items (v2 of landr-84n1). */}
                 <Route path="operations" element={<OperationsSettings />} />
