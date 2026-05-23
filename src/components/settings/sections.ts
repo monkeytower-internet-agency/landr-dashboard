@@ -10,6 +10,7 @@ import {
   MailIcon,
   MailOpenIcon,
   MapPinIcon,
+  MegaphoneIcon,
   MonitorIcon,
   PackageIcon,
   PaletteIcon,
@@ -151,6 +152,14 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/service-roles',
     label: t.settingsHub.sections.serviceRoles,
     icon: IdCardIcon,
+  },
+  // landr-sp4r — operator-scoped marketing campaigns for booking
+  // attribution (bookings.campaign_id). Sits next to Tags as the other
+  // "slice + measure your bookings" config surface.
+  {
+    to: '/settings/campaigns',
+    label: t.settingsHub.sections.campaigns,
+    icon: MegaphoneIcon,
   },
   // landr-r87i — operator-customisable default per-booking checklist
   // (v2 of landr-84n1). Sits at the bottom of SETTINGS because it

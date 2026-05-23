@@ -86,7 +86,9 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // and Tags (commission scheme editor + agent-earnings report).
   // landr-1tqx — Service roles joined the SETTINGS group below Tags
   // (operator-scoped participant role catalogue read by the booking widget).
-  it('settings group contains the fifteen program subsections', () => {
+  // landr-sp4r — Campaigns joined the SETTINGS group below Service roles
+  // (operator-scoped marketing campaigns for booking attribution).
+  it('settings group contains the sixteen program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -103,6 +105,9 @@ describe('account/settings grouping (landr-fzcg)', () => {
       // landr-1tqx — Settings → Service roles: operator-scoped participant
       // role catalogue (Pilot/Passenger/Diver…) read by the booking widget.
       '/settings/service-roles',
+      // landr-sp4r — Settings → Campaigns: operator-scoped marketing
+      // campaigns for booking attribution (bookings.campaign_id).
+      '/settings/campaigns',
       // landr-r87i — Settings → Operations: operator-customisable
       // default per-booking checklist items (v2 of landr-84n1).
       '/settings/operations',
