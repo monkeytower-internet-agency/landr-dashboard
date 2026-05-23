@@ -56,6 +56,7 @@ import { ConnectedAccountsSettings } from '@/routes/settings/ConnectedAccountsSe
 import { EmailLog } from '@/routes/settings/EmailLog'
 import { PlanSettings } from '@/routes/settings/PlanSettings'
 import { PricingSettings } from '@/routes/settings/PricingSettings'
+import { CommissionsSettings } from '@/routes/settings/CommissionsSettings'
 import { TagsSettings } from '@/routes/settings/TagsSettings'
 import { ServiceRolesSettings } from '@/routes/settings/ServiceRolesSettings'
 import { OperationsSettings } from '@/routes/settings/OperationsSettings'
@@ -204,6 +205,9 @@ function App() {
                 <Route path="integrations/calendar" element={<IntegrationsCalendarSettings />} />
                 <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
                 <Route path="pricing" element={<PricingSettings />} />
+                {/* landr-9n0l — Settings → Commissions: scheme/rule/tier
+                    editor + read-only agent-earnings report. */}
+                <Route path="commissions" element={<CommissionsSettings />} />
                 <Route path="tags" element={<TagsSettings />} />
                 {/* landr-1tqx — Settings → Service roles: operator-scoped
                     participant role catalogue (Pilot/Passenger/Diver…). */}
