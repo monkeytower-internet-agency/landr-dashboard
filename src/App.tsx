@@ -62,6 +62,8 @@ import { CommissionsSettings } from '@/routes/settings/CommissionsSettings'
 import { TagsSettings } from '@/routes/settings/TagsSettings'
 import { ServiceRolesSettings } from '@/routes/settings/ServiceRolesSettings'
 import { VouchersSettings } from '@/routes/settings/VouchersSettings'
+import { CategoriesSettings } from '@/routes/settings/CategoriesSettings'
+import { EmbedSettings } from '@/routes/settings/EmbedSettings'
 import { OperationsSettings } from '@/routes/settings/OperationsSettings'
 import { WebhooksSettings } from '@/routes/settings/WebhooksSettings'
 import { AuthProvider } from '@/lib/auth'
@@ -197,6 +199,10 @@ function App() {
                     'Used by' chips. */}
                 <Route path="products" element={<Products />} />
                 <Route path="products/:productId" element={<Products />} />
+                {/* landr-up1b — nested product category tree editor. */}
+                <Route path="categories" element={<CategoriesSettings />} />
+                {/* landr-up1b — booking-widget shortcode/iframe generator. */}
+                <Route path="embed" element={<EmbedSettings />} />
                 {/* landr-e8jf — Schedule lives under Settings now. The
                     capacity pills on the main Calendar (landr-3uai) make
                     Schedule a setup tool, not a daily-ops view. */}

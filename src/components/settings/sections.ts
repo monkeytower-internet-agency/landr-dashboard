@@ -3,8 +3,10 @@ import {
   CalendarClockIcon,
   CalendarDaysIcon,
   CheckSquareIcon,
+  CodeIcon,
   CoinsIcon,
   CreditCardIcon,
+  FolderTreeIcon,
   IdCardIcon,
   LinkIcon,
   MailIcon,
@@ -119,6 +121,21 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/products',
     label: t.settingsHub.sections.products,
     icon: PackageIcon,
+  },
+  // landr-up1b — nested category tree editor for product_groups. Sits
+  // right after Products: operators bucket products into categories here.
+  {
+    to: '/settings/categories',
+    label: t.settingsHub.sections.categories,
+    icon: FolderTreeIcon,
+  },
+  // landr-up1b — booking-widget embed / shortcode generator. Grouped with
+  // Products + Categories because the generator picks an operator/category/
+  // product the operator just configured above.
+  {
+    to: '/settings/embed',
+    label: t.settingsHub.sections.embed,
+    icon: CodeIcon,
   },
   {
     to: '/settings/schedule',

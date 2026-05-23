@@ -45,6 +45,8 @@ import {
 } from '@/lib/locations'
 import { PageTitle } from '@/lib/page-title'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
+import { useOperator } from '@/lib/operator'
+import { ProductShortcodeMenu } from '@/components/products/ProductShortcodeMenu'
 import { t } from '@/lib/strings'
 
 const NEW_PRODUCT = 'new' as const
@@ -75,6 +77,11 @@ export function ProductsManager({
   onUrlSelect,
 }: Props) {
   const queryClient = useQueryClient()
+  // landr-up1b — operator slug feeds the per-product copy-shortcode menus
+  // (list rows + detail breadcrumb). The manager is always rendered for
+  // the current operator, so the context slug matches operatorId here.
+  const { currentOperator } = useOperator()
+  const operatorSlug = currentOperator?.slug ?? ''
   const routed = onUrlSelect !== undefined
   // In routed mode the URL is the source of truth; otherwise we keep local
   // selection state (legacy onboarding embed).
@@ -412,6 +419,23 @@ export function ProductsManager({
           </Button>
         ) : null}
         <CardTitle>{detailHeading}</CardTitle>
+        {/* landr-up1b — per-product shortcode menu: copy the single-product
+            embed, or copy a shortcode for any category level in this
+            product's breadcrumb (walks parent_id to the root). Only shown
+            for a saved product with a known operator slug. */}
+        {selectedProduct &&
+        resolvedSelection !== NEW_PRODUCT &&
+        operatorSlug ? (
+          <div className="ml-auto">
+            <ProductShortcodeMenu
+              operatorId={operatorId}
+              operatorSlug={operatorSlug}
+              productSlug={selectedProduct.slug}
+              productGroupId={selectedProduct.product_group_id}
+              variant="detail"
+            />
+          </div>
+        ) : null}
       </CardHeader>
       <CardContent>
         {resolvedSelection === NEW_PRODUCT || selectedProduct ? (
@@ -477,6 +501,8 @@ export function ProductsManager({
       />
       <ProductsList
         rows={rows}
+        operatorId={operatorId}
+        operatorSlug={operatorSlug || undefined}
         selectedId={
           resolvedSelection === NEW_PRODUCT
             ? null
