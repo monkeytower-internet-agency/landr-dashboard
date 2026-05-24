@@ -97,7 +97,8 @@ vi.mock('sonner', () => ({
   Toaster: () => null,
 }))
 
-import { TicketBoard, resolveTicketDrop } from './TicketBoard'
+import { TicketBoard } from './TicketBoard'
+import { resolveTicketDrop } from '@/lib/tickets'
 
 // ---- helpers ----------------------------------------------------------------
 

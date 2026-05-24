@@ -236,3 +236,46 @@ export async function patchTicketStatus(
 
   if (error) throw new Error(error.message)
 }
+
+// ---- drop resolution --------------------------------------------------------
+
+/**
+ * Pure drop resolver for the kanban board's DnD — extracted here (a .ts
+ * module) rather than the .tsx route so the route can satisfy
+ * react-refresh/only-export-components (component files export only
+ * components). Imported by both TicketBoard.tsx and the tests.
+ *
+ * Returns null when the drop should be ignored (same column, no source item,
+ * or the target column is not in DRAGGABLE_STATUSES — i.e. bd-authoritative).
+ * Otherwise returns { ticketId, newStatus }.
+ */
+export function resolveTicketDrop(args: {
+  activeId: string
+  overId: string | null
+  tickets: TicketRow[]
+}): { ticketId: string; newStatus: TicketStatus } | null {
+  const { activeId, overId, tickets } = args
+  if (!overId) return null
+
+  const dragged = tickets.find((t) => t.id === activeId)
+  if (!dragged) return null
+
+  // Resolve target column key from:
+  //   - a column droppable id: `column:<status>`
+  //   - a sortable card id: look up the card's current status
+  const targetStatus: TicketStatus | null = overId.startsWith('column:')
+    ? (overId.slice('column:'.length) as TicketStatus)
+    : (tickets.find((t) => t.id === overId)?.status ?? null)
+
+  if (!targetStatus) return null
+  if (targetStatus === dragged.status) return null
+
+  // Guard: only allow drops into human-owned (DRAGGABLE_STATUSES) columns.
+  if (!DRAGGABLE_STATUSES.has(targetStatus)) return null
+
+  // Guard: only allow drags FROM human-owned columns (shouldn't happen since
+  // those cards have disabled:true on useSortable, but belt-and-suspenders).
+  if (!DRAGGABLE_STATUSES.has(dragged.status)) return null
+
+  return { ticketId: activeId, newStatus: targetStatus }
+}

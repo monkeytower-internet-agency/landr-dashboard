@@ -40,59 +40,14 @@ import { useOperator } from '@/lib/operator'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  DRAGGABLE_STATUSES,
   TICKET_COLUMNS,
   fetchTickets,
   patchTicketStatus,
+  resolveTicketDrop,
   type TicketRow,
   type TicketStatus,
 } from '@/lib/tickets'
 import { TicketBoardColumn } from '@/components/tickets/TicketBoardColumn'
-
-// ---- drop resolution --------------------------------------------------------
-
-/**
- * Pure drop resolver — extracted for testability.
- *
- * Returns null when the drop should be ignored (same column, no source item,
- * or the target column is not in DRAGGABLE_STATUSES — i.e. bd-authoritative).
- * Otherwise returns { ticketId, newStatus }.
- */
-export function resolveTicketDrop(args: {
-  activeId: string
-  overId: string | null
-  tickets: TicketRow[]
-}): { ticketId: string; newStatus: TicketStatus } | null {
-  const { activeId, overId, tickets } = args
-  if (!overId) return null
-
-  const dragged = tickets.find((t) => t.id === activeId)
-  if (!dragged) return null
-
-  // Resolve target column key from:
-  //   - a column droppable id: `column:<status>`
-  //   - a sortable card id: look up the card's current status
-  let targetStatus: TicketStatus | null = null
-  if (overId.startsWith('column:')) {
-    const raw = overId.slice('column:'.length) as TicketStatus
-    targetStatus = raw
-  } else {
-    const overTicket = tickets.find((t) => t.id === overId)
-    targetStatus = overTicket?.status ?? null
-  }
-
-  if (!targetStatus) return null
-  if (targetStatus === dragged.status) return null
-
-  // Guard: only allow drops into human-owned (DRAGGABLE_STATUSES) columns.
-  if (!DRAGGABLE_STATUSES.has(targetStatus)) return null
-
-  // Guard: only allow drags FROM human-owned columns (shouldn't happen since
-  // those cards have disabled:true on useSortable, but belt-and-suspenders).
-  if (!DRAGGABLE_STATUSES.has(dragged.status)) return null
-
-  return { ticketId: activeId, newStatus: targetStatus }
-}
 
 // ---- component --------------------------------------------------------------
 
