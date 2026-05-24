@@ -341,6 +341,65 @@ export async function fetchTicketStaff(
   return data as TicketRowStaff | null
 }
 
+// ---- assignable users (landr-wwhn.22) ---------------------------------------
+//
+// Assignees on tickets can be a human (is_landr_staff = true) or a Claude
+// agent (is_claude_agent = true). Both live in public.users; neither is a
+// plain operator account.
+//
+// The assignable_users SECURITY DEFINER view (migration
+// 20260524140000_users_is_claude_agent.sql) exposes the picker payload.
+// It is readable by authenticated role: staff populate the picker, operators
+// see the resolved display name for their assigned tickets (read-only).
+//
+// Agent-assignment bridge hook: when a Claude agent is set as assignee and the
+// ticket already has a linked_bd_id, the bridge worker (ticket_bridge.py)
+// interprets this as a bd-claim signal — it stamps `bd claim <linked_bd_id>`.
+// That wiring lives entirely in the bridge worker; this client just writes
+// assignee_id to tickets (plain REST UPDATE, no side effects here).
+
+export type AssignableUser = {
+  id: string
+  email: string | null
+  /** True for the vendor Olaf user (can triage + assign). */
+  is_landr_staff: boolean
+  /** True for Claude agent accounts (no supabase_auth_id; claim signal to bridge). */
+  is_claude_agent: boolean
+}
+
+/**
+ * Fetch all users that can be assigned to a ticket.
+ * Returns staff and Claude agent accounts from the assignable_users SECURITY
+ * DEFINER view. Returns [] for non-staff (the view filters them out — safe to
+ * call from operator sessions for display purposes).
+ */
+export async function fetchAssignableUsers(): Promise<AssignableUser[]> {
+  const { data, error } = await supabase
+    .from('assignable_users')
+    .select('id, email, is_landr_staff, is_claude_agent')
+    .order('email', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as AssignableUser[]
+}
+
+/**
+ * Set (or clear) the assignee on a ticket.
+ * Direct Supabase REST UPDATE — assignee_id is in the authenticated UPDATE
+ * grant. Pass null to unassign. Callers should gate on isStaff before calling
+ * (operators may not reassign tickets; this is a staff action in the UI but
+ * the RLS lets any operator write their own tickets' assignee_id).
+ */
+export async function patchTicketAssignee(
+  ticketId: string,
+  assigneeId: string | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from('tickets')
+    .update({ assignee_id: assigneeId })
+    .eq('id', ticketId)
+  if (error) throw new Error(error.message)
+}
+
 // ---- current public user ----------------------------------------------------
 
 export type PublicUser = {

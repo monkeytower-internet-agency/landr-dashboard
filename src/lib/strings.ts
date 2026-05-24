@@ -467,6 +467,17 @@ export const t = {
     gatewayToastSuccess: (bdId: string): string =>
       `Sent to development — bd issue ${bdId}`,
     gatewayToastError: 'Could not send to development',
+    // Assignee (landr-wwhn.22)
+    assigneeSectionTitle: 'Assignee',
+    assigneeUnassigned: 'Unassigned',
+    assigneePickerPlaceholder: '— Assign to someone —',
+    assigneeToastSet: (email: string): string => `Assigned to ${email}`,
+    assigneeToastCleared: 'Assignee removed',
+    assigneeToastError: 'Could not update assignee',
+    assigneeAgentBadge: 'Agent',
+    assigneeStaffBadge: 'Staff',
+    assigneeLoading: 'Loading assignees…',
+    assigneeNone: 'No assignees available.',
     // Errors
     loadError: 'Could not load ticket.',
     notFound: 'Ticket not found.',

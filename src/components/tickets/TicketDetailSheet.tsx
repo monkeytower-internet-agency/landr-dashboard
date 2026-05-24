@@ -1,5 +1,6 @@
 // landr-wwhn.13 — Ticket detail sheet.
 // landr-wwhn.14 — Send-to-development gateway UI (landr-staff only).
+// landr-wwhn.22 — Assignee section: picker for staff, read-only for operators.
 //
 // Opens from the kanban board when an operator or staff clicks a ticket card.
 // Architecture follows BookingDetailSheet.tsx: a Sheet shell delegates to a
@@ -26,7 +27,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BellIcon, BellOffIcon, Eye, EyeOff, MailIcon, Paperclip, Send, SmartphoneIcon } from 'lucide-react'
+import { BellIcon, BellOffIcon, BotIcon, Eye, EyeOff, MailIcon, Paperclip, Send, SmartphoneIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuth } from '@/lib/auth'
@@ -55,6 +56,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 import {
   createComment,
+  fetchAssignableUsers,
   fetchCurrentPublicUser,
   fetchTicketAttachments,
   fetchTicketComments,
@@ -63,6 +65,7 @@ import {
   fetchTicketStaff,
   fetchTicketWatcher,
   getAttachmentSignedUrl,
+  patchTicketAssignee,
   promoteTicket,
   unwatchTicket,
   uploadTicketAttachment,
@@ -71,6 +74,7 @@ import {
   PRIORITY_LABEL,
   PRIORITY_TOOLTIP,
   TYPE_LABEL,
+  type AssignableUser,
   type TicketAttachment,
   type TicketComment,
   type TicketEvent,
@@ -263,6 +267,10 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
               void qc.invalidateQueries({ queryKey: ['ticket-staff', ticket.id] })
               void qc.invalidateQueries({ queryKey: ['ticket-events', ticket.id] })
             }}
+            onAssigneeChange={() => {
+              void qc.invalidateQueries({ queryKey: ['tickets', ticket.operator_id] })
+              void qc.invalidateQueries({ queryKey: ['ticket-events', ticket.id] })
+            }}
           />
         </div>
       ) : activeTab === 'comments' ? (
@@ -412,9 +420,10 @@ type DetailsPanelProps = {
   isStaff: boolean
   publicUserId: string | null
   onPromoteSuccess: () => void
+  onAssigneeChange: () => void
 }
 
-function DetailsPanel({ ticket, staffDetail, isStaff, publicUserId, onPromoteSuccess }: DetailsPanelProps) {
+function DetailsPanel({ ticket, staffDetail, isStaff, publicUserId, onPromoteSuccess, onAssigneeChange }: DetailsPanelProps) {
   const dateFormatter = new Intl.DateTimeFormat('en-IE', {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -490,6 +499,13 @@ function DetailsPanel({ ticket, staffDetail, isStaff, publicUserId, onPromoteSuc
           </dl>
         </CardContent>
       </Card>
+
+      {/* Assignee (landr-wwhn.22) */}
+      <AssigneeSection
+        ticket={ticket}
+        isStaff={isStaff}
+        onAssigneeChange={onAssigneeChange}
+      />
 
       {/* Description */}
       <Card>
@@ -588,6 +604,163 @@ function DetailsPanel({ ticket, staffDetail, isStaff, publicUserId, onPromoteSuc
           onPromoteSuccess={onPromoteSuccess}
         />
       )}
+    </div>
+  )
+}
+
+// ---- AssigneeSection (landr-wwhn.22) ----------------------------------------
+//
+// Staff see a <select> picker backed by the assignable_users view.
+// Operators see a read-only display (assignee email or "Unassigned").
+//
+// Assignee kinds:
+//   is_claude_agent=true  → "Agent" badge + robot icon
+//   is_landr_staff=true   → "Staff" badge + email
+//
+// When a staff user changes the assignee, patchTicketAssignee() is called
+// directly (plain REST UPDATE; assignee_id is in the UPDATE grant). The bridge
+// worker interprets agent assignment as a bd-claim signal when linked_bd_id is
+// set — that wiring lives in ticket_bridge.py, not here.
+
+type AssigneeSectionProps = {
+  ticket: TicketRow
+  isStaff: boolean
+  onAssigneeChange: () => void
+}
+
+function AssigneeSection({ ticket, isStaff, onAssigneeChange }: AssigneeSectionProps) {
+  const qc = useQueryClient()
+
+  // Fetch assignable users (staff + agents). Returns [] for non-staff due to
+  // the SECURITY DEFINER view gate — that's fine: operators see a read-only
+  // display using the already-loaded ticket.assignee_id, resolved from the
+  // same cache the board uses (assignable-users key).
+  const assignableQuery = useQuery({
+    queryKey: ['assignable-users'],
+    queryFn: fetchAssignableUsers,
+    staleTime: 5 * 60 * 1000,
+  })
+  const assignableUsers: AssignableUser[] = assignableQuery.data ?? []
+
+  // Resolve the current assignee from the cached list (avoids a second fetch).
+  const currentAssignee: AssignableUser | null =
+    ticket.assignee_id
+      ? (assignableUsers.find((u) => u.id === ticket.assignee_id) ?? null)
+      : null
+
+  const mutation = useMutation({
+    mutationFn: (assigneeId: string | null) =>
+      patchTicketAssignee(ticket.id, assigneeId),
+    onSuccess: (_data, assigneeId) => {
+      const name = assigneeId
+        ? (assignableUsers.find((u) => u.id === assigneeId)?.email ?? assigneeId)
+        : null
+      toast.success(
+        name
+          ? t.ticketDetail.assigneeToastSet(name)
+          : t.ticketDetail.assigneeToastCleared,
+      )
+      onAssigneeChange()
+      void qc.invalidateQueries({ queryKey: ['assignable-users'] })
+    },
+    onError: () => {
+      toast.error(t.ticketDetail.assigneeToastError)
+    },
+  })
+
+  const labelId = `assignee-label-${ticket.id}`
+
+  return (
+    <Card data-testid="assignee-section">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium" id={labelId}>
+          {t.ticketDetail.assigneeSectionTitle}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isStaff ? (
+          <div className="flex flex-col gap-2">
+            <select
+              aria-labelledby={labelId}
+              value={ticket.assignee_id ?? ''}
+              onChange={(e) => {
+                const val = e.target.value
+                mutation.mutate(val === '' ? null : val)
+              }}
+              disabled={mutation.isPending || assignableQuery.isPending}
+              className="border-input bg-background rounded-md border px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
+              data-testid="assignee-picker"
+            >
+              <option value="">{t.ticketDetail.assigneePickerPlaceholder}</option>
+              {assignableUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.is_claude_agent
+                    ? `🤖 ${u.email ?? 'Agent'}`
+                    : (u.email ?? u.id)}
+                </option>
+              ))}
+            </select>
+            {/* Display badge for the currently resolved assignee */}
+            {currentAssignee && (
+              <AssigneeDisplay assignee={currentAssignee} />
+            )}
+          </div>
+        ) : (
+          // Operator read-only view
+          ticket.assignee_id && currentAssignee ? (
+            <AssigneeDisplay assignee={currentAssignee} />
+          ) : (
+            <span
+              className="text-muted-foreground text-sm italic"
+              data-testid="assignee-unassigned"
+            >
+              {t.ticketDetail.assigneeUnassigned}
+            </span>
+          )
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ---- AssigneeDisplay --------------------------------------------------------
+
+type AssigneeDisplayProps = {
+  assignee: AssignableUser
+}
+
+function AssigneeDisplay({ assignee }: AssigneeDisplayProps) {
+  return (
+    <div
+      className="flex items-center gap-2"
+      data-testid="assignee-display"
+    >
+      {assignee.is_claude_agent ? (
+        <span className="inline-flex size-6 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+          <BotIcon className="size-3.5" aria-hidden />
+        </span>
+      ) : (
+        <span className="bg-emerald-100 inline-flex size-6 items-center justify-center rounded-full text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+          {(() => {
+            const local = (assignee.email ?? '').split('@')[0] ?? ''
+            const parts = local.split(/[._-]/).filter(Boolean)
+            const initials = parts.length >= 2
+              ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+              : local.slice(0, 2).toUpperCase()
+            return initials || '?'
+          })()}
+        </span>
+      )}
+      <div className="flex flex-col">
+        <span className="text-sm font-medium">
+          {assignee.email ?? (assignee.is_claude_agent ? 'Claude agent' : assignee.id)}
+        </span>
+        <span className="text-muted-foreground text-xs">
+          {assignee.is_claude_agent
+            ? t.ticketDetail.assigneeAgentBadge
+            : t.ticketDetail.assigneeStaffBadge}
+        </span>
+      </div>
     </div>
   )
 }

@@ -10,7 +10,7 @@
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { cn } from '@/lib/utils'
-import type { TicketRow } from '@/lib/tickets'
+import type { AssignableUser, TicketRow } from '@/lib/tickets'
 import { TicketCard } from './TicketCard'
 
 type Props = {
@@ -24,6 +24,12 @@ type Props = {
    * The column accepts no drops and is rendered in a muted style.
    */
   readMostly: boolean
+  /**
+   * Optional map from users.id → AssignableUser for rendering card chips.
+   * When absent no assignee chips are rendered (operators without staff role
+   * get back an empty map so chips hide gracefully).
+   */
+  assigneeMap?: Map<string, AssignableUser>
 }
 
 const READ_MOSTLY_REASON =
@@ -35,6 +41,7 @@ export function TicketBoardColumn({
   items,
   onOpen,
   readMostly,
+  assigneeMap,
 }: Props) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column:${columnKey}`,
@@ -101,7 +108,16 @@ export function TicketBoardColumn({
             </p>
           ) : (
             items.map((ticket) => (
-              <TicketCard key={ticket.id} ticket={ticket} onOpen={onOpen} />
+              <TicketCard
+                key={ticket.id}
+                ticket={ticket}
+                onOpen={onOpen}
+                assignee={
+                  ticket.assignee_id
+                    ? (assigneeMap?.get(ticket.assignee_id) ?? null)
+                    : null
+                }
+              />
             ))
           )}
         </div>
