@@ -393,6 +393,70 @@ export const t = {
     // Validation.
     titleRequired: 'A one-line summary is required.',
   },
+  // landr-wwhn.13 — ticket detail sheet.
+  ticketDetail: {
+    sheetTitle: 'Ticket details',
+    sheetDescription: (id: string): string => `#${id.slice(0, 8)}`,
+    tabDetails: 'Details',
+    tabComments: 'Comments',
+    tabTimeline: 'Timeline',
+    tabAttachments: 'Attachments',
+    // Fields
+    sectionStatus: 'Status',
+    sectionType: 'Type',
+    sectionImpact: 'Impact',
+    sectionPriority: 'Priority',
+    sectionBody: 'Description',
+    noBody: 'No description provided.',
+    createdAt: 'Opened',
+    updatedAt: 'Last updated',
+    // Staff-only fields
+    sectionInternal: 'Internal (staff only)',
+    severityLabel: 'Severity',
+    linkedBdLabel: 'bd issue',
+    syncStatusLabel: 'Sync status',
+    // Watch toggle
+    watchLabel: 'Watch',
+    watchingLabel: 'Watching',
+    watchToastOn: 'Watching this ticket',
+    watchToastOff: 'Stopped watching',
+    watchToastError: 'Could not update watch status',
+    // Comments
+    commentPlaceholder: 'Write a comment…',
+    commentInternalPlaceholder: 'Internal note (staff only)…',
+    commentSubmit: 'Post',
+    commentSubmitting: 'Posting…',
+    commentInternalToggle: 'Internal note',
+    commentToastError: 'Could not post comment',
+    noComments: 'No comments yet.',
+    // Timeline
+    noEvents: 'No activity yet.',
+    eventCreated: 'Ticket opened',
+    eventStatusChanged: (from: string, to: string): string =>
+      `Status changed from ${from} to ${to}`,
+    eventAssigned: 'Ticket assigned',
+    eventUnassigned: 'Ticket unassigned',
+    eventBlocked: 'Marked as blocked',
+    eventUnblocked: 'Unblocked',
+    eventCommentAdded: 'Comment added',
+    eventCommentInternal: 'Internal note added',
+    eventLabelAdded: 'Label added',
+    eventLabelRemoved: 'Label removed',
+    eventPromoted: (bdId: string): string => `Sent to development (${bdId})`,
+    eventShipped: (ref: string): string => `Shipped (${ref})`,
+    eventUnknown: 'Activity',
+    // Attachments
+    noAttachments: 'No attachments.',
+    attachmentUploadLabel: 'Attach file',
+    attachmentUploading: 'Uploading…',
+    attachmentToastError: (name: string): string =>
+      `Could not upload ${name}`,
+    attachmentDownload: 'Download',
+    attachmentPasteHint: 'You can also paste an image (Ctrl+V / Cmd+V).',
+    // Errors
+    loadError: 'Could not load ticket.',
+    notFound: 'Ticket not found.',
+  },
   // landr-a8fg — shared "Copy link" affordance on detail sheets + ViewPage
   // headers. Centralised so the tooltip, success toast and error toast stay
   // consistent across every surface that mounts CopyLinkButton.
