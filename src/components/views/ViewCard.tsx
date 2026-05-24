@@ -21,7 +21,7 @@
 // keyboard support). The pin button lives inside the card but eats its
 // own click events so pinning never opens the view.
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Columns3, type LucideIcon, Table } from 'lucide-react'
+import { Calendar, Columns3, type LucideIcon, Table, TicketIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { readFilters } from '@/lib/views-filters'
 import { isViewLayout, type ViewLayout } from '@/components/views/LayoutSwitcher'
@@ -103,6 +103,16 @@ function formatRelative(iso: string): string {
   return ''
 }
 
+// landr-wwhn.17 — ticket views always use a distinct teal gradient regardless
+// of the stored config.layout so they're visually distinguishable from booking
+// views at a glance.
+const TICKET_VISUAL: LayoutVisual = {
+  gradient: 'bg-gradient-to-br from-teal-500 to-teal-700',
+  iconWrap: 'bg-white/15 text-white ring-1 ring-white/30',
+  Icon: TicketIcon,
+  label: 'Ticket board',
+}
+
 export type ViewCardProps = {
   view: SavedViewWithState
   operatorId: string
@@ -111,7 +121,9 @@ export type ViewCardProps = {
 export function ViewCard({ view, operatorId }: ViewCardProps) {
   const navigate = useNavigate()
   const layout = readConfigLayout(view.config)
-  const visual = LAYOUT_VISUALS[layout]
+  // landr-wwhn.17 — ticket entity type uses a fixed visual regardless of layout.
+  const visual =
+    view.entity_type === 'ticket' ? TICKET_VISUAL : LAYOUT_VISUALS[layout]
   const Icon = visual.Icon
 
   const filterCount = readFilters(view.config).length

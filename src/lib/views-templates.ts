@@ -14,7 +14,9 @@ export type ViewTemplate = {
   key: string
   name: string
   description: string
-  entity_type: 'booking'
+  // landr-wwhn.17 — 'ticket' entity type added so ticket template views
+  // can be materialised via /views/new?from=template:<key>.
+  entity_type: 'booking' | 'ticket'
   config: Record<string, unknown>
 }
 
@@ -180,6 +182,38 @@ export const VIEW_TEMPLATES: ViewTemplate[] = [
         },
       ],
       sort: [{ source: 'system', key: 'date_range_start', dir: 'desc' }],
+    },
+  },
+  // landr-wwhn.17 — ticket board template views.
+  {
+    key: 'my-open-tickets',
+    name: 'My open tickets',
+    description:
+      'All open tickets in the backlog and ready columns — your default operations board.',
+    entity_type: 'ticket',
+    config: {
+      layout: 'board',
+      // ticketConfig.statuses: limit to the human-owned columns so the
+      // template gives operators a focused grooming view by default. The
+      // bd-authoritative columns (in_progress/in_review/done) still render
+      // but are read-only (columns are fixed in the ticket board layout).
+      ticketConfig: {
+        statuses: ['backlog', 'ready'],
+      },
+      filters: [],
+      sort: [],
+    },
+  },
+  {
+    key: 'all-tickets',
+    name: 'All tickets',
+    description: 'Every ticket across all statuses — the full pipeline board.',
+    entity_type: 'ticket',
+    config: {
+      layout: 'board',
+      ticketConfig: {},
+      filters: [],
+      sort: [],
     },
   },
 ]
