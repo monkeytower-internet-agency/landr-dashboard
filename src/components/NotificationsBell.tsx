@@ -1,23 +1,36 @@
-// landr-8whx — Topbar notifications bell (v1 stub).
+// landr-wwhn.15 — Notification bell (v2, ticket-system).
 //
-// Surfaces two event streams the operator already cares about:
-//   1. Pending general approvals  (existing query: fetchPendingGeneralApprovals)
-//   2. Recent bookings, last 24h  (existing query: fetchBookings, filtered)
+// Replaces the v1 booking-based bell (landr-8whx) with the full ticket-system
+// notification feed backed by the `notifications` table (landr-wwhn.7 schema).
 //
-// Both queries are ALREADY invalidated on every booking write via
-// invalidateBookingCaches (lib/bookings.ts:134), so this dropdown stays
-// fresh without its own realtime subscription. v2 will wire postgres
-// changes via useRealtimeQuery once we agree on the per-event payload
-// shape; for now the badge + list refresh whenever any other surface
-// approves/edits/creates a booking.
+// Contract (the source-of-truth surface):
+//   * Unread badge: red dot when any notification has read_at = NULL.
+//   * History dropdown: scrollable list of up to 50 recent notifications,
+//     newest first. Each row shows the title, relative time, and a visual
+//     read/unread indicator.
+//   * Mark-read on click: clicking an item calls markNotificationRead → sets
+//     read_at; the badge re-evaluates automatically via the query invalidation.
+//   * Mark-all-read: footer button marks every unread notification as read.
+//   * Click-through: if the notification has a ticket_id, clicking it navigates
+//     to /tickets?open=<ticket_id> and closes the dropdown. TicketBoard reads
+//     that param and auto-opens the detail sheet.
+//   * Realtime: postgres_changes subscription on `notifications` for own rows,
+//     via useRealtimeQuery — badge and history stay live without polling.
+//   * Read-state sync: because read_at is set server-side and realtime fires on
+//     the update, reading on web automatically clears the mobile badge and vice
+//     versa (mobile .18 mirrors this side).
 //
-// Lives in the topbar next to ThemeToggle (see AppShell.tsx). Clicking
-// a notification navigates to the relevant page and closes the menu.
+// Why own-user realtime filter works: Supabase postgres_changes with a
+// `user_id=eq.<uuid>` filter is server-side so only rows belonging to the
+// current user arrive in the channel — no client-side filtering needed.
+// The user_id (public.users.id) is resolved once from auth.uid via the users
+// table and memoised; the subscription is re-registered whenever it changes.
 
-import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BellIcon } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { BellIcon, CheckCheckIcon } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -28,75 +41,126 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+
+import { useAuth } from '@/lib/auth'
+import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import {
-  customerDisplay,
-  fetchBookings,
-  fetchPendingGeneralApprovals,
-  type BookingRow,
-} from '@/lib/bookings'
-import { useOperator } from '@/lib/operator'
+  fetchNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  type NotificationRow,
+} from '@/lib/notifications'
+import { fetchCurrentPublicUser } from '@/lib/tickets'
 import { t } from '@/lib/strings'
 
-const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000
-// Cap the dropdown so a noisy operator account doesn't render hundreds
-// of items inside a popover; the "View all" footer links cover the rest.
-const MAX_ITEMS_PER_SECTION = 5
+// ---- helpers ----------------------------------------------------------------
 
-function isRecent(row: BookingRow, now: number): boolean {
-  const createdMs = Date.parse(row.created_at)
-  if (!Number.isFinite(createdMs)) return false
-  return now - createdMs <= RECENT_WINDOW_MS
+/**
+ * Returns a human-readable relative time string (e.g. "3 minutes ago",
+ * "2 days ago") without a third-party library. Precision is intentionally
+ * coarse — notification timestamps don't need sub-minute accuracy.
+ */
+function relativeTime(iso: string): string {
+  try {
+    const diffMs = Date.now() - new Date(iso).getTime()
+    const diffSec = Math.floor(diffMs / 1000)
+    if (diffSec < 60) return 'just now'
+    const diffMin = Math.floor(diffSec / 60)
+    if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`
+    const diffH = Math.floor(diffMin / 60)
+    if (diffH < 24) return `${diffH} hour${diffH === 1 ? '' : 's'} ago`
+    const diffD = Math.floor(diffH / 24)
+    if (diffD < 30) return `${diffD} day${diffD === 1 ? '' : 's'} ago`
+    const diffMo = Math.floor(diffD / 30)
+    return `${diffMo} month${diffMo === 1 ? '' : 's'} ago`
+  } catch {
+    return ''
+  }
 }
 
+// ---- component --------------------------------------------------------------
+
 export function NotificationsBell() {
-  const { currentOperatorId } = useOperator()
+  const { user } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
 
-  // Reuses the SAME query keys as GeneralApprovals + Bookings so we
-  // share cache + invalidations for free — no extra round-trip when the
-  // operator opens those pages, and approve/reject from any surface
-  // refreshes both the badge and the dropdown.
-  const approvalsQuery = useQuery<BookingRow[]>({
-    queryKey: ['bookings', 'general-approvals', currentOperatorId ?? 'none'],
-    queryFn: () => fetchPendingGeneralApprovals(currentOperatorId as string),
-    enabled: !!currentOperatorId,
+  // Resolve auth.uid → public.users.id once (needed for the realtime filter).
+  // Shared query key with TicketDetailSheet so the two share the cache entry.
+  const { data: publicUser } = useQuery({
+    queryKey: ['current-public-user', user?.id ?? 'anon'],
+    queryFn: () => fetchCurrentPublicUser(user!.id),
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+  })
+  const publicUserId = publicUser?.id ?? null
+
+  // Realtime-backed query. The filter is `user_id=eq.<publicUserId>` so the
+  // channel only fires for THIS user's rows — own-row RLS matches too.
+  const query = useRealtimeQuery<NotificationRow[]>({
+    queryKey: ['notifications', publicUserId ?? 'none'],
+    queryFn: fetchNotifications,
+    enabled: !!publicUserId,
+    realtime: publicUserId
+      ? {
+          table: 'notifications',
+          event: '*',
+          filter: `user_id=eq.${publicUserId}`,
+        }
+      : null,
   })
 
-  const bookingsQuery = useQuery<BookingRow[]>({
-    queryKey: ['bookings', currentOperatorId ?? 'none'],
-    queryFn: () => fetchBookings(currentOperatorId as string),
-    enabled: !!currentOperatorId,
-  })
-
-  // The "last 24h" window slides as the dropdown stays mounted, but we
-  // don't want to call Date.now() inside the render body (the React
-  // purity rule rightly flags it). Re-evaluate `now` once per minute via
-  // an effect — fine-grained enough for a 24h cutoff, and stable across
-  // renders that don't change either query.
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 60_000)
-    return () => window.clearInterval(id)
-  }, [])
-
-  const pendingApprovals = approvalsQuery.data ?? []
-  const recentBookings = useMemo(
-    () => (bookingsQuery.data ?? []).filter((row) => isRecent(row, now)),
-    [bookingsQuery.data, now],
+  const notifications = useMemo(() => query.data ?? [], [query.data])
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => n.read_at === null).length,
+    [notifications],
   )
 
-  // v1 badge count = pending approvals only. Recent-bookings is
-  // informational; making it count toward unread would over-fire the
-  // badge every time a booking comes in (which is the *normal* path,
-  // not an exception). Operators want the bell to scream when something
-  // is BLOCKED on them, not when business is humming along.
-  const count = pendingApprovals.length
+  // ---- mark single read -------------------------------------------------------
 
-  function handleNavigate(to: string) {
-    setOpen(false)
-    navigate(to)
-  }
+  const markReadMutation = useMutation({
+    mutationFn: markNotificationRead,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['notifications', publicUserId ?? 'none'],
+      })
+    },
+    onError: () => {
+      toast.error('Could not mark notification as read.')
+    },
+  })
+
+  // ---- mark all read ----------------------------------------------------------
+
+  const markAllMutation = useMutation({
+    mutationFn: markAllNotificationsRead,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['notifications', publicUserId ?? 'none'],
+      })
+    },
+    onError: () => {
+      toast.error('Could not mark all notifications as read.')
+    },
+  })
+
+  // ---- item click (mark read + navigate if ticket) ----------------------------
+
+  const handleItemClick = useCallback(
+    (notification: NotificationRow) => {
+      if (notification.read_at === null) {
+        markReadMutation.mutate(notification.id)
+      }
+      if (notification.ticket_id) {
+        setOpen(false)
+        navigate(`/tickets?open=${encodeURIComponent(notification.ticket_id)}`)
+      }
+    },
+    [markReadMutation, navigate],
+  )
+
+  // ---- render -----------------------------------------------------------------
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -105,13 +169,15 @@ export function NotificationsBell() {
           variant="ghost"
           size="icon"
           aria-label={
-            count > 0 ? t.notifications.badge(count) : t.notifications.open
+            unreadCount > 0
+              ? t.notifications.badge(unreadCount)
+              : t.notifications.open
           }
           className="relative"
           data-testid="notifications-bell-trigger"
         >
           <BellIcon className="size-4" />
-          {count > 0 ? (
+          {unreadCount > 0 ? (
             <span
               aria-hidden
               data-testid="notifications-bell-badge"
@@ -120,86 +186,113 @@ export function NotificationsBell() {
           ) : null}
         </Button>
       </DropdownMenuTrigger>
+
       <DropdownMenuContent
         align="end"
         className="w-80"
         data-testid="notifications-bell-content"
       >
-        <DropdownMenuLabel className="text-xs font-medium">
-          {t.notifications.heading}
-        </DropdownMenuLabel>
+        <div className="flex items-center justify-between px-2 py-1.5">
+          <DropdownMenuLabel className="p-0 text-xs font-medium">
+            {t.notifications.heading}
+          </DropdownMenuLabel>
+          {unreadCount > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground h-auto px-1 py-0 text-xs"
+              onClick={(e) => {
+                // Prevent the DropdownMenu from interpreting this as a close.
+                e.stopPropagation()
+                markAllMutation.mutate()
+              }}
+              disabled={markAllMutation.isPending}
+              data-testid="notifications-bell-mark-all-read"
+            >
+              <CheckCheckIcon className="mr-1 size-3" />
+              {t.notifications.markAllRead}
+            </Button>
+          ) : null}
+        </div>
         <DropdownMenuSeparator />
 
-        {pendingApprovals.length === 0 && recentBookings.length === 0 ? (
+        {/* Error state */}
+        {query.isError ? (
+          <div
+            className="text-muted-foreground px-2 py-3 text-center text-xs"
+            data-testid="notifications-bell-error"
+          >
+            {t.notifications.loadError}
+          </div>
+        ) : null}
+
+        {/* Empty state */}
+        {!query.isError && notifications.length === 0 && !query.isPending ? (
           <div
             className="text-muted-foreground px-2 py-3 text-center text-xs"
             data-testid="notifications-bell-empty"
           >
             {t.notifications.empty}
           </div>
-        ) : (
-          <>
-            {pendingApprovals.length > 0 ? (
-              <>
-                <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-                  {t.notifications.sectionPending}
-                </DropdownMenuLabel>
-                {pendingApprovals
-                  .slice(0, MAX_ITEMS_PER_SECTION)
-                  .map((row) => (
-                    <DropdownMenuItem
-                      key={`pending-${row.id}`}
-                      onSelect={() => handleNavigate('/approvals/general')}
-                      data-testid={`notifications-bell-pending-${row.id}`}
-                    >
-                      <span className="truncate text-sm">
-                        {t.notifications.pendingItem(customerDisplay(row))}
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
-                <DropdownMenuItem
-                  onSelect={() => handleNavigate('/approvals/general')}
-                  data-testid="notifications-bell-view-approvals"
-                  className="text-muted-foreground text-xs"
-                >
-                  {t.notifications.viewAllApprovals}
-                </DropdownMenuItem>
-              </>
-            ) : null}
+        ) : null}
 
-            {pendingApprovals.length > 0 && recentBookings.length > 0 ? (
-              <DropdownMenuSeparator />
-            ) : null}
-
-            {recentBookings.length > 0 ? (
-              <>
-                <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-                  {t.notifications.sectionRecent}
-                </DropdownMenuLabel>
-                {recentBookings
-                  .slice(0, MAX_ITEMS_PER_SECTION)
-                  .map((row) => (
-                    <DropdownMenuItem
-                      key={`recent-${row.id}`}
-                      onSelect={() => handleNavigate('/bookings')}
-                      data-testid={`notifications-bell-recent-${row.id}`}
+        {/* Notification list — scrollable, max-h keeps the dropdown from
+            overflowing the viewport on screens with many unread items. */}
+        {notifications.length > 0 ? (
+          <div
+            className="max-h-96 overflow-y-auto"
+            data-testid="notifications-bell-list"
+          >
+            {notifications.map((n) => (
+              <DropdownMenuItem
+                key={n.id}
+                onSelect={() => handleItemClick(n)}
+                data-testid={`notification-item-${n.id}`}
+                className="flex cursor-pointer flex-col items-start gap-0.5 px-3 py-2"
+              >
+                <div className="flex w-full items-start gap-2">
+                  {/* Unread dot indicator */}
+                  <span
+                    aria-hidden
+                    className={
+                      n.read_at === null
+                        ? 'bg-primary mt-1.5 size-1.5 shrink-0 rounded-full'
+                        : 'mt-1.5 size-1.5 shrink-0 rounded-full'
+                    }
+                    data-testid={
+                      n.read_at === null
+                        ? `notification-unread-dot-${n.id}`
+                        : undefined
+                    }
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className={
+                        n.read_at === null
+                          ? 'truncate text-sm font-medium'
+                          : 'text-muted-foreground truncate text-sm'
+                      }
+                      data-testid={`notification-title-${n.id}`}
                     >
-                      <span className="truncate text-sm">
-                        {t.notifications.recentItem(customerDisplay(row))}
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
-                <DropdownMenuItem
-                  onSelect={() => handleNavigate('/bookings')}
-                  data-testid="notifications-bell-view-bookings"
-                  className="text-muted-foreground text-xs"
-                >
-                  {t.notifications.viewAllBookings}
-                </DropdownMenuItem>
-              </>
-            ) : null}
-          </>
-        )}
+                      {n.title}
+                    </p>
+                    {n.body ? (
+                      <p
+                        className="text-muted-foreground line-clamp-2 text-xs"
+                        data-testid={`notification-body-${n.id}`}
+                      >
+                        {n.body}
+                      </p>
+                    ) : null}
+                    <p className="text-muted-foreground mt-0.5 text-xs">
+                      {relativeTime(n.created_at)}
+                    </p>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+            ))}
+          </div>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )

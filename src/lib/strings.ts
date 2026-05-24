@@ -341,23 +341,19 @@ export const t = {
   userMenu: {
     label: 'User menu',
   },
-  // landr-8whx — topbar notifications bell. v1 surfaces pending approvals
-  // and recent bookings (last 24h) from existing cached queries; no
-  // realtime subscription yet (those queries are already invalidated on
-  // writes via invalidateBookingCaches, so this dropdown refreshes for
-  // free whenever an operator approves/edits/creates a booking).
+  // landr-wwhn.15 — topbar notifications bell. v2 replaces the v1 booking-only
+  // bell with the ticket-system notifications feed (the reliable source of truth
+  // per the EPIC design §Notifications). Backed by the `notifications` table;
+  // realtime via postgres_changes; read-state via read_at (web↔mobile in sync).
   notifications: {
     label: 'Notifications',
     open: 'Open notifications',
     badge: (n: number): string => `${n} unread notifications`,
     heading: 'Notifications',
     empty: 'You are all caught up.',
-    sectionPending: 'Pending approvals',
-    sectionRecent: 'New bookings (last 24h)',
-    pendingItem: (customer: string): string => `${customer} — awaiting approval`,
-    recentItem: (customer: string): string => `${customer} — new booking`,
-    viewAllApprovals: 'View all approvals',
-    viewAllBookings: 'View all bookings',
+    markAllRead: 'Mark all as read',
+    viewTicket: 'View ticket',
+    loadError: 'Could not load notifications.',
   },
   // landr-wwhn.12 — persistent report/suggest entry point + create-ticket form.
   reportButton: {

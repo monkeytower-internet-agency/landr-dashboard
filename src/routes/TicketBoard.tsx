@@ -21,8 +21,14 @@
 //     The query is still operator-scoped for staff (they pick an org from
 //     the dropdown) UNLESS currentOperatorId is null (super-admin triage
 //     flow, not yet surfaced in the UI — returns empty for now).
+//
+// landr-wwhn.15 — click-through from the notification bell: navigate to
+// /tickets?open=<ticketId> to auto-open the detail sheet for that ticket.
+// The board reads the `open` search param on mount, waits for the tickets
+// query to settle, and calls setOpenTicket when the row is found.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   DndContext,
@@ -54,6 +60,7 @@ import { TicketDetailSheet } from '@/components/tickets/TicketDetailSheet'
 
 export function TicketBoard() {
   const { currentOperatorId } = useOperator()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   // landr-wwhn.13 — detail sheet state
   const [openTicket, setOpenTicket] = useState<TicketRow | null>(null)
@@ -100,6 +107,30 @@ export function TicketBoard() {
       }
     }
   }, [tickets, overrides])
+
+  // landr-wwhn.15 — auto-open the detail sheet when arriving via
+  // /tickets?open=<ticketId> (clicked from the notification bell).
+  // We wait until the tickets query has settled so we can find the row.
+  // After opening, strip the param to keep the URL clean. The setState
+  // calls go through queueMicrotask so the effect body stays side-effect-free
+  // per the react-hooks/set-state-in-effect rule.
+  useEffect(() => {
+    const ticketId = searchParams.get('open')
+    if (!ticketId || query.isPending) return
+    const found = tickets.find((t) => t.id === ticketId)
+    if (!found) return
+    queueMicrotask(() => {
+      setOpenTicket(found)
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('open')
+          return next
+        },
+        { replace: true },
+      )
+    })
+  }, [searchParams, setSearchParams, tickets, query.isPending])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
