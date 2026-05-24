@@ -133,7 +133,10 @@ vi.mock('sonner', () => ({
 }))
 
 // Mock the api-client module so promoteTicket can be controlled in gateway tests.
-const mockApiFn = vi.fn<[string, string, unknown], Promise<unknown>>()
+// vitest 4's vi.fn<T>() takes a single function-type argument (not the legacy
+// [args, return] tuple form), so type it as the api() signature.
+const mockApiFn =
+  vi.fn<(method: string, path: string, body?: unknown) => Promise<unknown>>()
 vi.mock('@/lib/api-client', () => ({
   api: mockApiFn,
   apiBase: () => '',
