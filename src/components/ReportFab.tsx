@@ -40,40 +40,14 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
   createTicket,
+  resolveTicketType,
+  type ReporterToggle,
   type TicketCreate,
   type TicketRow,
 } from '@/lib/tickets'
 import { useOperator } from '@/lib/operator'
 import { useAuth } from '@/lib/auth'
 import { t } from '@/lib/strings'
-
-// ---- Type helpers -----------------------------------------------------------
-
-type ReporterToggle = 'problem' | 'idea'
-
-/**
- * Derive the DB ticket_type from the reporter's simplified two-option toggle
- * and their perceived_impact selection.
- *
- *   Problem + blocking or annoying → 'bug'  (something is broken)
- *   Problem + idea                 → 'annoyance'  (mild friction, not a crash)
- *   Idea                           → 'feature'
- */
-function resolveTicketType(
-  toggle: ReporterToggle,
-  impact: TicketCreate['perceived_impact'],
-): TicketCreate['type'] {
-  if (toggle === 'idea') return 'feature'
-  // problem branch
-  return impact === 'idea' ? 'annoyance' : 'bug'
-}
-
-/**
- * Test-only export of resolveTicketType so unit tests can assert the mapping
- * logic without mounting the component.
- * @internal
- */
-export { resolveTicketType as resolveTicketTypeForTest }
 
 // ---- Public component -------------------------------------------------------
 

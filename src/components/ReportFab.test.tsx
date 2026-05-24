@@ -121,24 +121,27 @@ beforeEach(() => {
 })
 
 // ---- Unit tests for resolveTicketType (import directly) --------------------
-// We test the internal mapping logic without the DOM to keep the contract clear.
+// We test the mapping logic without the DOM to keep the contract clear. The
+// helper lives in @/lib/tickets (a non-component module) so it doesn't trip
+// react-refresh/only-export-components; here we exercise the real impl via the
+// vi.importActual passthrough in the @/lib/tickets mock above.
 
-import { resolveTicketTypeForTest } from './ReportFab'
+import { resolveTicketType } from '@/lib/tickets'
 
 describe('resolveTicketType (unit)', () => {
   it('problem + blocking → bug', () => {
-    expect(resolveTicketTypeForTest('problem', 'blocking')).toBe('bug')
+    expect(resolveTicketType('problem', 'blocking')).toBe('bug')
   })
   it('problem + annoying → bug', () => {
-    expect(resolveTicketTypeForTest('problem', 'annoying')).toBe('bug')
+    expect(resolveTicketType('problem', 'annoying')).toBe('bug')
   })
   it('problem + idea → annoyance', () => {
-    expect(resolveTicketTypeForTest('problem', 'idea')).toBe('annoyance')
+    expect(resolveTicketType('problem', 'idea')).toBe('annoyance')
   })
   it('idea + any → feature', () => {
-    expect(resolveTicketTypeForTest('idea', 'blocking')).toBe('feature')
-    expect(resolveTicketTypeForTest('idea', 'annoying')).toBe('feature')
-    expect(resolveTicketTypeForTest('idea', 'idea')).toBe('feature')
+    expect(resolveTicketType('idea', 'blocking')).toBe('feature')
+    expect(resolveTicketType('idea', 'annoying')).toBe('feature')
+    expect(resolveTicketType('idea', 'idea')).toBe('feature')
   })
 })
 

@@ -62,6 +62,32 @@ export type TicketCreate = {
   context?: 'operations' | 'community'
 }
 
+// ---- Reporter type-toggle mapping ------------------------------------------
+// The create-ticket form (ReportFab) shows the reporter a simplified two-option
+// toggle (Problem | Idea) rather than the full four-value ticket_type enum.
+// This helper maps that toggle + the reporter's perceived_impact onto the DB
+// type. Lives here (not in the .tsx) so it can be unit-tested without mounting
+// the component and so it doesn't trip react-refresh/only-export-components.
+
+export type ReporterToggle = 'problem' | 'idea'
+
+/**
+ * Derive the DB ticket_type from the reporter's simplified two-option toggle
+ * and their perceived_impact selection.
+ *
+ *   Problem + blocking or annoying → 'bug'  (something is broken)
+ *   Problem + idea                 → 'annoyance'  (mild friction, not a crash)
+ *   Idea                           → 'feature'
+ */
+export function resolveTicketType(
+  toggle: ReporterToggle,
+  impact: TicketPerceivedImpact,
+): TicketType {
+  if (toggle === 'idea') return 'feature'
+  // problem branch
+  return impact === 'idea' ? 'annoyance' : 'bug'
+}
+
 export async function createTicket(payload: TicketCreate): Promise<TicketRow> {
   const { data, error } = await supabase
     .from('tickets')
