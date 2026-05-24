@@ -4,6 +4,7 @@
 //   - vi.mock useOperator      (no full provider tree)
 //   - vi.mock useAuth          (no Supabase session needed for the form)
 //   - vi.mock createTicket     (no Supabase connection; assert payload shape)
+//   - vi.mock fetchCurrentPublicUser  (no Supabase connection; returns public.users.id)
 //   - vi.mock sonner            (assert toast calls)
 //
 // We exercise:
@@ -13,9 +14,10 @@
 //   4. Type toggle: "Problem" shows repro hint; "Idea" hides it.
 //   5. Impact options visible/hidden per toggle (problem → blocking+annoying+idea;
 //      idea → only idea, auto-selected).
-//   6. Happy-path submit — correct payload sent, toast fired, dialog closed.
+//   6. Happy-path submit — correct payload sent with reporter_id resolved, toast fired, dialog closed.
 //   7. Error path — toast shown, dialog stays open.
 //   8. resolveTicketType logic (isolated unit tests, no DOM).
+//   9. Null-reporter graceful fallback when fetchCurrentPublicUser returns null.
 
 import { render as rtlRender, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -24,11 +26,12 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import type { ReactElement, ReactNode } from 'react'
 
-import type { TicketCreate, TicketRow } from '@/lib/tickets'
+import type { TicketCreate, TicketRow, PublicUser } from '@/lib/tickets'
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     createTicket: vi.fn<(payload: TicketCreate) => Promise<TicketRow>>(),
+    fetchCurrentPublicUser: vi.fn<(authUid: string) => Promise<PublicUser | null>>(),
     useOperator: vi.fn<() => { currentOperatorId: string | null }>(),
     useAuth: vi.fn<() => { user: { id: string } | null }>(),
   },
@@ -41,6 +44,8 @@ vi.mock('@/lib/tickets', async () => {
   return {
     ...actual,
     createTicket: (payload: TicketCreate) => mocks.createTicket(payload),
+    fetchCurrentPublicUser: (authUid: string) =>
+      mocks.fetchCurrentPublicUser(authUid),
   }
 })
 
@@ -110,12 +115,21 @@ function render(ui: ReactElement) {
   })
 }
 
+const PUBLIC_USER_ID = 'public-user-uuid-1'
+
 beforeEach(() => {
   mocks.createTicket.mockReset()
+  mocks.fetchCurrentPublicUser.mockReset()
   mocks.useOperator.mockReset()
   mocks.useAuth.mockReset()
   mocks.useOperator.mockReturnValue({ currentOperatorId: OP_ID })
   mocks.useAuth.mockReturnValue({ user: { id: 'auth-user-1' } })
+  // Default: auth uid resolves to a public.users row.
+  mocks.fetchCurrentPublicUser.mockResolvedValue({
+    id: PUBLIC_USER_ID,
+    email: 'martin@example.com',
+    is_landr_staff: false,
+  })
   vi.mocked(toast.success).mockReset()
   vi.mocked(toast.error).mockReset()
 })
@@ -243,10 +257,12 @@ describe('ReportFab', () => {
     await waitFor(() => {
       expect(mocks.createTicket).toHaveBeenCalledTimes(1)
     })
+    // reporter_id must be the resolved public.users.id (not the auth uid).
+    expect(mocks.fetchCurrentPublicUser).toHaveBeenCalledWith('auth-user-1')
     expect(mocks.createTicket).toHaveBeenCalledWith(
       expect.objectContaining({
         operator_id: OP_ID,
-        reporter_id: null,
+        reporter_id: PUBLIC_USER_ID,
         type: 'bug',
         title: 'Login fails',
         body: 'Steps to repro here',
@@ -357,5 +373,47 @@ describe('ReportFab', () => {
         screen.queryByRole('heading', { name: /tell us what/i }),
       ).not.toBeInTheDocument()
     })
+  })
+
+  it('submits with reporter_id=null when fetchCurrentPublicUser returns null (broken signup)', async () => {
+    // Covers the graceful fallback: public.users row missing — ticket still
+    // created without reporter attribution; auto-watch trigger silently skips.
+    const user = userEvent.setup()
+    mocks.fetchCurrentPublicUser.mockResolvedValue(null)
+    mocks.createTicket.mockResolvedValue(makeTicketRow())
+    render(<ReportFab />)
+
+    await user.click(screen.getByTestId('report-fab-trigger'))
+    await user.type(screen.getByLabelText(/summary/i), 'Broken signup test')
+    await user.click(screen.getByRole('button', { name: /send feedback/i }))
+
+    await waitFor(() => {
+      expect(mocks.createTicket).toHaveBeenCalledTimes(1)
+    })
+    const payload = mocks.createTicket.mock.calls[0][0] as TicketCreate
+    expect(payload.reporter_id).toBeNull()
+    // Toast still fires — the ticket was created successfully.
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('submits with reporter_id=null when user is not authenticated', async () => {
+    // Covers the unauthenticated edge — fetchCurrentPublicUser must not be called.
+    const user = userEvent.setup()
+    mocks.useAuth.mockReturnValue({ user: null })
+    mocks.createTicket.mockResolvedValue(makeTicketRow())
+    render(<ReportFab />)
+
+    await user.click(screen.getByTestId('report-fab-trigger'))
+    await user.type(screen.getByLabelText(/summary/i), 'Anon report')
+    await user.click(screen.getByRole('button', { name: /send feedback/i }))
+
+    await waitFor(() => {
+      expect(mocks.createTicket).toHaveBeenCalledTimes(1)
+    })
+    expect(mocks.fetchCurrentPublicUser).not.toHaveBeenCalled()
+    const payload = mocks.createTicket.mock.calls[0][0] as TicketCreate
+    expect(payload.reporter_id).toBeNull()
   })
 })

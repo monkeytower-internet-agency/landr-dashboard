@@ -40,6 +40,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
   createTicket,
+  fetchCurrentPublicUser,
   resolveTicketType,
   type ReporterToggle,
   type TicketCreate,
@@ -146,32 +147,36 @@ function ReportBody({ operatorId, onClose }: BodyProps) {
     event.preventDefault()
     if (titleMissing || createMutation.isPending) return
 
-    // reporter_id: resolve the Supabase auth user to a public.users UUID.
-    // We send the supabase_auth_id (user.id) here — the server resolves it
-    // via the users table. For this REST insert path we can also pass null
-    // and let the server's trigger/convention handle attribution; however
-    // the schema has a FK to public.users.id (not auth.uid directly), so
-    // we omit reporter_id and let Supabase's RLS session resolve it server-
-    // side via the trigger, OR we pass null and the ticket is still linked
-    // to the operator_id.
-    //
-    // NOTE: reporter_id is a FK to public.users(id), NOT to auth.users.
-    // We don't have the public.users UUID in the dashboard client (we only
-    // have the Supabase auth UUID from useAuth). The migration grants INSERT
-    // on reporter_id to authenticated, so we CAN pass it if we have it.
-    // For v1 we pass null — the ticket is associated via operator_id + context;
-    // reporter resolution is a slice-3 concern (assignment + watching).
-    const payload: TicketCreate = {
-      operator_id: operatorId,
-      reporter_id: null,
-      type: resolveTicketType(toggle, impact),
-      title: titleTrimmed,
-      body: bodyTrimmed.length > 0 ? bodyTrimmed : null,
-      perceived_impact: impact,
+    // reporter_id: resolve the Supabase auth.uid → public.users.id via
+    // fetchCurrentPublicUser (added in landr-wwhn.13). The FK on tickets
+    // points to public.users(id), NOT to auth.users(id), so we must do this
+    // round-trip. If the user is not authenticated or no public.users row
+    // exists (broken signup), we fall back to null — the ticket is still
+    // attributed to the operator and fully usable; auto-watch (landr-wwhn.3
+    // trigger) simply won't fire for a null reporter.
+    const authUid = user?.id ?? null
+    const buildAndSubmit = async () => {
+      let reporterId: string | null = null
+      if (authUid) {
+        try {
+          const publicUser = await fetchCurrentPublicUser(authUid)
+          reporterId = publicUser?.id ?? null
+        } catch {
+          // Non-fatal: submit with null reporter rather than blocking the user.
+          reporterId = null
+        }
+      }
+      const payload: TicketCreate = {
+        operator_id: operatorId,
+        reporter_id: reporterId,
+        type: resolveTicketType(toggle, impact),
+        title: titleTrimmed,
+        body: bodyTrimmed.length > 0 ? bodyTrimmed : null,
+        perceived_impact: impact,
+      }
+      createMutation.mutate(payload)
     }
-    createMutation.mutate(payload)
-    // Suppress the "user" unused warning — we reference it for future reporter_id.
-    void user
+    void buildAndSubmit()
   }
 
   const canSubmit = !titleMissing && !createMutation.isPending
