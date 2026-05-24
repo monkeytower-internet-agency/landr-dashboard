@@ -228,6 +228,7 @@ describe('VIEW_TEMPLATES', () => {
   // landr-1zxt added three relative-date starters (next-7-days, this-month,
   // past-due) on top of the original four. landr-qc72 added next-30-days
   // and last-30-days as configurable-N exemplars.
+  // landr-wwhn.17 added my-open-tickets and all-tickets (entity_type='ticket').
   const EXPECTED_KEYS = [
     'all-bookings',
     'pending-approvals',
@@ -238,17 +239,19 @@ describe('VIEW_TEMPLATES', () => {
     'next-30-days',
     'last-30-days',
     'past-due',
+    'my-open-tickets',
+    'all-tickets',
   ] as const
 
   it('has the expected number of entries', () => {
     expect(VIEW_TEMPLATES).toHaveLength(EXPECTED_KEYS.length)
   })
 
-  it('each template has a unique key + booking entity_type + config object', () => {
+  it('each template has a unique key + valid entity_type + config object', () => {
     const keys = new Set(VIEW_TEMPLATES.map((t) => t.key))
     expect(keys.size).toBe(EXPECTED_KEYS.length)
     for (const tpl of VIEW_TEMPLATES) {
-      expect(tpl.entity_type).toBe('booking')
+      expect(['booking', 'ticket']).toContain(tpl.entity_type)
       expect(typeof tpl.config).toBe('object')
       expect(tpl.config).not.toBeNull()
       expect(tpl.name).toBeTruthy()

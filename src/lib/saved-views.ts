@@ -19,7 +19,10 @@
 import { z } from 'zod'
 import { api } from '@/lib/api-client'
 
-export const ENTITY_TYPES = ['booking'] as const
+// landr-wwhn.17 — 'ticket' entity type added alongside the existing
+// 'booking' type. The server validates entity_type; adding it here lets
+// the client create and render ticket views.
+export const ENTITY_TYPES = ['booking', 'ticket'] as const
 export const VISIBILITIES = ['personal', 'shared'] as const
 
 export const SavedViewSchema = z.object({

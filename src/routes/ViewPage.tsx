@@ -71,6 +71,12 @@ import {
   postHotelApprovalDecision,
   stageCode,
 } from '@/lib/bookings'
+// landr-wwhn.17 — ticket board as a view type.
+import { TicketBoardLayout } from '@/components/views/layouts/TicketBoardLayout'
+import {
+  applyTicketViewFilters,
+  useViewTickets,
+} from '@/lib/tickets-views-data'
 
 const LAYOUT_PARAM = 'layout'
 
@@ -379,21 +385,28 @@ export function ViewPage() {
           ) : null}
 
           <div className="ml-auto flex items-center gap-2">
-            <LayoutSwitcher
-              value={effectiveLayout}
-              onChange={handleLayoutChange}
-            />
-            {layoutOverrideActive ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={setLayoutAsDefault}
-                data-testid="view-set-default-layout"
-                className="h-7 px-2 text-xs"
-              >
-                {t.views.setDefaultLayout}
-              </Button>
+            {/* landr-wwhn.17 — ticket views only support board layout in v1;
+                hide the layout switcher so the operator can't switch to a
+                table/calendar that has no ticket renderer yet. */}
+            {view?.entity_type !== 'ticket' ? (
+              <>
+                <LayoutSwitcher
+                  value={effectiveLayout}
+                  onChange={handleLayoutChange}
+                />
+                {layoutOverrideActive ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={setLayoutAsDefault}
+                    data-testid="view-set-default-layout"
+                    className="h-7 px-2 text-xs"
+                  >
+                    {t.views.setDefaultLayout}
+                  </Button>
+                ) : null}
+              </>
             ) : null}
             <Button
               type="button"
@@ -486,12 +499,16 @@ export function ViewPage() {
         </Card>
       ) : (
         <>
-          <ViewToolbar
-            entityType={view.entity_type}
-            config={dirty.config}
-            onChange={dirty.setConfig}
-            layout={effectiveLayout}
-          />
+          {/* landr-wwhn.17 — ticket views own their own area filter bar inside
+              TicketBoardLayout; the booking-specific ViewToolbar is hidden. */}
+          {view.entity_type !== 'ticket' ? (
+            <ViewToolbar
+              entityType={view.entity_type}
+              config={dirty.config}
+              onChange={dirty.setConfig}
+              layout={effectiveLayout}
+            />
+          ) : null}
           <LayoutBody
             layout={effectiveLayout}
             view={{ ...view, config: dirty.config }}
@@ -510,6 +527,14 @@ type LayoutBodyProps = {
 }
 
 function LayoutBody({ layout, view, setConfig }: LayoutBodyProps) {
+  // landr-wwhn.17 — ticket views always render the TicketBoardLayout
+  // regardless of the layout switcher (they have no table or calendar
+  // rendering for the ticket entity type yet; the layout switcher is
+  // hidden on the toolbar for ticket views).
+  if (view.entity_type === 'ticket') {
+    return <TicketBoardLayoutBranch view={view} setConfig={setConfig} />
+  }
+
   switch (layout) {
     case 'calendar':
       return <CalendarLayoutBranch view={view} setConfig={setConfig} />
@@ -727,6 +752,54 @@ function BoardLayoutBranch({ view }: { view: SavedViewWithState }) {
       view={view}
       items={items}
       onItemMutate={onItemMutate}
+    />
+  )
+}
+
+// landr-wwhn.17 — Ticket board branch. Fetches tickets (with embedded label
+// areas for client-side area filtering), applies ticketConfig.labelAreas if
+// set, and hands the filtered list to TicketBoardLayout. The branch owns the
+// fetch/filter so the layout component stays pure (props in, render out).
+function TicketBoardLayoutBranch({
+  view,
+  setConfig,
+}: {
+  view: SavedViewWithState
+  setConfig: (config: Record<string, unknown>) => void
+}) {
+  const { currentOperatorId } = useOperator()
+  const tickets = useViewTickets(currentOperatorId)
+  const items = useMemo(
+    () =>
+      applyTicketViewFilters(tickets.data ?? [], view.config),
+    [tickets.data, view.config],
+  )
+  if (tickets.isPending) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        {t.views.body.loading}
+      </p>
+    )
+  }
+  if (tickets.isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.views.body.loadError}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-sm">
+            {tickets.error instanceof Error ? tickets.error.message : ''}
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+  return (
+    <TicketBoardLayout
+      view={view}
+      items={items}
+      onConfigChange={setConfig}
     />
   )
 }
