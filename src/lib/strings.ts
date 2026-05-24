@@ -155,6 +155,8 @@ export const t = {
     audit: 'Audit log',
     // landr-4pn1 — /trash route (recently-deleted bin per type).
     trash: 'Trash',
+    // landr-wwhn.11 — /tickets kanban board.
+    tickets: 'Tickets',
   },
   // landr-aref — /audit route strings (audit_log viewer).
   audit: {

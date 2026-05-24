@@ -6,6 +6,7 @@ import {
   CheckCircleIcon,
   LayersIcon,
   LayoutDashboardIcon,
+  MessageSquareIcon,
   MousePointerClickIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
@@ -122,6 +123,13 @@ const primaryItems: NavItem[] = [
     to: '/approvals/general',
     label: t.nav.generalApprovals,
     icon: CheckCircleIcon,
+    exact: false,
+  },
+  // landr-wwhn.11 — Ticket board. Customer support / feedback tracking.
+  {
+    to: '/tickets',
+    label: t.nav.tickets,
+    icon: MessageSquareIcon,
     exact: false,
   },
   // landr-aref — Audit log viewer. Sits at the end of the primary nav
