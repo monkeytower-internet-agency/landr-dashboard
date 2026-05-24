@@ -5,9 +5,11 @@
 //   - 5 columns render once data lands
 //   - tickets grouped into correct columns
 //   - error state renders error card
-//   - resolveTicketDrop logic (pure function)
 //   - blocked badge renders on blocked tickets
 //   - read-mostly columns show "auto" label
+//
+// resolveTicketDrop (the pure DnD resolver) is unit-tested separately in
+// src/lib/tickets-board.test.ts.
 
 import {
   render as rtlRender,
@@ -98,7 +100,6 @@ vi.mock('sonner', () => ({
 }))
 
 import { TicketBoard } from './TicketBoard'
-import { resolveTicketDrop } from '@/lib/tickets'
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -274,90 +275,6 @@ describe('TicketBoard rendering', () => {
   })
 })
 
-// ---- resolveTicketDrop (pure) -----------------------------------------------
-
-describe('resolveTicketDrop', () => {
-  const tickets: TicketRow[] = [
-    makeTicket({ id: 'tk-1', status: 'backlog' }),
-    makeTicket({ id: 'tk-2', status: 'ready' }),
-    makeTicket({ id: 'tk-3', status: 'in_progress' }),
-  ]
-
-  it('returns null when overId is null', () => {
-    expect(
-      resolveTicketDrop({ activeId: 'tk-1', overId: null, tickets }),
-    ).toBeNull()
-  })
-
-  it('returns null when activeId is not in tickets', () => {
-    expect(
-      resolveTicketDrop({
-        activeId: 'unknown',
-        overId: 'column:ready',
-        tickets,
-      }),
-    ).toBeNull()
-  })
-
-  it('returns null when dropping onto the same column', () => {
-    expect(
-      resolveTicketDrop({
-        activeId: 'tk-1',
-        overId: 'column:backlog',
-        tickets,
-      }),
-    ).toBeNull()
-  })
-
-  it('returns null when target is a bd-authoritative column', () => {
-    // backlog → in_progress should be rejected
-    expect(
-      resolveTicketDrop({
-        activeId: 'tk-1',
-        overId: 'column:in_progress',
-        tickets,
-      }),
-    ).toBeNull()
-  })
-
-  it('returns null when dragging FROM a bd-authoritative column', () => {
-    // in_progress ticket dragged to backlog should be rejected
-    expect(
-      resolveTicketDrop({
-        activeId: 'tk-3',
-        overId: 'column:backlog',
-        tickets,
-      }),
-    ).toBeNull()
-  })
-
-  it('resolves a valid human-owned column drop (column target)', () => {
-    const result = resolveTicketDrop({
-      activeId: 'tk-1',
-      overId: 'column:ready',
-      tickets,
-    })
-    expect(result).toEqual({ ticketId: 'tk-1', newStatus: 'ready' })
-  })
-
-  it('resolves a valid drop onto another card (inherits column)', () => {
-    // tk-1 (backlog) dropped onto tk-2 (ready) → should move to ready
-    const result = resolveTicketDrop({
-      activeId: 'tk-1',
-      overId: 'tk-2',
-      tickets,
-    })
-    expect(result).toEqual({ ticketId: 'tk-1', newStatus: 'ready' })
-  })
-
-  it('returns null when dropping onto a card in a bd-authoritative column', () => {
-    // tk-1 (backlog) dropped onto tk-3 (in_progress) → rejected
-    expect(
-      resolveTicketDrop({
-        activeId: 'tk-1',
-        overId: 'tk-3',
-        tickets,
-      }),
-    ).toBeNull()
-  })
-})
+// NOTE: resolveTicketDrop is a pure function exported from @/lib/tickets and
+// is unit-tested in src/lib/tickets-board.test.ts (it was moved there out of
+// the .tsx route to satisfy react-refresh/only-export-components).

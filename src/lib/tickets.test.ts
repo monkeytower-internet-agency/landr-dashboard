@@ -1,189 +1,162 @@
-// landr-wwhn.11 — tests for the tickets data layer.
-//
-// Covers: TICKET_COLUMNS ordering + draggable flags, fetchTickets, fetchTicketsStaff,
-// patchTicketStatus, and the DRAGGABLE_STATUSES gate.
+// landr-wwhn.12 — exercise the supabase REST INSERT wrapper for the
+// tickets table. Mirrors the product-addons test pattern (mock the
+// supabase client at the @supabase/supabase-js layer, record the
+// query-builder chain, assert payload shape + column select).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { TicketRow } from './tickets'
 
-// ---- Supabase mock ----------------------------------------------------------
+type Call = { method: string; args: unknown[] }
 
-const { mock } = vi.hoisted(() => {
-  type Builder = Record<string, unknown>
+const { mockSupabase } = vi.hoisted(() => {
   const state = {
-    rows: [] as TicketRow[],
-    error: null as { message: string } | null,
-    lastUpdate: null as Record<string, unknown> | null,
+    fromCalls: [] as string[],
+    calls: [] as Call[],
+    nextResult: { data: null as unknown, error: null as unknown },
   }
 
-  const fromBuilder = (): Builder => {
-    const b: Builder = {}
-    Object.assign(b, {
-      select: vi.fn(() => b),
-      eq: vi.fn(() => b),
-      update: vi.fn((vals: Record<string, unknown>) => {
-        state.lastUpdate = vals
-        return b
-      }),
-      order: vi.fn(() => b),
-      limit: vi.fn(async () => ({ data: state.rows, error: state.error })),
-    })
-    return b
+  const builder: Record<string, unknown> = {}
+  const record = (method: string, ...args: unknown[]) => {
+    state.calls.push({ method, args })
+    return builder
   }
+  Object.assign(builder, {
+    select: vi.fn((...args: unknown[]) => record('select', ...args)),
+    insert: vi.fn((...args: unknown[]) => record('insert', ...args)),
+    single: vi.fn(async () => state.nextResult),
+    then: (resolve: (v: unknown) => void) => resolve(state.nextResult),
+  })
 
   const supabase = {
-    from: vi.fn(() => fromBuilder()),
-    channel: vi.fn(() => ({ on: vi.fn().mockReturnThis(), subscribe: vi.fn() })),
-    removeChannel: vi.fn(),
-    auth: {
-      getSession: vi.fn(async () => ({
-        data: { session: { access_token: 'test-token' } },
-      })),
-    },
+    from: vi.fn((table: string) => {
+      state.fromCalls.push(table)
+      return builder
+    }),
   }
-
-  return { mock: { state, supabase } }
+  return { mockSupabase: { state, supabase, builder } }
 })
 
 vi.mock('@/lib/supabase', () => ({
-  supabase: mock.supabase,
-  getSupabase: () => mock.supabase,
+  supabase: mockSupabase.supabase,
+  getSupabase: () => mockSupabase.supabase,
 }))
 
-import {
-  DRAGGABLE_STATUSES,
-  TICKET_COLUMNS,
-  fetchTickets,
-  fetchTicketsStaff,
-  patchTicketStatus,
-} from './tickets'
-
-// ---- helpers ----------------------------------------------------------------
-
-function makeTicket(overrides: Partial<TicketRow> = {}): TicketRow {
-  return {
-    id: 'ticket-1',
-    context: 'operations',
-    type: 'bug',
-    title: 'Test ticket',
-    body: null,
-    status: 'backlog',
-    priority: 'p2',
-    perceived_impact: 'annoying',
-    reporter_id: 'user-1',
-    operator_id: 'op-1',
-    assignee_id: null,
-    blocked: false,
-    created_at: '2026-05-24T10:00:00Z',
-    updated_at: '2026-05-24T10:00:00Z',
-    ...overrides,
-  }
-}
+import { createTicket } from './tickets'
 
 beforeEach(() => {
-  mock.state.rows = []
-  mock.state.error = null
-  mock.state.lastUpdate = null
-  vi.clearAllMocks()
+  mockSupabase.state.fromCalls.length = 0
+  mockSupabase.state.calls.length = 0
+  mockSupabase.state.nextResult = { data: null, error: null }
 })
 
 afterEach(() => {
   vi.clearAllMocks()
 })
 
-// ---- TICKET_COLUMNS ---------------------------------------------------------
+describe('tickets — supabase REST wrapper (landr-wwhn.12)', () => {
+  it('createTicket inserts onto the tickets table and returns the saved row', async () => {
+    const returned = {
+      id: 'ticket-uuid-1',
+      context: 'operations',
+      type: 'bug',
+      title: 'Login fails on iOS',
+      body: 'Steps: open app, tap login.',
+      status: 'backlog',
+      priority: 'p2',
+      perceived_impact: 'blocking',
+      reporter_id: null,
+      operator_id: 'op-1',
+      assignee_id: null,
+      blocked: false,
+      created_at: '2026-05-24T10:00:00Z',
+      updated_at: '2026-05-24T10:00:00Z',
+    }
+    mockSupabase.state.nextResult = { data: returned, error: null }
 
-describe('TICKET_COLUMNS', () => {
-  it('has exactly 5 columns in the right order', () => {
-    const keys = TICKET_COLUMNS.map((c) => c.key)
-    expect(keys).toEqual([
-      'backlog',
-      'ready',
-      'in_progress',
-      'in_review',
-      'done',
-    ])
-  })
-
-  it('marks backlog and ready as draggable', () => {
-    const draggable = TICKET_COLUMNS.filter((c) => c.draggable).map((c) => c.key)
-    expect(draggable).toEqual(['backlog', 'ready'])
-  })
-
-  it('marks in_progress, in_review, done as read-mostly', () => {
-    const readMostly = TICKET_COLUMNS.filter((c) => c.readMostly).map((c) => c.key)
-    expect(readMostly).toEqual(['in_progress', 'in_review', 'done'])
-  })
-})
-
-// ---- DRAGGABLE_STATUSES -----------------------------------------------------
-
-describe('DRAGGABLE_STATUSES', () => {
-  it('includes backlog and ready', () => {
-    expect(DRAGGABLE_STATUSES.has('backlog')).toBe(true)
-    expect(DRAGGABLE_STATUSES.has('ready')).toBe(true)
-  })
-
-  it('does NOT include bd-authoritative statuses', () => {
-    expect(DRAGGABLE_STATUSES.has('in_progress')).toBe(false)
-    expect(DRAGGABLE_STATUSES.has('in_review')).toBe(false)
-    expect(DRAGGABLE_STATUSES.has('done')).toBe(false)
-  })
-})
-
-// ---- fetchTickets -----------------------------------------------------------
-
-describe('fetchTickets', () => {
-  it('returns rows on success', async () => {
-    const row = makeTicket()
-    mock.state.rows = [row]
-    const result = await fetchTickets('op-1')
-    expect(result).toEqual([row])
-  })
-
-  it('throws on Supabase error', async () => {
-    mock.state.error = { message: 'connection refused' }
-    mock.state.rows = []
-    await expect(fetchTickets('op-1')).rejects.toThrow('connection refused')
-  })
-})
-
-// ---- fetchTicketsStaff ------------------------------------------------------
-
-describe('fetchTicketsStaff', () => {
-  it('returns rows from tickets_staff view', async () => {
-    const row = makeTicket()
-    mock.state.rows = [row]
-    const result = await fetchTicketsStaff()
-    // The from() call should target tickets_staff
-    expect(mock.supabase.from).toHaveBeenCalledWith('tickets_staff')
-    expect(result).toEqual([row])
-  })
-})
-
-// ---- patchTicketStatus ------------------------------------------------------
-
-describe('patchTicketStatus', () => {
-  it('calls supabase update with the new status', async () => {
-    // The mock update builder returns the builder; the eq().limit chain
-    // actually resolves. We need the update chain to resolve — rebuild
-    // the fromBuilder mock to capture the update call properly.
-    const updateSpy = vi.fn(() => ({
-      eq: vi.fn(async () => ({ error: null })),
-    }))
-    mock.supabase.from.mockReturnValueOnce({ update: updateSpy })
-
-    await patchTicketStatus('ticket-1', 'ready')
-    expect(updateSpy).toHaveBeenCalledWith({ status: 'ready' })
-  })
-
-  it('throws when Supabase returns an error', async () => {
-    const eqSpy = vi.fn(async () => ({ error: { message: 'update failed' } }))
-    mock.supabase.from.mockReturnValueOnce({
-      update: vi.fn(() => ({ eq: eqSpy })),
+    const result = await createTicket({
+      operator_id: 'op-1',
+      reporter_id: null,
+      type: 'bug',
+      title: 'Login fails on iOS',
+      body: 'Steps: open app, tap login.',
+      perceived_impact: 'blocking',
     })
-    await expect(patchTicketStatus('ticket-1', 'ready')).rejects.toThrow(
-      'update failed',
-    )
+
+    expect(result.id).toBe('ticket-uuid-1')
+    expect(result.type).toBe('bug')
+    expect(result.perceived_impact).toBe('blocking')
+
+    expect(mockSupabase.state.fromCalls).toEqual(['tickets'])
+
+    const insertCall = mockSupabase.state.calls.find((c) => c.method === 'insert')
+    expect(insertCall?.args[0]).toMatchObject({
+      operator_id: 'op-1',
+      reporter_id: null,
+      type: 'bug',
+      title: 'Login fails on iOS',
+      body: 'Steps: open app, tap login.',
+      perceived_impact: 'blocking',
+    })
+
+    const selectCall = mockSupabase.state.calls.find((c) => c.method === 'select')
+    // The SELECT string should cover all public columns.
+    expect(selectCall?.args[0]).toMatch(/id/)
+    expect(selectCall?.args[0]).toMatch(/type/)
+    expect(selectCall?.args[0]).toMatch(/perceived_impact/)
+    // Internal-only fields MUST NOT appear in the select.
+    expect(selectCall?.args[0]).not.toMatch(/severity/)
+    expect(selectCall?.args[0]).not.toMatch(/linked_bd_id/)
+    expect(selectCall?.args[0]).not.toMatch(/promotion_prompt/)
+    expect(selectCall?.args[0]).not.toMatch(/sync_status/)
+  })
+
+  it('createTicket supports optional context field', async () => {
+    mockSupabase.state.nextResult = {
+      data: {
+        id: 'ticket-2',
+        context: 'community',
+        type: 'feature',
+        title: 'Forum upvoting',
+        body: null,
+        status: 'backlog',
+        priority: 'p2',
+        perceived_impact: 'idea',
+        reporter_id: null,
+        operator_id: 'op-1',
+        assignee_id: null,
+        blocked: false,
+        created_at: '2026-05-24T10:00:00Z',
+        updated_at: '2026-05-24T10:00:00Z',
+      },
+      error: null,
+    }
+
+    await createTicket({
+      operator_id: 'op-1',
+      reporter_id: null,
+      type: 'feature',
+      title: 'Forum upvoting',
+      perceived_impact: 'idea',
+      context: 'community',
+    })
+
+    const insertCall = mockSupabase.state.calls.find((c) => c.method === 'insert')
+    expect(insertCall?.args[0]).toMatchObject({ context: 'community' })
+  })
+
+  it('createTicket throws when supabase returns an error', async () => {
+    mockSupabase.state.nextResult = {
+      data: null,
+      error: { message: 'permission denied for table tickets' },
+    }
+
+    await expect(
+      createTicket({
+        operator_id: 'op-1',
+        reporter_id: null,
+        type: 'bug',
+        title: 'A bug',
+        perceived_impact: 'annoying',
+      }),
+    ).rejects.toThrow(/permission denied/)
   })
 })

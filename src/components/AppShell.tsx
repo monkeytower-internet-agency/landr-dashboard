@@ -22,6 +22,7 @@ import { NotificationsBell } from '@/components/NotificationsBell'
 import { OnboardingBanner } from '@/components/OnboardingBanner'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
 import { QuickCaptureFab } from '@/components/QuickCaptureFab'
+import { ReportFab } from '@/components/ReportFab'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { PageTitleDisplay } from '@/components/topbar/PageTitleDisplay'
 import { useAuth } from '@/lib/auth'
@@ -117,9 +118,13 @@ function AppShellInner({
             <PageTitleDisplay />
           </div>
           <div className="flex items-center gap-0.5 sm:gap-1">
+            {/* landr-wwhn.12 — persistent report/suggest button. Lives in
+                the topbar right-cluster so it's reachable from every
+                protected route without eating FAB real estate. */}
+            <ReportFab />
             {/* landr-8whx — bell sits next to the theme toggle so the
                 topbar reads left→right as: scope (operator) · title ·
-                quick-actions (notifications · theme · account). */}
+                quick-actions (feedback · notifications · theme · account). */}
             <NotificationsBell />
             <ThemeToggle />
             <UserMenu onSignOut={onSignOut} />

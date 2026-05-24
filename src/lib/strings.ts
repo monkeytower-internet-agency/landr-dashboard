@@ -359,6 +359,40 @@ export const t = {
     viewAllApprovals: 'View all approvals',
     viewAllBookings: 'View all bookings',
   },
+  // landr-wwhn.12 — persistent report/suggest entry point + create-ticket form.
+  reportButton: {
+    // Topbar trigger (persistent, visible on every protected route).
+    triggerLabel: 'Report a problem or suggest an idea',
+    triggerText: 'Feedback',
+    // Dialog.
+    dialogTitle: "Tell us what's on your mind",
+    dialogDescription:
+      'Found a bug or have an idea? We read everything and get back to you in the dashboard.',
+    // Type toggle labels (map to DB ticket_type enum).
+    typeProblem: 'Problem',
+    typeIdea: 'Idea',
+    // Fields.
+    titleLabel: 'Summary',
+    titlePlaceholder: 'One-line summary of the issue or idea',
+    bodyLabel: 'Details',
+    bodyPlaceholder: 'More context, steps, or background — the more, the better.',
+    // Bug-type repro hint (light; full template is a later ticket).
+    reproHint: 'Tip: include what you did, what you expected, and what happened instead.',
+    // Impact picker labels (map to DB ticket_perceived_impact enum).
+    impactLabel: 'How badly is this affecting you?',
+    impactBlocking: "Blocking — I can't get work done",
+    impactAnnoying: 'Annoying — it slows me down',
+    impactIdea: 'Just an idea',
+    // Buttons.
+    submit: 'Send feedback',
+    submitting: 'Sending…',
+    cancel: 'Cancel',
+    // Success / error toasts.
+    toastSuccess: 'Got it — thanks for the feedback!',
+    toastError: "Couldn't send feedback. Try again.",
+    // Validation.
+    titleRequired: 'A one-line summary is required.',
+  },
   // landr-a8fg — shared "Copy link" affordance on detail sheets + ViewPage
   // headers. Centralised so the tooltip, success toast and error toast stay
   // consistent across every surface that mounts CopyLinkButton.

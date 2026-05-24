@@ -1,20 +1,38 @@
-// landr-wwhn.11 — ticket data layer.
+// landr-wwhn — ticket data layer (shared by the create-flow landr-wwhn.12 and
+// the kanban board landr-wwhn.11).
 //
 // Supabase `tickets` is the customer-facing system of record. bd is the
 // engineering execution engine (Trillian-only, NOT reachable from this
 // client). They are bridged, not merged.
 //
-// RLS matrix:
-//   * Operators: SELECT on public columns for own-org rows (operator_id match
-//     via membership). INSERT/UPDATE on public writable columns.
-//   * Staff (is_landr_staff): full cross-tenant read + internal fields via
-//     the tickets_staff SECURITY DEFINER view (SELECT only — writes to internal
-//     fields go through FastAPI service-role routers).
+// Per write-routing-convention, plain row writes that RLS + the audit trigger
+// already cover go DIRECT to Supabase REST: a new ticket (single-row INSERT)
+// and a board status drag (single-column UPDATE) are both exactly that shape.
+// Side-effecting orchestration (triage, gateway promotion, notification
+// dispatch) lives in FastAPI service-role routers, not here.
 //
-// Column-level visibility: internal columns (severity, linked_bd_id,
-// promotion_prompt, sync_status, …) are REVOKE-d from `authenticated`.
-// This layer ONLY reads/writes the public surface. Staff detail reads
-// go through fetchTicketsStaff() which queries tickets_staff.
+// Schema (migration 20260524070041_tickets.sql, ticket landr-wwhn.1):
+//   context          ticket_context  NOT NULL DEFAULT 'operations'
+//   type             ticket_type     NOT NULL  (bug | feature | annoyance | question)
+//   title            text            NOT NULL
+//   body             text
+//   status           ticket_status   NOT NULL DEFAULT 'backlog'
+//   priority         ticket_priority NOT NULL DEFAULT 'p2'  (internal — NOT set by reporter)
+//   severity         ticket_severity            (bugs only — internal, NOT set by reporter)
+//   perceived_impact ticket_perceived_impact NOT NULL DEFAULT 'idea'
+//   reporter_id      uuid            (auth-resolved at INSERT time)
+//   operator_id      uuid            NOT NULL
+//
+// Column-level grants (authenticated role):
+//   INSERT: context, type, title, body, status, priority, perceived_impact,
+//           reporter_id, operator_id, assignee_id, blocked
+//   SELECT: id, context, type, title, body, status, priority, perceived_impact,
+//           reporter_id, operator_id, assignee_id, blocked, created_at, updated_at
+//   UPDATE: type, title, body, status, priority, perceived_impact, assignee_id, blocked
+//
+// Internal fields (severity, linked_bd_id, promotion_prompt, sync_status, …)
+// are REVOKE-d from REST roles — reporters/operators MUST NOT set them. Staff
+// read them through the tickets_staff SECURITY DEFINER view (fetchTicketsStaff).
 
 import { supabase } from '@/lib/supabase'
 
@@ -31,7 +49,39 @@ export type TicketStatus =
 export type TicketPriority = 'p0' | 'p1' | 'p2'
 export type TicketPerceivedImpact = 'blocking' | 'annoying' | 'idea'
 
-// ---- column definitions for the board ---------------------------------------
+// ---- public ticket row (what `authenticated` role can read) -----------------
+
+export type TicketRow = {
+  id: string
+  context: TicketContext
+  type: TicketType
+  title: string
+  body: string | null
+  status: TicketStatus
+  priority: TicketPriority
+  perceived_impact: TicketPerceivedImpact
+  reporter_id: string | null
+  operator_id: string
+  assignee_id: string | null
+  blocked: boolean
+  created_at: string
+  updated_at: string
+}
+
+// ---- staff-only extra fields (via tickets_staff view) -----------------------
+
+export type TicketStaffFields = {
+  severity: string | null
+  linked_bd_id: string | null
+  promotion_prompt: string | null
+  promotion_requested_at: string | null
+  sync_status: string | null
+  last_synced_at: string | null
+}
+
+export type TicketRowStaff = TicketRow & TicketStaffFields
+
+// ---- column definitions for the board (landr-wwhn.11) -----------------------
 
 export type TicketColumn = {
   key: TicketStatus
@@ -75,38 +125,6 @@ export const DRAGGABLE_STATUSES: ReadonlySet<TicketStatus> = new Set([
   'ready',
 ])
 
-// ---- public ticket row (what `authenticated` role can read) -----------------
-
-export type TicketRow = {
-  id: string
-  context: TicketContext
-  type: TicketType
-  title: string
-  body: string | null
-  status: TicketStatus
-  priority: TicketPriority
-  perceived_impact: TicketPerceivedImpact
-  reporter_id: string | null
-  operator_id: string
-  assignee_id: string | null
-  blocked: boolean
-  created_at: string
-  updated_at: string
-}
-
-// ---- staff-only extra fields (via tickets_staff view) -----------------------
-
-export type TicketStaffFields = {
-  severity: string | null
-  linked_bd_id: string | null
-  promotion_prompt: string | null
-  promotion_requested_at: string | null
-  sync_status: string | null
-  last_synced_at: string | null
-}
-
-export type TicketRowStaff = TicketRow & TicketStaffFields
-
 // ---- priority labels (Martin-readable, with plain-language tooltips) --------
 
 export const PRIORITY_LABEL: Record<TicketPriority, string> = {
@@ -136,6 +154,45 @@ export const PERCEIVED_IMPACT_LABEL: Record<TicketPerceivedImpact, string> = {
   blocking: 'Blocking',
   annoying: 'Annoying',
   idea: 'Idea',
+}
+
+// ---- create-ticket flow (landr-wwhn.12) -------------------------------------
+
+export type TicketCreate = {
+  operator_id: string
+  reporter_id: string | null
+  type: TicketType
+  title: string
+  body?: string | null
+  perceived_impact: TicketPerceivedImpact
+  // context defaults to 'operations' at the DB layer — callers SHOULD omit it
+  // unless they have a specific reason to set 'community'.
+  context?: 'operations' | 'community'
+}
+
+// The create-ticket form (ReportFab) shows the reporter a simplified two-option
+// toggle (Problem | Idea) rather than the full four-value ticket_type enum.
+// This helper maps that toggle + the reporter's perceived_impact onto the DB
+// type. Lives here (not in the .tsx) so it can be unit-tested without mounting
+// the component and so it doesn't trip react-refresh/only-export-components.
+
+export type ReporterToggle = 'problem' | 'idea'
+
+/**
+ * Derive the DB ticket_type from the reporter's simplified two-option toggle
+ * and their perceived_impact selection.
+ *
+ *   Problem + blocking or annoying → 'bug'  (something is broken)
+ *   Problem + idea                 → 'annoyance'  (mild friction, not a crash)
+ *   Idea                           → 'feature'
+ */
+export function resolveTicketType(
+  toggle: ReporterToggle,
+  impact: TicketPerceivedImpact,
+): TicketType {
+  if (toggle === 'idea') return 'feature'
+  // problem branch
+  return impact === 'idea' ? 'annoyance' : 'bug'
 }
 
 // ---- select strings ---------------------------------------------------------
@@ -179,6 +236,20 @@ const TICKET_STAFF_SELECT = `
   created_at,
   updated_at
 `
+
+// ---- create -----------------------------------------------------------------
+
+export async function createTicket(payload: TicketCreate): Promise<TicketRow> {
+  const { data, error } = await supabase
+    .from('tickets')
+    .insert(payload)
+    .select(
+      'id, context, type, title, body, status, priority, perceived_impact, reporter_id, operator_id, assignee_id, blocked, created_at, updated_at',
+    )
+    .single()
+  if (error) throw new Error(error.message)
+  return data as unknown as TicketRow
+}
 
 // ---- read -------------------------------------------------------------------
 
