@@ -696,6 +696,120 @@ export type PromoteTicketResult = {
   promotion_requested_at: string
 }
 
+// ---- @mentions (landr-wwhn.24) -----------------------------------------------
+//
+// @mention parsing + user-search autocomplete + mention notification dispatch.
+//
+// Mention tokens are `@<handle>` where handle = one or more non-whitespace,
+// non-@ chars.  We parse them from a raw comment body to determine which users
+// were mentioned so we can call the server-side override-quiet notify path.
+//
+// User search returns a minimal shape (id + email) so the autocomplete can
+// resolve handles (email local-parts) to public.users.id values for the
+// notification fan-out.  RLS restricts the users table to own-operator rows for
+// operators; staff see all (cross-tenant) — callers rely on RLS for access.
+//
+// Dispatch is FastAPI-routed (side-effecting: notify override-quiet → bell even
+// when the ticket is silenced) per write-routing-convention.
+
+export type MentionUser = {
+  id: string
+  email: string
+}
+
+/** Parse @handle tokens from a raw comment body.
+ *
+ * Returns the set of lower-cased handle strings (local-parts from email), NOT
+ * UUIDs — callers must resolve handles → user IDs via searchMentionUsers.
+ * A handle is everything after @ up to the next whitespace or end of string.
+ */
+export function parseMentionHandles(body: string): Set<string> {
+  const matches = body.matchAll(/@([^\s@]+)/g)
+  const handles = new Set<string>()
+  for (const m of matches) {
+    handles.add(m[1].toLowerCase())
+  }
+  return handles
+}
+
+/**
+ * Search users by email prefix for @mention autocomplete.
+ *
+ * Returns up to 10 rows matching `query` (case-insensitive prefix on email).
+ * RLS applies: operators see own-operator users; staff see all.
+ */
+export async function searchMentionUsers(query: string): Promise<MentionUser[]> {
+  if (!query.trim()) return []
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, email')
+    .ilike('email', `${query}%`)
+    .limit(10)
+  if (error) throw new Error(error.message)
+  return (data ?? []) as MentionUser[]
+}
+
+/**
+ * Resolve a set of handles (email local-parts) to user IDs.
+ *
+ * Returns a map of handle → MentionUser for those handles that matched.
+ * Unresolved handles (typos, non-existent users) are silently dropped.
+ */
+export async function resolveMentionHandles(
+  handles: Set<string>,
+): Promise<Map<string, MentionUser>> {
+  if (handles.size === 0) return new Map()
+  // Fetch all users whose email starts with any of the handles.
+  // We do a single OR query then filter locally (avoids N queries).
+  const handleArr = Array.from(handles)
+  // Build `email.ilike.handle%,email.ilike.handle2%` filter
+  const filters = handleArr.map((h) => `email.ilike.${encodeURIComponent(h)}%`).join(',')
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, email')
+    .or(filters)
+    .limit(50)
+  if (error) throw new Error(error.message)
+  const result = new Map<string, MentionUser>()
+  for (const row of data ?? []) {
+    const user = row as MentionUser
+    if (!user.email) continue
+    const localPart = user.email.split('@')[0]?.toLowerCase()
+    if (localPart && handles.has(localPart)) {
+      result.set(localPart, user)
+    }
+  }
+  return result
+}
+
+/**
+ * Notify mentioned users about a comment, overriding quiet/unwatched settings.
+ *
+ * Calls POST /api/tickets/{ticket_id}/notify-mentions (FastAPI — side-effecting:
+ * dispatches bell records + push/email echoes even for users with bell=false or
+ * who aren't watching the ticket).
+ *
+ * Per the EPIC design, being @mentioned is the ONE event allowed to override a
+ * quiet ticket.  This is deliberately a FastAPI call (not direct Supabase REST):
+ * it requires service-role access to write bell records for arbitrary users.
+ *
+ * Does nothing if mentionedUserIds is empty.
+ */
+export async function notifyMentions(
+  ticketId: string,
+  commentId: string,
+  mentionedUserIds: string[],
+  commentBody: string,
+): Promise<void> {
+  if (mentionedUserIds.length === 0) return
+  const { api } = await import('@/lib/api-client')
+  await api<void>(
+    'POST',
+    `/api/tickets/${ticketId}/notify-mentions`,
+    { comment_id: commentId, mentioned_user_ids: mentionedUserIds, body: commentBody },
+  )
+}
+
 /**
  * Send a ticket to development.
  *
