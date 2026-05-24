@@ -157,6 +157,8 @@ export const t = {
     trash: 'Trash',
     // landr-wwhn.11 — /tickets kanban board.
     tickets: 'Tickets',
+    // landr-wwhn.23 — /tickets/planning release-planning overlay.
+    ticketPlanning: 'Release planning',
   },
   // landr-aref — /audit route strings (audit_log viewer).
   audit: {
@@ -484,6 +486,24 @@ export const t = {
     // Errors
     loadError: 'Could not load ticket.',
     notFound: 'Ticket not found.',
+  },
+  // landr-wwhn.23 — /tickets/planning MoSCoW release-planning overlay.
+  ticketPlanning: {
+    pageTitle: 'Release planning',
+    pageSubtitle:
+      'Tag feature tickets with Must/Should/Could/Won\'t to scope your next release. Changes are landr-staff only.',
+    filterAll: 'All types',
+    filterFeatures: 'Features only',
+    unplannedLabel: 'Unplanned',
+    unplannedHint: 'These tickets have no MoSCoW tag yet.',
+    emptyAll: 'No tickets found.',
+    emptyUnplanned: 'All tickets have been assigned a MoSCoW tag.',
+    clearLabel: "Clear tag",
+    clearConfirm: "Remove MoSCoW tag from this ticket?",
+    saveToast: (title: string, tag: string) => `${title} → ${tag}`,
+    clearToast: (title: string) => `Cleared MoSCoW tag for "${title}"`,
+    errorToast: 'Failed to update MoSCoW tag.',
+    staffOnlyBanner: 'MoSCoW tags are set by landr staff. You can view but not edit them here.',
   },
   // landr-wwhn.16 — Notification preferences settings page + per-ticket
   // override control in the ticket detail sheet.

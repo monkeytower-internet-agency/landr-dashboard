@@ -4,6 +4,7 @@ import {
   CalendarRangeIcon,
   ChartAreaIcon,
   CheckCircleIcon,
+  FlagIcon,
   LayersIcon,
   LayoutDashboardIcon,
   MessageSquareIcon,
@@ -130,6 +131,13 @@ const primaryItems: NavItem[] = [
     to: '/tickets',
     label: t.nav.tickets,
     icon: MessageSquareIcon,
+    exact: true,
+  },
+  // landr-wwhn.23 — MoSCoW release-planning overlay.
+  {
+    to: '/tickets/planning',
+    label: t.nav.ticketPlanning,
+    icon: FlagIcon,
     exact: false,
   },
   // landr-aref — Audit log viewer. Sits at the end of the primary nav
