@@ -170,20 +170,30 @@ async function fetchTicketsWithLabels(operatorId: string): Promise<TicketRow[]> 
   if (error) throw new Error(error.message)
 
   // Flatten embedded ticket_labels → labels into a top-level `labels` array
-  // for convenient area-filter access. The raw Supabase join returns an array
-  // of `{ labels: { id, name, area, color } | null }` objects.
-  const rows = (data ?? []) as Array<
+  // for convenient area-filter access.
+  //
+  // Supabase's PostgREST embed types the nested `labels` relation as an ARRAY
+  // per join row ({ labels: TicketLabelRow[] }[]) — it cannot statically know
+  // the FK is to-one, so it widens the embedded relation to a collection. We
+  // model that shape exactly here (labels is an array, not a single nullable
+  // object) so the cast overlaps the inferred type and `tsc -b` is happy.
+  // Going through `unknown` first keeps the cast safe regardless of how the
+  // inferred select type evolves.
+  const rows = (data ?? []) as unknown as Array<
     TicketRow & {
-      ticket_labels?: Array<{ labels: { id: string; name: string; area: string; color: string | null } | null }>
+      ticket_labels?: Array<{
+        labels: { id: string; name: string; area: string; color: string | null }[]
+      }>
     }
   >
 
   return rows.map((r) => {
-    const labelArr = (r.ticket_labels ?? [])
-      .map((tl) => tl.labels)
-      .filter((l): l is { id: string; name: string; area: string; color: string | null } => l !== null)
+    // Each ticket_labels row carries a `labels` ARRAY (in practice 0 or 1
+    // entries since the FK is to-one, but the embed types it as a list).
+    // flatMap collapses the nested arrays into a single label list per ticket.
+    const labelArr = (r.ticket_labels ?? []).flatMap((tl) => tl.labels ?? [])
     // Attach labels as a side-channel field (not part of TicketRow proper).
-    const { ticket_labels: _drop, ...rest } = r as typeof r & { ticket_labels?: unknown }
+    const { ticket_labels: _drop, ...rest } = r
     return { ...rest, labels: labelArr } as unknown as TicketRow
   })
 }
