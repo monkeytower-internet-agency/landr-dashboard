@@ -1,4 +1,5 @@
 import {
+  BellIcon,
   BuildingIcon,
   CalendarClockIcon,
   CalendarDaysIcon,
@@ -72,6 +73,13 @@ export const ACCOUNT_SECTIONS: SettingsSubSection[] = [
     to: '/settings/plan',
     label: t.settingsHub.sections.plan,
     icon: CreditCardIcon,
+  },
+  // landr-wwhn.16 — personal notification preferences (bell/email/push).
+  // Lives in Account (personal scope) not Settings (operator scope).
+  {
+    to: '/settings/notifications',
+    label: t.settingsHub.sections.notifications,
+    icon: BellIcon,
   },
 ]
 

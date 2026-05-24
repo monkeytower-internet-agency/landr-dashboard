@@ -270,6 +270,9 @@ export const t = {
       // landr-ah9u — operator webhook configuration (v1 localStorage,
       // v2 server-delivered via background worker).
       webhooks: 'Webhooks',
+      // landr-wwhn.16 — personal notification preferences (bell/email/push
+      // + per-ticket overrides). Personal scope, not operator scope.
+      notifications: 'Notifications',
     },
     // landr-fnhz — one-line description for each settings subsection,
     // rendered as the PageTitle subtitle on the matching sub-page so the
@@ -323,6 +326,9 @@ export const t = {
       // landr-ah9u — operator webhook configuration.
       webhooks:
         'Subscribe an HTTPS endpoint to booking and payment events. Configuration is saved locally; server-side delivery ships in v2.',
+      // landr-wwhn.16 — personal notification preferences.
+      notifications:
+        'Choose how you receive notifications for ticket activity — bell, email, and mobile push.',
     },
     plan: {
       title: 'Plan',
@@ -464,6 +470,46 @@ export const t = {
     // Errors
     loadError: 'Could not load ticket.',
     notFound: 'Ticket not found.',
+  },
+  // landr-wwhn.16 — Notification preferences settings page + per-ticket
+  // override control in the ticket detail sheet.
+  notificationPrefs: {
+    // Settings page
+    pageTitle: 'Notifications',
+    pageSubtitle:
+      'Control how and when you receive notifications for ticket activity.',
+    globalSectionTitle: 'Default notification settings',
+    globalSectionDesc:
+      'These settings apply to all new tickets by default. Per-ticket overrides take precedence when set.',
+    channelSectionTitle: 'Notification channels',
+    bellLabel: 'In-app bell',
+    bellDesc: 'Show ticket activity in the notification bell (always available).',
+    emailLabel: 'Email',
+    emailDesc: 'Receive email echoes of ticket activity.',
+    pushLabel: 'Mobile push',
+    pushDesc: 'Receive push notifications on your phone (requires the mobile app).',
+    deliveryModeLabel: 'Delivery',
+    deliveryModeImmediate: 'Immediate',
+    deliveryModeDigest: 'Digest (batched)',
+    deliveryModeImmediateDesc: 'Deliver each notification as it happens.',
+    deliveryModeDigestDesc: 'Batch notifications and deliver periodically.',
+    saveAction: 'Save',
+    saving: 'Saving…',
+    revert: 'Revert',
+    toastSaved: 'Notification preferences saved.',
+    toastSaveError: 'Could not save notification preferences.',
+    noUser: 'Sign in to manage notification preferences.',
+    loading: 'Loading preferences…',
+    // Per-ticket override (TicketDetailSheet)
+    perTicketSectionTitle: 'Notifications for this ticket',
+    followingGlobal: 'Following your global default',
+    customForTicket: 'Custom for this ticket',
+    customHint: 'Overrides your global notification settings for this ticket.',
+    followGlobalAction: 'Reset to global default',
+    followGlobalDesc: 'Remove the override — this ticket will follow your global default.',
+    overrideToastSaved: 'Ticket notification override saved.',
+    overrideToastCleared: 'Ticket notification override cleared.',
+    overrideToastError: 'Could not save notification override.',
   },
   // landr-a8fg — shared "Copy link" affordance on detail sheets + ViewPage
   // headers. Centralised so the tooltip, success toast and error toast stay

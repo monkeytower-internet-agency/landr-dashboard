@@ -39,6 +39,9 @@ const { mock } = vi.hoisted(() => {
     eventRows: [] as unknown[],
     attachmentRows: [] as unknown[],
     watcherRow: null as unknown,
+    // landr-wwhn.16 — notification preference rows
+    notifPrefsRow: null as unknown,
+    ticketNotifySettingsRow: null as unknown,
     error: null as { message: string } | null,
   }
 
@@ -55,6 +58,9 @@ const { mock } = vi.hoisted(() => {
     if (table === 'users') return state.userRows[0] ?? null
     if (table === 'ticket_watchers') return state.watcherRow
     if (table === 'tickets_staff') return state.ticketRows[0] ?? null
+    // landr-wwhn.16 — notification preference tables
+    if (table === 'notification_preferences') return state.notifPrefsRow
+    if (table === 'ticket_notify_settings') return state.ticketNotifySettingsRow
     return null
   }
 
@@ -70,6 +76,7 @@ const { mock } = vi.hoisted(() => {
       limit: vi.fn(() => b),
       insert: vi.fn(() => b),
       delete: vi.fn(() => b),
+      upsert: vi.fn(() => b),
       single: vi.fn(async () => ({
         data: null as unknown,
         error: null as { message: string } | null,
@@ -192,6 +199,8 @@ beforeEach(() => {
   mock.state.eventRows = []
   mock.state.attachmentRows = []
   mock.state.watcherRow = null
+  mock.state.notifPrefsRow = null
+  mock.state.ticketNotifySettingsRow = null
   mock.state.error = null
   vi.clearAllMocks()
 })
@@ -545,6 +554,124 @@ describe('TicketDetailSheet — Watch toggle', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('ticket-watch-toggle')).toBeInTheDocument()
+    })
+  })
+})
+
+// ---- Notify override panel (landr-wwhn.16) ----------------------------------
+
+describe('TicketDetailSheet — Notification override panel', () => {
+  it('shows the notify override panel in the details tab when user is loaded', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    // No override row → follows global
+    mock.state.ticketNotifySettingsRow = null
+    mock.state.notifPrefsRow = null
+
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('notify-override-panel'),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('shows "Following your global default" badge when no override exists', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    mock.state.ticketNotifySettingsRow = null
+    mock.state.notifPrefsRow = null
+
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('notify-override-badge-following'),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('shows "Custom for this ticket" badge when an override exists', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    mock.state.ticketNotifySettingsRow = {
+      ticket_id: 'ticket-test-1234',
+      user_id: 'user-pub-1',
+      bell: false,
+      email: null,
+      push: null,
+      delivery_mode: null,
+      created_at: '2026-05-24T10:00:00Z',
+      updated_at: '2026-05-24T10:00:00Z',
+    }
+    mock.state.notifPrefsRow = null
+
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('notify-override-badge-custom'),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('shows "Reset to global default" button when an override is active', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    mock.state.ticketNotifySettingsRow = {
+      ticket_id: 'ticket-test-1234',
+      user_id: 'user-pub-1',
+      bell: false,
+      email: null,
+      push: null,
+      delivery_mode: null,
+      created_at: '2026-05-24T10:00:00Z',
+      updated_at: '2026-05-24T10:00:00Z',
+    }
+
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('notify-override-clear'),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('does not show clear button when no override is active', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    mock.state.ticketNotifySettingsRow = null
+
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      // Panel must be rendered first
+      expect(screen.getByTestId('notify-override-panel')).toBeInTheDocument()
+    })
+
+    expect(screen.queryByTestId('notify-override-clear')).not.toBeInTheDocument()
+  })
+
+  it('shows all three channel toggle switches', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    mock.state.ticketNotifySettingsRow = null
+    mock.state.notifPrefsRow = null
+
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('notify-override-bell')).toBeInTheDocument()
+      expect(screen.getByTestId('notify-override-email')).toBeInTheDocument()
+      expect(screen.getByTestId('notify-override-push')).toBeInTheDocument()
     })
   })
 })

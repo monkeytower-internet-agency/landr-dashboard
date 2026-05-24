@@ -48,13 +48,16 @@ describe('ACCOUNT_SECTIONS (landr-fzcg)', () => {
   // landr-6ybs — Calendar feed joined ACCOUNT between Gmail and Plan
   // (per-operator subscribable ICS feed; sits next to Gmail because
   // both are personal third-party integrations).
-  it('contains exactly company/connected/gmail/calendar/plan in that order', () => {
+  // landr-wwhn.16 — Notifications added after Plan (personal notification
+  // preferences: bell/email/push + per-ticket overrides).
+  it('contains exactly company/connected/gmail/calendar/plan/notifications in that order', () => {
     expect(ACCOUNT_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/company',
       '/settings/connected-accounts',
       '/settings/integrations/gmail',
       '/settings/integrations/calendar',
       '/settings/plan',
+      '/settings/notifications',
     ])
   })
 
