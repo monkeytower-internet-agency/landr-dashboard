@@ -67,6 +67,7 @@ import { ServiceRolesSettings } from '@/routes/settings/ServiceRolesSettings'
 import { VouchersSettings } from '@/routes/settings/VouchersSettings'
 import { CategoriesSettings } from '@/routes/settings/CategoriesSettings'
 import { EmbedSettings } from '@/routes/settings/EmbedSettings'
+import { NotificationPrefsSettings } from '@/routes/settings/NotificationPrefsSettings'
 import { OperationsSettings } from '@/routes/settings/OperationsSettings'
 import { WebhooksSettings } from '@/routes/settings/WebhooksSettings'
 import { AuthProvider } from '@/lib/auth'
@@ -241,6 +242,10 @@ function App() {
                 {/* landr-ah9u — Settings → Webhooks: operator-managed event
                     subscriptions (v1 localStorage; v2 server-delivered). */}
                 <Route path="webhooks" element={<WebhooksSettings />} />
+                {/* landr-wwhn.16 — Settings → Notifications: personal
+                    notification preferences (bell/email/push + per-ticket
+                    overrides). Personal scope; lives in ACCOUNT group. */}
+                <Route path="notifications" element={<NotificationPrefsSettings />} />
                 <Route path="plan" element={<PlanSettings />} />
               </Route>
 
