@@ -424,13 +424,16 @@ export const t = {
     watchToastOff: 'Stopped watching',
     watchToastError: 'Could not update watch status',
     // Comments
-    commentPlaceholder: 'Write a comment…',
+    commentPlaceholder: 'Write a comment… (type @ to mention someone)',
     commentInternalPlaceholder: 'Internal note (staff only)…',
     commentSubmit: 'Post',
     commentSubmitting: 'Posting…',
     commentInternalToggle: 'Internal note',
     commentToastError: 'Could not post comment',
     noComments: 'No comments yet.',
+    // @mentions (landr-wwhn.24)
+    mentionNoResults: 'No matching users.',
+    mentionSearching: 'Searching…',
     // Timeline
     noEvents: 'No activity yet.',
     eventCreated: 'Ticket opened',

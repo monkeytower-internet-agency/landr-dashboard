@@ -1,6 +1,7 @@
 // landr-wwhn.13 — Ticket detail sheet.
 // landr-wwhn.14 — Send-to-development gateway UI (landr-staff only).
 // landr-wwhn.22 — Assignee section: picker for staff, read-only for operators.
+// landr-wwhn.24 — @mention parsing + user-search autocomplete in comment composer.
 //
 // Opens from the kanban board when an operator or staff clicks a ticket card.
 // Architecture follows BookingDetailSheet.tsx: a Sheet shell delegates to a
@@ -21,11 +22,22 @@
 //   * Storage upload = Supabase Storage SDK (client-side, RLS enforced).
 //   * Gateway promotion → FastAPI POST /api/landr-staff/tickets/{id}/promote
 //     (side-effecting orchestration: bd create + stamp back linked_bd_id).
+//   * Mention dispatch → FastAPI POST /api/tickets/{id}/notify-mentions
+//     (side-effecting: override-quiet bell + echoes for mentioned users).
 //
 // Realtime: subscribe to ticket_comments + ticket_events + ticket_attachments
 // for the open ticket so the thread stays live.
+//
+// @mention UX (landr-wwhn.24):
+//   - Typing @ in the composer opens an autocomplete dropdown.
+//   - Suggestions are fetched via searchMentionUsers() (users table, ilike).
+//   - Selecting a suggestion inserts "@email-local-part " and closes the dropdown.
+//   - After a comment posts successfully, parseMentionHandles() extracts the
+//     handles, resolveMentionHandles() maps them to user IDs, and notifyMentions()
+//     calls the FastAPI endpoint which override-quiet dispatches to each mentioned
+//     user (the ONE event allowed to bypass a silenced ticket per EPIC design).
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BellIcon, BellOffIcon, BotIcon, Eye, EyeOff, MailIcon, Paperclip, Send, SmartphoneIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -65,8 +77,12 @@ import {
   fetchTicketStaff,
   fetchTicketWatcher,
   getAttachmentSignedUrl,
+  notifyMentions,
+  parseMentionHandles,
   patchTicketAssignee,
   promoteTicket,
+  resolveMentionHandles,
+  searchMentionUsers,
   unwatchTicket,
   uploadTicketAttachment,
   watchTicket,
@@ -75,6 +91,7 @@ import {
   PRIORITY_TOOLTIP,
   TYPE_LABEL,
   type AssignableUser,
+  type MentionUser,
   type TicketAttachment,
   type TicketComment,
   type TicketEvent,
@@ -1180,6 +1197,13 @@ function NotifyChannelRow({
 }
 
 // ---- CommentsPanel ----------------------------------------------------------
+//
+// landr-wwhn.24: @mention autocomplete + override-quiet notification dispatch.
+// When the user types "@" in the composer, we show a dropdown with matching
+// users (searched via searchMentionUsers). Selecting a suggestion inserts the
+// email local-part. After a successful comment post, we parse @handles from the
+// body, resolve them to user IDs, and call notifyMentions (FastAPI) so those
+// users receive a bell record even if their ticket settings are otherwise silent.
 
 type CommentsPanelProps = {
   ticketId: string
@@ -1190,6 +1214,16 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
   const qc = useQueryClient()
   const [body, setBody] = useState('')
   const [isInternal, setIsInternal] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // @mention autocomplete state
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null)
+  const [mentionSuggestions, setMentionSuggestions] = useState<MentionUser[]>([])
+  const [mentionLoading, setMentionLoading] = useState(false)
+  const [mentionSelectedIdx, setMentionSelectedIdx] = useState(0)
+  // Track the start offset of the current @-token so we can replace it on select.
+  const mentionStartRef = useRef<number>(-1)
+  const fetchAbortRef = useRef<AbortController | null>(null)
 
   // Staff fetch (incl. internal); operator fetch (public only).
   const staffQuery = useQuery({
@@ -1209,6 +1243,86 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
 
   const isPending = isStaff ? staffQuery.isPending : publicQuery.isPending
 
+  // Fetch mention suggestions when mentionQuery changes.
+  const fetchSuggestions = useCallback(async (q: string) => {
+    // Cancel any in-flight fetch.
+    fetchAbortRef.current?.abort()
+    const ac = new AbortController()
+    fetchAbortRef.current = ac
+    setMentionLoading(true)
+    try {
+      const results = await searchMentionUsers(q)
+      if (!ac.signal.aborted) {
+        setMentionSuggestions(results)
+        setMentionSelectedIdx(0)
+      }
+    } catch {
+      if (!ac.signal.aborted) setMentionSuggestions([])
+    } finally {
+      if (!ac.signal.aborted) setMentionLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    // Debounce: schedule fetch after 200 ms idle. When mentionQuery is null,
+    // we still schedule a timer so state updates happen asynchronously (the
+    // React Compiler forbids synchronous setState in effect bodies).
+    const timer = setTimeout(() => {
+      if (mentionQuery === null) {
+        setMentionSuggestions([])
+        setMentionLoading(false)
+        return
+      }
+      void fetchSuggestions(mentionQuery)
+    }, mentionQuery === null ? 0 : 200)
+    return () => clearTimeout(timer)
+  }, [mentionQuery, fetchSuggestions])
+
+  /** Detect whether the cursor is inside an @-token and update mention state. */
+  function handleBodyChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value
+    setBody(val)
+    const cursor = e.target.selectionStart ?? val.length
+    // Walk backwards from cursor to find the last @ before any whitespace.
+    let i = cursor - 1
+    while (i >= 0 && !/\s/.test(val[i]!)) {
+      if (val[i] === '@') {
+        // Found an @-token starting at i.
+        mentionStartRef.current = i
+        setMentionQuery(val.slice(i + 1, cursor))
+        return
+      }
+      i--
+    }
+    // No @-token in the current word — close dropdown.
+    mentionStartRef.current = -1
+    setMentionQuery(null)
+  }
+
+  /** Insert the selected user's email local-part at the @-token position. */
+  function selectMentionUser(user: MentionUser) {
+    const localPart = (user.email ?? '').split('@')[0] ?? ''
+    const start = mentionStartRef.current
+    if (start < 0) return
+    const cursor = textareaRef.current?.selectionStart ?? body.length
+    const newBody = `${body.slice(0, start)}@${localPart} ${body.slice(cursor)}`
+    setBody(newBody)
+    mentionStartRef.current = -1
+    setMentionQuery(null)
+    // Restore focus + move cursor past the inserted mention.
+    setTimeout(() => {
+      const ta = textareaRef.current
+      if (ta) {
+        ta.focus()
+        const pos = start + localPart.length + 2 // '@' + localPart + ' '
+        ta.setSelectionRange(pos, pos)
+      }
+    }, 0)
+  }
+
+  const showDropdown =
+    mentionQuery !== null && (mentionLoading || mentionSuggestions.length > 0)
+
   const createMutation = useMutation({
     mutationFn: () =>
       createComment({
@@ -1216,11 +1330,27 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
         body: body.trim(),
         is_internal: isStaff ? isInternal : false,
       }),
-    onSuccess: () => {
+    onSuccess: (comment) => {
+      const postedBody = body.trim()
       setBody('')
       setIsInternal(false)
+      setMentionQuery(null)
       void qc.invalidateQueries({ queryKey: ['ticket-comments', ticketId] })
       void qc.invalidateQueries({ queryKey: ['ticket-comments-staff', ticketId] })
+      // @mention dispatch: fire-and-forget; errors are non-fatal (bell is best-effort).
+      void (async () => {
+        try {
+          const handles = parseMentionHandles(postedBody)
+          if (handles.size === 0) return
+          const resolved = await resolveMentionHandles(handles)
+          const userIds = Array.from(resolved.values()).map((u) => u.id)
+          if (userIds.length > 0) {
+            await notifyMentions(ticketId, comment.id, userIds, postedBody)
+          }
+        } catch {
+          // Mention dispatch failure is non-fatal — the comment is already posted.
+        }
+      })()
     },
     onError: (err: Error) => {
       toast.error(`${t.ticketDetail.commentToastError} (${err.message})`)
@@ -1294,10 +1424,22 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
           </div>
         )}
 
+        {/* @mention autocomplete dropdown */}
+        {showDropdown && (
+          <MentionDropdown
+            loading={mentionLoading}
+            suggestions={mentionSuggestions}
+            selectedIdx={mentionSelectedIdx}
+            onSelect={selectMentionUser}
+            data-testid="mention-dropdown"
+          />
+        )}
+
         <div className="flex gap-2">
           <Textarea
+            ref={textareaRef}
             value={body}
-            onChange={(e) => setBody(e.target.value)}
+            onChange={handleBodyChange}
             placeholder={
               isInternal
                 ? t.ticketDetail.commentInternalPlaceholder
@@ -1308,6 +1450,33 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
               isInternal && 'border-amber-300 focus-visible:ring-amber-400 dark:border-amber-700',
             )}
             onKeyDown={(e) => {
+              // Keyboard navigation for the mention dropdown.
+              if (showDropdown) {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setMentionSelectedIdx((i) =>
+                    Math.min(i + 1, mentionSuggestions.length - 1),
+                  )
+                  return
+                }
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setMentionSelectedIdx((i) => Math.max(i - 1, 0))
+                  return
+                }
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  const user = mentionSuggestions[mentionSelectedIdx]
+                  if (user) {
+                    e.preventDefault()
+                    selectMentionUser(user)
+                    return
+                  }
+                }
+                if (e.key === 'Escape') {
+                  setMentionQuery(null)
+                  return
+                }
+              }
               if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && canPost) {
                 e.preventDefault()
                 createMutation.mutate()
@@ -1315,6 +1484,8 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
             }}
             disabled={createMutation.isPending}
             data-testid="comment-body-input"
+            aria-autocomplete="list"
+            aria-expanded={showDropdown}
           />
           <Button
             type="button"
@@ -1331,6 +1502,68 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
           </Button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ---- MentionDropdown --------------------------------------------------------
+
+type MentionDropdownProps = {
+  loading: boolean
+  suggestions: MentionUser[]
+  selectedIdx: number
+  onSelect: (user: MentionUser) => void
+  'data-testid'?: string
+}
+
+function MentionDropdown({
+  loading,
+  suggestions,
+  selectedIdx,
+  onSelect,
+  'data-testid': testId,
+}: MentionDropdownProps) {
+  return (
+    <div
+      role="listbox"
+      aria-label="Mention suggestions"
+      className="bg-popover border-border mb-1 max-h-40 overflow-y-auto rounded-md border shadow-md"
+      data-testid={testId ?? 'mention-dropdown'}
+    >
+      {loading ? (
+        <div className="text-muted-foreground px-3 py-2 text-xs">
+          {t.ticketDetail.mentionSearching}
+        </div>
+      ) : suggestions.length === 0 ? (
+        <div className="text-muted-foreground px-3 py-2 text-xs">
+          {t.ticketDetail.mentionNoResults}
+        </div>
+      ) : (
+        suggestions.map((u, idx) => (
+          <button
+            key={u.id}
+            type="button"
+            role="option"
+            aria-selected={idx === selectedIdx}
+            className={cn(
+              'flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors',
+              idx === selectedIdx
+                ? 'bg-accent text-accent-foreground'
+                : 'hover:bg-muted',
+            )}
+            onMouseDown={(e) => {
+              // mousedown fires before textarea blur; prevent default so we
+              // can still read the cursor position and insert the mention.
+              e.preventDefault()
+              onSelect(u)
+            }}
+            data-testid={`mention-option-${u.id}`}
+          >
+            <span className="font-medium">{u.email?.split('@')[0]}</span>
+            <span className="text-muted-foreground truncate">{u.email}</span>
+          </button>
+        ))
+      )}
     </div>
   )
 }
