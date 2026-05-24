@@ -1,4 +1,5 @@
 // landr-wwhn.13 — TicketDetailSheet component tests.
+// landr-wwhn.14 — Gateway UI tests.
 //
 // Covers:
 //   - Sheet opens and shows ticket title + type
@@ -10,6 +11,11 @@
 //   - Attachments tab: empty state
 //   - Watch toggle renders
 //   - Close button fires onOpenChange(false)
+//   - Gateway panel: hidden for non-staff
+//   - Gateway panel: visible for staff with prompt input + submit button
+//   - Gateway panel: shows already-promoted state when linked_bd_id is set
+//   - Gateway panel: calls promote endpoint and toasts on success
+//   - Gateway panel: toasts error on promote failure
 
 import {
   render as rtlRender,
@@ -126,7 +132,20 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }))
 
+// Mock the api-client module so promoteTicket can be controlled in gateway tests.
+// vitest 4's vi.fn<T>() takes a single function-type argument (not the legacy
+// [args, return] tuple form), so type it as the api() signature.
+const mockApiFn =
+  vi.fn<(method: string, path: string, body?: unknown) => Promise<unknown>>()
+vi.mock('@/lib/api-client', () => ({
+  api: mockApiFn,
+  apiBase: () => '',
+  getBearerToken: async () => 'test-token',
+  registerSessionExpiredHandler: () => () => {},
+}))
+
 import { TicketDetailSheet } from './TicketDetailSheet'
+import { toast } from 'sonner'
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -526,6 +545,158 @@ describe('TicketDetailSheet — Watch toggle', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('ticket-watch-toggle')).toBeInTheDocument()
+    })
+  })
+})
+
+// ---- Gateway panel (landr-wwhn.14) ------------------------------------------
+
+function makeStaffTicketRow(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    ...makeTicket(),
+    severity: null,
+    linked_bd_id: null,
+    promotion_prompt: null,
+    promotion_requested_at: null,
+    sync_status: null,
+    last_synced_at: null,
+    ...overrides,
+  }
+}
+
+describe('TicketDetailSheet — Gateway panel', () => {
+  beforeEach(() => {
+    mockApiFn.mockReset()
+  })
+
+  it('does NOT show gateway panel for non-staff', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('gateway-panel')).not.toBeInTheDocument()
+    })
+  })
+
+  it('shows gateway panel for staff', async () => {
+    mock.state.userRows = [makePublicUser(true)]
+    mock.state.ticketRows = [makeStaffTicketRow()]
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('gateway-panel')).toBeInTheDocument()
+    })
+  })
+
+  it('shows prompt input and submit button when not yet promoted', async () => {
+    mock.state.userRows = [makePublicUser(true)]
+    mock.state.ticketRows = [makeStaffTicketRow({ linked_bd_id: null })]
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('gateway-prompt-input')).toBeInTheDocument()
+      expect(screen.getByTestId('gateway-submit-btn')).toBeInTheDocument()
+    })
+  })
+
+  it('shows already-promoted state when linked_bd_id is set', async () => {
+    mock.state.userRows = [makePublicUser(true)]
+    mock.state.ticketRows = [makeStaffTicketRow({ linked_bd_id: 'landr-abcd' })]
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('gateway-already-promoted')).toBeInTheDocument()
+      expect(screen.getByTestId('gateway-already-promoted')).toHaveTextContent(
+        'landr-abcd',
+      )
+    })
+    // Prompt input and submit button should not be visible
+    expect(screen.queryByTestId('gateway-prompt-input')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('gateway-submit-btn')).not.toBeInTheDocument()
+  })
+
+  it('calls promote endpoint and shows success toast', async () => {
+    mock.state.userRows = [makePublicUser(true)]
+    mock.state.ticketRows = [makeStaffTicketRow()]
+    mockApiFn.mockResolvedValue({
+      linked_bd_id: 'landr-new1',
+      promotion_requested_at: '2026-05-24T11:00:00Z',
+    })
+
+    const user = userEvent.setup()
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('gateway-prompt-input')).toBeInTheDocument()
+    })
+
+    await user.type(
+      screen.getByTestId('gateway-prompt-input'),
+      'Fix the login crash on iOS 17',
+    )
+
+    const submitBtn = screen.getByTestId('gateway-submit-btn')
+    expect(submitBtn).not.toBeDisabled()
+    await user.click(submitBtn)
+
+    await waitFor(() => {
+      expect(mockApiFn).toHaveBeenCalledWith(
+        'POST',
+        `/api/landr-staff/tickets/ticket-test-1234/promote`,
+        { prompt: 'Fix the login crash on iOS 17' },
+      )
+      expect(toast.success).toHaveBeenCalledWith(
+        expect.stringContaining('landr-new1'),
+      )
+    })
+  })
+
+  it('disables submit button when prompt is empty', async () => {
+    mock.state.userRows = [makePublicUser(true)]
+    mock.state.ticketRows = [makeStaffTicketRow()]
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('gateway-submit-btn')).toBeDisabled()
+    })
+  })
+
+  it('shows error toast when promote call fails', async () => {
+    mock.state.userRows = [makePublicUser(true)]
+    mock.state.ticketRows = [makeStaffTicketRow()]
+    mockApiFn.mockRejectedValue(new Error('Not authorized'))
+
+    const user = userEvent.setup()
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('gateway-prompt-input')).toBeInTheDocument()
+    })
+
+    await user.type(
+      screen.getByTestId('gateway-prompt-input'),
+      'Fix the login crash',
+    )
+    await user.click(screen.getByTestId('gateway-submit-btn'))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringContaining('Not authorized'),
+      )
     })
   })
 })
