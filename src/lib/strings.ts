@@ -453,6 +453,18 @@ export const t = {
       `Could not upload ${name}`,
     attachmentDownload: 'Download',
     attachmentPasteHint: 'You can also paste an image (Ctrl+V / Cmd+V).',
+    // Gateway (landr-wwhn.14) — send-to-development, landr-staff only
+    gatewaySectionTitle: 'Send to development',
+    gatewayPromptLabel: 'Engineering prompt',
+    gatewayPromptPlaceholder:
+      'Describe what needs to be built — this prompt is sent directly to the bd tracker…',
+    gatewaySubmitLabel: 'Send to development',
+    gatewaySubmitting: 'Sending…',
+    gatewayAlreadyPromoted: (bdId: string): string =>
+      `Already in development — bd issue ${bdId}`,
+    gatewayToastSuccess: (bdId: string): string =>
+      `Sent to development — bd issue ${bdId}`,
+    gatewayToastError: 'Could not send to development',
     // Errors
     loadError: 'Could not load ticket.',
     notFound: 'Ticket not found.',

@@ -1,4 +1,5 @@
 // landr-wwhn.13 — Ticket detail sheet.
+// landr-wwhn.14 — Send-to-development gateway UI (landr-staff only).
 //
 // Opens from the kanban board when an operator or staff clicks a ticket card.
 // Architecture follows BookingDetailSheet.tsx: a Sheet shell delegates to a
@@ -9,6 +10,7 @@
 //
 // Staff (is_landr_staff) see additional fields:
 //   * Details tab: severity, linked_bd_id, sync_status (read via tickets_staff view).
+//   * Details tab: GatewayPanel — engineering prompt + "Send to development" action.
 //   * Comments tab: internal notes (is_internal=true) + can post internal comments.
 //   * Timeline: internal events (is_internal=true comment_added events).
 //
@@ -16,6 +18,8 @@
 //   * Comment INSERT / watcher toggle / attachment metadata INSERT = direct
 //     Supabase REST (plain row writes covered by RLS + audit trigger).
 //   * Storage upload = Supabase Storage SDK (client-side, RLS enforced).
+//   * Gateway promotion → FastAPI POST /api/landr-staff/tickets/{id}/promote
+//     (side-effecting orchestration: bd create + stamp back linked_bd_id).
 //
 // Realtime: subscribe to ticket_comments + ticket_events + ticket_attachments
 // for the open ticket so the thread stays live.
@@ -52,6 +56,7 @@ import {
   fetchTicketStaff,
   fetchTicketWatcher,
   getAttachmentSignedUrl,
+  promoteTicket,
   unwatchTicket,
   uploadTicketAttachment,
   watchTicket,
@@ -246,6 +251,10 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
             ticket={ticket}
             staffDetail={isStaff ? staffDetail : null}
             isStaff={isStaff}
+            onPromoteSuccess={() => {
+              void qc.invalidateQueries({ queryKey: ['ticket-staff', ticket.id] })
+              void qc.invalidateQueries({ queryKey: ['ticket-events', ticket.id] })
+            }}
           />
         </div>
       ) : activeTab === 'comments' ? (
@@ -393,9 +402,10 @@ type DetailsPanelProps = {
   ticket: TicketRow
   staffDetail: TicketRowStaff | null
   isStaff: boolean
+  onPromoteSuccess: () => void
 }
 
-function DetailsPanel({ ticket, staffDetail, isStaff }: DetailsPanelProps) {
+function DetailsPanel({ ticket, staffDetail, isStaff, onPromoteSuccess }: DetailsPanelProps) {
   const dateFormatter = new Intl.DateTimeFormat('en-IE', {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -552,7 +562,107 @@ function DetailsPanel({ ticket, staffDetail, isStaff }: DetailsPanelProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Send-to-development gateway (landr-wwhn.14) — staff only */}
+      {isStaff && (
+        <GatewayPanel
+          ticketId={ticket.id}
+          linkedBdId={staffDetail?.linked_bd_id ?? null}
+          onPromoteSuccess={onPromoteSuccess}
+        />
+      )}
     </div>
+  )
+}
+
+// ---- GatewayPanel (landr-wwhn.14) -------------------------------------------
+
+type GatewayPanelProps = {
+  ticketId: string
+  /** Non-null when the ticket has already been promoted (linked_bd_id set). */
+  linkedBdId: string | null
+  onPromoteSuccess: () => void
+}
+
+function GatewayPanel({ ticketId, linkedBdId, onPromoteSuccess }: GatewayPanelProps) {
+  const [prompt, setPrompt] = useState('')
+
+  const mutation = useMutation({
+    mutationFn: () => promoteTicket(ticketId, prompt.trim()),
+    onSuccess: (result) => {
+      setPrompt('')
+      toast.success(t.ticketDetail.gatewayToastSuccess(result.linked_bd_id))
+      onPromoteSuccess()
+    },
+    onError: (err: Error) => {
+      toast.error(`${t.ticketDetail.gatewayToastError} (${err.message})`)
+    },
+  })
+
+  const isAlreadyPromoted = linkedBdId !== null
+  const canSubmit =
+    !isAlreadyPromoted && prompt.trim().length > 0 && !mutation.isPending
+
+  return (
+    <Card
+      className="border-indigo-300 dark:border-indigo-700"
+      data-testid="gateway-panel"
+    >
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          {t.ticketDetail.gatewaySectionTitle}
+          <span className="inline-flex items-center rounded-full border border-amber-500 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+            Staff only
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {isAlreadyPromoted ? (
+          <p
+            className="text-sm text-indigo-700 dark:text-indigo-300"
+            data-testid="gateway-already-promoted"
+          >
+            {t.ticketDetail.gatewayAlreadyPromoted(linkedBdId)}
+          </p>
+        ) : (
+          <>
+            <label
+              className="text-muted-foreground text-xs font-medium"
+              htmlFor={`gateway-prompt-${ticketId}`}
+            >
+              {t.ticketDetail.gatewayPromptLabel}
+            </label>
+            <Textarea
+              id={`gateway-prompt-${ticketId}`}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder={t.ticketDetail.gatewayPromptPlaceholder}
+              className="min-h-[96px] resize-none"
+              disabled={mutation.isPending}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && canSubmit) {
+                  e.preventDefault()
+                  mutation.mutate()
+                }
+              }}
+              data-testid="gateway-prompt-input"
+            />
+            <Button
+              type="button"
+              onClick={() => mutation.mutate()}
+              disabled={!canSubmit}
+              className="self-start gap-1.5"
+              data-testid="gateway-submit-btn"
+            >
+              <Send className="size-3.5" aria-hidden />
+              {mutation.isPending
+                ? t.ticketDetail.gatewaySubmitting
+                : t.ticketDetail.gatewaySubmitLabel}
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 

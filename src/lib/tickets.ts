@@ -630,6 +630,36 @@ export async function fetchTicketEvents(
   return (data ?? []) as unknown as TicketEvent[]
 }
 
+// ---- gateway promotion (landr-wwhn.14) --------------------------------------
+
+export type PromoteTicketResult = {
+  linked_bd_id: string
+  promotion_requested_at: string
+}
+
+/**
+ * Send a ticket to development.
+ *
+ * Calls POST /api/landr-staff/tickets/{ticket_id}/promote with the engineering
+ * prompt written by Olaf. Returns the newly linked_bd_id and timestamp on
+ * success. Per write-routing-convention this is a FastAPI call (side-effecting
+ * orchestration — bd create + stamp back) not a direct Supabase write.
+ *
+ * Throws if the user is not landr_staff (403), the ticket is already promoted,
+ * or the request otherwise fails.
+ */
+export async function promoteTicket(
+  ticketId: string,
+  prompt: string,
+): Promise<PromoteTicketResult> {
+  const { api } = await import('@/lib/api-client')
+  return api<PromoteTicketResult>(
+    'POST',
+    `/api/landr-staff/tickets/${ticketId}/promote`,
+    { prompt },
+  )
+}
+
 // ---- drop resolution --------------------------------------------------------
 
 /**
