@@ -32,6 +32,9 @@ const ViewsNew = lazy(() => import('@/routes/ViewsNew'))
 // landr-wwhn.11 — /tickets kanban board. Lazy-loaded because it carries
 // @dnd-kit and is not on the immediate landing path.
 const TicketBoard = lazy(() => import('@/routes/TicketBoard'))
+// landr-wwhn.23 — /tickets/planning MoSCoW release-planning overlay.
+// Lazy-loaded (staff-facing planning surface, not on the daily operator path).
+const TicketPlanning = lazy(() => import('@/routes/TicketPlanning'))
 import { AuthCallback } from '@/routes/AuthCallback'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
@@ -177,6 +180,8 @@ function App() {
               <Route path="/approvals/general" element={<GeneralApprovals />} />
               {/* landr-wwhn.11 — Ticket board (5-column kanban, realtime). */}
               <Route path="/tickets" element={<TicketBoard />} />
+              {/* landr-wwhn.23 — MoSCoW release-planning overlay. */}
+              <Route path="/tickets/planning" element={<TicketPlanning />} />
 
               {/* landr-fzcg — Account is a virtual top-level nav item
                   whose subsections live under /settings/*. Hitting

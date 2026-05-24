@@ -131,6 +131,7 @@ function makeTicket(overrides: Partial<TicketRow> = {}): TicketRow {
     operator_id: 'op-1',
     assignee_id: null,
     blocked: false,
+    moscow: null,
     created_at: '2026-05-24T10:00:00Z',
     updated_at: '2026-05-24T10:00:00Z',
     ...overrides,

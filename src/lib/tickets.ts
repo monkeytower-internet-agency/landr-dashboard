@@ -22,13 +22,15 @@
 //   perceived_impact ticket_perceived_impact NOT NULL DEFAULT 'idea'
 //   reporter_id      uuid            (auth-resolved at INSERT time)
 //   operator_id      uuid            NOT NULL
+//   moscow           ticket_moscow   NULLABLE  (release-planning overlay, landr-wwhn.23)
 //
 // Column-level grants (authenticated role):
 //   INSERT: context, type, title, body, status, priority, perceived_impact,
 //           reporter_id, operator_id, assignee_id, blocked
 //   SELECT: id, context, type, title, body, status, priority, perceived_impact,
-//           reporter_id, operator_id, assignee_id, blocked, created_at, updated_at
+//           reporter_id, operator_id, assignee_id, blocked, moscow, created_at, updated_at
 //   UPDATE: type, title, body, status, priority, perceived_impact, assignee_id, blocked
+//   NOTE: moscow is SELECT-only for operators; staff write it via service-role router.
 //
 // Internal fields (severity, linked_bd_id, promotion_prompt, sync_status, …)
 // are REVOKE-d from REST roles — reporters/operators MUST NOT set them. Staff
@@ -48,6 +50,10 @@ export type TicketStatus =
   | 'done'
 export type TicketPriority = 'p0' | 'p1' | 'p2'
 export type TicketPerceivedImpact = 'blocking' | 'annoying' | 'idea'
+// landr-wwhn.23 — MoSCoW release-planning overlay.
+// Nullable: NULL = not yet assigned to a milestone plan.
+// Operator-readable (SELECT grant); staff-set via service-role router.
+export type TicketMoscow = 'must' | 'should' | 'could' | 'wont'
 
 // ---- public ticket row (what `authenticated` role can read) -----------------
 
@@ -64,6 +70,8 @@ export type TicketRow = {
   operator_id: string
   assignee_id: string | null
   blocked: boolean
+  /** landr-wwhn.23: release-planning overlay. null = unplanned. */
+  moscow: TicketMoscow | null
   created_at: string
   updated_at: string
 }
@@ -156,6 +164,29 @@ export const PERCEIVED_IMPACT_LABEL: Record<TicketPerceivedImpact, string> = {
   idea: 'Idea',
 }
 
+// ---- MoSCoW labels (landr-wwhn.23) ------------------------------------------
+//
+// MoSCoW is a release-scoping overlay applied during milestone planning —
+// mostly to feature tickets. Null = not yet planned for any milestone.
+// Operators can read it; only staff (via service-role) can write it.
+
+export const MOSCOW_LABEL: Record<TicketMoscow, string> = {
+  must: 'Must have',
+  should: 'Should have',
+  could: 'Could have',
+  wont: "Won't have",
+}
+
+export const MOSCOW_DESCRIPTION: Record<TicketMoscow, string> = {
+  must: 'Required for this release — will not ship without it',
+  should: 'Important but not critical — defer only if necessary',
+  could: 'Desirable — include if capacity allows',
+  wont: 'Not this release — acknowledged and deferred',
+}
+
+/** Ordered for planning UI: Must → Should → Could → Won't. */
+export const MOSCOW_VALUES: TicketMoscow[] = ['must', 'should', 'could', 'wont']
+
 // ---- create-ticket flow (landr-wwhn.12) -------------------------------------
 
 export type TicketCreate = {
@@ -210,6 +241,7 @@ const TICKET_SELECT = `
   operator_id,
   assignee_id,
   blocked,
+  moscow,
   created_at,
   updated_at
 `
@@ -227,6 +259,7 @@ const TICKET_STAFF_SELECT = `
   operator_id,
   assignee_id,
   blocked,
+  moscow,
   severity,
   linked_bd_id,
   promotion_prompt,
@@ -244,7 +277,7 @@ export async function createTicket(payload: TicketCreate): Promise<TicketRow> {
     .from('tickets')
     .insert(payload)
     .select(
-      'id, context, type, title, body, status, priority, perceived_impact, reporter_id, operator_id, assignee_id, blocked, created_at, updated_at',
+      'id, context, type, title, body, status, priority, perceived_impact, reporter_id, operator_id, assignee_id, blocked, moscow, created_at, updated_at',
     )
     .single()
   if (error) throw new Error(error.message)
@@ -306,6 +339,29 @@ export async function patchTicketStatus(
     .eq('id', ticketId)
 
   if (error) throw new Error(error.message)
+}
+
+/**
+ * Set (or clear) the MoSCoW tag on a ticket.
+ *
+ * Per write-routing-convention: `moscow` has no INSERT/UPDATE grant for
+ * `authenticated` — it is a staff-only write. This function is called from
+ * the planning view and is expected to be invoked only when isStaff is true.
+ * It calls the FastAPI staff router which uses the service_role key and
+ * therefore bypasses the column grant restriction.
+ *
+ * Pass null to clear (ticket no longer assigned to a milestone plan).
+ */
+export async function patchTicketMoscow(
+  ticketId: string,
+  moscow: TicketMoscow | null,
+): Promise<void> {
+  const { api } = await import('@/lib/api-client')
+  await api<void>(
+    'PATCH',
+    `/api/landr-staff/tickets/${ticketId}/moscow`,
+    { moscow },
+  )
 }
 
 // ---- single ticket fetch (for detail sheet) ---------------------------------
