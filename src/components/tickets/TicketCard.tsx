@@ -1,14 +1,16 @@
 // landr-wwhn.11 — single ticket card on the kanban board.
+// landr-wwhn.22 — compact assignee chip (initials for humans, robot icon for agents).
 //
 // Draggable when its column is in DRAGGABLE_STATUSES (backlog, ready).
 // Read-only (no drag) in bd-authoritative columns (in_progress/in_review/done).
 //
-// Compact rendering: title, type chip, priority badge, and blocked indicator.
-// Click opens the ticket detail (via parent callback; detail sheet is landr-wwhn.13).
+// Compact rendering: title, type chip, priority badge, blocked indicator,
+// and assignee avatar (when assigned). Click opens the ticket detail.
 // `blocked` renders as a badge on the card, NOT as a separate column.
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { BotIcon } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { cn } from '@/lib/utils'
 import {
@@ -16,6 +18,7 @@ import {
   PRIORITY_LABEL,
   PRIORITY_TOOLTIP,
   TYPE_LABEL,
+  type AssignableUser,
   type TicketRow,
 } from '@/lib/tickets'
 
@@ -23,6 +26,12 @@ type Props = {
   ticket: TicketRow
   /** Called when the operator clicks the card to open the detail sheet. */
   onOpen: (ticket: TicketRow) => void
+  /**
+   * Optional resolved assignee for display. Pass the AssignableUser row that
+   * matches ticket.assignee_id (looked up by the parent board from a cached
+   * assignable_users list). When absent the assignee chip is hidden.
+   */
+  assignee?: AssignableUser | null
 }
 
 const PRIORITY_TONE: Record<string, string> = {
@@ -41,7 +50,7 @@ const TYPE_TONE: Record<string, string> = {
     'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300',
 }
 
-export function TicketCard({ ticket, onOpen }: Props) {
+export function TicketCard({ ticket, onOpen, assignee }: Props) {
   const isDraggableColumn = DRAGGABLE_STATUSES.has(ticket.status)
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -111,7 +120,7 @@ export function TicketCard({ ticket, onOpen }: Props) {
         )}
       </div>
 
-      {/* Footer: priority + date */}
+      {/* Footer: priority + assignee chip + date */}
       <div className="mt-0.5 flex items-center justify-between gap-2">
         <span
           className={cn(
@@ -123,10 +132,66 @@ export function TicketCard({ ticket, onOpen }: Props) {
         >
           {PRIORITY_LABEL[ticket.priority]}
         </span>
-        <span className="text-muted-foreground whitespace-nowrap">
-          {createdDate}
-        </span>
+
+        <div className="flex items-center gap-1.5">
+          {/* Assignee chip — compact avatar (initials or robot icon) */}
+          {assignee && (
+            <AssigneeChip
+              assignee={assignee}
+              data-testid={`ticket-card-assignee-${ticket.id}`}
+            />
+          )}
+          <span className="text-muted-foreground whitespace-nowrap">
+            {createdDate}
+          </span>
+        </div>
       </div>
     </button>
+  )
+}
+
+// ---- AssigneeChip -----------------------------------------------------------
+// Compact avatar shown on the card footer.
+// Humans: two-letter initials circle (derived from email).
+// Claude agents: robot icon circle.
+// Both carry a tooltip with the email for discoverability.
+
+type AssigneeChipProps = {
+  assignee: AssignableUser
+  'data-testid'?: string
+}
+
+function AssigneeChip({ assignee, 'data-testid': testId }: AssigneeChipProps) {
+  const title = assignee.email ?? (assignee.is_claude_agent ? 'Claude agent' : 'Assigned')
+
+  if (assignee.is_claude_agent) {
+    return (
+      <span
+        className="inline-flex size-5 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
+        title={title}
+        aria-label={`Assigned to agent: ${title}`}
+        data-testid={testId}
+      >
+        <BotIcon className="size-3" aria-hidden />
+      </span>
+    )
+  }
+
+  // Human — derive up to 2 initials from the email local part.
+  const local = (assignee.email ?? '').split('@')[0] ?? ''
+  const parts = local.split(/[._-]/).filter(Boolean)
+  const initials = parts.length >= 2
+    ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+    : local.slice(0, 2).toUpperCase()
+
+  return (
+    <span
+      className="inline-flex size-5 items-center justify-center rounded-full bg-emerald-100 text-[9px] font-semibold text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+      title={title}
+      aria-label={`Assigned to: ${title}`}
+      data-testid={testId}
+    >
+      {initials || '?'}
+    </span>
   )
 }

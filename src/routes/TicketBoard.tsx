@@ -1,4 +1,5 @@
 // landr-wwhn.11 — /tickets kanban board route.
+// landr-wwhn.22 — assignee chips on cards; fetches assignable_users once.
 //
 // Five columns: backlog → ready → in_progress → in_review → done.
 //
@@ -40,6 +41,7 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
+import { useQuery } from '@tanstack/react-query'
 
 import { PageTitle } from '@/lib/page-title'
 import { useOperator } from '@/lib/operator'
@@ -47,9 +49,11 @@ import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   TICKET_COLUMNS,
+  fetchAssignableUsers,
   fetchTickets,
   patchTicketStatus,
   resolveTicketDrop,
+  type AssignableUser,
   type TicketRow,
   type TicketStatus,
 } from '@/lib/tickets'
@@ -76,6 +80,22 @@ export function TicketBoard() {
         }
       : null,
   })
+
+  // landr-wwhn.22 — fetch assignable users once for card chips.
+  // Stale for 5 min; error is silently ignored (chips just won't render).
+  const assignableQuery = useQuery({
+    queryKey: ['assignable-users'],
+    queryFn: fetchAssignableUsers,
+    staleTime: 5 * 60 * 1000,
+  })
+  // Build a lookup map: users.id → AssignableUser for O(1) card-level access.
+  const assigneeMap = useMemo<Map<string, AssignableUser>>(() => {
+    const map = new Map<string, AssignableUser>()
+    for (const u of assignableQuery.data ?? []) {
+      map.set(u.id, u)
+    }
+    return map
+  }, [assignableQuery.data])
 
   const tickets = useMemo(() => query.data ?? [], [query.data])
 
@@ -250,6 +270,7 @@ export function TicketBoard() {
                 items={col.items}
                 onOpen={(ticket) => setOpenTicket(ticket)}
                 readMostly={col.readMostly}
+                assigneeMap={assigneeMap}
               />
             ))
           )}
