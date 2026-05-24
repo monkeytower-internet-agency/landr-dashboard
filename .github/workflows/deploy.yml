@@ -10,6 +10,13 @@ permissions:
   contents: read
   deployments: write
 
+# Requirements (GitHub Actions secrets):
+# - CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID: Cloudflare deployment
+# - VITE_SUPABASE_URL_PROD, VITE_SUPABASE_PUB_KEY, VITE_SUPABASE_PUB_KEY_DEV: Supabase keys
+# - LANDR_DEPLOY_TOKEN: Shared secret for deploy-close endpoint
+#   (POST /api/internal/deploy/mark_tickets_shipped). Same value as the one
+#   set in landr-api and landr-mobile. See landr-yzoi for secret setup.
+
 env:
   PAGES_PROJECT_NAME: landr-dashboard
 
@@ -20,6 +27,10 @@ jobs:
       name: ${{ github.event_name == 'push' && 'production' || 'preview' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history required to collect Landr-Ticket trailers across the
+          # release range (post_deploy_close.sh uses git log <from>..<to>).
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -64,3 +75,28 @@ jobs:
             pages deploy dist
             --project-name=${{ env.PAGES_PROJECT_NAME }}
             --branch=${{ github.head_ref || github.ref_name }}
+
+      - name: Deploy-close tickets (mark_tickets_shipped)
+        # Runs only on production deploys (main branch push).
+        # Collects Landr-Ticket: trailers from commits in this release range and
+        # POSTs them to mark_tickets_shipped to set status=done + emit ticket.shipped.
+        # Full git history is needed to walk the from..to range; the checkout above
+        # uses fetch-depth: 0 for this reason.
+        # Safe to fail: a non-zero exit here does NOT roll back the deploy.
+        # Operator: ensure LANDR_DEPLOY_TOKEN is set as a repo/org secret (landr-yzoi).
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          LANDR_DEPLOY_TOKEN: ${{ secrets.LANDR_DEPLOY_TOKEN }}
+        run: |
+          curl -fsSL \
+            https://raw.githubusercontent.com/monkeytower-internet-agency/landr-api/main/scripts/post_deploy_close.sh \
+            -o /tmp/post_deploy_close.sh
+          curl -fsSL \
+            https://raw.githubusercontent.com/monkeytower-internet-agency/landr-api/main/scripts/collect_trailer_uuids.py \
+            -o /tmp/collect_trailer_uuids.py
+          bash /tmp/post_deploy_close.sh \
+            --api-url  "https://landr-api-service-693721943357.europe-west3.run.app" \
+            --token    "$LANDR_DEPLOY_TOKEN" \
+            --release  "${{ github.sha }}" \
+            --from     "${{ github.event.before }}"
