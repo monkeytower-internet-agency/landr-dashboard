@@ -48,11 +48,15 @@ import {
   type TicketStatus,
 } from '@/lib/tickets'
 import { TicketBoardColumn } from '@/components/tickets/TicketBoardColumn'
+import { TicketDetailSheet } from '@/components/tickets/TicketDetailSheet'
 
 // ---- component --------------------------------------------------------------
 
 export function TicketBoard() {
   const { currentOperatorId } = useOperator()
+
+  // landr-wwhn.13 — detail sheet state
+  const [openTicket, setOpenTicket] = useState<TicketRow | null>(null)
 
   const query = useRealtimeQuery<TicketRow[]>({
     queryKey: ['tickets', currentOperatorId ?? 'none'],
@@ -213,18 +217,21 @@ export function TicketBoard() {
                 columnKey={col.key}
                 label={col.label}
                 items={col.items}
-                onOpen={(_ticket) => {
-                  // landr-wwhn.13 will mount a TicketDetailSheet here.
-                  // No-op for now — the card is still clickable and
-                  // focusable for accessibility; the detail sheet ships
-                  // with the next slice.
-                }}
+                onOpen={(ticket) => setOpenTicket(ticket)}
                 readMostly={col.readMostly}
               />
             ))
           )}
         </div>
       </DndContext>
+
+      {/* landr-wwhn.13 — detail sheet, opened on card click */}
+      <TicketDetailSheet
+        ticket={openTicket}
+        onOpenChange={(open) => {
+          if (!open) setOpenTicket(null)
+        }}
+      />
     </div>
   )
 }

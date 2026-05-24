@@ -308,6 +308,328 @@ export async function patchTicketStatus(
   if (error) throw new Error(error.message)
 }
 
+// ---- single ticket fetch (for detail sheet) ---------------------------------
+
+/**
+ * Fetch a single ticket by id. Operators see own-org tickets; staff see all
+ * (RLS). Returns null if not found (rather than throwing for a missing row —
+ * callers render an error state rather than an unhandled rejection).
+ */
+export async function fetchTicket(ticketId: string): Promise<TicketRow | null> {
+  const { data, error } = await supabase
+    .from('tickets')
+    .select(TICKET_SELECT)
+    .eq('id', ticketId)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data as TicketRow | null
+}
+
+/**
+ * Fetch a single ticket via the staff view (returns internal fields).
+ * Returns null for non-staff or if not found.
+ */
+export async function fetchTicketStaff(
+  ticketId: string,
+): Promise<TicketRowStaff | null> {
+  const { data, error } = await supabase
+    .from('tickets_staff')
+    .select(TICKET_STAFF_SELECT)
+    .eq('id', ticketId)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data as TicketRowStaff | null
+}
+
+// ---- current public user ----------------------------------------------------
+
+export type PublicUser = {
+  id: string
+  email: string | null
+  is_landr_staff: boolean
+}
+
+/**
+ * Fetch the public.users row for the current auth session (used to gate
+ * is_landr_staff features). Pass the Supabase auth uid (session.user.id).
+ * Returns null if no public.users row exists (broken signup flow).
+ */
+export async function fetchCurrentPublicUser(
+  authUid: string,
+): Promise<PublicUser | null> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, email, is_landr_staff')
+    .eq('supabase_auth_id', authUid)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data as PublicUser | null
+}
+
+// ---- comments ---------------------------------------------------------------
+
+export type TicketComment = {
+  id: string
+  ticket_id: string
+  operator_id: string
+  author_id: string | null
+  body: string
+  is_internal: boolean
+  created_at: string
+  updated_at: string
+}
+
+const COMMENT_SELECT = `
+  id,
+  ticket_id,
+  operator_id,
+  author_id,
+  body,
+  is_internal,
+  created_at,
+  updated_at
+`
+
+/**
+ * Fetch public comments for a ticket.
+ * Operators get non-internal rows only (RLS enforces); staff get all.
+ */
+export async function fetchTicketComments(
+  ticketId: string,
+): Promise<TicketComment[]> {
+  const { data, error } = await supabase
+    .from('ticket_comments')
+    .select(COMMENT_SELECT)
+    .eq('ticket_id', ticketId)
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as TicketComment[]
+}
+
+/**
+ * Fetch ALL comments (incl. internal) via the staff view.
+ * Returns [] for non-staff (view WHERE gate).
+ */
+export async function fetchTicketCommentsStaff(
+  ticketId: string,
+): Promise<TicketComment[]> {
+  const { data, error } = await supabase
+    .from('ticket_comments_staff')
+    .select(COMMENT_SELECT)
+    .eq('ticket_id', ticketId)
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as TicketComment[]
+}
+
+export type CommentCreate = {
+  ticket_id: string
+  body: string
+  is_internal?: boolean
+}
+
+/** Insert a comment. is_internal defaults to false. */
+export async function createComment(
+  payload: CommentCreate,
+): Promise<TicketComment> {
+  const { data, error } = await supabase
+    .from('ticket_comments')
+    .insert(payload)
+    .select(COMMENT_SELECT)
+    .single()
+  if (error) throw new Error(error.message)
+  return data as unknown as TicketComment
+}
+
+// ---- watchers ---------------------------------------------------------------
+
+export type TicketWatcher = {
+  ticket_id: string
+  user_id: string
+  created_at: string
+}
+
+/** Check if a specific public.users.id is watching a ticket. */
+export async function fetchTicketWatcher(
+  ticketId: string,
+  userId: string,
+): Promise<TicketWatcher | null> {
+  const { data, error } = await supabase
+    .from('ticket_watchers')
+    .select('ticket_id, user_id, created_at')
+    .eq('ticket_id', ticketId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data as TicketWatcher | null
+}
+
+/** Add a watch row (upsert-safe: ON CONFLICT DO NOTHING at DB level). */
+export async function watchTicket(
+  ticketId: string,
+  userId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('ticket_watchers')
+    .insert({ ticket_id: ticketId, user_id: userId })
+  // 23505 = unique_violation — row already exists; idempotent.
+  if (error && error.code !== '23505') throw new Error(error.message)
+}
+
+/** Remove a watch row (unwatch). */
+export async function unwatchTicket(
+  ticketId: string,
+  userId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('ticket_watchers')
+    .delete()
+    .eq('ticket_id', ticketId)
+    .eq('user_id', userId)
+  if (error) throw new Error(error.message)
+}
+
+// ---- attachments ------------------------------------------------------------
+
+export type TicketAttachment = {
+  id: string
+  ticket_id: string
+  uploader_id: string | null
+  storage_path: string
+  filename: string
+  content_type: string
+  size_bytes: number
+  created_at: string
+}
+
+const ATTACHMENT_SELECT = `
+  id,
+  ticket_id,
+  uploader_id,
+  storage_path,
+  filename,
+  content_type,
+  size_bytes,
+  created_at
+`
+
+export async function fetchTicketAttachments(
+  ticketId: string,
+): Promise<TicketAttachment[]> {
+  const { data, error } = await supabase
+    .from('ticket_attachments')
+    .select(ATTACHMENT_SELECT)
+    .eq('ticket_id', ticketId)
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as TicketAttachment[]
+}
+
+/**
+ * Upload a file to the ticket-attachments bucket, then insert a metadata row.
+ * Returns the signed URL for immediate preview (TTL 3600s).
+ */
+export async function uploadTicketAttachment(
+  ticketId: string,
+  file: File,
+  uploaderId: string | null,
+): Promise<{ attachment: TicketAttachment; signedUrl: string }> {
+  const attachmentId = crypto.randomUUID()
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const storagePath = `ticket-attachments/${ticketId}/${attachmentId}/${safeName}`
+
+  // 1. Upload the object
+  const { error: uploadError } = await supabase.storage
+    .from('ticket-attachments')
+    .upload(storagePath, file, { contentType: file.type, upsert: false })
+  if (uploadError) throw new Error(uploadError.message)
+
+  // 2. Insert the metadata row
+  const payload = {
+    id: attachmentId,
+    ticket_id: ticketId,
+    uploader_id: uploaderId,
+    storage_path: storagePath,
+    filename: safeName,
+    content_type: file.type || 'application/octet-stream',
+    size_bytes: file.size,
+  }
+  const { data, error: rowError } = await supabase
+    .from('ticket_attachments')
+    .insert(payload)
+    .select(ATTACHMENT_SELECT)
+    .single()
+  if (rowError) throw new Error(rowError.message)
+
+  // 3. Create a signed URL for immediate display
+  const { data: signed, error: signError } = await supabase.storage
+    .from('ticket-attachments')
+    .createSignedUrl(storagePath, 3600)
+  if (signError || !signed) throw new Error(signError?.message ?? 'signed URL failed')
+
+  return { attachment: data as unknown as TicketAttachment, signedUrl: signed.signedUrl }
+}
+
+/** Create a signed download URL for an existing attachment (TTL 3600s). */
+export async function getAttachmentSignedUrl(
+  storagePath: string,
+): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('ticket-attachments')
+    .createSignedUrl(storagePath, 3600)
+  if (error || !data) throw new Error(error?.message ?? 'signed URL failed')
+  return data.signedUrl
+}
+
+// ---- events (activity timeline) ---------------------------------------------
+
+export type TicketEvent = {
+  id: string
+  ticket_id: string
+  actor_id: string | null
+  event_type:
+    | 'created'
+    | 'status_changed'
+    | 'assigned'
+    | 'unassigned'
+    | 'blocked'
+    | 'unblocked'
+    | 'comment_added'
+    | 'label_added'
+    | 'label_removed'
+    | 'promoted'
+    | 'shipped'
+  payload: Record<string, unknown>
+  is_internal: boolean
+  created_at: string
+}
+
+const EVENT_SELECT = `
+  id,
+  ticket_id,
+  actor_id,
+  event_type,
+  payload,
+  is_internal,
+  created_at
+`
+
+/**
+ * Fetch the activity timeline for a ticket, oldest-first.
+ * Operators see non-internal events only (RLS); staff see all.
+ */
+export async function fetchTicketEvents(
+  ticketId: string,
+): Promise<TicketEvent[]> {
+  const { data, error } = await supabase
+    .from('ticket_events')
+    .select(EVENT_SELECT)
+    .eq('ticket_id', ticketId)
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as TicketEvent[]
+}
+
 // ---- drop resolution --------------------------------------------------------
 
 /**
