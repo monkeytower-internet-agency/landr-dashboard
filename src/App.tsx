@@ -29,6 +29,9 @@ const Trash = lazy(() => import('@/routes/Trash'))
 const ViewPage = lazy(() => import('@/routes/ViewPage'))
 const ViewsIndex = lazy(() => import('@/routes/ViewsIndex'))
 const ViewsNew = lazy(() => import('@/routes/ViewsNew'))
+// landr-wwhn.11 — /tickets kanban board. Lazy-loaded because it carries
+// @dnd-kit and is not on the immediate landing path.
+const TicketBoard = lazy(() => import('@/routes/TicketBoard'))
 import { AuthCallback } from '@/routes/AuthCallback'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
@@ -171,6 +174,8 @@ function App() {
               {/* landr-4pn1 — /trash (recently-deleted bin per category). */}
               <Route path="/trash" element={<Trash />} />
               <Route path="/approvals/general" element={<GeneralApprovals />} />
+              {/* landr-wwhn.11 — Ticket board (5-column kanban, realtime). */}
+              <Route path="/tickets" element={<TicketBoard />} />
 
               {/* landr-fzcg — Account is a virtual top-level nav item
                   whose subsections live under /settings/*. Hitting
