@@ -176,7 +176,11 @@ function applyOffset(date: Date, sign: '+' | '-', n: number, unit: Unit): Date {
  */
 export function resolveRelativeDate(
   token: string,
-  now: Date = new Date(),
+  // Default to the current instant via Date.now() (not a bare `new Date()`) so
+  // the fallback is mockable through vi.spyOn(Date, 'now') — the latter is the
+  // canonical clock-pinning seam in our tests, and a bare `new Date()` would
+  // silently ignore it (and make this branch a calendar-date-pinned flake).
+  now: Date = new Date(Date.now()),
   weekStartsOn: number = 1,
 ): string | null {
   if (typeof token !== 'string') return null
