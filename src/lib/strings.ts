@@ -304,6 +304,9 @@ export const t = {
       // landr-wwhn.16 — personal notification preferences (bell/email/push
       // + per-ticket overrides). Personal scope, not operator scope.
       notifications: 'Notifications',
+      // landr-sbhz.5 — STAFF-ONLY tier/feature editor. Hidden from non-staff
+      // in the sub-sidebar; this is Landr platform tooling, not operator scope.
+      tiers: 'Tiers & features',
     },
     // landr-fnhz — one-line description for each settings subsection,
     // rendered as the PageTitle subtitle on the matching sub-page so the
@@ -362,6 +365,9 @@ export const t = {
       // landr-wwhn.16 — personal notification preferences.
       notifications:
         'Choose how you receive notifications for ticket activity — bell, email, and mobile push.',
+      // landr-sbhz.5 — staff-only tier/feature entitlement editor.
+      tiers:
+        'Landr staff: enable features per subscription tier, or override a single operator one feature at a time.',
     },
     plan: {
       title: 'Plan',
@@ -372,6 +378,45 @@ export const t = {
       upgradeHint:
         'Plan upgrades will land in a future release. Contact support to change your plan today.',
     },
+  },
+  // landr-sbhz.5 — STAFF-ONLY tier/feature editor (Settings → Tiers & features).
+  tierEditor: {
+    title: 'Tiers & features',
+    subtitle:
+      'Landr staff control surface for feature entitlements. Set what each subscription tier includes, and override individual operators one feature at a time.',
+    loading: 'Loading…',
+    errorTitle: 'Failed to load features',
+    noFeatures: 'No features in the registry.',
+    saveFailed: 'Save failed',
+    // Tier panel
+    tierSectionTitle: 'Tier defaults',
+    tierSectionHint:
+      'Toggle which features a subscription tier includes by default. Per-operator overrides below take precedence over these.',
+    tierPickerLabel: 'Tier',
+    tierSaved: 'Tier feature updated.',
+    inactiveSuffix: '(inactive)',
+    defaultBadge: 'default',
+    // Operator override panel
+    overrideSectionTitle: 'Per-operator override',
+    overrideSectionHint:
+      'Force a single feature on or off for one operator, regardless of their tier — the incremental-unlock lever. The effective column shows what the operator actually gets (override > tier > default).',
+    operatorPickerLabel: 'Operator',
+    operatorPickerPlaceholder: 'Select an operator…',
+    overrideEmpty: 'Select an operator to manage their feature overrides.',
+    noteLabel: 'Override note (optional)',
+    notePlaceholder: 'e.g. Unlocking manifest for Para42 contract pilot.',
+    noteHint:
+      'Saved with the next override you set, for the audit trail. Clear it before setting an override you do not want annotated.',
+    notePrefix: 'Note:',
+    forceOn: 'On',
+    forceOff: 'Off',
+    clearOverride: 'Clear',
+    overrideSaved: 'Operator override updated.',
+    overrideCleared: 'Override cleared — reverted to tier default.',
+    effectiveOn: 'effective: on',
+    effectiveOff: 'effective: off',
+    effectiveTooltip:
+      'Effective entitlement after resolving override > tier > registry default.',
   },
   theme: {
     switchToDark: 'Switch to dark theme',

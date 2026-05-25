@@ -18,6 +18,7 @@ import {
   PackageIcon,
   PaletteIcon,
   PlugIcon,
+  SlidersHorizontalIcon,
   SparklesIcon,
   TagIcon,
   TagsIcon,
@@ -228,6 +229,22 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/webhooks',
     label: t.settingsHub.sections.webhooks,
     icon: WebhookIcon,
+  },
+]
+
+// landr-sbhz.5 — STAFF-ONLY settings sections. Landr platform tooling, NOT
+// operator-scoped config. The sub-sidebar appends these to the SETTINGS group
+// ONLY for is_landr_staff users (the filter lives in SettingsSubSidebar). Kept
+// in a separate list so SETTINGS_SECTIONS stays a stable operator-facing
+// contract (its order is pinned by sections.test.ts) and so non-staff never
+// even iterate over staff entries. These sections are deliberately NOT in the
+// feature-entitlement registry (like /audit) — they gate on is_landr_staff,
+// not on tenant tier.
+export const STAFF_SECTIONS: SettingsSubSection[] = [
+  {
+    to: '/settings/tiers',
+    label: t.settingsHub.sections.tiers,
+    icon: SlidersHorizontalIcon,
   },
 ]
 

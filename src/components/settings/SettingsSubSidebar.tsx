@@ -6,6 +6,7 @@ import { featureForSection } from '@/lib/entitlements-map'
 import {
   ACCOUNT_SECTIONS,
   SETTINGS_SECTIONS,
+  STAFF_SECTIONS,
   groupForPath,
   type SettingsSubSection,
 } from './sections'
@@ -17,10 +18,16 @@ import {
 // a sidebar IA grouping decision.
 export function SettingsSubSidebar() {
   const { pathname } = useLocation()
-  const { isEnabled } = useEntitlements()
+  const { isEnabled, isLandrStaff } = useEntitlements()
   const group = groupForPath(pathname)
+  // landr-sbhz.5 — append the STAFF_SECTIONS (Tiers & features) to the bottom
+  // of the SETTINGS group, but only for Landr staff. Non-staff never see the
+  // entry; the route + RLS enforce it server-side regardless.
+  const baseSettings: ReadonlyArray<SettingsSubSection> = isLandrStaff
+    ? [...SETTINGS_SECTIONS, ...STAFF_SECTIONS]
+    : SETTINGS_SECTIONS
   const allSections: ReadonlyArray<SettingsSubSection> =
-    group === 'account' ? ACCOUNT_SECTIONS : SETTINGS_SECTIONS
+    group === 'account' ? ACCOUNT_SECTIONS : baseSettings
   // landr-sbhz.6 — hide settings sub-sections whose gating feature is DISABLED
   // for the current operator. Sections without a gating feature
   // (calendar-display, display-preferences, connected-accounts, notifications,
