@@ -38,6 +38,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { CopyLinkButton } from '@/components/CopyLinkButton'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { BookingChecklist } from '@/components/booking/BookingChecklist'
+import { CustomOfferEditorSheet } from '@/components/booking/CustomOfferEditorSheet'
 import { BookingCustomerPage } from '@/components/booking/BookingCustomerPage'
 import { BookingNotes } from '@/components/booking/BookingNotes'
 import { BookingParticipants } from '@/components/booking/BookingParticipants'
@@ -211,6 +212,8 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   // common operator interaction (editing dates / customer) stays one click
   // away. Timeline is read-only.
   const [activeTab, setActiveTab] = useState<ActiveTab>('details')
+  // landr-sbhz.2 — open the Custom Offer composer for this booking.
+  const [customOfferOpen, setCustomOfferOpen] = useState(false)
 
   // landr-ne58 — record this open in the sidebar "Recently viewed" trail.
   // BookingDetailBody is keyed by row.id (see parent <BookingDetailSheet>),
@@ -918,10 +921,38 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
             <p className="text-muted-foreground text-xs">
               {t.bookings.detail.recomputeHint}
             </p>
+            {/* landr-sbhz.2 — compose a Custom Offer (per-participant
+                pricing, >N group discount, commission-free free spots).
+                Gated on an operator being selected (the endpoint is
+                operator-path-scoped). */}
+            {currentOperatorId ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2 self-start"
+                onClick={() => setCustomOfferOpen(true)}
+                disabled={busy}
+                data-testid="booking-custom-offer-btn"
+              >
+                <BadgeEuro className="size-4" />
+                {t.bookings.customOffer.action}
+              </Button>
+            ) : null}
           </CardContent>
         </Card>
       </form>
       )}
+
+      {/* landr-sbhz.2 — Custom Offer editor sheet. Rendered alongside the
+          detail body; opens over it. Keyed close resets the form. */}
+      {currentOperatorId ? (
+        <CustomOfferEditorSheet
+          bookingId={customOfferOpen ? row.id : null}
+          operatorId={currentOperatorId}
+          onClose={() => setCustomOfferOpen(false)}
+        />
+      ) : null}
 
       <SheetFooter className="flex flex-row items-center justify-between gap-2 border-t">
         <div className="flex items-center gap-2">
