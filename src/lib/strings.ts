@@ -911,6 +911,99 @@ export const t = {
       footnote:
         'Saved on this device only. Switching devices or clearing site data resets the list.',
     },
+    // landr-znzz.2 — Customer page tab: edits the customer-facing briefing
+    // ("event") page — title/welcome/tone/publish/review nudge — plus the
+    // per-day "tonight's update" (conditions verdict + plan + meeting point).
+    briefing: {
+      tabBriefing: 'Customer page',
+      loading: 'Loading customer page…',
+      loadError: 'Could not load the customer page.',
+      // Empty / create state.
+      emptyTitle: 'No customer page yet',
+      emptyBody:
+        'Create a customer-facing page for this booking. You’ll get a private link to share, plus a place to post nightly conditions, plans and meeting points.',
+      createAction: 'Create customer page',
+      createWorking: 'Creating…',
+      createError: 'Could not create the customer page.',
+      // Share / link section.
+      shareTitle: 'Share link',
+      shareHint:
+        'This is the customer’s private page. Anyone with the link can see published content — keep it to the booking’s group.',
+      copyLink: 'Copy link',
+      copyToastSuccess: 'Link copied.',
+      copyToastError: 'Could not copy the link.',
+      shareWhatsApp: 'Share on WhatsApp',
+      openPreview: 'Open preview',
+      whatsappGreeting: 'Here’s your trip page:',
+      // Publish toggle.
+      publishLabel: 'Published',
+      publishHintOff:
+        'The page is private until you publish it. Customers see nothing yet.',
+      publishHintOn:
+        'The page is live. Customers with the link see all published content below.',
+      // Content section.
+      contentTitle: 'Page content',
+      contentHint:
+        'Pickup times come from the day / attendance editor and appear on the page automatically — you don’t set them here.',
+      fieldTitle: 'Title',
+      fieldTitlePlaceholder: 'e.g. Your sunrise paddle with LANDR',
+      fieldWelcome: 'Welcome note',
+      fieldWelcomePlaceholder:
+        'A short hello — what to expect, what to bring, how excited you are to host them.',
+      fieldTone: 'Tone',
+      toneOptionPlayful: 'Playful',
+      toneOptionCalm: 'Calm',
+      toneOptionMinimal: 'Minimal',
+      // Review nudge.
+      reviewTitle: 'Review nudge',
+      reviewShowLabel: 'Invite a review on the page',
+      reviewUrlLabel: 'Review link',
+      reviewUrlPlaceholder: 'https://g.page/r/…',
+      // Save (content/review).
+      save: 'Save changes',
+      saving: 'Saving…',
+      saveToastSuccess: 'Customer page updated.',
+      saveToastError: 'Could not save the customer page.',
+      // Per-day section.
+      daysTitle: 'Daily updates',
+      daysHint:
+        'Post tonight’s verdict for tomorrow: is it a go? Add the plan and where to meet. Publish each day when it’s ready — pickup times are pulled in automatically.',
+      daysEmpty: 'This booking has no scheduled days.',
+      dayConditionsLabel: 'Conditions',
+      conditionPending: 'Pending',
+      conditionGo: 'Go',
+      conditionMarginal: 'Marginal',
+      conditionNoGo: 'No go',
+      dayConditionsNoteLabel: 'Why this call',
+      dayConditionsNotePlaceholder:
+        'e.g. clean 3ft swell, light offshore wind — perfect window at dawn.',
+      dayPlanHeadlineLabel: 'Plan headline',
+      dayPlanHeadlinePlaceholder: 'e.g. Dawn patrol at the point',
+      dayPlanDetailLabel: 'Plan detail',
+      dayPlanDetailPlaceholder:
+        'What we’ll do, the running order, what to bring.',
+      dayMeetingPointLabel: 'Meeting point',
+      dayMeetingPointPlaceholder: 'e.g. North car park, by the kiosk.',
+      dayPublishLabel: 'Published',
+      dayPublishHint: 'Customers only see this day once you publish it.',
+      daySave: 'Save day',
+      daySaving: 'Saving…',
+      daySaveToastSuccess: (day: string): string => `Saved ${day}.`,
+      daySaveToastError: 'Could not save this day.',
+      // Rotate token.
+      rotateTitle: 'Reset link',
+      rotateHint:
+        'If the link was over-shared, reset it to kill the old one. You’ll need to re-send the new link to the group.',
+      rotateAction: 'Reset link',
+      rotateConfirmTitle: 'Reset the share link?',
+      rotateConfirmBody:
+        'The current link will stop working immediately. Anyone you’ve already sent it to will need the new link.',
+      rotateConfirmCancel: 'Keep current link',
+      rotateConfirm: 'Reset link',
+      rotateWorking: 'Resetting…',
+      rotateToastSuccess: 'Link reset. Share the new one.',
+      rotateToastError: 'Could not reset the link.',
+    },
   },
   calendar: {
     title: 'Calendar',
