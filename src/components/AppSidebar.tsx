@@ -7,6 +7,7 @@ import {
   FlagIcon,
   LayersIcon,
   LayoutDashboardIcon,
+  MapPinnedIcon,
   MessageSquareIcon,
   MousePointerClickIcon,
   PanelLeftCloseIcon,
@@ -124,6 +125,15 @@ const primaryItems: NavItem[] = [
     to: '/approvals/general',
     label: t.nav.generalApprovals,
     icon: CheckCircleIcon,
+    exact: false,
+  },
+  // landr-znzz.8 — Retrieve board. Daily-ops field surface (a guide watches
+  // who's down / still out for a given day), so it sits in the daily-use
+  // cluster next to Approvals rather than the rarely-used admin tail.
+  {
+    to: '/retrieve',
+    label: t.nav.retrieve,
+    icon: MapPinnedIcon,
     exact: false,
   },
   // landr-wwhn.11 — Ticket board. Customer support / feedback tracking.

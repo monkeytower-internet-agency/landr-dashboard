@@ -18,6 +18,7 @@ import {
   CheckCircleIcon,
   LayersIcon,
   LayoutDashboardIcon,
+  MapPinnedIcon,
   PlusCircleIcon,
   SettingsIcon,
   StarIcon,
@@ -71,6 +72,8 @@ const NAV_ENTRIES: NavEntry[] = [
     to: '/approvals/general',
     icon: CheckCircleIcon,
   },
+  // landr-znzz.8 — operator retrieve board.
+  { label: t.nav.retrieve, to: '/retrieve', icon: MapPinnedIcon },
   { label: t.nav.account, to: '/account', icon: UserCircleIcon },
   { label: t.nav.settings, to: '/settings', icon: SettingsIcon },
 ]

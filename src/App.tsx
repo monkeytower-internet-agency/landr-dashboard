@@ -35,6 +35,10 @@ const TicketBoard = lazy(() => import('@/routes/TicketBoard'))
 // landr-wwhn.23 — /tickets/planning MoSCoW release-planning overlay.
 // Lazy-loaded (staff-facing planning surface, not on the daily operator path).
 const TicketPlanning = lazy(() => import('@/routes/TicketPlanning'))
+// landr-znzz.8 — /retrieve operator retrieve board (per-day check-ins +
+// pickup workflow). Field surface for guides; lazy-loaded since it's a
+// per-activity-day view, not on the immediate landing path.
+const RetrieveBoard = lazy(() => import('@/routes/RetrieveBoard'))
 import { AuthCallback } from '@/routes/AuthCallback'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
@@ -182,6 +186,8 @@ function App() {
               <Route path="/tickets" element={<TicketBoard />} />
               {/* landr-wwhn.23 — MoSCoW release-planning overlay. */}
               <Route path="/tickets/planning" element={<TicketPlanning />} />
+              {/* landr-znzz.8 — operator retrieve board (per-day check-ins). */}
+              <Route path="/retrieve" element={<RetrieveBoard />} />
 
               {/* landr-fzcg — Account is a virtual top-level nav item
                   whose subsections live under /settings/*. Hitting
