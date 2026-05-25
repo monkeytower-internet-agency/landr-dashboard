@@ -68,16 +68,18 @@ function StatusBadge({ status }: { status: FeatureStatus }) {
 
 export function TierSettings() {
   const { user } = useAuth()
-  const { isLandrStaff, isLoading: entLoading } = useEntitlements()
+  const { effectiveIsStaff, isLoading: entLoading } = useEntitlements()
 
   // Staff route guard. While the staff flag is still resolving we render a
   // placeholder rather than flashing the page or a wrong redirect.
+  // landr-2soj — gate on EFFECTIVE staff so a deep link to /settings/tiers
+  // while viewing-as redirects home (the surface is hidden in view-as).
   if (entLoading) {
     return (
       <p className="text-muted-foreground p-6 text-sm">{t.tierEditor.loading}</p>
     )
   }
-  if (!isLandrStaff) return <Navigate to="/" replace />
+  if (!effectiveIsStaff) return <Navigate to="/" replace />
 
   return <TierSettingsInner authUid={user?.id ?? null} />
 }

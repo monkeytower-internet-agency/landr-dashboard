@@ -127,6 +127,21 @@ export const t = {
     noOperators: 'No operators available for this account.',
     switchTo: 'Switch operator',
     loading: 'Loading operators…',
+    // landr-2soj — staff "View as operator" mode.
+    viewAs: {
+      // Picker section header inside the operator switcher (staff-only).
+      sectionLabel: 'View as operator (staff)',
+      // Banner copy. Built at render time (no i18n interpolation lib here):
+      // bannerPrefix + <operator> + bannerMiddle + <email> + bannerSuffix.
+      bannerPrefix: 'Viewing as ',
+      bannerMiddle: ' — you’re still ',
+      bannerSuffix: '; actions are attributed to you.',
+      exit: 'Exit to staff view',
+      // aria-live announcement when exiting view-as (entering is announced by
+      // the banner itself mounting as a role="status" region).
+      exitedAnnouncement: 'Exited view-as mode; restored full staff view.',
+      bannerRegionLabel: 'Staff view-as status',
+    },
   },
   nav: {
     sectionMain: 'Workspace',

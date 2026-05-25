@@ -44,6 +44,9 @@ vi.mock('@/lib/entitlements', () => ({
   useEntitlements: () => ({
     isEnabled: () => true,
     isLandrStaff: mock.state.isLandrStaff,
+    // landr-2soj — Revenue now gates on effectiveIsStaff. In these tests no
+    // view-as is active, so effectiveIsStaff tracks the raw staff flag.
+    effectiveIsStaff: mock.state.isLandrStaff,
     isLoading: mock.state.entLoading,
   }),
 }))

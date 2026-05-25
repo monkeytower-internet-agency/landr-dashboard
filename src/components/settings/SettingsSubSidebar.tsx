@@ -18,12 +18,14 @@ import {
 // a sidebar IA grouping decision.
 export function SettingsSubSidebar() {
   const { pathname } = useLocation()
-  const { isEnabled, isLandrStaff } = useEntitlements()
+  const { isEnabled, effectiveIsStaff } = useEntitlements()
   const group = groupForPath(pathname)
   // landr-sbhz.5 — append the STAFF_SECTIONS (Tiers & features) to the bottom
   // of the SETTINGS group, but only for Landr staff. Non-staff never see the
   // entry; the route + RLS enforce it server-side regardless.
-  const baseSettings: ReadonlyArray<SettingsSubSection> = isLandrStaff
+  // landr-2soj — gate on EFFECTIVE staff so Settings → Tiers is hidden while a
+  // staff user is viewing as a (non-staff) operator.
+  const baseSettings: ReadonlyArray<SettingsSubSection> = effectiveIsStaff
     ? [...SETTINGS_SECTIONS, ...STAFF_SECTIONS]
     : SETTINGS_SECTIONS
   const allSections: ReadonlyArray<SettingsSubSection> =

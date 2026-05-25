@@ -62,6 +62,17 @@ export const DEFAULT_TIME_FORMAT_24H = true
 // render with an undefined first-day-of-week.
 export const DEFAULT_FIRST_DAY_OF_WEEK = 1
 
+// landr-2soj — a minimal operator descriptor used by the staff "View as
+// operator" picker. The all-operators list comes from a SEPARATE query
+// (`operators` table, RLS staff-bypass) so it stays DISTINCT from the
+// membership-scoped `operators` list above (landr-69c: never widen the
+// membership query, that leak must not return).
+export type StaffOperatorRef = {
+  id: string
+  slug: string
+  name: string | null
+}
+
 type OperatorContextValue = {
   operators: Operator[]
   currentOperator: Operator | null
@@ -69,9 +80,34 @@ type OperatorContextValue = {
   loading: boolean
   switchOperator: (operatorId: string) => void
   refreshOperators: () => void
+  // landr-2soj — staff "View as operator" mode. While `viewAsActive`,
+  // `currentOperatorId` resolves to the viewed-as operator so every data
+  // query scopes to it via the existing filters. Entitlements drop the staff
+  // bypass in this mode (see entitlements.tsx) so the nav/routes become
+  // exactly the viewed-as operator's tier-gated view.
+  //
+  // The all-operators list (`staffOperators`) is fetched from the `operators`
+  // table directly, NOT the membership join — it's the staff-only picker
+  // source and is empty for non-staff (the RLS bypass that fills it only
+  // applies to is_landr_staff sessions; non-staff get zero rows).
+  staffOperators: StaffOperatorRef[]
+  staffOperatorsLoading: boolean
+  /** True while a staff user is viewing the dashboard as another operator. */
+  viewAsActive: boolean
+  /** The operator currently being viewed-as, or null. */
+  viewAsOperator: StaffOperatorRef | null
+  /** Enter view-as mode for the given operator id (staff-only — no-op if the
+   *  id is not in the staffOperators list). */
+  enterViewAs: (operatorId: string) => void
+  /** Clear view-as mode and restore the staff's own scope + full staff view. */
+  exitViewAs: () => void
 }
 
 const STORAGE_KEY = 'landr.dashboard.currentOperatorId'
+// landr-2soj — persisted view-as target (operator id). Kept separate from the
+// currentOperatorId key so exiting view-as restores the staff's own last
+// operator scope rather than collapsing the two.
+const VIEW_AS_STORAGE_KEY = 'landr.dashboard.viewAsOperatorId'
 
 const OperatorContext = createContext<OperatorContextValue | undefined>(undefined)
 
@@ -94,9 +130,34 @@ function writeStored(id: string | null) {
   }
 }
 
+// landr-2soj — persistence for the view-as target.
+function readViewAs(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return window.localStorage.getItem(VIEW_AS_STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
+
+function writeViewAs(id: string | null) {
+  if (typeof window === 'undefined') return
+  try {
+    if (id) window.localStorage.setItem(VIEW_AS_STORAGE_KEY, id)
+    else window.localStorage.removeItem(VIEW_AS_STORAGE_KEY)
+  } catch {
+    // localStorage may be disabled — UX hint only, fail silently.
+  }
+}
+
 type FetchedOperators = {
   sessionUserId: string
   operators: Operator[]
+}
+
+type FetchedStaffOperators = {
+  sessionUserId: string
+  operators: StaffOperatorRef[]
 }
 
 export function OperatorProvider({ children }: { children: ReactNode }) {
@@ -104,6 +165,14 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
   const [fetched, setFetched] = useState<FetchedOperators | null>(null)
   const [storedId, setStoredId] = useState<string | null>(() => readStored())
   const [reloadTick, setReloadTick] = useState(0)
+  // landr-2soj — view-as target (persisted). Hydrated from localStorage on
+  // mount; only honoured once the operator is confirmed present in the
+  // staffOperators list (so a stale id or a downgraded-from-staff session
+  // can never leave the user stuck in a phantom view-as).
+  const [viewAsId, setViewAsId] = useState<string | null>(() => readViewAs())
+  const [staffFetched, setStaffFetched] = useState<FetchedStaffOperators | null>(
+    null,
+  )
 
   useEffect(() => {
     if (authLoading || !session) return
@@ -167,9 +236,52 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
     }
   }, [session, authLoading, reloadTick])
 
+  // landr-2soj — STAFF-ONLY all-operators list for the "View as operator"
+  // picker. SEPARATE query against the `operators` table (NOT the membership
+  // join above — landr-69c: never widen that membership query). For
+  // is_landr_staff sessions the RLS bypass returns every operator row; for a
+  // non-staff session RLS restricts the same query to operators the user can
+  // already see (typically their own / none), so the picker is effectively
+  // empty for them and the staff-only UI never appears. This runs for every
+  // session (cheap, RLS-bounded) so the staff flag does not need threading in
+  // here — entitlements.tsx owns the is_landr_staff decision and the UI gates
+  // the picker on it.
+  useEffect(() => {
+    if (authLoading || !session) return
+    let cancelled = false
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('operators')
+        .select('id, slug, name')
+        .order('slug', { ascending: true })
+      if (cancelled) return
+      if (error || !data) {
+        setStaffFetched({ sessionUserId: session.user.id, operators: [] })
+        return
+      }
+      setStaffFetched({
+        sessionUserId: session.user.id,
+        operators: data as StaffOperatorRef[],
+      })
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [session, authLoading, reloadTick])
+
   const refreshOperators = useCallback(() => {
     setReloadTick((t) => t + 1)
   }, [])
+
+  const staffOperators = useMemo<StaffOperatorRef[]>(() => {
+    if (!session) return []
+    if (staffFetched?.sessionUserId === session.user.id)
+      return staffFetched.operators
+    return []
+  }, [session, staffFetched])
+
+  const staffOperatorsLoading =
+    !!session && staffFetched?.sessionUserId !== session?.user?.id
 
   const operators = useMemo<Operator[]>(() => {
     if (!session) return []
@@ -179,23 +291,83 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
 
   const loading = !!session && fetched?.sessionUserId !== session?.user?.id
 
-  const currentOperatorId = useMemo<string | null>(() => {
+  // landr-2soj — the view-as target is only honoured when it resolves to a
+  // real operator in the staffOperators list (guards a stale localStorage id
+  // or a session that lost staff and therefore gets an empty staff list).
+  const viewAsOperator = useMemo<StaffOperatorRef | null>(() => {
+    if (!session || !viewAsId) return null
+    return staffOperators.find((o) => o.id === viewAsId) ?? null
+  }, [session, viewAsId, staffOperators])
+
+  // While the staff list is still loading we keep view-as PENDING (active flag
+  // false) rather than tearing down — once resolved, an unmatched id is
+  // dropped below. This avoids a flash of the staff view between mount and the
+  // staffOperators fetch landing.
+  const viewAsActive = viewAsOperator !== null
+
+  // The operator the user's OWN scope would land on (membership-based), used
+  // when not in view-as.
+  const ownOperatorId = useMemo<string | null>(() => {
     if (!session) return null
     if (storedId && operators.some((o) => o.id === storedId)) return storedId
     return operators[0]?.id ?? null
   }, [session, operators, storedId])
 
+  // landr-2soj — in view-as mode currentOperatorId resolves to X so every
+  // data query scopes to it through the existing currentOperatorId filters.
+  const currentOperatorId = viewAsActive ? viewAsOperator!.id : ownOperatorId
+
   useEffect(() => {
-    writeStored(currentOperatorId)
-  }, [currentOperatorId])
+    // Persist only the OWN scope so exiting view-as restores it. The view-as
+    // target has its own key.
+    writeStored(ownOperatorId)
+  }, [ownOperatorId])
+
+  // landr-2soj — note: a STALE / unresolvable persisted view-as id (removed
+  // operator, or a session that lost staff so the staff list came back empty)
+  // needs no cleanup effect. `viewAsOperator` is derived by matching `viewAsId`
+  // against the (RLS-bounded) staffOperators list, so an unmatched id simply
+  // resolves to viewAsActive=false on every render — the staff/own view shows
+  // and the harmless id stays in localStorage until the next enter/exit
+  // rewrites it. Avoiding a setState-in-effect here keeps the provider clean
+  // (react-hooks/set-state-in-effect) and there's no cascading-render hazard.
 
   const switchOperator = useCallback((operatorId: string) => {
     setStoredId(operatorId)
   }, [])
 
+  const enterViewAs = useCallback(
+    (operatorId: string) => {
+      // Only enter for an operator the staff list actually contains (a
+      // non-staff caller's list is empty, so this is a no-op for them).
+      if (!staffOperators.some((o) => o.id === operatorId)) return
+      setViewAsId(operatorId)
+      writeViewAs(operatorId)
+    },
+    [staffOperators],
+  )
+
+  const exitViewAs = useCallback(() => {
+    setViewAsId(null)
+    writeViewAs(null)
+  }, [])
+
   const value = useMemo<OperatorContextValue>(() => {
-    const currentOperator =
-      operators.find((o) => o.id === currentOperatorId) ?? null
+    // Resolve the current Operator object. In view-as mode the target may not
+    // be in the membership list, so fall back to a minimal Operator built from
+    // the staff ref (id/slug/name) — calendar prefs etc. funnel through their
+    // convenience hooks which already default safely when the columns are
+    // absent. When the membership list DOES contain X (a staff who also owns
+    // X), prefer the fully-hydrated row.
+    let currentOperator = operators.find((o) => o.id === currentOperatorId) ?? null
+    if (!currentOperator && viewAsActive && viewAsOperator) {
+      currentOperator = {
+        id: viewAsOperator.id,
+        slug: viewAsOperator.slug,
+        name: viewAsOperator.name,
+        onboarded_at: null,
+      }
+    }
     return {
       operators,
       currentOperator,
@@ -203,8 +375,26 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
       loading,
       switchOperator,
       refreshOperators,
+      staffOperators,
+      staffOperatorsLoading,
+      viewAsActive,
+      viewAsOperator,
+      enterViewAs,
+      exitViewAs,
     }
-  }, [operators, currentOperatorId, loading, switchOperator, refreshOperators])
+  }, [
+    operators,
+    currentOperatorId,
+    loading,
+    switchOperator,
+    refreshOperators,
+    staffOperators,
+    staffOperatorsLoading,
+    viewAsActive,
+    viewAsOperator,
+    enterViewAs,
+    exitViewAs,
+  ])
 
   return (
     <OperatorContext.Provider value={value}>{children}</OperatorContext.Provider>
