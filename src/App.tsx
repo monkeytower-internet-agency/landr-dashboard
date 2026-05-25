@@ -79,6 +79,9 @@ import { EmbedSettings } from '@/routes/settings/EmbedSettings'
 import { NotificationPrefsSettings } from '@/routes/settings/NotificationPrefsSettings'
 import { OperationsSettings } from '@/routes/settings/OperationsSettings'
 import { WebhooksSettings } from '@/routes/settings/WebhooksSettings'
+// landr-sbhz.5 — staff-only tier/feature editor. Lazy: only Landr staff ever
+// reach it, so it has no place on the operator initial bundle.
+const TierSettings = lazy(() => import('@/routes/settings/TierSettings'))
 import { AuthProvider } from '@/lib/auth'
 import { OperatorProvider } from '@/lib/operator'
 import { EntitlementsProvider, useEntitlements } from '@/lib/entitlements'
@@ -298,6 +301,11 @@ function App() {
                     overrides). Personal scope; lives in ACCOUNT group. */}
                 <Route path="notifications" element={<NotificationPrefsSettings />} />
                 <Route path="plan" element={gatedSection('/settings/plan', <PlanSettings />)} />
+                {/* landr-sbhz.5 — STAFF-ONLY tier/feature editor. Not gated by
+                    the tenant entitlement system (like /audit it is Landr
+                    tooling); TierSettings self-redirects non-staff to home and
+                    RLS makes the writes staff-only. */}
+                <Route path="tiers" element={<TierSettings />} />
               </Route>
 
               {/* Legacy URLs — keep deep-linkable bookmarks working by
