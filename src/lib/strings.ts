@@ -161,6 +161,8 @@ export const t = {
     ticketPlanning: 'Release planning',
     // landr-znzz.8 — /retrieve operator retrieve board (day check-ins).
     retrieve: 'Retrieve board',
+    // landr-sbhz.8 — /revenue owner platform-commission overview (staff-only).
+    revenue: 'Revenue',
   },
   // landr-aref — /audit route strings (audit_log viewer).
   audit: {
@@ -417,6 +419,35 @@ export const t = {
     effectiveOff: 'effective: off',
     effectiveTooltip:
       'Effective entitlement after resolving override > tier > registry default.',
+  },
+  // landr-sbhz.8 — /revenue: owner platform-commission overview (STAFF-ONLY).
+  revenue: {
+    title: 'Revenue',
+    subtitle:
+      'Platform commission Landr earns from each operator — a percentage of net booking revenue per the operator contract (5% in 2026, 4% from 2027). Realized = finalised bookings; projected = confirmed/pending bookings not yet finalised.',
+    loading: 'Loading revenue…',
+    errorTitle: 'Failed to load revenue',
+    empty: 'No operators with platform commission yet.',
+    // Totals cards
+    realizedLabel: 'Realized',
+    realizedHint: 'Commission on finalised bookings (net of reversals).',
+    projectedLabel: 'Projected',
+    projectedHint: 'Commission on confirmed / pending bookings not yet finalised.',
+    totalLabel: 'Total payable',
+    totalHint: 'Realized + projected platform commission Olaf earns.',
+    grandTotalLabel: 'All operators',
+    // Per-operator section
+    noPlatformScheme: 'No platform commission scheme',
+    // Year table columns
+    columnYear: 'Year',
+    columnRate: 'Rate',
+    columnNetBase: 'Net revenue',
+    columnRealized: 'Realized',
+    columnProjected: 'Projected',
+    columnTotal: 'Total',
+    columnBookings: 'Bookings',
+    operatorTotalRow: 'Total',
+    generatedAt: (iso: string) => `As of ${new Date(iso).toLocaleString('de-DE')}`,
   },
   theme: {
     switchToDark: 'Switch to dark theme',
