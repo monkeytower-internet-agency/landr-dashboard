@@ -38,6 +38,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { CopyLinkButton } from '@/components/CopyLinkButton'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { BookingChecklist } from '@/components/booking/BookingChecklist'
+import { BookingCustomerPage } from '@/components/booking/BookingCustomerPage'
 import { BookingNotes } from '@/components/booking/BookingNotes'
 import { BookingParticipants } from '@/components/booking/BookingParticipants'
 import { BookingPayments } from '@/components/booking/BookingPayments'
@@ -66,6 +67,7 @@ import {
   type MarkAsPaidMethod,
 } from '@/lib/bookings'
 import { downloadInvoicePdf } from '@/lib/invoice-download'
+import { bookingDayOptions } from '@/lib/providers'
 import { t } from '@/lib/strings'
 import { showDeleteUndoToast } from '@/lib/undo-toast'
 
@@ -179,6 +181,7 @@ type ActiveTab =
   | 'checklist'
   | 'notes'
   | 'payments'
+  | 'briefing'
 
 function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const queryClient = useQueryClient()
@@ -543,6 +546,18 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           >
             {t.bookings.participants.tabParticipants}
           </TabsTrigger>
+          {/* landr-znzz.2 — Customer page tab. Edits the customer-facing
+              briefing ("event") page: share link, publish, content
+              (title/welcome/tone/review) + per-day nightly updates
+              (conditions verdict + plan + meeting point). Sits after
+              Participants — both are customer-facing surfaces. */}
+          <TabsTrigger
+            variant="pill"
+            value="briefing"
+            data-testid="booking-tab-briefing"
+          >
+            {t.bookings.briefing.tabBriefing}
+          </TabsTrigger>
           {/* landr-funh — Providers tab. Per-booking-day provider
               assignment picker (who delivers each day). Sits after
               Participants — both are "people on this booking" surfaces. */}
@@ -595,7 +610,26 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         </TabsList>
       </Tabs>
 
-      {activeTab === 'participants' ? (
+      {activeTab === 'briefing' ? (
+        <div
+          role="tabpanel"
+          aria-label={t.bookings.briefing.tabBriefing}
+          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3"
+        >
+          {currentOperatorId ? (
+            <BookingCustomerPage
+              operatorId={currentOperatorId}
+              bookingId={row.id}
+              days={bookingDayOptions(row.items)}
+              customerPhone={row.customer?.phone ?? null}
+            />
+          ) : (
+            <p className="text-muted-foreground text-xs italic">
+              {t.bookings.briefing.loading}
+            </p>
+          )}
+        </div>
+      ) : activeTab === 'participants' ? (
         <div
           role="tabpanel"
           aria-label={t.bookings.participants.tabParticipants}
