@@ -73,6 +73,7 @@ import { TagsSettings } from '@/routes/settings/TagsSettings'
 import { ServiceRolesSettings } from '@/routes/settings/ServiceRolesSettings'
 import { VouchersSettings } from '@/routes/settings/VouchersSettings'
 import { CategoriesSettings } from '@/routes/settings/CategoriesSettings'
+import { OffersSettings } from '@/routes/settings/OffersSettings'
 import { EmbedSettings } from '@/routes/settings/EmbedSettings'
 import { NotificationPrefsSettings } from '@/routes/settings/NotificationPrefsSettings'
 import { OperationsSettings } from '@/routes/settings/OperationsSettings'
@@ -220,6 +221,9 @@ function App() {
                 <Route path="categories" element={<CategoriesSettings />} />
                 {/* landr-up1b — booking-widget shortcode/iframe generator. */}
                 <Route path="embed" element={<EmbedSettings />} />
+                {/* landr-znzz.5 — generic per-operator offers/upsells shown in
+                    the AFTER phase of the customer event page. */}
+                <Route path="offers" element={<OffersSettings />} />
                 {/* landr-e8jf — Schedule lives under Settings now. The
                     capacity pills on the main Calendar (landr-3uai) make
                     Schedule a setup tool, not a daily-ops view. */}

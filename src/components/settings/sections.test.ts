@@ -97,7 +97,7 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // (operational delivery roster + per-booking-day assignment picker).
   // landr-up1b — Categories + Embed joined the SETTINGS group right after
   // Products (nested category tree editor + booking-widget embed generator).
-  it('settings group contains the twenty program subsections', () => {
+  it('settings group contains the twenty-one program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -111,6 +111,8 @@ describe('account/settings grouping (landr-fzcg)', () => {
       // generator, grouped right after Products.
       '/settings/categories',
       '/settings/embed',
+      // landr-znzz.5 — generic per-operator offers/upsells for the event page.
+      '/settings/offers',
       '/settings/schedule',
       '/settings/email-templates',
       '/settings/email-log',

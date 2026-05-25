@@ -264,6 +264,9 @@ export const t = {
       categories: 'Categories',
       // landr-up1b — booking-widget embed/shortcode generator.
       embed: 'Embed widget',
+      // landr-znzz.5 — generic per-operator offers/upsells shown in the
+      // AFTER phase of the customer event page.
+      offers: 'Upsells & offers',
       // landr-e8jf — Schedule moved from main sidebar into Settings
       // (capacity pills now on Calendar; Schedule is a setup tool).
       schedule: 'Schedule',
@@ -319,6 +322,8 @@ export const t = {
         'Organise products into a nested category tree. Drag-free reparenting, rename, and reorder.',
       embed:
         'Generate the [landr_booking] shortcode/iframe to embed your booking widget on any website.',
+      offers:
+        'Add-ons shown after the trip on the customer event page. Each links out to your own shop, merch store, or form.',
       schedule: 'Plan capacity windows and one-off closures.',
       emailTemplates:
         'Customise transactional emails sent to customers for each booking event.',
@@ -2027,6 +2032,47 @@ export const t = {
     toastCopied: 'Shortcode copied.',
     childCount: (n: number) =>
       n === 1 ? '1 sub-category' : `${n} sub-categories`,
+  },
+  // landr-znzz.5 — generic per-operator offers/upsells editor. No defaults,
+  // nothing vendor-specific; each offer links out to the operator's own
+  // shop/merch/form via cta_url. No price field.
+  offersSettings: {
+    title: 'Upsells & offers',
+    subtitle:
+      'Add-ons shown after the trip on the customer event page. Each offer links out to your own shop, merch store, or form — set the link, we render the card.',
+    noOperator: 'Select an operator to manage offers.',
+    loading: 'Loading offers…',
+    empty: 'No offers yet. Add your first one below.',
+    createTitle: 'Add offer',
+    fieldTitle: 'Title',
+    fieldDescription: 'Description',
+    fieldCtaLabel: 'Button label',
+    fieldCtaUrl: 'Button link (your shop / form)',
+    fieldImageUrl: 'Image URL',
+    fieldActive: 'Show this offer on the event page',
+    activeShort: 'Active',
+    placeholderTitle: 'e.g. Your flight footage is ready',
+    placeholderDescription: 'Tell customers what they get and why.',
+    placeholderCtaLabel: 'e.g. Buy your video',
+    placeholderCtaUrl: 'https://your-shop.example/…',
+    placeholderImageUrl: 'https://…/preview.jpg',
+    ctaFallback: 'Open link',
+    inactiveBadge: 'Hidden',
+    create: 'Add',
+    creating: 'Adding…',
+    edit: 'Edit offer',
+    save: 'Save',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    deleting: 'Deleting…',
+    confirmDelete: 'Confirm delete',
+    moveUp: 'Move offer up',
+    moveDown: 'Move offer down',
+    toastCreated: 'Offer added.',
+    toastUpdated: 'Offer updated.',
+    toastDeleted: 'Offer deleted.',
+    toastError: 'Could not save offer.',
   },
   // landr-up1b — booking-widget embed / shortcode generator (Settings → Embed).
   embedSettings: {
