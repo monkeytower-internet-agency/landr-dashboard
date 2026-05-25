@@ -57,6 +57,10 @@ import {
   whatsappShareUrl,
   type Briefing,
   type BriefingConditionsStatus,
+  // landr-znzz.8 — BriefingDay was used at the EditDayDialog `existing` prop
+  // (line ~618) but only BriefingDayPatch was imported, so `tsc -b` (build
+  // mode) failed even though `tsc --noEmit` did not. Import the value type.
+  type BriefingDay,
   type BriefingDayPatch,
   type BriefingPatch,
   type BriefingTone,

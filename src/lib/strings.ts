@@ -159,6 +159,8 @@ export const t = {
     tickets: 'Tickets',
     // landr-wwhn.23 — /tickets/planning release-planning overlay.
     ticketPlanning: 'Release planning',
+    // landr-znzz.8 — /retrieve operator retrieve board (day check-ins).
+    retrieve: 'Retrieve board',
   },
   // landr-aref — /audit route strings (audit_log viewer).
   audit: {
@@ -192,6 +194,30 @@ export const t = {
     drawerCorrelation: 'External correlation',
     drawerOperator: 'Operator',
     drawerPayload: 'Payload (old_row + new_row)',
+  },
+  // landr-znzz.8 — /retrieve operator retrieve board strings.
+  retrieve: {
+    title: 'Retrieve board',
+    subtitle:
+      "Who's down, who's still out, and where pickups are needed — for one day.",
+    dayLabel: 'Day',
+    loading: 'Loading the board…',
+    error: 'Failed to load the retrieve board.',
+    empty: 'No check-ins for this day yet.',
+    stillOutHeading: 'Still out',
+    elsewhereHeading: 'Landed elsewhere',
+    designatedHeading: 'Landed at the LZ',
+    overdueHint: 'Not yet checked in — keep an eye out.',
+    noteLabel: 'Note',
+    mapLink: 'Open map',
+    retrieveStateLabel: 'Retrieve',
+    retrieveNoteLabel: 'Retrieve note',
+    retrieveNotePlaceholder: "e.g. Tom's on his way, 20 min",
+    saveRetrieveNote: 'Save note',
+    clearRetrieveState: 'Clear',
+    toastSaved: 'Retrieve status updated.',
+    toastError: 'Could not update the retrieve status.',
+    countLabel: (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`,
   },
   // landr-4pn1 — /trash route strings (recently-deleted bin).
   trash: {
