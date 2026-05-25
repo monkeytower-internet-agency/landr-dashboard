@@ -1,4 +1,5 @@
 import {
+  BanknoteIcon,
   ChartColumnIcon,
   CalendarIcon,
   CalendarRangeIcon,
@@ -166,6 +167,20 @@ const primaryItems: NavItem[] = [
     to: '/trash',
     label: t.nav.trash,
     icon: Trash2Icon,
+    exact: false,
+  },
+]
+
+// landr-sbhz.8 — STAFF-ONLY primary nav items. These are Landr owner tooling
+// (not tenant modules in the feature registry), so they are gated on
+// is_landr_staff rather than featureForRoute. Appended to the primary cluster
+// only for staff; hidden entirely for operators (and the route + API enforce
+// it server-side regardless).
+const staffItems: NavItem[] = [
+  {
+    to: '/revenue',
+    label: t.nav.revenue,
+    icon: BanknoteIcon,
     exact: false,
   },
 ]
@@ -354,16 +369,22 @@ function SidebarModeControl() {
 export function AppSidebar() {
   const { pathname } = useLocation()
   const { mode, setHovered } = useSidebarModeContext()
-  const { isEnabled } = useEntitlements()
+  const { isEnabled, isLandrStaff } = useEntitlements()
 
   // landr-sbhz.6 — hide primary nav items whose gating feature is DISABLED for
   // the current operator. Items without a gating feature (Dashboard, Views,
   // Approvals, Retrieve, Trash) have featureForRoute() === null and are always
   // shown. Staff bypass lives inside isEnabled (always true for staff).
-  const visiblePrimaryItems = primaryItems.filter((item) => {
-    const feature = featureForRoute(item.to)
-    return feature === null || isEnabled(feature)
-  })
+  //
+  // landr-sbhz.8 — staff-only items (Revenue) are appended only for
+  // is_landr_staff; they are owner tooling, not tenant modules.
+  const visiblePrimaryItems = [
+    ...primaryItems.filter((item) => {
+      const feature = featureForRoute(item.to)
+      return feature === null || isEnabled(feature)
+    }),
+    ...(isLandrStaff ? staffItems : []),
+  ]
 
   // landr-fzcg — hover-expand: only attach pointer handlers when the user
   // has opted into the hover mode. In collapsed/expanded modes the open

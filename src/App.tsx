@@ -40,6 +40,9 @@ const TicketPlanning = lazy(() => import('@/routes/TicketPlanning'))
 // pickup workflow). Field surface for guides; lazy-loaded since it's a
 // per-activity-day view, not on the immediate landing path.
 const RetrieveBoard = lazy(() => import('@/routes/RetrieveBoard'))
+// landr-sbhz.8 — owner revenue overview (staff-only, staff-rare). Lazy so it
+// stays off the operator-facing initial bundle.
+const Revenue = lazy(() => import('@/routes/Revenue'))
 import { AuthCallback } from '@/routes/AuthCallback'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
@@ -228,6 +231,12 @@ function App() {
               <Route path="/tickets/planning" element={gatedRoute('/tickets/planning', <TicketPlanning />)} />
               {/* landr-znzz.8 — operator retrieve board (per-day check-ins). */}
               <Route path="/retrieve" element={<RetrieveBoard />} />
+              {/* landr-sbhz.8 — owner revenue overview (platform commission
+                  per operator). STAFF-ONLY: like /audit and Settings → Tiers,
+                  it is Landr tooling left out of the tenant entitlement system;
+                  Revenue self-redirects non-staff to home and the FastAPI
+                  endpoint enforces is_landr_staff with a 403. */}
+              <Route path="/revenue" element={<Revenue />} />
 
               {/* landr-fzcg — Account is a virtual top-level nav item
                   whose subsections live under /settings/*. Hitting
