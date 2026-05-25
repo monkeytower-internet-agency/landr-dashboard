@@ -21,6 +21,7 @@ import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp'
 import { NotificationsBell } from '@/components/NotificationsBell'
 import { OnboardingBanner } from '@/components/OnboardingBanner'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
+import { ViewAsBanner } from '@/components/ViewAsBanner'
 import { QuickCaptureFab } from '@/components/QuickCaptureFab'
 import { ReportFab } from '@/components/ReportFab'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -130,6 +131,10 @@ function AppShellInner({
             <UserMenu onSignOut={onSignOut} />
           </div>
         </header>
+        {/* landr-2soj — staff view-as banner. Sits directly under the topbar,
+            above the onboarding banner, so it's the first thing visible on
+            every page while view-as is active. Renders null otherwise. */}
+        <ViewAsBanner />
         <OnboardingBanner />
         <main className="flex-1 px-4 py-6 sm:px-6">{children}</main>
       </SidebarInset>

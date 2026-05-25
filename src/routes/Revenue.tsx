@@ -41,15 +41,17 @@ import {
 import { t } from '@/lib/strings'
 
 export function Revenue() {
-  const { isLandrStaff, isLoading: entLoading } = useEntitlements()
+  const { effectiveIsStaff, isLoading: entLoading } = useEntitlements()
 
   // Staff route guard. While the staff flag is still resolving, render a
   // placeholder rather than flashing the page or a wrong redirect (matches
   // TierSettings).
+  // landr-2soj — gate on EFFECTIVE staff so a deep link to /revenue while
+  // viewing-as redirects home (the surface is hidden in view-as).
   if (entLoading) {
     return <p className="text-muted-foreground p-6 text-sm">{t.revenue.loading}</p>
   }
-  if (!isLandrStaff) return <Navigate to="/" replace />
+  if (!effectiveIsStaff) return <Navigate to="/" replace />
 
   return <RevenueInner />
 }

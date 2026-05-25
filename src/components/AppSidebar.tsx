@@ -369,21 +369,24 @@ function SidebarModeControl() {
 export function AppSidebar() {
   const { pathname } = useLocation()
   const { mode, setHovered } = useSidebarModeContext()
-  const { isEnabled, isLandrStaff } = useEntitlements()
+  const { isEnabled, effectiveIsStaff } = useEntitlements()
 
   // landr-sbhz.6 — hide primary nav items whose gating feature is DISABLED for
   // the current operator. Items without a gating feature (Dashboard, Views,
   // Approvals, Retrieve, Trash) have featureForRoute() === null and are always
   // shown. Staff bypass lives inside isEnabled (always true for staff).
   //
-  // landr-sbhz.8 — staff-only items (Revenue) are appended only for
-  // is_landr_staff; they are owner tooling, not tenant modules.
+  // landr-sbhz.8 — staff-only items (Revenue) are appended only for staff.
+  // landr-2soj — gate on EFFECTIVE staff so they vanish in view-as mode: a
+  // staff user viewing as a (non-staff) operator should not see Landr owner
+  // tooling. (Audit lives in primaryItems and is gated by featureForRoute →
+  // the `audit` feature, so isEnabled already hides it for X's tier.)
   const visiblePrimaryItems = [
     ...primaryItems.filter((item) => {
       const feature = featureForRoute(item.to)
       return feature === null || isEnabled(feature)
     }),
-    ...(isLandrStaff ? staffItems : []),
+    ...(effectiveIsStaff ? staffItems : []),
   ]
 
   // landr-fzcg — hover-expand: only attach pointer handlers when the user

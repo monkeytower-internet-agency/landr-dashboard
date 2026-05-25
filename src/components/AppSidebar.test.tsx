@@ -48,6 +48,8 @@ vi.mock('@/lib/entitlements', () => ({
   useEntitlements: () => ({
     isEnabled: () => true,
     isLandrStaff: false,
+    // landr-2soj — AppSidebar gates staff-only nav on effectiveIsStaff.
+    effectiveIsStaff: false,
     isLoading: false,
   }),
 }))
