@@ -18,6 +18,7 @@ import {
   PackageIcon,
   PaletteIcon,
   PlugIcon,
+  SparklesIcon,
   TagIcon,
   TagsIcon,
   TicketIcon,
@@ -144,6 +145,14 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/embed',
     label: t.settingsHub.sections.embed,
     icon: CodeIcon,
+  },
+  // landr-znzz.5 — generic per-operator offers/upsells shown in the AFTER
+  // phase of the customer event page. Each offer links out to the operator's
+  // own shop/merch/form via cta_url. No defaults, nothing vendor-specific.
+  {
+    to: '/settings/offers',
+    label: t.settingsHub.sections.offers,
+    icon: SparklesIcon,
   },
   {
     to: '/settings/schedule',
