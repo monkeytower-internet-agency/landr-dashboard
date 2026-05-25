@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react'
+import type { ReactNode } from 'react'
 import {
   Navigate,
   Outlet,
@@ -80,6 +81,8 @@ import { OperationsSettings } from '@/routes/settings/OperationsSettings'
 import { WebhooksSettings } from '@/routes/settings/WebhooksSettings'
 import { AuthProvider } from '@/lib/auth'
 import { OperatorProvider } from '@/lib/operator'
+import { EntitlementsProvider, useEntitlements } from '@/lib/entitlements'
+import { featureForRoute, featureForSection } from '@/lib/entitlements-map'
 import { ProtectedRoute } from '@/lib/ProtectedRoute'
 import { ThemeProvider } from '@/lib/theme'
 import { AppShell } from '@/components/AppShell'
@@ -127,11 +130,44 @@ function AccountIndexRedirect() {
   return <Navigate to={landingPathFor('account')} replace />
 }
 
+// landr-sbhz.6 — guard a route by its effective-entitlement feature. When the
+// feature is DISABLED for the current operator (and the user isn't Landr
+// staff), the route is unreachable: we redirect to the dashboard home rather
+// than rendering the page (defence against deep links / bookmarks to a module
+// the tier doesn't include). While entitlements are still resolving we render
+// the children — see useEntitlements.isEnabled for the loading rationale.
+function FeatureGate({
+  feature,
+  children,
+}: {
+  feature: string
+  children: ReactNode
+}) {
+  const { isEnabled } = useEntitlements()
+  if (!isEnabled(feature)) return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
+// Wrap a route element in a FeatureGate if a feature key gates its path; pass
+// it through untouched otherwise. Keeps the route table below declarative.
+function gatedRoute(path: string, element: ReactNode): ReactNode {
+  const feature = featureForRoute(path)
+  if (!feature) return element
+  return <FeatureGate feature={feature}>{element}</FeatureGate>
+}
+
+function gatedSection(to: string, element: ReactNode): ReactNode {
+  const feature = featureForSection(to)
+  if (!feature) return element
+  return <FeatureGate feature={feature}>{element}</FeatureGate>
+}
+
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
         <OperatorProvider>
+          <EntitlementsProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
@@ -168,25 +204,25 @@ function App() {
               <Route path="/views" element={<ViewsIndex />} />
               <Route path="/views/new" element={<ViewsNew />} />
               <Route path="/views/:viewId" element={<ViewPage />} />
-              <Route path="/bookings" element={<Bookings />} />
-              <Route path="/calendar" element={<Calendar />} />
+              <Route path="/bookings" element={gatedRoute('/bookings', <Bookings />)} />
+              <Route path="/calendar" element={gatedRoute('/calendar', <Calendar />)} />
               {/* landr-af6c — Analytics dashboard. Sits between Calendar
                   and Contacts in the sidebar (operational-insight surface
                   next to the day-to-day surfaces). */}
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/contacts" element={<Contacts />} />
-              <Route path="/reporting" element={<Reporting />} />
+              <Route path="/analytics" element={gatedRoute('/analytics', <Analytics />)} />
+              <Route path="/contacts" element={gatedRoute('/contacts', <Contacts />)} />
+              <Route path="/reporting" element={gatedRoute('/reporting', <Reporting />)} />
               {/* landr-aref — /audit (audit_log viewer). Tenant-scoped via
                   RLS on audit_log; landr staff see cross-tenant rows for
                   fraud/dispute investigation per the existing policy. */}
-              <Route path="/audit" element={<Audit />} />
+              <Route path="/audit" element={gatedRoute('/audit', <Audit />)} />
               {/* landr-4pn1 — /trash (recently-deleted bin per category). */}
               <Route path="/trash" element={<Trash />} />
               <Route path="/approvals/general" element={<GeneralApprovals />} />
               {/* landr-wwhn.11 — Ticket board (5-column kanban, realtime). */}
-              <Route path="/tickets" element={<TicketBoard />} />
+              <Route path="/tickets" element={gatedRoute('/tickets', <TicketBoard />)} />
               {/* landr-wwhn.23 — MoSCoW release-planning overlay. */}
-              <Route path="/tickets/planning" element={<TicketPlanning />} />
+              <Route path="/tickets/planning" element={gatedRoute('/tickets/planning', <TicketPlanning />)} />
               {/* landr-znzz.8 — operator retrieve board (per-day check-ins). */}
               <Route path="/retrieve" element={<RetrieveBoard />} />
 
@@ -202,44 +238,44 @@ function App() {
               {/* Settings hub — left sub-sidebar wraps every subsection. */}
               <Route path="/settings" element={<SettingsLayout />}>
                 <Route index element={<SettingsIndexRedirect />} />
-                <Route path="company" element={<CompanySettings />} />
+                <Route path="company" element={gatedSection('/settings/company', <CompanySettings />)} />
                 <Route path="calendar-display" element={<CalendarDisplaySettings />} />
                 <Route path="display-preferences" element={<DisplayPreferencesSettings />} />
                 {/* landr-yp8x — Branding (logo + primary colour shown in
                     the embedded booking widget). */}
-                <Route path="branding" element={<BrandingSettings />} />
-                <Route path="team" element={<Staff />} />
-                <Route path="providers" element={<Providers />} />
-                <Route path="pickup-locations" element={<PickupLocations />} />
+                <Route path="branding" element={gatedSection('/settings/branding', <BrandingSettings />)} />
+                <Route path="team" element={gatedSection('/settings/team', <Staff />)} />
+                <Route path="providers" element={gatedSection('/settings/providers', <Providers />)} />
+                <Route path="pickup-locations" element={gatedSection('/settings/pickup-locations', <PickupLocations />)} />
                 {/* landr-sydf — Products lives under Settings now (operators
                     edit rarely, not daily). The :productId variant preserves
                     the landr-i018 deep-link contract used by the PricingSettings
                     'Used by' chips. */}
-                <Route path="products" element={<Products />} />
-                <Route path="products/:productId" element={<Products />} />
+                <Route path="products" element={gatedSection('/settings/products', <Products />)} />
+                <Route path="products/:productId" element={gatedSection('/settings/products', <Products />)} />
                 {/* landr-up1b — nested product category tree editor. */}
-                <Route path="categories" element={<CategoriesSettings />} />
+                <Route path="categories" element={gatedSection('/settings/categories', <CategoriesSettings />)} />
                 {/* landr-up1b — booking-widget shortcode/iframe generator. */}
-                <Route path="embed" element={<EmbedSettings />} />
+                <Route path="embed" element={gatedSection('/settings/embed', <EmbedSettings />)} />
                 {/* landr-znzz.5 — generic per-operator offers/upsells shown in
                     the AFTER phase of the customer event page. */}
                 <Route path="offers" element={<OffersSettings />} />
                 {/* landr-e8jf — Schedule lives under Settings now. The
                     capacity pills on the main Calendar (landr-3uai) make
                     Schedule a setup tool, not a daily-ops view. */}
-                <Route path="schedule" element={<Schedule />} />
-                <Route path="email-templates" element={<EmailTemplates />} />
+                <Route path="schedule" element={gatedSection('/settings/schedule', <Schedule />)} />
+                <Route path="email-templates" element={gatedSection('/settings/email-templates', <EmailTemplates />)} />
                 {/* landr-qg4q — outbound_emails viewer (failed sends, retried, sent). */}
-                <Route path="email-log" element={<EmailLog />} />
-                <Route path="integrations/gmail" element={<IntegrationsGmailSettings />} />
+                <Route path="email-log" element={gatedSection('/settings/email-log', <EmailLog />)} />
+                <Route path="integrations/gmail" element={gatedSection('/settings/integrations/gmail', <IntegrationsGmailSettings />)} />
                 {/* landr-6ybs — per-operator subscribable ICS calendar feed. */}
-                <Route path="integrations/calendar" element={<IntegrationsCalendarSettings />} />
+                <Route path="integrations/calendar" element={gatedSection('/settings/integrations/calendar', <IntegrationsCalendarSettings />)} />
                 <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
-                <Route path="pricing" element={<PricingSettings />} />
+                <Route path="pricing" element={gatedSection('/settings/pricing', <PricingSettings />)} />
                 {/* landr-9n0l — Settings → Commissions: scheme/rule/tier
                     editor + read-only agent-earnings report. */}
-                <Route path="commissions" element={<CommissionsSettings />} />
-                <Route path="tags" element={<TagsSettings />} />
+                <Route path="commissions" element={gatedSection('/settings/commissions', <CommissionsSettings />)} />
+                <Route path="tags" element={gatedSection('/settings/tags', <TagsSettings />)} />
                 {/* landr-1tqx — Settings → Service roles: operator-scoped
                     participant role catalogue (Pilot/Passenger/Diver…). */}
                 <Route
@@ -248,20 +284,20 @@ function App() {
                 />
                 {/* landr-sp4r — Settings → Campaigns: operator-scoped
                     marketing campaigns for booking attribution. */}
-                <Route path="campaigns" element={<CampaignsSettings />} />
+                <Route path="campaigns" element={gatedSection('/settings/campaigns', <CampaignsSettings />)} />
                 {/* landr-v198 — Settings → Vouchers: operator promo-code editor. */}
-                <Route path="vouchers" element={<VouchersSettings />} />
+                <Route path="vouchers" element={gatedSection('/settings/vouchers', <VouchersSettings />)} />
                 {/* landr-r87i — Settings → Operations: operator-customisable
                     default booking-checklist items (v2 of landr-84n1). */}
                 <Route path="operations" element={<OperationsSettings />} />
                 {/* landr-ah9u — Settings → Webhooks: operator-managed event
                     subscriptions (v1 localStorage; v2 server-delivered). */}
-                <Route path="webhooks" element={<WebhooksSettings />} />
+                <Route path="webhooks" element={gatedSection('/settings/webhooks', <WebhooksSettings />)} />
                 {/* landr-wwhn.16 — Settings → Notifications: personal
                     notification preferences (bell/email/push + per-ticket
                     overrides). Personal scope; lives in ACCOUNT group. */}
                 <Route path="notifications" element={<NotificationPrefsSettings />} />
-                <Route path="plan" element={<PlanSettings />} />
+                <Route path="plan" element={gatedSection('/settings/plan', <PlanSettings />)} />
               </Route>
 
               {/* Legacy URLs — keep deep-linkable bookmarks working by
@@ -294,6 +330,7 @@ function App() {
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Toaster />
+          </EntitlementsProvider>
         </OperatorProvider>
       </AuthProvider>
     </ThemeProvider>

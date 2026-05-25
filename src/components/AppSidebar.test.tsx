@@ -40,6 +40,18 @@ vi.mock('@/lib/auth', () => ({
   }),
 }))
 
+// landr-sbhz.6 — AppSidebar now consumes useEntitlements() to hide nav items
+// whose gating feature is disabled. Stub it permissive (everything enabled, no
+// loading) so these IA/highlight tests exercise the full nav without needing
+// an EntitlementsProvider + the operator_effective_features RPC.
+vi.mock('@/lib/entitlements', () => ({
+  useEntitlements: () => ({
+    isEnabled: () => true,
+    isLandrStaff: false,
+    isLoading: false,
+  }),
+}))
+
 import { AppSidebar } from './AppSidebar'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { SidebarModeProvider } from '@/lib/sidebar-mode-context'

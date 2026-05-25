@@ -38,6 +38,8 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { groupForPath, landingPathFor } from '@/components/settings/sections'
+import { useEntitlements } from '@/lib/entitlements'
+import { featureForRoute } from '@/lib/entitlements-map'
 import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
 import type { SidebarMode } from '@/lib/sidebar-mode'
 import { t } from '@/lib/strings'
@@ -352,6 +354,16 @@ function SidebarModeControl() {
 export function AppSidebar() {
   const { pathname } = useLocation()
   const { mode, setHovered } = useSidebarModeContext()
+  const { isEnabled } = useEntitlements()
+
+  // landr-sbhz.6 — hide primary nav items whose gating feature is DISABLED for
+  // the current operator. Items without a gating feature (Dashboard, Views,
+  // Approvals, Retrieve, Trash) have featureForRoute() === null and are always
+  // shown. Staff bypass lives inside isEnabled (always true for staff).
+  const visiblePrimaryItems = primaryItems.filter((item) => {
+    const feature = featureForRoute(item.to)
+    return feature === null || isEnabled(feature)
+  })
 
   // landr-fzcg — hover-expand: only attach pointer handlers when the user
   // has opted into the hover mode. In collapsed/expanded modes the open
@@ -392,7 +404,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
-            <NavMenu items={primaryItems} pathname={pathname} />
+            <NavMenu items={visiblePrimaryItems} pathname={pathname} />
           </SidebarGroupContent>
         </SidebarGroup>
         {/* landr-ne58 — Recently viewed (last 5 detail surfaces the user

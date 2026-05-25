@@ -1,6 +1,8 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
+import { useEntitlements } from '@/lib/entitlements'
+import { featureForSection } from '@/lib/entitlements-map'
 import {
   ACCOUNT_SECTIONS,
   SETTINGS_SECTIONS,
@@ -15,9 +17,19 @@ import {
 // a sidebar IA grouping decision.
 export function SettingsSubSidebar() {
   const { pathname } = useLocation()
+  const { isEnabled } = useEntitlements()
   const group = groupForPath(pathname)
-  const sections: ReadonlyArray<SettingsSubSection> =
+  const allSections: ReadonlyArray<SettingsSubSection> =
     group === 'account' ? ACCOUNT_SECTIONS : SETTINGS_SECTIONS
+  // landr-sbhz.6 — hide settings sub-sections whose gating feature is DISABLED
+  // for the current operator. Sections without a gating feature
+  // (calendar-display, display-preferences, connected-accounts, notifications,
+  // offers, service-roles, operations) have featureForSection() === null and
+  // are always shown. Staff bypass lives inside isEnabled.
+  const sections = allSections.filter((section) => {
+    const feature = featureForSection(section.to)
+    return feature === null || isEnabled(feature)
+  })
   const navLabel =
     group === 'account' ? t.accountHub.navLabel : t.settingsHub.navLabel
   return (
