@@ -1,10 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Card,
   CardContent,
@@ -94,6 +93,7 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
   // validate on save.
   const [colorInput, setColorInput] = useState(initialColor)
   const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Re-seeding from props on refetch happens via the `key` prop on
   // <BrandingForm> in the parent — see BrandingSettings above.
@@ -210,31 +210,37 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
             </div>
           )}
           <div className="flex gap-2">
-            <Label asChild>
-              <Button asChild variant="outline" disabled={isUploading}>
-                <span className="cursor-pointer">
-                  {isUploading
-                    ? t.settings.fieldLogoUploading
-                    : operator.logo_url
-                      ? t.settings.fieldLogoReplace
-                      : t.settings.fieldLogoUpload}
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                    className="sr-only"
-                    aria-label={t.settings.fieldLogoUpload}
-                    disabled={isUploading}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      // Reset input so re-selecting the same file fires
-                      // the change event again.
-                      e.target.value = ''
-                      if (file) void handleLogoSelected(file)
-                    }}
-                  />
-                </span>
-              </Button>
-            </Label>
+            {/* landr-s09l — standalone input + button pattern.
+                The previous <Label asChild><Button asChild><span>…<input/></span></Button></Label>
+                double-Slot nesting broke native label→input click forwarding so the
+                file picker never opened. Fix: hidden input + explicit ref click. */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/svg+xml,image/webp"
+              className="sr-only"
+              aria-label={t.settings.fieldLogoUpload}
+              disabled={isUploading}
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                // Reset input so re-selecting the same file fires
+                // the change event again.
+                e.target.value = ''
+                if (file) void handleLogoSelected(file)
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isUploading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {isUploading
+                ? t.settings.fieldLogoUploading
+                : operator.logo_url
+                  ? t.settings.fieldLogoReplace
+                  : t.settings.fieldLogoUpload}
+            </Button>
             {operator.logo_url && (
               <Button
                 type="button"
