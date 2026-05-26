@@ -4,14 +4,19 @@
  * Single source of truth for the three deployment environments.
  * Every place that builds a widget URL (EmbedSettings, shortcode,
  * tests) imports from here — no scattered string literals.
+ *
+ * landr-sag9: renamed 'testing' → 'staging' (both value and label) to match
+ * the deploy pipeline branch name. The underlying host (bw-staging.landr.de)
+ * is unchanged — this is a dashboard-only constant, nothing is persisted.
+ * The development env is staff-only in the UI (EmbedSettings role-gates it).
  */
 
-export type EmbedEnv = 'development' | 'testing' | 'live'
+export type EmbedEnv = 'development' | 'staging' | 'live'
 
 /** Human-readable labels for the environment selector. */
 export const EMBED_ENV_LABELS: Record<EmbedEnv, string> = {
   development: 'Development',
-  testing: 'Testing',
+  staging: 'Staging',
   live: 'Live',
 }
 
@@ -22,12 +27,12 @@ export const EMBED_ENV_LABELS: Record<EmbedEnv, string> = {
  */
 export const EMBED_ENV_HOSTS: Record<EmbedEnv, string> = {
   development: 'bw-dev.landr.de',
-  testing: 'bw-staging.landr.de',
+  staging: 'bw-staging.landr.de',
   live: 'bw.landr.de',
 }
 
 /** Ordered list used to render the selector. */
-export const EMBED_ENV_ORDER: EmbedEnv[] = ['development', 'testing', 'live']
+export const EMBED_ENV_ORDER: EmbedEnv[] = ['development', 'staging', 'live']
 
 /**
  * Build the full widget URL for the given env + widget token.
@@ -54,7 +59,7 @@ export function buildWidgetUrl(
  * live embeds — dashboard-only.
  *
  * Defaults to the dev host ('development') because bw-staging.landr.de is
- * not yet live (landr-7zc5.6 is still open). Switch env to 'testing' once
+ * not yet live (landr-7zc5.6 is still open). Switch env to 'staging' once
  * staging is provisioned.
  */
 export function buildPreviewUrl(

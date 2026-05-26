@@ -1,5 +1,5 @@
 /**
- * EmbedSettings tests (landr-up1b / landr-il9f.3 / landr-7zc5.4) — booking-widget shortcode generator.
+ * EmbedSettings tests (landr-up1b / landr-il9f.3 / landr-7zc5.4 / landr-sag9).
  * Covers the All / Category / Single-product modes, the live shortcode +
  * iframe output, Copy, the env selector, raw URL output, and Open widget button.
  *
@@ -8,6 +8,9 @@
  *
  * landr-7zc5.4: env selector swaps the widget host. Raw URL output +
  * "Open booking widget" button added.
+ *
+ * landr-sag9: 'testing' renamed → 'staging'. development option is staff-only.
+ * Non-staff see [staging, live]; Landr staff additionally see [development].
  */
 import {
   fireEvent,
@@ -37,6 +40,21 @@ vi.mock('@/lib/operator', async () => {
       refreshOperators: () => {},
     }),
     OperatorProvider: ({ children }: { children: ReactNode }) => children,
+  }
+})
+
+// landr-sag9 — mock useEntitlements so tests can control the staff flag.
+// Default: non-staff (operator view). Individual tests override via mockReturnValue.
+const mockEffectiveIsStaff = { value: false }
+vi.mock('@/lib/entitlements', async () => {
+  return {
+    useEntitlements: () => ({
+      isEnabled: () => true,
+      isLandrStaff: mockEffectiveIsStaff.value,
+      effectiveIsStaff: mockEffectiveIsStaff.value,
+      isLoading: false,
+    }),
+    EntitlementsProvider: ({ children }: { children: ReactNode }) => children,
   }
 })
 
@@ -124,6 +142,8 @@ function render(ui: ReactElement) {
 beforeEach(() => {
   clipboardWriteText.mockReset()
   clipboardWriteText.mockResolvedValue(undefined)
+  // Default every test to non-staff (operator view). Staff tests override below.
+  mockEffectiveIsStaff.value = false
 })
 
 afterEach(() => {
@@ -191,7 +211,8 @@ describe('EmbedSettings (landr-up1b / landr-il9f.3)', () => {
 })
 
 // landr-7zc5.4 — env selector, raw URL output, open widget button
-describe('EmbedSettings env selector (landr-7zc5.4)', () => {
+// landr-sag9 — renamed testing→staging, development is staff-only
+describe('EmbedSettings env selector (landr-7zc5.4 / landr-sag9)', () => {
   it('defaults to Live env — raw URL uses bw.landr.de', async () => {
     render(<EmbedSettings />)
     const code = await screen.findByTestId('embed-raw-url-code')
@@ -202,7 +223,9 @@ describe('EmbedSettings env selector (landr-7zc5.4)', () => {
     )
   })
 
-  it('switching to Development swaps the host to bw-dev.landr.de', async () => {
+  // landr-sag9: development is staff-only — requires effectiveIsStaff=true
+  it('staff: switching to Development swaps the host to bw-dev.landr.de', async () => {
+    mockEffectiveIsStaff.value = true
     const user = userEvent.setup()
     render(<EmbedSettings />)
     const envSelect = await screen.findByTestId('embed-env-select')
@@ -214,11 +237,12 @@ describe('EmbedSettings env selector (landr-7zc5.4)', () => {
     )
   })
 
-  it('switching to Testing swaps the host to bw-staging.landr.de', async () => {
+  // landr-sag9: 'testing' renamed → 'staging'
+  it('switching to Staging swaps the host to bw-staging.landr.de', async () => {
     const user = userEvent.setup()
     render(<EmbedSettings />)
     const envSelect = await screen.findByTestId('embed-env-select')
-    await user.selectOptions(envSelect, 'testing')
+    await user.selectOptions(envSelect, 'staging')
     await waitFor(() =>
       expect(screen.getByTestId('embed-raw-url-code')).toHaveTextContent(
         'https://bw-staging.landr.de/?w=tok_testtoken123',
@@ -226,7 +250,9 @@ describe('EmbedSettings env selector (landr-7zc5.4)', () => {
     )
   })
 
-  it('Development env adds src= to the shortcode', async () => {
+  // landr-sag9: development is staff-only
+  it('staff: Development env adds src= to the shortcode', async () => {
+    mockEffectiveIsStaff.value = true
     const user = userEvent.setup()
     render(<EmbedSettings />)
     const envSelect = await screen.findByTestId('embed-env-select')
@@ -284,14 +310,46 @@ describe('EmbedSettings env selector (landr-7zc5.4)', () => {
     )
   })
 
-  it('env selector contains all three options', async () => {
+  // landr-sag9: non-staff see only [staging, live]; development is hidden
+  it('operator (non-staff): env selector shows only staging and live', async () => {
+    render(<EmbedSettings />)
+    const envSelect = await screen.findByTestId('embed-env-select')
+    const options = within(envSelect).getAllByRole('option')
+    expect(options.map((o) => o.getAttribute('value'))).toEqual([
+      'staging',
+      'live',
+    ])
+  })
+
+  // landr-sag9: non-staff must never see the development option
+  it('operator (non-staff): development option is absent from selector', async () => {
+    render(<EmbedSettings />)
+    const envSelect = await screen.findByTestId('embed-env-select')
+    expect(
+      within(envSelect).queryByRole('option', { name: 'Development' }),
+    ).toBeNull()
+  })
+
+  // landr-sag9: staff see all three options including development
+  it('staff: env selector shows development, staging, and live', async () => {
+    mockEffectiveIsStaff.value = true
     render(<EmbedSettings />)
     const envSelect = await screen.findByTestId('embed-env-select')
     const options = within(envSelect).getAllByRole('option')
     expect(options.map((o) => o.getAttribute('value'))).toEqual([
       'development',
-      'testing',
+      'staging',
       'live',
     ])
+  })
+
+  // landr-sag9: label reads 'Staging', not 'Testing'
+  it('staging option label reads "Staging"', async () => {
+    render(<EmbedSettings />)
+    const envSelect = await screen.findByTestId('embed-env-select')
+    const stagingOption = within(envSelect).getByRole('option', {
+      name: 'Staging',
+    })
+    expect(stagingOption).toHaveAttribute('value', 'staging')
   })
 })
