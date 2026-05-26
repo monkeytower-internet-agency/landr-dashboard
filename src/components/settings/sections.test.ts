@@ -50,15 +50,28 @@ describe('ACCOUNT_SECTIONS (landr-fzcg)', () => {
   // both are personal third-party integrations).
   // landr-wwhn.16 — Notifications added after Plan (personal notification
   // preferences: bell/email/push + per-ticket overrides).
-  it('contains exactly company/connected/gmail/calendar/plan/notifications in that order', () => {
+  // landr-1nwu.2 — Payments & invoicing joined ACCOUNT between Calendar feed
+  // and Plan (per-operator Stripe + Holded credentials; another personal
+  // third-party integration the operator wires up once).
+  it('contains exactly company/connected/gmail/calendar/payments/plan/notifications in that order', () => {
     expect(ACCOUNT_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/company',
       '/settings/connected-accounts',
       '/settings/integrations/gmail',
       '/settings/integrations/calendar',
+      '/settings/integrations/payments',
       '/settings/plan',
       '/settings/notifications',
     ])
+  })
+
+  // landr-1nwu.2 — pin the Payments & invoicing entry shape.
+  it('includes a Payments & invoicing entry at /settings/integrations/payments', () => {
+    const entry = ACCOUNT_SECTIONS.find(
+      (s) => s.to === '/settings/integrations/payments',
+    )
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Payments & invoicing')
   })
 
   it('includes a Calendar feed entry at /settings/integrations/calendar', () => {

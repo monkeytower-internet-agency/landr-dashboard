@@ -293,6 +293,8 @@ export const t = {
       integrationsGmail: 'Gmail',
       // landr-6ybs — per-operator subscribable ICS calendar feed.
       integrationsCalendar: 'Calendar feed',
+      // landr-1nwu.2 — per-operator Stripe + Holded credentials.
+      integrationsPayments: 'Payments & invoicing',
       connectedAccounts: 'Connected accounts',
       plan: 'Plan',
       pricing: 'Pricing',
@@ -357,6 +359,9 @@ export const t = {
       // landr-6ybs — per-operator subscribable ICS calendar feed.
       integrationsCalendar:
         'Subscribe to a live ICS feed of all your bookings in Google, Apple, or Outlook calendar.',
+      // landr-1nwu.2 — per-operator Stripe + Holded credentials (test/live).
+      integrationsPayments:
+        'Enter your own Stripe (test + live) and Holded (demo + live) API keys. Secrets are encrypted and never shown again.',
       connectedAccounts:
         'Identity links (Google, Apple, GitHub) for this operator.',
       plan: 'Your current subscription plan.',
@@ -364,7 +369,7 @@ export const t = {
       // landr-9n0l — commission scheme editor + agent-earnings report.
       commissions:
         'Commission schemes for agents, providers, and the platform, plus per-agent earnings.',
-      branding: 'Apply your logo and brand colour to the booking widget.',
+      branding: 'Apply your logo and brand theme (3 colours + dark mode) to the booking widget.',
       // landr-znzz.7 — optional weather forecast hint for the conditions verdict.
       weather:
         'Opt in to a weather forecast hint shown next to the conditions chips when setting daily updates.',
@@ -1902,10 +1907,11 @@ export const t = {
     optionNone: '— Select —',
 
     // landr-yp8x — operator branding (logo + primary colour).
+    // landr-znzz.11 — extended to full 3-colour semantic theme + dark logo.
     sectionBranding: 'Branding',
     sectionBrandingDesc:
       'Your logo and primary colour appear in the embedded booking widget on your website.',
-    fieldLogo: 'Logo',
+    fieldLogo: 'Logo (light)',
     fieldLogoHint:
       'Square PNG or SVG works best (max 2 MB). Shown at the top of every booking step.',
     fieldLogoNone: 'No logo uploaded yet.',
@@ -1913,14 +1919,44 @@ export const t = {
     fieldLogoReplace: 'Replace logo',
     fieldLogoRemove: 'Remove logo',
     fieldLogoUploading: 'Uploading…',
+    fieldLogoDark: 'Dark-mode logo (optional)',
+    fieldLogoDarkHint:
+      "Used when the visitor's device is in dark mode. Leave blank to use the same logo.",
+    fieldLogoDarkNone: 'No dark-mode logo uploaded.',
+    fieldLogoDarkUpload: 'Upload dark logo',
+    fieldLogoDarkReplace: 'Replace dark logo',
+    fieldLogoDarkRemove: 'Remove dark logo',
+    fieldLogoDarkUploading: 'Uploading…',
     fieldPrimaryColor: 'Primary colour',
     fieldPrimaryColorHint:
-      'Drives the booking widget’s buttons and accents. Pick any 7-char hex (#RRGGBB).',
+      "Drives the booking widget's buttons and accents. Pick any 7-char hex (#RRGGBB).",
     fieldPrimaryColorReset: 'Reset to default',
+    // landr-znzz.11 — 3-colour theme fields
+    themeSectionTitle: 'Theme colours',
+    themeSectionDesc:
+      "Three semantic slots control the widget's look. Brand is headings and text, Accent is buttons, Background is the page canvas.",
+    fieldBrandColor: 'Brand colour (text / headings)',
+    fieldBrandColorHint: 'Primary text colour shown on the widget canvas.',
+    fieldAccentColor: 'Accent colour (buttons)',
+    fieldAccentColorHint: 'Fill colour for CTA buttons. Should contrast well with white button text.',
+    fieldBackgroundColor: 'Background colour',
+    fieldBackgroundColorHint: 'Page canvas background of the widget.',
+    darkOverridesSectionTitle: 'Dark-mode overrides (optional)',
+    darkOverridesSectionDesc:
+      "Leave blank to let the browser derive dark colours automatically. Override only if the default derivation doesn't match your brand.",
+    darkOverridesToggle: 'Customise dark-mode colours',
+    fieldDarkBrandColor: 'Dark brand colour',
+    fieldDarkAccentColor: 'Dark accent colour',
+    fieldDarkBackgroundColor: 'Dark background colour',
+    themeToastSaved: 'Theme saved.',
+    contrastWarningBrand: 'Brand on background contrast is below WCAG AA (4.5:1) — text may be hard to read.',
+    contrastWarningAccent: 'Accent button text contrast is below WCAG AA (4.5:1) — button text may be hard to read.',
     brandingPreviewTitle: 'Preview',
     brandingPreviewDesc:
-      'How a CTA in your booking widget will look with these brand settings.',
+      'Live preview of your widget colours in light and dark mode.',
     brandingPreviewCta: 'Continue',
+    brandingPreviewLight: 'Light',
+    brandingPreviewDark: 'Dark',
     brandingFileTooLarge: 'File is too large. Max 2 MB.',
     brandingFileTypeUnsupported: 'Only PNG, JPG, SVG, or WebP files are supported.',
     brandingUploadError: 'Failed to upload logo.',
@@ -1928,6 +1964,10 @@ export const t = {
     brandingToastUploaded: 'Logo uploaded.',
     brandingToastRemoved: 'Logo removed.',
     brandingToastColorSaved: 'Primary colour saved.',
+    brandingDarkLogoUploadError: 'Failed to upload dark logo.',
+    brandingDarkLogoRemoveError: 'Failed to remove dark logo.',
+    brandingDarkLogoToastUploaded: 'Dark logo uploaded.',
+    brandingDarkLogoToastRemoved: 'Dark logo removed.',
 
     gmailLoading: 'Loading Gmail status…',
     gmailError: 'Failed to load Gmail status.',
@@ -1982,6 +2022,41 @@ export const t = {
       'In the calendar view, click "Add calendar" → "Subscribe from web".',
       'Paste the URL, name the calendar, pick a colour, and click Import.',
     ],
+
+    // landr-1nwu.2 — per-operator payment/ERP integration credentials.
+    // Secrets are WRITE-ONLY: the API never returns a stored secret, so the
+    // UI shows "Configured" + last-updated and a Rotate/Replace input.
+    paymentsLoading: 'Loading credentials…',
+    paymentsError: 'Failed to load integration credentials.',
+    paymentsStripeTitle: 'Stripe',
+    paymentsStripeDescription:
+      'Your Stripe API keys. Test keys are used everywhere except production; Live keys take real payments.',
+    paymentsHoldedTitle: 'Holded',
+    paymentsHoldedDescription:
+      'Your Holded ERP API key for invoice sync. Demo keys are used outside production; Live takes effect in production.',
+    paymentsModeTest: 'Test',
+    paymentsModeLive: 'Live',
+    paymentsModeDemo: 'Demo',
+    paymentsStripePublishableLabel: 'Publishable key',
+    paymentsStripePublishablePlaceholder: 'pk_test_…',
+    paymentsStripeSecretLabel: 'Secret key',
+    paymentsStripeWebhookLabel: 'Webhook signing secret',
+    paymentsHoldedApiKeyLabel: 'API key',
+    // Shown in place of a stored secret value (which is never returned).
+    paymentsConfigured: 'Configured ••••••••',
+    paymentsNotConfigured: 'Not configured',
+    paymentsRotate: 'Rotate / replace',
+    paymentsRotateCancel: 'Cancel',
+    paymentsSecretRotatePlaceholder: 'Enter a new value to replace it',
+    paymentsSecretEnterPlaceholder: 'Paste the secret value',
+    paymentsLastUpdated: (when: string) => `Last updated ${when}`,
+    paymentsSave: 'Save',
+    paymentsSaving: 'Saving…',
+    paymentsSaved: 'Credentials saved.',
+    paymentsSaveError: 'Failed to save credentials.',
+    paymentsNothingToSave: 'Nothing to save — enter or rotate a value first.',
+    paymentsSecretNeverShown:
+      'For your security, saved secrets are never shown again. Enter a new value to replace one.',
   },
   // landr-znzz.7 — Settings → Weather
   weatherSettings: {
