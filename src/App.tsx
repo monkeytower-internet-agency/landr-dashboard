@@ -67,6 +67,7 @@ import { CalendarDisplaySettings } from '@/routes/settings/CalendarDisplaySettin
 import { DisplayPreferencesSettings } from '@/routes/settings/DisplayPreferencesSettings'
 import { IntegrationsCalendarSettings } from '@/routes/settings/IntegrationsCalendarSettings'
 import { IntegrationsGmailSettings } from '@/routes/settings/IntegrationsGmailSettings'
+import { IntegrationsPaymentsSettings } from '@/routes/settings/IntegrationsPaymentsSettings'
 import { ConnectedAccountsSettings } from '@/routes/settings/ConnectedAccountsSettings'
 import { EmailLog } from '@/routes/settings/EmailLog'
 import { PlanSettings } from '@/routes/settings/PlanSettings'
@@ -282,6 +283,11 @@ function App() {
                 <Route path="integrations/gmail" element={gatedSection('/settings/integrations/gmail', <IntegrationsGmailSettings />)} />
                 {/* landr-6ybs — per-operator subscribable ICS calendar feed. */}
                 <Route path="integrations/calendar" element={gatedSection('/settings/integrations/calendar', <IntegrationsCalendarSettings />)} />
+                {/* landr-1nwu.2 — per-operator Stripe + Holded credentials.
+                    Ungated: operators always need to enter their own payment
+                    keys (like connected-accounts), so no feature-entitlement
+                    gate. */}
+                <Route path="integrations/payments" element={<IntegrationsPaymentsSettings />} />
                 <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
                 <Route path="pricing" element={gatedSection('/settings/pricing', <PricingSettings />)} />
                 {/* landr-9n0l — Settings → Commissions: scheme/rule/tier
