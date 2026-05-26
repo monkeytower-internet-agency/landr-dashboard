@@ -47,6 +47,7 @@ import { PageTitle } from '@/lib/page-title'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { useOperator } from '@/lib/operator'
 import { ProductShortcodeMenu } from '@/components/products/ProductShortcodeMenu'
+import { fetchWidgetToken } from '@/lib/shortcode'
 import { t } from '@/lib/strings'
 
 const NEW_PRODUCT = 'new' as const
@@ -82,6 +83,13 @@ export function ProductsManager({
   // the current operator, so the context slug matches operatorId here.
   const { currentOperator } = useOperator()
   const operatorSlug = currentOperator?.slug ?? ''
+  // landr-il9f.3 — opaque widget token replaces the slug in shortcode output.
+  const tokenQuery = useQuery<string | null>({
+    queryKey: ['operator-widget-token', operatorId],
+    queryFn: () => fetchWidgetToken(operatorId),
+    enabled: !!operatorId,
+  })
+  const widgetToken = tokenQuery.data ?? null
   const routed = onUrlSelect !== undefined
   // In routed mode the URL is the source of truth; otherwise we keep local
   // selection state (legacy onboarding embed).
@@ -430,6 +438,7 @@ export function ProductsManager({
             <ProductShortcodeMenu
               operatorId={operatorId}
               operatorSlug={operatorSlug}
+              widgetToken={widgetToken}
               productSlug={selectedProduct.slug}
               productGroupId={selectedProduct.product_group_id}
               variant="detail"
@@ -503,6 +512,7 @@ export function ProductsManager({
         rows={rows}
         operatorId={operatorId}
         operatorSlug={operatorSlug || undefined}
+        widgetToken={widgetToken}
         selectedId={
           resolvedSelection === NEW_PRODUCT
             ? null

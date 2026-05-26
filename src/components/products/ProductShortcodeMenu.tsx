@@ -37,6 +37,11 @@ import { t } from '@/lib/strings'
 type Props = {
   operatorId: string
   operatorSlug: string
+  /** landr-il9f.3: opaque widget_token. When provided, emitted as token=
+   *  in the shortcode (replaces operator=<slug>). If absent (race / stale
+   *  callers) falls back to empty string — the copy still works syntactically
+   *  and callers are expected to pass this once the token query lands. */
+  widgetToken?: string | null
   productSlug: string
   /** The product's product_group_id (root of the breadcrumb walk). */
   productGroupId: string | null
@@ -54,7 +59,8 @@ async function copy(code: string) {
 
 export function ProductShortcodeMenu({
   operatorId,
-  operatorSlug,
+  operatorSlug: _operatorSlug,
+  widgetToken,
   productSlug,
   productGroupId,
   variant,
@@ -75,9 +81,10 @@ export function ProductShortcodeMenu({
     return breadcrumbFor(treeQuery.data ?? [], productGroupId)
   }, [treeQuery.data, productGroupId])
 
+  // landr-il9f.3: emit token= (opaque widget_token) in place of operator=.
   const productCode = useMemo(
-    () => buildShortcode({ operator: operatorSlug, product: productSlug }),
-    [operatorSlug, productSlug],
+    () => buildShortcode({ token: widgetToken ?? '', product: productSlug }),
+    [widgetToken, productSlug],
   )
 
   // Row variant: one-click single-product copy (no menu).
@@ -117,8 +124,9 @@ export function ProductShortcodeMenu({
               {t.productShortcode.categoryLevelsLabel}
             </DropdownMenuLabel>
             {breadcrumb.map((cat, idx) => {
+              // landr-il9f.3: token= replaces operator=.
               const code = buildShortcode({
-                operator: operatorSlug,
+                token: widgetToken ?? '',
                 group: cat.slug,
               })
               return (

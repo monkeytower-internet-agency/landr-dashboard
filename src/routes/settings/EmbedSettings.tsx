@@ -1,5 +1,5 @@
 /**
- * Settings → Embed (landr-up1b).
+ * Settings → Embed (landr-up1b / landr-il9f.3).
  *
  * Booking-widget shortcode generator. The operator picks a mode (all
  * products / a category subtree / a single product), tunes optional
@@ -7,9 +7,9 @@
  * (for the WordPress plugin) plus a raw <iframe> snippet (for any other
  * CMS), each with a Copy button.
  *
- * The operator slug is auto-filled from the current operator — operators
- * never type it. Category options are the nested product_groups tree
- * (indented); product options are the operator's product list.
+ * landr-il9f.3: The opaque widget_token (NOT the operator slug) is fetched
+ * from the operators row and emitted as `token=` in the shortcode and
+ * `?w=` in the iframe URL. This prevents operator enumeration by slug.
  */
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -26,7 +26,7 @@ import {
   type ProductGroup,
 } from '@/lib/productGroups'
 import { fetchProducts, type ProductRow } from '@/lib/products'
-import { buildShortcode } from '@/lib/shortcode'
+import { buildShortcode, fetchWidgetToken } from '@/lib/shortcode'
 import { useOperator } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
@@ -34,7 +34,7 @@ import { t } from '@/lib/strings'
 type Mode = 'all' | 'category' | 'product'
 
 export function EmbedSettings() {
-  const { currentOperatorId, currentOperator } = useOperator()
+  const { currentOperatorId } = useOperator()
 
   const titleNode = (
     <PageTitle
@@ -46,7 +46,7 @@ export function EmbedSettings() {
     />
   )
 
-  if (!currentOperatorId || !currentOperator?.slug) {
+  if (!currentOperatorId) {
     return (
       <div className="flex flex-col gap-6">
         {titleNode}
@@ -66,25 +66,30 @@ export function EmbedSettings() {
   return (
     <>
       {titleNode}
-      <EmbedGenerator
-        operatorId={currentOperatorId}
-        operatorSlug={currentOperator.slug}
-      />
+      <EmbedGenerator operatorId={currentOperatorId} />
     </>
   )
 }
 
 type GeneratorProps = {
   operatorId: string
-  operatorSlug: string
 }
 
-export function EmbedGenerator({ operatorId, operatorSlug }: GeneratorProps) {
+export function EmbedGenerator({ operatorId }: GeneratorProps) {
   const [mode, setMode] = useState<Mode>('all')
   const [groupSlug, setGroupSlug] = useState('')
   const [productSlug, setProductSlug] = useState('')
   const [height, setHeight] = useState('')
   const [src, setSrc] = useState('')
+
+  // landr-il9f.3 — fetch the opaque widget token for this operator.
+  // Owners/staff can read their own operators row via RLS.
+  const tokenQuery = useQuery<string | null>({
+    queryKey: ['operator-widget-token', operatorId],
+    queryFn: () => fetchWidgetToken(operatorId),
+    enabled: !!operatorId,
+  })
+  const widgetToken = tokenQuery.data ?? null
 
   const groupsQuery = useQuery<ProductGroup[]>({
     queryKey: ['product-group-tree', operatorId],
@@ -108,19 +113,24 @@ export function EmbedGenerator({ operatorId, operatorSlug }: GeneratorProps) {
 
   const params = useMemo(
     () => ({
-      operator: operatorSlug,
+      // Fall back to a placeholder while the token is loading so the output
+      // is always a valid-looking string. The user sees live results once
+      // the token arrives (single fast round-trip).
+      token: widgetToken ?? '',
       group: mode === 'category' ? groupSlug : null,
       product: mode === 'product' ? productSlug : null,
       height: height.trim() || null,
       src: src.trim() || null,
     }),
-    [operatorSlug, mode, groupSlug, productSlug, height, src],
+    [widgetToken, mode, groupSlug, productSlug, height, src],
   )
 
   const shortcode = useMemo(() => buildShortcode(params), [params])
 
   const iframe = useMemo(() => {
-    const qs = new URLSearchParams({ operator: params.operator })
+    const qs = new URLSearchParams()
+    // landr-il9f.3: widget resolves operator by ?w=<token>, not ?operator=<slug>.
+    if (params.token) qs.set('w', params.token)
     if (params.group) qs.set('group', params.group)
     if (params.product) qs.set('product', params.product)
     const origin = params.src
