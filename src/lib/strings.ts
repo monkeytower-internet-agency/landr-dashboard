@@ -303,6 +303,8 @@ export const t = {
       commissions: 'Commissions',
       // landr-yp8x — operator branding shown in the embedded booking widget.
       branding: 'Branding',
+      // landr-znzz.7 — optional weather forecast hint for the conditions verdict.
+      weather: 'Weather',
       // landr-iz58 — operator-scoped tags applied to bookings + contacts.
       tags: 'Tags',
       // landr-1tqx — operator-scoped participant service roles
@@ -368,6 +370,9 @@ export const t = {
       commissions:
         'Commission schemes for agents, providers, and the platform, plus per-agent earnings.',
       branding: 'Apply your logo and brand theme (3 colours + dark mode) to the booking widget.',
+      // landr-znzz.7 — optional weather forecast hint for the conditions verdict.
+      weather:
+        'Opt in to a weather forecast hint shown next to the conditions chips when setting daily updates.',
       tags: 'Define operator-scoped tags to apply to bookings and contacts.',
       // landr-1tqx — participant service-role catalogue read by the widget.
       serviceRoles:
@@ -2052,6 +2057,30 @@ export const t = {
     paymentsNothingToSave: 'Nothing to save — enter or rotate a value first.',
     paymentsSecretNeverShown:
       'For your security, saved secrets are never shown again. Enter a new value to replace one.',
+  },
+  // landr-znzz.7 — Settings → Weather
+  weatherSettings: {
+    cardTitle: 'Conditions forecast hint',
+    cardDescription:
+      'When enabled, a one-line weather summary is shown next to the conditions chips in the briefing day-card editor. The verdict (Go / Marginal / No-go) is always set manually — weather only informs.',
+    enableLabel: 'Enable forecast hint',
+    enableHint:
+      'Fetch a daily forecast for the configured location and show it as a hint when you set conditions.',
+    providerLabel: 'Weather provider',
+    latLabel: 'Latitude',
+    lonLabel: 'Longitude',
+    locationHint:
+      'WGS-84 decimal degrees (e.g. 28.9716, -13.5538 for Famara, Lanzarote). Tip: right-click any location in Google Maps and choose "What\'s here?" to get precise coordinates.',
+    save: 'Save',
+    saving: 'Saving…',
+    toastSaved: 'Weather settings saved.',
+    toastError: 'Failed to save weather settings.',
+    validationLatitude: 'Latitude must be between -90 and 90.',
+    validationLongitude: 'Longitude must be between -180 and 180.',
+    // Shown in the briefing day-card editor when weather is enabled.
+    forecastHintLabel: 'Forecast hint',
+    forecastHintLoading: 'Fetching forecast…',
+    forecastHintError: 'Forecast unavailable.',
   },
   pickupLocations: {
     title: 'Pickup locations',

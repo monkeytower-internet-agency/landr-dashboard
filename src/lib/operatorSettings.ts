@@ -55,6 +55,14 @@ export const OperatorSettingsSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour like #FF8800.')
     .nullable()
     .optional(),
+  // landr-znzz.7 — opt-in weather forecast hint for the conditions verdict
+  // pre-fill. OFF by default; operator enables in Settings → Weather.
+  // weather_provider is the provider slug (currently only 'open_meteo').
+  // lat/lon are WGS-84 coordinates for the fetch location.
+  weather_enabled: z.boolean().nullable().optional(),
+  weather_provider: z.string().nullable().optional(),
+  weather_lat: z.number().nullable().optional(),
+  weather_lon: z.number().nullable().optional(),
   // landr-znzz.11 — extended branding: dark-mode logo + 3-colour theme.
   // logo_dark_url: optional dark-mode variant uploaded to the same bucket.
   // theme: { brand, accent, background } (light) + optional dark overrides.
@@ -199,6 +207,48 @@ export async function regenerateOperatorIcalToken(
   return api<OperatorIcalToken>(
     'POST',
     `/api/staff/operators/${operatorId}/ical-token`,
+  )
+}
+
+// landr-znzz.7 — weather forecast hint for the conditions pre-fill.
+//
+// The API returns one of three shapes:
+//   {enabled: false}                            — weather opt-in is off
+//   {enabled: true, error: string}              — enabled but provider failed
+//   {enabled: true, provider, date, hint, detail} — full forecast
+//
+// The `hint` string is a compact human-readable summary from the API
+// (e.g. "Partly cloudy · 18–25°C · wind 15 km/h W · cloud 30%").
+// The `detail` object carries the raw numeric values for any further
+// rendering the dashboard wants to do.
+
+export type WeatherForecastDetail = {
+  weather_code: number | null
+  temperature_max: number | null
+  temperature_min: number | null
+  wind_speed_max_kmh: number | null
+  wind_direction_dominant_deg: number | null
+  cloud_cover_mean_pct: number | null
+}
+
+export type WeatherForecast =
+  | { enabled: false }
+  | { enabled: true; error: string }
+  | {
+      enabled: true
+      provider: string
+      date: string
+      hint: string
+      detail: WeatherForecastDetail
+    }
+
+export async function fetchWeatherForecast(
+  operatorId: string,
+  date: string,
+): Promise<WeatherForecast> {
+  return api<WeatherForecast>(
+    'GET',
+    `/api/staff/operators/${operatorId}/weather-forecast?date=${encodeURIComponent(date)}`,
   )
 }
 

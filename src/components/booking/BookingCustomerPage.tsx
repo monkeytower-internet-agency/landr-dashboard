@@ -65,6 +65,12 @@ import {
   type BriefingPatch,
   type BriefingTone,
 } from '@/lib/booking-briefing'
+import {
+  fetchOperator,
+  fetchWeatherForecast,
+  type WeatherForecast,
+} from '@/lib/operatorSettings'
+import { OPERATOR_QUERY_KEY } from '@/routes/settings/_shared'
 import { t } from '@/lib/strings'
 import { cn } from '@/lib/utils'
 
@@ -134,6 +140,17 @@ export function BookingCustomerPage({
     queryFn: () => fetchBriefing(operatorId, bookingId),
     enabled: !!operatorId && !!bookingId,
   })
+
+  // landr-znzz.7 — fetch operator settings to know if weather hint is enabled.
+  // Keyed on OPERATOR_QUERY_KEY so this dedupes with any concurrent Settings
+  // page query — no extra round-trip if the operator just saved weather settings.
+  const operatorQuery = useQuery({
+    queryKey: OPERATOR_QUERY_KEY(operatorId),
+    queryFn: () => fetchOperator(operatorId),
+    enabled: !!operatorId,
+    staleTime: 60_000, // 1 min — operator settings change rarely
+  })
+  const weatherEnabled = operatorQuery.data?.weather_enabled ?? false
 
   const invalidate = () =>
     queryClient.invalidateQueries({
@@ -212,6 +229,7 @@ export function BookingCustomerPage({
       days={days}
       customerPhone={customerPhone}
       invalidate={invalidate}
+      weatherEnabled={weatherEnabled}
     />
   )
 }
@@ -223,6 +241,8 @@ type EditorProps = {
   days: string[]
   customerPhone?: string | null
   invalidate: () => void
+  /** landr-znzz.7 — whether weather forecast hint is enabled for this operator. */
+  weatherEnabled: boolean
 }
 
 function BriefingEditor({
@@ -232,6 +252,7 @@ function BriefingEditor({
   days,
   customerPhone,
   invalidate,
+  weatherEnabled,
 }: EditorProps) {
   const queryClient = useQueryClient()
   const [showRotate, setShowRotate] = useState(false)
@@ -550,6 +571,7 @@ function BriefingEditor({
                   day={day}
                   existing={existing}
                   invalidate={invalidate}
+                  weatherEnabled={weatherEnabled}
                 />
               )
             })
@@ -621,6 +643,8 @@ type DayCardProps = {
   day: string
   existing: BriefingDay | null
   invalidate: () => void
+  /** landr-znzz.7 — show forecast hint next to conditions chips when true. */
+  weatherEnabled: boolean
 }
 
 function DayCard({
@@ -629,6 +653,7 @@ function DayCard({
   day,
   existing,
   invalidate,
+  weatherEnabled,
 }: DayCardProps) {
   // Seeds reflect the server row at mount; the parent remounts this card
   // (key includes the row's updated_at) on any server-side change, so no
@@ -653,6 +678,16 @@ function DayCard({
       toast.error(t.bookings.briefing.daySaveToastError, {
         description: err.message,
       }),
+  })
+
+  // landr-znzz.7 — weather forecast hint. Only fetched when operator has
+  // weather opt-in enabled. The verdict stays manual — this is informational.
+  const weatherQuery = useQuery<WeatherForecast>({
+    queryKey: ['weather-forecast', operatorId, day],
+    queryFn: () => fetchWeatherForecast(operatorId, day),
+    enabled: weatherEnabled,
+    staleTime: 10 * 60 * 1000, // 10 min — forecasts don't change that fast
+    retry: false, // graceful — don't spam a flaky provider
   })
 
   const published = existing?.is_published ?? false
@@ -743,6 +778,13 @@ function DayCard({
             )
           })}
         </div>
+        {/* landr-znzz.7 — weather forecast hint (informs, never decides) */}
+        {weatherEnabled && (
+          <WeatherHint
+            forecast={weatherQuery.data ?? null}
+            isLoading={weatherQuery.isPending}
+          />
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -833,5 +875,49 @@ function DayCard({
         </Button>
       </div>
     </div>
+  )
+}
+
+// ============================================================================
+// landr-znzz.7 — WeatherHint
+//
+// Informs (never decides). Shows the forecast hint from the API next to the
+// conditions chips. Three states:
+//   * loading  — subtle spinner text
+//   * error    — silent (provider failure is graceful; we don't alarm the guide)
+//   * hint     — compact one-line summary from the API
+// ============================================================================
+
+type WeatherHintProps = {
+  forecast: WeatherForecast | null
+  isLoading: boolean
+}
+
+function WeatherHint({ forecast, isLoading }: WeatherHintProps) {
+  if (isLoading) {
+    return (
+      <span
+        className="text-muted-foreground text-xs italic"
+        data-testid="weather-hint-loading"
+      >
+        {t.weatherSettings.forecastHintLoading}
+      </span>
+    )
+  }
+
+  if (!forecast || !forecast.enabled) return null
+
+  // Graceful: provider down or disabled — show nothing
+  if ('error' in forecast) return null
+
+  return (
+    <span
+      className="text-muted-foreground inline-flex items-center gap-1 text-xs"
+      data-testid="weather-hint"
+      title={t.weatherSettings.forecastHintLabel}
+    >
+      <span aria-hidden="true">☀️</span>
+      {forecast.hint}
+    </span>
   )
 }
