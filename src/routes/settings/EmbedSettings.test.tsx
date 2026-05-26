@@ -1,7 +1,10 @@
 /**
- * EmbedSettings tests (landr-up1b) — booking-widget shortcode generator.
+ * EmbedSettings tests (landr-up1b / landr-il9f.3) — booking-widget shortcode generator.
  * Covers the All / Category / Single-product modes, the live shortcode +
  * iframe output, and Copy.
+ *
+ * landr-il9f.3: generator now emits token= (opaque widget_token) not operator=.
+ * The widget_token is fetched via fetchWidgetToken (shortcode.ts); we mock that.
  */
 import {
   fireEvent,
@@ -31,6 +34,16 @@ vi.mock('@/lib/operator', async () => {
       refreshOperators: () => {},
     }),
     OperatorProvider: ({ children }: { children: ReactNode }) => children,
+  }
+})
+
+// landr-il9f.3 — mock fetchWidgetToken so the embed generator resolves the
+// opaque token without a real Supabase connection.
+vi.mock('@/lib/shortcode', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/shortcode')>()
+  return {
+    ...actual,
+    fetchWidgetToken: vi.fn(async () => 'tok_testtoken123'),
   }
 })
 
@@ -114,11 +127,13 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe('EmbedSettings (landr-up1b)', () => {
-  it('defaults to "All products" — operator-only shortcode', async () => {
+describe('EmbedSettings (landr-up1b / landr-il9f.3)', () => {
+  it('defaults to "All products" — token-only shortcode', async () => {
     render(<EmbedSettings />)
     const code = await screen.findByTestId('embed-shortcode-code')
-    expect(code).toHaveTextContent('[landr_booking operator="para42"]')
+    await waitFor(() =>
+      expect(code).toHaveTextContent('[landr_booking token="tok_testtoken123"]'),
+    )
   })
 
   it('adds a group= attr when a category is selected', async () => {
@@ -129,7 +144,7 @@ describe('EmbedSettings (landr-up1b)', () => {
     await user.selectOptions(select, 'courses')
     await waitFor(() =>
       expect(screen.getByTestId('embed-shortcode-code')).toHaveTextContent(
-        '[landr_booking operator="para42" group="courses"]',
+        '[landr_booking token="tok_testtoken123" group="courses"]',
       ),
     )
   })
@@ -142,18 +157,18 @@ describe('EmbedSettings (landr-up1b)', () => {
     await user.selectOptions(select, 'open-water')
     await waitFor(() =>
       expect(screen.getByTestId('embed-shortcode-code')).toHaveTextContent(
-        '[landr_booking operator="para42" product="open-water"]',
+        '[landr_booking token="tok_testtoken123" product="open-water"]',
       ),
     )
   })
 
-  it('renders a matching iframe and copies it', async () => {
+  it('renders a matching iframe with ?w=<token> and copies it', async () => {
     render(<EmbedSettings />)
     const iframeBlock = await screen.findByTestId('embed-iframe')
-    expect(
-      within(iframeBlock).getByTestId('embed-iframe-code'),
-    ).toHaveTextContent(
-      'https://bw.landr.de/?operator=para42',
+    await waitFor(() =>
+      expect(
+        within(iframeBlock).getByTestId('embed-iframe-code'),
+      ).toHaveTextContent('https://bw.landr.de/?w=tok_testtoken123'),
     )
     // Re-install the spy right before the click: an earlier test in this
     // file may have called userEvent.setup(), which (v14) swaps
@@ -166,7 +181,7 @@ describe('EmbedSettings (landr-up1b)', () => {
     fireEvent.click(within(iframeBlock).getByTestId('embed-iframe-copy'))
     await waitFor(() =>
       expect(clipboardWriteText).toHaveBeenCalledWith(
-        expect.stringContaining('<iframe src="https://bw.landr.de/?operator=para42"'),
+        expect.stringContaining('<iframe src="https://bw.landr.de/?w=tok_testtoken123"'),
       ),
     )
   })

@@ -112,8 +112,10 @@ type Props = {
   // a one-click "copy product shortcode". Optional: the onboarding embed
   // mounts ProductsList before the operator slug is known, in which case
   // the copy-shortcode item is simply omitted.
+  // landr-il9f.3: widgetToken replaces operatorSlug in shortcode output.
   operatorId?: string
   operatorSlug?: string
+  widgetToken?: string | null
   // landr-sj2z — paint skeleton list items in place of real chips while
   // the parent's fetch is in flight. Mirrors the table-side prop on the
   // other surfaces.
@@ -129,6 +131,7 @@ export function ProductsList({
   duplicatingId,
   operatorId,
   operatorSlug,
+  widgetToken,
   isLoading = false,
 }: Props) {
   const [filter, setFilter] = useState('')
@@ -373,6 +376,7 @@ export function ProductsList({
                             <ProductShortcodeMenu
                               operatorId={operatorId}
                               operatorSlug={operatorSlug}
+                              widgetToken={widgetToken}
                               productSlug={row.slug}
                               productGroupId={row.product_group_id}
                               variant="row"

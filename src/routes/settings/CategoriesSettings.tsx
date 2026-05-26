@@ -40,7 +40,7 @@ import {
   type ProductGroup,
 } from '@/lib/productGroups'
 import { nameToSlug } from '@/lib/products'
-import { buildShortcode } from '@/lib/shortcode'
+import { buildShortcode, fetchWidgetToken } from '@/lib/shortcode'
 import { useOperator } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
@@ -91,12 +91,20 @@ type ManagerProps = {
   operatorSlug: string
 }
 
-export function CategoryTreeManager({ operatorId, operatorSlug }: ManagerProps) {
+export function CategoryTreeManager({ operatorId, operatorSlug: _operatorSlug }: ManagerProps) {
   const qc = useQueryClient()
   const query = useQuery<ProductGroup[]>({
     queryKey: ['product-group-tree', operatorId],
     queryFn: () => fetchProductGroupTree(operatorId),
   })
+
+  // landr-il9f.3 — opaque widget token replaces the slug in shortcodes.
+  const tokenQuery = useQuery<string | null>({
+    queryKey: ['operator-widget-token', operatorId],
+    queryFn: () => fetchWidgetToken(operatorId),
+    enabled: !!operatorId,
+  })
+  const widgetToken = tokenQuery.data ?? null
 
   const groups = useMemo(() => query.data ?? [], [query.data])
   const flat = useMemo(() => flattenTree(buildGroupTree(groups)), [groups])
@@ -230,7 +238,7 @@ export function CategoryTreeManager({ operatorId, operatorSlug }: ManagerProps) 
                 node={node}
                 allGroups={groups}
                 operatorId={operatorId}
-                operatorSlug={operatorSlug}
+                widgetToken={widgetToken}
                 onChanged={invalidate}
               />
             ))}
@@ -245,7 +253,8 @@ type RowProps = {
   node: ProductGroup & { depth: number; children: unknown[] }
   allGroups: ProductGroup[]
   operatorId: string
-  operatorSlug: string
+  /** landr-il9f.3: opaque widget token, replaces operatorSlug in shortcodes. */
+  widgetToken: string | null
   onChanged: () => void
 }
 
@@ -253,7 +262,7 @@ function CategoryRow({
   node,
   allGroups,
   operatorId,
-  operatorSlug,
+  widgetToken,
   onChanged,
 }: RowProps) {
   const [editing, setEditing] = useState(false)
@@ -315,7 +324,8 @@ function CategoryRow({
   )
 
   async function copyShortcode() {
-    const code = buildShortcode({ operator: operatorSlug, group: node.slug })
+    // landr-il9f.3: emit token= (opaque widget_token), not operator= (slug).
+    const code = buildShortcode({ token: widgetToken ?? '', group: node.slug })
     try {
       await navigator.clipboard.writeText(code)
       setCopied(true)

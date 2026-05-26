@@ -1,15 +1,17 @@
 /**
- * LANDR booking-widget shortcode grammar (landr-up1b).
+ * LANDR booking-widget shortcode grammar (landr-up1b / landr-il9f.3).
  *
  * Single source of truth for the `[landr_booking …]` shortcode string the
  * WP plugin (wp-plugin/landr-booking/landr-booking.php in the
  * landr-booking-widget repo) parses. Keep this in lockstep with the
  * plugin's `shortcode_atts` keys:
  *
- *   [landr_booking operator="para42" group="courses" product="open-water"
+ *   [landr_booking token="<widget_token>" group="courses" product="open-water"
  *                  height="800" src="https://bw.landr.de/"]
  *
- * - `operator` (required) — the operator slug.
+ * - `token` (required) — the operator's opaque widget_token (NOT the slug).
+ *   Resolves the operator on the widget side via `?w=<token>`. Rotatable
+ *   without changing the slug. (landr-il9f: slug-based enumeration removed.)
  * - `group` (optional) — a product_groups slug. Scopes the embed to that
  *   category AND all of its nested sub-categories (the API resolves the
  *   subtree server-side). Mutually exclusive with `product` in normal use.
@@ -22,10 +24,33 @@
  * still copy/paste cleanly into the WordPress block/classic editor, which
  * is the documented form in the plugin's settings page.
  */
+import { supabase } from '@/lib/supabase'
+
+/**
+ * landr-il9f.3 — fetch the opaque widget_token for an operator.
+ *
+ * Owners and staff can read their own operators row via RLS. Returns the
+ * token string, or null if the row / column is missing.
+ *
+ * Use with @tanstack/react-query:
+ *   queryKey: ['operator-widget-token', operatorId]
+ *   queryFn:  () => fetchWidgetToken(operatorId)
+ */
+export async function fetchWidgetToken(
+  operatorId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('operators')
+    .select('widget_token')
+    .eq('id', operatorId)
+    .maybeSingle()
+  if (error || !data) return null
+  return (data as { widget_token?: string | null }).widget_token ?? null
+}
 
 export type ShortcodeParams = {
-  /** Operator slug — required. */
-  operator: string
+  /** Operator widget token — required. Opaque, rotatable; NOT the slug. */
+  token: string
   /** Category (product_groups) slug — scopes to node + descendants. */
   group?: string | null
   /** Single product slug — deep-link. */
@@ -42,11 +67,11 @@ function attr(key: string, value: string): string {
 
 /**
  * Build the `[landr_booking …]` shortcode string. Only includes the
- * attributes that are set; `operator` is always present. Order matches the
- * plugin's documented form: operator, group, product, height, src.
+ * attributes that are set; `token` is always present. Order matches the
+ * plugin's documented form: token, group, product, height, src.
  */
 export function buildShortcode(params: ShortcodeParams): string {
-  const parts: string[] = [attr('operator', params.operator.trim())]
+  const parts: string[] = [attr('token', params.token.trim())]
 
   const group = (params.group ?? '').toString().trim()
   if (group) parts.push(attr('group', group))

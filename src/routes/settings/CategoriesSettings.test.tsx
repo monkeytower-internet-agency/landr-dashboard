@@ -1,8 +1,10 @@
 /**
- * CategoriesSettings tests (landr-up1b) — nested category tree editor.
+ * CategoriesSettings tests (landr-up1b / landr-il9f.3) — nested category tree editor.
  * Covers indented render from parent_id, reparent via the move-under
  * select, the cycle-guard (own subtree disabled as a target), and the
  * per-category copy-shortcode affordance.
+ *
+ * landr-il9f.3: shortcode copy emits token= (opaque widget_token) not operator=.
  */
 import {
   fireEvent,
@@ -32,6 +34,15 @@ vi.mock('@/lib/operator', async () => {
       refreshOperators: () => {},
     }),
     OperatorProvider: ({ children }: { children: ReactNode }) => children,
+  }
+})
+
+// landr-il9f.3 — mock fetchWidgetToken so category rows get an opaque token.
+vi.mock('@/lib/shortcode', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/shortcode')>()
+  return {
+    ...actual,
+    fetchWidgetToken: vi.fn(async () => 'tok_testtoken123'),
   }
 })
 
@@ -183,9 +194,10 @@ describe('CategoriesSettings (landr-up1b)', () => {
     fireEvent.click(
       within(beginnerRow).getByTestId('category-row-beginner-copy'),
     )
+    // landr-il9f.3: shortcode now uses token= (opaque widget_token), not operator=.
     await waitFor(() =>
       expect(clipboardWriteText).toHaveBeenCalledWith(
-        '[landr_booking operator="para42" group="beginner"]',
+        '[landr_booking token="tok_testtoken123" group="beginner"]',
       ),
     )
   })
