@@ -55,6 +55,43 @@ export const OperatorSettingsSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour like #FF8800.')
     .nullable()
     .optional(),
+  // landr-znzz.11 — extended branding: dark-mode logo + 3-colour theme.
+  // logo_dark_url: optional dark-mode variant uploaded to the same bucket.
+  // theme: { brand, accent, background } (light) + optional dark overrides.
+  logo_dark_url: z.string().nullable().optional(),
+  theme: z
+    .object({
+      brand: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour.')
+        .optional(),
+      accent: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour.')
+        .optional(),
+      background: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour.')
+        .optional(),
+      dark: z
+        .object({
+          brand: z
+            .string()
+            .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour.')
+            .optional(),
+          accent: z
+            .string()
+            .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour.')
+            .optional(),
+          background: z
+            .string()
+            .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour.')
+            .optional(),
+        })
+        .optional(),
+    })
+    .nullable()
+    .optional(),
   // landr-c3t — embedded subscription_package (read-only on Settings; the
   // GET returns it via PostgREST FK join). Drives the disabled-on UX for
   // free-tier operators so they can't opt out of teasers.
