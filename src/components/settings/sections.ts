@@ -4,6 +4,7 @@ import {
   CalendarClockIcon,
   CalendarDaysIcon,
   CheckSquareIcon,
+  CloudSunIcon,
   CodeIcon,
   CoinsIcon,
   CreditCardIcon,
@@ -108,6 +109,14 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/branding',
     label: t.settingsHub.sections.branding,
     icon: PaletteIcon,
+  },
+  // landr-znzz.7 — optional weather forecast hint for conditions pre-fill.
+  // Sits next to Branding because both are "how this operator's surfaces
+  // behave" toggles rather than primary domain objects (products/team/etc).
+  {
+    to: '/settings/weather',
+    label: t.settingsHub.sections.weather,
+    icon: CloudSunIcon,
   },
   {
     to: '/settings/team',

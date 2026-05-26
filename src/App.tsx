@@ -82,6 +82,8 @@ import { EmbedSettings } from '@/routes/settings/EmbedSettings'
 import { NotificationPrefsSettings } from '@/routes/settings/NotificationPrefsSettings'
 import { OperationsSettings } from '@/routes/settings/OperationsSettings'
 import { WebhooksSettings } from '@/routes/settings/WebhooksSettings'
+// landr-znzz.7 — Settings → Weather (opt-in forecast hint).
+import { WeatherSettings } from '@/routes/settings/WeatherSettings'
 // landr-sbhz.5 — staff-only tier/feature editor. Lazy: only Landr staff ever
 // reach it, so it has no place on the operator initial bundle.
 const TierSettings = lazy(() => import('@/routes/settings/TierSettings'))
@@ -256,6 +258,8 @@ function App() {
                 {/* landr-yp8x — Branding (logo + primary colour shown in
                     the embedded booking widget). */}
                 <Route path="branding" element={gatedSection('/settings/branding', <BrandingSettings />)} />
+                {/* landr-znzz.7 — Weather (opt-in forecast hint for conditions pre-fill). */}
+                <Route path="weather" element={<WeatherSettings />} />
                 <Route path="team" element={gatedSection('/settings/team', <Staff />)} />
                 <Route path="providers" element={gatedSection('/settings/providers', <Providers />)} />
                 <Route path="pickup-locations" element={gatedSection('/settings/pickup-locations', <PickupLocations />)} />

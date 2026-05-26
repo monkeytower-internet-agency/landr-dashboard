@@ -97,11 +97,14 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // (operational delivery roster + per-booking-day assignment picker).
   // landr-up1b — Categories + Embed joined the SETTINGS group right after
   // Products (nested category tree editor + booking-widget embed generator).
-  it('settings group contains the twenty-one program subsections', () => {
+  // landr-znzz.7 — Weather (opt-in forecast hint) added after Branding.
+  it('settings group contains the twenty-two program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
       '/settings/branding',
+      // landr-znzz.7 — weather forecast hint opt-in (sits next to Branding).
+      '/settings/weather',
       '/settings/team',
       // landr-funh — Settings → Providers: operational delivery roster.
       '/settings/providers',
