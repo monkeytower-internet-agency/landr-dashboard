@@ -53,6 +53,7 @@ const { mocks } = vi.hoisted(() => ({
     fetchPricingSchemes: vi.fn<(id: string) => Promise<PricingSchemeRef[]>>(),
     fetchProductGroups: vi.fn<(id: string) => Promise<ProductGroupRef[]>>(),
     createProduct: vi.fn<(p: ProductWritePayload) => Promise<ProductRow>>(),
+    fetchWidgetToken: vi.fn<(id: string) => Promise<string | null>>(),
     refreshOperators: vi.fn(),
   },
 }))
@@ -86,6 +87,14 @@ vi.mock('@/lib/products', async (importOriginal) => {
     fetchPricingSchemes: mocks.fetchPricingSchemes,
     fetchProductGroups: mocks.fetchProductGroups,
     createProduct: mocks.createProduct,
+  }
+})
+
+vi.mock('@/lib/shortcode', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/shortcode')>()
+  return {
+    ...actual,
+    fetchWidgetToken: mocks.fetchWidgetToken,
   }
 })
 
@@ -174,6 +183,7 @@ beforeEach(() => {
   mocks.fetchProducts.mockResolvedValue([])
   mocks.fetchPricingSchemes.mockResolvedValue([])
   mocks.fetchProductGroups.mockResolvedValue([])
+  mocks.fetchWidgetToken.mockResolvedValue('wtok_test123')
   mocks.createProduct.mockImplementation(async (payload) => ({
     id: 'new-prod',
     operator_id: payload.operator_id,
@@ -403,16 +413,18 @@ describe('Onboarding wizard', () => {
     })
   })
 
-  it('renders the WP shortcode on step 8 for copy', async () => {
+  it('renders the WP shortcode with the opaque widget token on step 8 for copy', async () => {
     renderRoute('/onboarding/start?step=8')
 
     await screen.findByText(/step 8 of 9/i)
+    // landr-il9f.3: embed resolves the operator by opaque widget_token, NOT
+    // the slug — so no `operator=para42` enumeration vector.
     expect(
-      screen.getByText('[landr_booking operator=para42]'),
+      await screen.findByText('[landr_booking token="wtok_test123"]'),
     ).toBeInTheDocument()
     expect(
-      screen.getByText('[landr_booking operator=para42 type=courses]'),
-    ).toBeInTheDocument()
+      screen.queryByText(/operator=para42/),
+    ).not.toBeInTheDocument()
   })
 
   it('keeps the wizard out of the redirect loop while still loading', async () => {
