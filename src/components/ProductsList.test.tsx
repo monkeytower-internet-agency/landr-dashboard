@@ -370,3 +370,117 @@ describe('ProductsList — chip click target (landr-sydf)', () => {
     })
   })
 })
+
+// landr-7zc5.2 — Draft badge, publish toggle, and preview link.
+describe('ProductsList — draft badge + publish toggle + preview link (landr-7zc5.2)', () => {
+  it('renders a Draft badge on rows where is_publicly_listed=false', () => {
+    const rows = [
+      makeRow({ id: 'p-draft', name: 'Draft Product', is_publicly_listed: false }),
+      makeRow({ id: 'p-pub', name: 'Published Product', is_publicly_listed: true }),
+    ]
+    render(
+      <ProductsList
+        rows={rows}
+        selectedId={null}
+        onSelect={() => {}}
+        onCreate={() => {}}
+        onDuplicate={() => {}}
+        duplicatingId={null}
+      />,
+    )
+    expect(screen.getByTestId('draft-badge-p-draft')).toBeInTheDocument()
+    expect(screen.queryByTestId('draft-badge-p-pub')).not.toBeInTheDocument()
+  })
+
+  it('calls onTogglePublish with the row when Publish is selected from the actions menu', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event')
+    const user = userEvent.setup()
+    const onTogglePublish = vi.fn()
+    const row = makeRow({ id: 'p-draft', name: 'Draft Product', is_publicly_listed: false })
+    render(
+      <ProductsList
+        rows={[row]}
+        selectedId={null}
+        onSelect={() => {}}
+        onCreate={() => {}}
+        onDuplicate={() => {}}
+        duplicatingId={null}
+        onTogglePublish={onTogglePublish}
+        togglingPublishId={null}
+      />,
+    )
+    // Open the actions dropdown.
+    await user.click(screen.getByRole('button', { name: /row actions/i }))
+    // Click the Publish item.
+    await user.click(screen.getByRole('menuitem', { name: /publish/i }))
+    expect(onTogglePublish).toHaveBeenCalledWith(row)
+  })
+
+  it('calls onTogglePublish with the row when Unpublish is selected from the actions menu', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event')
+    const user = userEvent.setup()
+    const onTogglePublish = vi.fn()
+    const row = makeRow({ id: 'p-pub', name: 'Published Product', is_publicly_listed: true })
+    render(
+      <ProductsList
+        rows={[row]}
+        selectedId={null}
+        onSelect={() => {}}
+        onCreate={() => {}}
+        onDuplicate={() => {}}
+        duplicatingId={null}
+        onTogglePublish={onTogglePublish}
+        togglingPublishId={null}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: /row actions/i }))
+    await user.click(screen.getByRole('menuitem', { name: /unpublish/i }))
+    expect(onTogglePublish).toHaveBeenCalledWith(row)
+  })
+
+  it('renders a Preview link only on draft rows when both tokens are provided', () => {
+    const rows = [
+      makeRow({ id: 'p-draft', name: 'Draft Product', is_publicly_listed: false }),
+      makeRow({ id: 'p-pub', name: 'Published Product', is_publicly_listed: true }),
+    ]
+    render(
+      <ProductsList
+        rows={rows}
+        selectedId={null}
+        onSelect={() => {}}
+        onCreate={() => {}}
+        onDuplicate={() => {}}
+        duplicatingId={null}
+        widgetToken="tok-live"
+        widgetPreviewToken="tok-preview"
+      />,
+    )
+    // Preview link present for draft row.
+    expect(screen.getByTestId('preview-link-p-draft')).toBeInTheDocument()
+    const link = screen.getByTestId('preview-link-p-draft') as HTMLAnchorElement
+    expect(link.href).toContain('bw-dev.landr.de')
+    expect(link.href).toContain('w=tok-live')
+    expect(link.href).toContain('preview_token=tok-preview')
+    expect(link.target).toBe('_blank')
+    expect(link.rel).toContain('noopener')
+    // Preview link absent for published row.
+    expect(screen.queryByTestId('preview-link-p-pub')).not.toBeInTheDocument()
+  })
+
+  it('does not render a Preview link when widgetPreviewToken is absent', () => {
+    const row = makeRow({ id: 'p-draft', name: 'Draft Product', is_publicly_listed: false })
+    render(
+      <ProductsList
+        rows={[row]}
+        selectedId={null}
+        onSelect={() => {}}
+        onCreate={() => {}}
+        onDuplicate={() => {}}
+        duplicatingId={null}
+        widgetToken="tok-live"
+        // no widgetPreviewToken
+      />,
+    )
+    expect(screen.queryByTestId('preview-link-p-draft')).not.toBeInTheDocument()
+  })
+})

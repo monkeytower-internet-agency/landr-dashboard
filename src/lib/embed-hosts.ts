@@ -45,3 +45,26 @@ export function buildWidgetUrl(
   if (opts.product) qs.set('product', opts.product)
   return `https://${host}/?${qs.toString()}`
 }
+
+/**
+ * landr-7zc5.2 — build a draft-preview URL for the development host.
+ *
+ * Appends `preview_token=<widgetPreviewToken>` so the widget shows draft
+ * (is_publicly_listed=false) products. The preview token is NEVER used in
+ * live embeds — dashboard-only.
+ *
+ * Defaults to the dev host ('development') because bw-staging.landr.de is
+ * not yet live (landr-7zc5.6 is still open). Switch env to 'testing' once
+ * staging is provisioned.
+ */
+export function buildPreviewUrl(
+  widgetToken: string,
+  widgetPreviewToken: string,
+  env: EmbedEnv = 'development',
+): string {
+  const host = EMBED_ENV_HOSTS[env]
+  const qs = new URLSearchParams()
+  qs.set('w', widgetToken)
+  qs.set('preview_token', widgetPreviewToken)
+  return `https://${host}/?${qs.toString()}`
+}
