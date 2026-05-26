@@ -216,7 +216,7 @@ function OnboardingInner({
       {step === 7 && <Step7Emails onAdvance={advance} onBack={back} />}
       {step === 8 && (
         <Step8Embed
-          slug={operator.slug}
+          operatorId={operatorId}
           onFinish={handleFinishStep8}
           onBack={back}
           finishing={finishMutation.isPending}

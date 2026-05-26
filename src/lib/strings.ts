@@ -2851,10 +2851,10 @@ export const t = {
         'The widget reads your products, pickup locations and prices automatically.',
       copy: 'Copy',
       copied: 'Copied!',
-      variantsTitle: 'Filter by product type (optional)',
-      variantCourses: 'Courses only',
-      variantSpecialty: 'Specialty experiences only',
-      variantGuided: 'Guided days only',
+      loading: 'Generating your embed code…',
+      tokenError: "Couldn't load your embed code — open Settings → Embed to copy it.",
+      filterHint:
+        'Want to embed only a specific category or product? Generate filtered snippets any time under Settings → Embed.',
       done: "I've embedded it",
     },
     step9: {
