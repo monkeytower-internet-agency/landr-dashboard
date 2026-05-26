@@ -2230,6 +2230,14 @@ export const t = {
     noProducts: 'No products yet.',
     toastCopied: 'Copied to clipboard.',
     toastCopyError: 'Could not copy to clipboard.',
+    // landr-7zc5.4 — environment selector + raw URL + open button
+    envLabel: 'Environment',
+    envDevelopment: 'Development',
+    envTesting: 'Testing',
+    envLive: 'Live',
+    rawUrlLabel: 'Raw URL',
+    copyRawUrlAria: 'Copy raw widget URL',
+    openWidgetButton: 'Open booking widget',
   },
   // landr-up1b — per-product copy-shortcode affordance (list row + detail).
   productShortcode: {
