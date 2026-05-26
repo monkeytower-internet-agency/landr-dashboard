@@ -1,10 +1,13 @@
 /**
- * EmbedSettings tests (landr-up1b / landr-il9f.3) — booking-widget shortcode generator.
+ * EmbedSettings tests (landr-up1b / landr-il9f.3 / landr-7zc5.4) — booking-widget shortcode generator.
  * Covers the All / Category / Single-product modes, the live shortcode +
- * iframe output, and Copy.
+ * iframe output, Copy, the env selector, raw URL output, and Open widget button.
  *
  * landr-il9f.3: generator now emits token= (opaque widget_token) not operator=.
  * The widget_token is fetched via fetchWidgetToken (shortcode.ts); we mock that.
+ *
+ * landr-7zc5.4: env selector swaps the widget host. Raw URL output +
+ * "Open booking widget" button added.
  */
 import {
   fireEvent,
@@ -184,5 +187,111 @@ describe('EmbedSettings (landr-up1b / landr-il9f.3)', () => {
         expect.stringContaining('<iframe src="https://bw.landr.de/?w=tok_testtoken123"'),
       ),
     )
+  })
+})
+
+// landr-7zc5.4 — env selector, raw URL output, open widget button
+describe('EmbedSettings env selector (landr-7zc5.4)', () => {
+  it('defaults to Live env — raw URL uses bw.landr.de', async () => {
+    render(<EmbedSettings />)
+    const code = await screen.findByTestId('embed-raw-url-code')
+    await waitFor(() =>
+      expect(code).toHaveTextContent(
+        'https://bw.landr.de/?w=tok_testtoken123',
+      ),
+    )
+  })
+
+  it('switching to Development swaps the host to bw-dev.landr.de', async () => {
+    const user = userEvent.setup()
+    render(<EmbedSettings />)
+    const envSelect = await screen.findByTestId('embed-env-select')
+    await user.selectOptions(envSelect, 'development')
+    await waitFor(() =>
+      expect(screen.getByTestId('embed-raw-url-code')).toHaveTextContent(
+        'https://bw-dev.landr.de/?w=tok_testtoken123',
+      ),
+    )
+  })
+
+  it('switching to Testing swaps the host to bw-staging.landr.de', async () => {
+    const user = userEvent.setup()
+    render(<EmbedSettings />)
+    const envSelect = await screen.findByTestId('embed-env-select')
+    await user.selectOptions(envSelect, 'testing')
+    await waitFor(() =>
+      expect(screen.getByTestId('embed-raw-url-code')).toHaveTextContent(
+        'https://bw-staging.landr.de/?w=tok_testtoken123',
+      ),
+    )
+  })
+
+  it('Development env adds src= to the shortcode', async () => {
+    const user = userEvent.setup()
+    render(<EmbedSettings />)
+    const envSelect = await screen.findByTestId('embed-env-select')
+    await user.selectOptions(envSelect, 'development')
+    // buildShortcode strips trailing slashes, so no trailing slash here
+    await waitFor(() =>
+      expect(screen.getByTestId('embed-shortcode-code')).toHaveTextContent(
+        'src="https://bw-dev.landr.de"',
+      ),
+    )
+  })
+
+  it('Live env omits src= from the shortcode (uses plugin default)', async () => {
+    render(<EmbedSettings />)
+    const code = await screen.findByTestId('embed-shortcode-code')
+    await waitFor(() =>
+      expect(code).not.toHaveTextContent('src='),
+    )
+  })
+
+  it('renders the "Open booking widget" button with the correct href', async () => {
+    render(<EmbedSettings />)
+    const btn = await screen.findByTestId('embed-open-widget')
+    await waitFor(() =>
+      expect(btn).toHaveAttribute(
+        'href',
+        'https://bw.landr.de/?w=tok_testtoken123',
+      ),
+    )
+    expect(btn).toHaveAttribute('target', '_blank')
+    expect(btn).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('copy raw URL button writes the URL to clipboard', async () => {
+    render(<EmbedSettings />)
+    // Wait for the token to resolve so the URL is fully populated
+    await waitFor(() =>
+      expect(screen.getByTestId('embed-raw-url-code')).toHaveTextContent(
+        'https://bw.landr.de/?w=tok_testtoken123',
+      ),
+    )
+    // Re-install the spy: an earlier test using userEvent.setup() may have
+    // replaced navigator.clipboard with its own stub.
+    clipboardWriteText.mockReset()
+    clipboardWriteText.mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: clipboardWriteText },
+    })
+    fireEvent.click(screen.getByTestId('embed-raw-url-copy'))
+    await waitFor(() =>
+      expect(clipboardWriteText).toHaveBeenCalledWith(
+        'https://bw.landr.de/?w=tok_testtoken123',
+      ),
+    )
+  })
+
+  it('env selector contains all three options', async () => {
+    render(<EmbedSettings />)
+    const envSelect = await screen.findByTestId('embed-env-select')
+    const options = within(envSelect).getAllByRole('option')
+    expect(options.map((o) => o.getAttribute('value'))).toEqual([
+      'development',
+      'testing',
+      'live',
+    ])
   })
 })

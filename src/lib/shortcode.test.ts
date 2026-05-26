@@ -4,9 +4,15 @@
  * shortcode_atts keys (token/group/product/height/src).
  *
  * landr-il9f.3: `operator=` replaced by `token=` (opaque widget_token).
+ * landr-7zc5.4: embed-hosts config map + buildWidgetUrl tests added.
  */
 import { describe, expect, it } from 'vitest'
 import { buildShortcode } from './shortcode'
+import {
+  EMBED_ENV_HOSTS,
+  EMBED_ENV_ORDER,
+  buildWidgetUrl,
+} from './embed-hosts'
 
 describe('buildShortcode', () => {
   it('emits token-only when nothing else is set', () => {
@@ -74,6 +80,57 @@ describe('buildShortcode', () => {
   it('trims the token value', () => {
     expect(buildShortcode({ token: '  tok_abc123  ' })).toBe(
       '[landr_booking token="tok_abc123"]',
+    )
+  })
+})
+
+// landr-7zc5.4 — embed-hosts config map
+describe('EMBED_ENV_HOSTS', () => {
+  it('has exactly three entries in the correct order', () => {
+    expect(EMBED_ENV_ORDER).toEqual(['development', 'testing', 'live'])
+  })
+
+  it('maps development to bw-dev.landr.de', () => {
+    expect(EMBED_ENV_HOSTS.development).toBe('bw-dev.landr.de')
+  })
+
+  it('maps testing to bw-staging.landr.de', () => {
+    expect(EMBED_ENV_HOSTS.testing).toBe('bw-staging.landr.de')
+  })
+
+  it('maps live to bw.landr.de', () => {
+    expect(EMBED_ENV_HOSTS.live).toBe('bw.landr.de')
+  })
+})
+
+describe('buildWidgetUrl', () => {
+  it('builds a URL for the live env with token only', () => {
+    expect(buildWidgetUrl('live', 'tok_abc')).toBe(
+      'https://bw.landr.de/?w=tok_abc',
+    )
+  })
+
+  it('builds a URL for the development env', () => {
+    expect(buildWidgetUrl('development', 'tok_abc')).toBe(
+      'https://bw-dev.landr.de/?w=tok_abc',
+    )
+  })
+
+  it('builds a URL for the testing env', () => {
+    expect(buildWidgetUrl('testing', 'tok_abc')).toBe(
+      'https://bw-staging.landr.de/?w=tok_abc',
+    )
+  })
+
+  it('includes group and product params when provided', () => {
+    expect(
+      buildWidgetUrl('live', 'tok_abc', { group: 'courses', product: 'open-water' }),
+    ).toBe('https://bw.landr.de/?w=tok_abc&group=courses&product=open-water')
+  })
+
+  it('omits null/empty group and product', () => {
+    expect(buildWidgetUrl('live', 'tok_abc', { group: null, product: '' })).toBe(
+      'https://bw.landr.de/?w=tok_abc',
     )
   })
 })
