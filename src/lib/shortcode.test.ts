@@ -86,16 +86,17 @@ describe('buildShortcode', () => {
 
 // landr-7zc5.4 — embed-hosts config map
 describe('EMBED_ENV_HOSTS', () => {
+  // landr-sag9: renamed 'testing' → 'staging'
   it('has exactly three entries in the correct order', () => {
-    expect(EMBED_ENV_ORDER).toEqual(['development', 'testing', 'live'])
+    expect(EMBED_ENV_ORDER).toEqual(['development', 'staging', 'live'])
   })
 
   it('maps development to bw-dev.landr.de', () => {
     expect(EMBED_ENV_HOSTS.development).toBe('bw-dev.landr.de')
   })
 
-  it('maps testing to bw-staging.landr.de', () => {
-    expect(EMBED_ENV_HOSTS.testing).toBe('bw-staging.landr.de')
+  it('maps staging to bw-staging.landr.de', () => {
+    expect(EMBED_ENV_HOSTS.staging).toBe('bw-staging.landr.de')
   })
 
   it('maps live to bw.landr.de', () => {
@@ -116,8 +117,9 @@ describe('buildWidgetUrl', () => {
     )
   })
 
-  it('builds a URL for the testing env', () => {
-    expect(buildWidgetUrl('testing', 'tok_abc')).toBe(
+  // landr-sag9: renamed 'testing' → 'staging'
+  it('builds a URL for the staging env', () => {
+    expect(buildWidgetUrl('staging', 'tok_abc')).toBe(
       'https://bw-staging.landr.de/?w=tok_abc',
     )
   })

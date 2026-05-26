@@ -11,10 +11,14 @@
  * from the operators row and emitted as `token=` in the shortcode and
  * `?w=` in the iframe URL. This prevents operator enumeration by slug.
  *
- * landr-7zc5.4: Environment selector (Development / Testing / Live) swaps
+ * landr-7zc5.4: Environment selector (Development / Staging / Live) swaps
  * the widget host via EMBED_ENV_HOSTS config map. Adds a raw URL output and
  * an "Open booking widget" button. The selector is env-agnostic to where the
  * operator is logged in — from the dev dashboard you can copy the Live embed.
+ *
+ * landr-sag9: Renamed 'Testing' → 'Staging'. Role-gated env options:
+ * operators see [staging, live]; Landr staff additionally see [development].
+ * Gate uses effectiveIsStaff from useEntitlements() — respects view-as mode.
  */
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -40,6 +44,7 @@ import {
   type EmbedEnv,
 } from '@/lib/embed-hosts'
 import { useOperator } from '@/lib/operator'
+import { useEntitlements } from '@/lib/entitlements'
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
 
@@ -95,6 +100,17 @@ export function EmbedGenerator({ operatorId }: GeneratorProps) {
   const [src, setSrc] = useState('')
   // landr-7zc5.4 — environment selector; defaults to live (production)
   const [env, setEnv] = useState<EmbedEnv>('live')
+
+  // landr-sag9 — staff-only environments. effectiveIsStaff respects view-as:
+  // a staff user in "view as operator" mode sees only operator-visible options.
+  const { effectiveIsStaff } = useEntitlements()
+  const visibleEnvs = useMemo<EmbedEnv[]>(
+    () =>
+      effectiveIsStaff
+        ? EMBED_ENV_ORDER
+        : EMBED_ENV_ORDER.filter((e) => e !== 'development'),
+    [effectiveIsStaff],
+  )
 
   // landr-il9f.3 — fetch the opaque widget token for this operator.
   // Owners/staff can read their own operators row via RLS.
@@ -292,7 +308,7 @@ export function EmbedGenerator({ operatorId }: GeneratorProps) {
             className="border-input bg-background h-8 w-48 rounded-md border px-2 text-sm"
             data-testid="embed-env-select"
           >
-            {EMBED_ENV_ORDER.map((e) => (
+            {visibleEnvs.map((e) => (
               <option key={e} value={e}>
                 {EMBED_ENV_LABELS[e]}
               </option>
