@@ -1,4 +1,5 @@
 import {
+  BanknoteIcon,
   BellIcon,
   BuildingIcon,
   CalendarClockIcon,
@@ -70,6 +71,14 @@ export const ACCOUNT_SECTIONS: SettingsSubSection[] = [
     to: '/settings/integrations/calendar',
     label: t.settingsHub.sections.integrationsCalendar,
     icon: CalendarDaysIcon,
+  },
+  // landr-1nwu.2 — per-operator Stripe (test+live) + Holded (demo+live)
+  // payment/ERP credentials. Sits with the other personal third-party
+  // integrations (Gmail, Calendar feed) the operator wires up once.
+  {
+    to: '/settings/integrations/payments',
+    label: t.settingsHub.sections.integrationsPayments,
+    icon: BanknoteIcon,
   },
   {
     to: '/settings/plan',

@@ -164,3 +164,88 @@ export async function regenerateOperatorIcalToken(
     `/api/staff/operators/${operatorId}/ical-token`,
   )
 }
+
+// ---------------------------------------------------------------------------
+// landr-1nwu.2 — per-operator payment/ERP integration credentials.
+//
+// SECURITY-CRITICAL: these are operator PAYMENT secrets (Stripe secret +
+// webhook signing secret, Holded API key). The API stores them encrypted at
+// rest and NEVER returns a decrypted secret — the masked-read endpoint returns
+// only the NON-secret Stripe publishable key plus has_* booleans. The dashboard
+// therefore renders secrets WRITE-ONLY: "Configured ••••" when set, a plaintext
+// input to rotate/replace, never the stored value. Writes route through the
+// FastAPI endpoint (encryption is a server-side side-effect — see the
+// write-routing-convention).
+// ---------------------------------------------------------------------------
+
+export const StripeMode = ['test', 'live'] as const
+export type StripeMode = (typeof StripeMode)[number]
+export const HoldedMode = ['demo', 'live'] as const
+export type HoldedMode = (typeof HoldedMode)[number]
+
+// One MASKED credential bundle as returned by the API. The encrypted secret
+// values are NEVER present — only the booleans (has_*) and the non-secret
+// publishable key.
+export const IntegrationCredentialSchema = z.object({
+  provider: z.enum(['stripe', 'holded']),
+  mode: z.string(),
+  stripe_publishable_key: z.string().nullable().optional(),
+  has_secret_key: z.boolean(),
+  has_webhook_secret: z.boolean(),
+  has_holded_key: z.boolean(),
+  updated_by: z.string().nullable().optional(),
+  updated_at: z.string().nullable().optional(),
+})
+export type IntegrationCredential = z.infer<typeof IntegrationCredentialSchema>
+
+export const IntegrationCredentialsListSchema = z.array(
+  IntegrationCredentialSchema,
+)
+
+// PUT body. All fields optional so the operator can rotate a single secret
+// without re-sending the others. The publishable key is non-secret; the rest
+// are encrypted server-side before the write.
+export type StripeCredentialUpsert = {
+  stripe_publishable_key?: string
+  stripe_secret_key?: string
+  stripe_webhook_secret?: string
+}
+export type HoldedCredentialUpsert = {
+  holded_api_key?: string
+}
+
+export async function fetchIntegrationCredentials(
+  operatorId: string,
+): Promise<IntegrationCredential[]> {
+  const data = await api<unknown>(
+    'GET',
+    `/api/staff/operators/${operatorId}/integration-credentials`,
+  )
+  return IntegrationCredentialsListSchema.parse(data)
+}
+
+export async function upsertStripeCredential(
+  operatorId: string,
+  mode: StripeMode,
+  body: StripeCredentialUpsert,
+): Promise<IntegrationCredential> {
+  const data = await api<unknown>(
+    'PUT',
+    `/api/staff/operators/${operatorId}/integration-credentials/stripe/${mode}`,
+    body,
+  )
+  return IntegrationCredentialSchema.parse(data)
+}
+
+export async function upsertHoldedCredential(
+  operatorId: string,
+  mode: HoldedMode,
+  body: HoldedCredentialUpsert,
+): Promise<IntegrationCredential> {
+  const data = await api<unknown>(
+    'PUT',
+    `/api/staff/operators/${operatorId}/integration-credentials/holded/${mode}`,
+    body,
+  )
+  return IntegrationCredentialSchema.parse(data)
+}

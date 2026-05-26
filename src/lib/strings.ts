@@ -293,6 +293,8 @@ export const t = {
       integrationsGmail: 'Gmail',
       // landr-6ybs — per-operator subscribable ICS calendar feed.
       integrationsCalendar: 'Calendar feed',
+      // landr-1nwu.2 — per-operator Stripe + Holded credentials.
+      integrationsPayments: 'Payments & invoicing',
       connectedAccounts: 'Connected accounts',
       plan: 'Plan',
       pricing: 'Pricing',
@@ -355,6 +357,9 @@ export const t = {
       // landr-6ybs — per-operator subscribable ICS calendar feed.
       integrationsCalendar:
         'Subscribe to a live ICS feed of all your bookings in Google, Apple, or Outlook calendar.',
+      // landr-1nwu.2 — per-operator Stripe + Holded credentials (test/live).
+      integrationsPayments:
+        'Enter your own Stripe (test + live) and Holded (demo + live) API keys. Secrets are encrypted and never shown again.',
       connectedAccounts:
         'Identity links (Google, Apple, GitHub) for this operator.',
       plan: 'Your current subscription plan.',
@@ -1977,6 +1982,41 @@ export const t = {
       'In the calendar view, click "Add calendar" → "Subscribe from web".',
       'Paste the URL, name the calendar, pick a colour, and click Import.',
     ],
+
+    // landr-1nwu.2 — per-operator payment/ERP integration credentials.
+    // Secrets are WRITE-ONLY: the API never returns a stored secret, so the
+    // UI shows "Configured" + last-updated and a Rotate/Replace input.
+    paymentsLoading: 'Loading credentials…',
+    paymentsError: 'Failed to load integration credentials.',
+    paymentsStripeTitle: 'Stripe',
+    paymentsStripeDescription:
+      'Your Stripe API keys. Test keys are used everywhere except production; Live keys take real payments.',
+    paymentsHoldedTitle: 'Holded',
+    paymentsHoldedDescription:
+      'Your Holded ERP API key for invoice sync. Demo keys are used outside production; Live takes effect in production.',
+    paymentsModeTest: 'Test',
+    paymentsModeLive: 'Live',
+    paymentsModeDemo: 'Demo',
+    paymentsStripePublishableLabel: 'Publishable key',
+    paymentsStripePublishablePlaceholder: 'pk_test_…',
+    paymentsStripeSecretLabel: 'Secret key',
+    paymentsStripeWebhookLabel: 'Webhook signing secret',
+    paymentsHoldedApiKeyLabel: 'API key',
+    // Shown in place of a stored secret value (which is never returned).
+    paymentsConfigured: 'Configured ••••••••',
+    paymentsNotConfigured: 'Not configured',
+    paymentsRotate: 'Rotate / replace',
+    paymentsRotateCancel: 'Cancel',
+    paymentsSecretRotatePlaceholder: 'Enter a new value to replace it',
+    paymentsSecretEnterPlaceholder: 'Paste the secret value',
+    paymentsLastUpdated: (when: string) => `Last updated ${when}`,
+    paymentsSave: 'Save',
+    paymentsSaving: 'Saving…',
+    paymentsSaved: 'Credentials saved.',
+    paymentsSaveError: 'Failed to save credentials.',
+    paymentsNothingToSave: 'Nothing to save — enter or rotate a value first.',
+    paymentsSecretNeverShown:
+      'For your security, saved secrets are never shown again. Enter a new value to replace one.',
   },
   pickupLocations: {
     title: 'Pickup locations',
