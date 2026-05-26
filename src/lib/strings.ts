@@ -1389,6 +1389,16 @@ export const t = {
     backToList: 'Back to products',
     statusActive: 'Active',
     statusInactive: 'Inactive',
+    // landr-7zc5.2 — publish state badge + preview affordance.
+    statusDraft: 'Draft',
+    publishProduct: 'Publish',
+    unpublishProduct: 'Unpublish',
+    publishingProduct: 'Publishing…',
+    unpublishingProduct: 'Unpublishing…',
+    toastPublished: 'Product published.',
+    toastUnpublished: 'Product set to draft.',
+    previewProduct: 'Preview (draft)',
+    previewProductAria: (name: string) => `Preview draft — ${name}`,
 
     fieldName: 'Name',
     fieldNameHelp:

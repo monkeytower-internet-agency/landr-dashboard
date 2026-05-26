@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BedDoubleIcon, CopyIcon, MoreHorizontalIcon, PackageIcon, PlusIcon, SearchIcon } from 'lucide-react'
+import { BedDoubleIcon, CopyIcon, EyeIcon, GlobeIcon, MoreHorizontalIcon, PackageIcon, PlusIcon, SearchIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -16,6 +16,7 @@ import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 import { productSummaryLine, type ProductRow } from '@/lib/products'
 import { ProductShortcodeMenu } from '@/components/products/ProductShortcodeMenu'
+import { buildPreviewUrl } from '@/lib/embed-hosts'
 import { t } from '@/lib/strings'
 
 // landr-u34k — persist the "show add-on products" toggle per user so
@@ -116,6 +117,15 @@ type Props = {
   operatorId?: string
   operatorSlug?: string
   widgetToken?: string | null
+  // landr-7zc5.2 — preview token for draft products. When provided, a
+  // "Preview (draft)" link appears on unpublished rows that opens the
+  // widget dev host with ?preview_token=<widgetPreviewToken>. Never used
+  // in live embeds — dashboard-only.
+  widgetPreviewToken?: string | null
+  // landr-7zc5.2 — publish/unpublish: called with the row when the operator
+  // toggles is_publicly_listed from the row actions menu.
+  onTogglePublish?: (row: ProductRow) => void
+  togglingPublishId?: string | null
   // landr-sj2z — paint skeleton list items in place of real chips while
   // the parent's fetch is in flight. Mirrors the table-side prop on the
   // other surfaces.
@@ -132,6 +142,9 @@ export function ProductsList({
   operatorId,
   operatorSlug,
   widgetToken,
+  widgetPreviewToken,
+  onTogglePublish,
+  togglingPublishId,
   isLoading = false,
 }: Props) {
   const [filter, setFilter] = useState('')
@@ -299,6 +312,15 @@ export function ProductsList({
             const row = entry.row
             const isSelected = row.id === selectedId
             const isDuplicating = duplicatingId === row.id
+            const isTogglingPublish = togglingPublishId === row.id
+            const isDraft = !row.is_publicly_listed
+            // landr-7zc5.2 — preview URL: only built when both tokens are
+            // available. Falls back to null (button hidden) when either is
+            // missing (e.g. older operator rows without the preview token).
+            const previewUrl =
+              isDraft && widgetToken && widgetPreviewToken
+                ? buildPreviewUrl(widgetToken, widgetPreviewToken)
+                : null
             return (
               <li key={row.id}>
                 {/* landr-sydf — entire chip is the selection trigger (not
@@ -337,6 +359,31 @@ export function ProductsList({
                       onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => e.stopPropagation()}
                     >
+                      {/* landr-7zc5.2 — Draft badge on unpublished products */}
+                      {isDraft ? (
+                        <span
+                          className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                          data-testid={`draft-badge-${row.id}`}
+                        >
+                          {t.products.statusDraft}
+                        </span>
+                      ) : null}
+                      {/* landr-7zc5.2 — inline Preview link for draft products.
+                          Placed outside the dropdown so one click opens the
+                          dev widget without an extra menu round-trip. Only
+                          shown when both widget tokens are available. */}
+                      {previewUrl ? (
+                        <a
+                          href={previewUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={t.products.previewProductAria(row.name)}
+                          data-testid={`preview-link-${row.id}`}
+                          className="text-muted-foreground hover:text-foreground inline-flex size-6 shrink-0 items-center justify-center rounded-md transition-colors"
+                        >
+                          <EyeIcon className="size-3.5" />
+                        </a>
+                      ) : null}
                       <span
                         className={cn(
                           'shrink-0 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide',
@@ -354,12 +401,28 @@ export function ProductsList({
                             size="icon"
                             className="size-6"
                             aria-label="Row actions"
-                            disabled={isDuplicating}
+                            disabled={isDuplicating || isTogglingPublish}
                           >
                             <MoreHorizontalIcon className="size-3.5" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {/* landr-7zc5.2 — publish/unpublish toggle */}
+                          {onTogglePublish ? (
+                            <DropdownMenuItem
+                              onSelect={() => onTogglePublish(row)}
+                              disabled={isTogglingPublish}
+                            >
+                              <GlobeIcon className="mr-2 size-4" />
+                              {isTogglingPublish
+                                ? isDraft
+                                  ? t.products.publishingProduct
+                                  : t.products.unpublishingProduct
+                                : isDraft
+                                  ? t.products.publishProduct
+                                  : t.products.unpublishProduct}
+                            </DropdownMenuItem>
+                          ) : null}
                           <DropdownMenuItem
                             onSelect={() => onDuplicate(row)}
                             disabled={isDuplicating}

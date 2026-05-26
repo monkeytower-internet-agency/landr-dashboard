@@ -47,7 +47,7 @@ import { PageTitle } from '@/lib/page-title'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { useOperator } from '@/lib/operator'
 import { ProductShortcodeMenu } from '@/components/products/ProductShortcodeMenu'
-import { fetchWidgetToken } from '@/lib/shortcode'
+import { fetchWidgetToken, fetchWidgetPreviewToken } from '@/lib/shortcode'
 import { t } from '@/lib/strings'
 
 const NEW_PRODUCT = 'new' as const
@@ -90,6 +90,14 @@ export function ProductsManager({
     enabled: !!operatorId,
   })
   const widgetToken = tokenQuery.data ?? null
+  // landr-7zc5.2 — preview token for showing drafts in the dev widget.
+  // Distinct from widget_token: never in live embeds, dashboard-only.
+  const previewTokenQuery = useQuery<string | null>({
+    queryKey: ['operator-widget-preview-token', operatorId],
+    queryFn: () => fetchWidgetPreviewToken(operatorId),
+    enabled: !!operatorId,
+  })
+  const widgetPreviewToken = previewTokenQuery.data ?? null
   const routed = onUrlSelect !== undefined
   // In routed mode the URL is the source of truth; otherwise we keep local
   // selection state (legacy onboarding embed).
@@ -356,6 +364,43 @@ export function ProductsManager({
     },
   })
 
+  // landr-7zc5.2 — publish/unpublish toggle. Flips is_publicly_listed via
+  // the existing updateProduct() helper (same Supabase RLS-protected path
+  // the ProductForm uses). Optimistic update mirrors the updateMutation
+  // pattern above: patch the cache immediately, roll back on error.
+  const togglePublishMutation = useMutation({
+    mutationFn: ({ id, publish }: { id: string; publish: boolean }) =>
+      updateProduct(id, { is_publicly_listed: publish }),
+    onMutate: async ({ id, publish }) => {
+      await queryClient.cancelQueries({ queryKey: PRODUCTS_KEY_PREFIX })
+      const previous = queryClient.getQueriesData<ProductRow[]>({
+        queryKey: PRODUCTS_KEY_PREFIX,
+      })
+      queryClient.setQueriesData<ProductRow[]>(
+        { queryKey: PRODUCTS_KEY_PREFIX },
+        (rows) =>
+          rows
+            ? rows.map((r) =>
+                r.id === id ? { ...r, is_publicly_listed: publish } : r,
+              )
+            : rows,
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) {
+        for (const [key, data] of ctx.previous) {
+          queryClient.setQueryData(key, data)
+        }
+      }
+    },
+    onSuccess: (_updated, { publish }) => {
+      setFeedback(
+        publish ? t.products.toastPublished : t.products.toastUnpublished,
+      )
+    },
+  })
+
   async function handleSubmit(values: ProductFormSubmitValue) {
     setFeedback(null)
     if (resolvedSelection === NEW_PRODUCT || selectedProduct === null) {
@@ -379,11 +424,19 @@ export function ProductsManager({
   const isLoading = productsQuery.isPending && !!operatorId
 
   const mutationError =
-    createMutation.error ?? updateMutation.error ?? deleteMutation.error ?? duplicateMutation.error
+    createMutation.error ??
+    updateMutation.error ??
+    deleteMutation.error ??
+    duplicateMutation.error ??
+    togglePublishMutation.error
   const submitting =
     createMutation.isPending || updateMutation.isPending
   const deleting = deleteMutation.isPending
   const duplicatingId = duplicateMutation.isPending ? (duplicateMutation.variables ?? null) : null
+  // landr-7zc5.2 — which product row is currently being toggled.
+  const togglingPublishId = togglePublishMutation.isPending
+    ? (togglePublishMutation.variables?.id ?? null)
+    : null
 
   // landr-li8e — in routed mode, hide the list when a selection is active
   // (full-page detail) and hide the detail when there's no selection
@@ -513,6 +566,8 @@ export function ProductsManager({
         operatorId={operatorId}
         operatorSlug={operatorSlug || undefined}
         widgetToken={widgetToken}
+        // landr-7zc5.2 — preview token lets draft rows open the dev widget.
+        widgetPreviewToken={widgetPreviewToken}
         selectedId={
           resolvedSelection === NEW_PRODUCT
             ? null
@@ -531,6 +586,15 @@ export function ProductsManager({
           duplicateMutation.mutate(row.id)
         }}
         duplicatingId={duplicatingId}
+        // landr-7zc5.2 — publish toggle wired to the togglePublishMutation.
+        onTogglePublish={(row) => {
+          setFeedback(null)
+          togglePublishMutation.mutate({
+            id: row.id,
+            publish: !row.is_publicly_listed,
+          })
+        }}
+        togglingPublishId={togglingPublishId}
         // landr-sj2z — paint skeleton chips during the first fetch so the
         // filter + new-product header stays visible above them.
         isLoading={isLoading}

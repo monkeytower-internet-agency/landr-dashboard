@@ -48,6 +48,29 @@ export async function fetchWidgetToken(
   return (data as { widget_token?: string | null }).widget_token ?? null
 }
 
+/**
+ * landr-7zc5.2 — fetch the opaque widget_preview_token for an operator.
+ *
+ * Distinct from widget_token: this token is ONLY used for dashboard previews
+ * (shows drafts); it is never embedded in live widgets. Owners and staff can
+ * read their own operators row via RLS.
+ *
+ * Use with @tanstack/react-query:
+ *   queryKey: ['operator-widget-preview-token', operatorId]
+ *   queryFn:  () => fetchWidgetPreviewToken(operatorId)
+ */
+export async function fetchWidgetPreviewToken(
+  operatorId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('operators')
+    .select('widget_preview_token')
+    .eq('id', operatorId)
+    .maybeSingle()
+  if (error || !data) return null
+  return (data as { widget_preview_token?: string | null }).widget_preview_token ?? null
+}
+
 export type ShortcodeParams = {
   /** Operator widget token — required. Opaque, rotatable; NOT the slug. */
   token: string
