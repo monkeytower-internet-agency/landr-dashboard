@@ -2,7 +2,7 @@ name: Deploy dashboard to Cloudflare Pages
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, staging, dev]
   pull_request:
   workflow_dispatch:
 
@@ -49,8 +49,16 @@ jobs:
           VITE_API_BASE_URL: https://landr-api-service-693721943357.europe-west3.run.app
         run: npm run build
 
+      - name: Build (staging)
+        if: github.ref == 'refs/heads/staging'
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL_STAGING }}
+          VITE_SUPABASE_PUB_KEY: ${{ secrets.VITE_SUPABASE_PUB_KEY_STAGING }}
+          VITE_API_BASE_URL: https://api.staging.landr.de
+        run: npm run build
+
       - name: Build (dev / preview)
-        if: github.ref != 'refs/heads/main'
+        if: github.ref != 'refs/heads/main' && github.ref != 'refs/heads/staging'
         env:
           VITE_SUPABASE_URL: https://kong.dev.landr.de
           VITE_SUPABASE_PUB_KEY: ${{ secrets.VITE_SUPABASE_PUB_KEY_DEV }}
