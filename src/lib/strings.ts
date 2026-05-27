@@ -180,6 +180,8 @@ export const t = {
     revenue: 'Revenue',
     // landr-wwhn.28 — /feedback-inbox cross-operator triage surface (staff-only).
     feedbackInbox: 'Feedback inbox',
+    // landr-a99u.6 — /release promotion console (staff-only).
+    release: 'Release',
   },
   // landr-aref — /audit route strings (audit_log viewer).
   audit: {
@@ -510,6 +512,104 @@ export const t = {
     // Thread header
     viewOnBoardLink: 'View on board',
     noSubject: '(No subject)',
+  },
+  // landr-a99u.6 — /release: dashboard-driven, role-gated promotion console
+  // (dev → staging → main). STAFF-ONLY. Action buttons gate on the server's
+  // `viewer` capability block, not raw roles.
+  release: {
+    title: 'Release promotion',
+    subtitle:
+      'Promote code through the deploy pipeline: dev → staging (one click) then staging → main (propose → approve). Each promotion merges the pinned head SHA per repo and pushes — the push triggers each repo’s deploy.',
+    loading: 'Loading release status…',
+    errorTitle: 'Failed to load release status',
+    refresh: 'Refresh',
+    // Environment matrix
+    matrixTitle: 'Environment matrix',
+    matrixSubtitle: 'Commits each branch is ahead of the next, per repo.',
+    columnRepo: 'Repo',
+    columnDevToStaging: 'dev → staging',
+    columnStagingToMain: 'staging → main',
+    upToDate: 'up to date',
+    commitsAhead: (n: number) => `${n} commit${n === 1 ? '' : 's'}`,
+    matrixEmpty: 'No deployable repos reported.',
+    // Promote to staging
+    stagingTitle: 'Promote to staging',
+    stagingSubtitle:
+      'Merge dev into staging across every repo that has changes. No approval required.',
+    stagingButton: 'Promote dev → staging',
+    stagingNothing: 'Staging is up to date with dev.',
+    stagingNoPermission: 'You do not have permission to promote to staging.',
+    stagingNotesLabel: 'Notes (optional)',
+    stagingNotesPlaceholder: 'e.g. promoting the booking-widget fix',
+    stagingConfirmTitle: 'Promote dev → staging?',
+    stagingConfirmDescription:
+      'The following repos will be merged from dev into staging and pushed. The push triggers each repo’s staging deploy.',
+    stagingConfirmAction: 'Promote',
+    stagingToast: 'Staging promotion queued.',
+    // Propose to production
+    prodTitle: 'Promote to production',
+    prodSubtitle:
+      'Propose merging staging into main. An approver gives the final go; you cannot ship to production unilaterally.',
+    proposeButton: 'Propose to production',
+    prodNothing: 'Production is up to date with staging.',
+    proposeNotesLabel: 'Proposal notes (required)',
+    proposeNotesPlaceholder: 'What was validated on staging? Why ship now?',
+    proposeConfirmTitle: 'Propose staging → main?',
+    proposeConfirmDescription:
+      'The following repos and SHAs are pinned to this proposal. An approver reviews and gives the final go.',
+    proposeConfirmAction: 'Propose',
+    proposeToast: 'Production promotion proposed — approvers notified.',
+    proposeNotesRequired: 'Proposal notes are required.',
+    // Pending proposals
+    pendingTitle: 'Pending production proposals',
+    pendingEmpty: 'No proposals awaiting a decision.',
+    proposedBy: (who: string, when: string) =>
+      `Proposed by ${who} · ${new Date(when).toLocaleString('de-DE')}`,
+    approveButton: 'Approve & promote',
+    rejectButton: 'Reject',
+    cancelButton: 'Cancel proposal',
+    approveNotesLabel: 'Approval notes (optional)',
+    approveNotesPlaceholder: 'e.g. validated checkout + calendar on staging',
+    rejectNotesLabel: 'Rejection reason (required)',
+    rejectNotesPlaceholder: 'Why is this proposal being rejected?',
+    rejectNotesRequired: 'A rejection reason is required.',
+    approveConfirmTitle: 'Approve & promote to production?',
+    approveConfirmDescription:
+      'This queues the staging → main merge for the pinned SHAs and triggers the production deploy.',
+    approveConfirmAction: 'Approve & promote',
+    rejectConfirmTitle: 'Reject this proposal?',
+    rejectConfirmAction: 'Reject',
+    cancelConfirmTitle: 'Cancel your proposal?',
+    cancelConfirmDescription:
+      'This withdraws the proposal. It will not be promoted.',
+    cancelConfirmAction: 'Cancel proposal',
+    approveToast: 'Production promotion approved & queued.',
+    rejectToast: 'Proposal rejected.',
+    cancelToast: 'Proposal cancelled.',
+    // History
+    historyTitle: 'History',
+    historyEmpty: 'No promotion runs yet.',
+    historySubtitle: 'Recent promotion runs and their per-repo merge results.',
+    notesLabel: 'Notes',
+    decisionNotesLabel: 'Decision',
+    decidedBy: (who: string, when: string) =>
+      `Decided by ${who} · ${new Date(when).toLocaleString('de-DE')}`,
+    keep: 'Keep',
+    // Status badge labels
+    statusProposed: 'Proposed',
+    statusApproved: 'Approved',
+    statusQueued: 'Queued',
+    statusExecuting: 'Executing',
+    statusCompleted: 'Completed',
+    statusFailed: 'Failed',
+    statusRejected: 'Rejected',
+    statusCancelled: 'Cancelled',
+    // Per-repo merge status labels
+    mergePending: 'pending',
+    mergeMerged: 'merged',
+    mergeNoop: 'no-op',
+    mergeConflict: 'conflict',
+    mergeError: 'error',
   },
   theme: {
     switchToDark: 'Switch to dark theme',
