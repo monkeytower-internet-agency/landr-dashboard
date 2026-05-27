@@ -1,36 +1,52 @@
-// landr-wwhn.12 — tests for the ReportFab + create-ticket dialog.
+// landr-wwhn.29 — updated tests for the simplified ReportFab + create-ticket dialog.
 //
-// Strategy mirrors QuickCaptureFab.test.tsx:
+// Strategy (same mocking pattern as QuickCaptureFab.test.tsx):
 //   - vi.mock useOperator      (no full provider tree)
 //   - vi.mock useAuth          (no Supabase session needed for the form)
 //   - vi.mock createTicket     (no Supabase connection; assert payload shape)
-//   - vi.mock fetchCurrentPublicUser  (no Supabase connection; returns public.users.id)
+//   - vi.mock uploadTicketAttachment (no Storage connection; assert called)
+//   - vi.mock fetchCurrentPublicUser  (no Supabase connection)
 //   - vi.mock sonner            (assert toast calls)
+//   - vi.mock react-router-dom  (inject location for route auto-capture)
 //
 // We exercise:
 //   1. FAB hidden when no operator is selected.
 //   2. FAB visible → click → dialog opens.
 //   3. Submit disabled until title is filled.
-//   4. Type toggle: "Problem" shows repro hint; "Idea" hides it.
-//   5. Impact options visible/hidden per toggle (problem → blocking+annoying+idea;
-//      idea → only idea, auto-selected).
-//   6. Happy-path submit — correct payload sent with reporter_id resolved, toast fired, dialog closed.
+//   4. All three impact options always visible (no type toggle).
+//   5. Contextual repro hint shown for Blocking / Annoying; absent for Idea.
+//   6. Happy-path submit — correct payload (type derived from impact), toast fired, dialog closed.
 //   7. Error path — toast shown, dialog stays open.
-//   8. resolveTicketType logic (isolated unit tests, no DOM).
-//   9. Null-reporter graceful fallback when fetchCurrentPublicUser returns null.
+//   8. resolveTicketType (new single-arg form) unit tests.
+//   9. Null-reporter graceful fallback.
+//  10. Staged file attachment — file is uploaded after ticket created.
+//  11. Link URL validation — invalid URL shows error, valid passes.
+//  12. Auto-context appended to body (route + app version).
 
-import { render as rtlRender, screen, waitFor } from '@testing-library/react'
+import { render as rtlRender, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import type { ReactElement, ReactNode } from 'react'
 
-import type { TicketCreate, TicketRow, PublicUser } from '@/lib/tickets'
+import type {
+  TicketCreate,
+  TicketRow,
+  PublicUser,
+  TicketAttachment,
+} from '@/lib/tickets'
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     createTicket: vi.fn<(payload: TicketCreate) => Promise<TicketRow>>(),
+    uploadTicketAttachment: vi.fn<
+      (
+        ticketId: string,
+        file: File,
+        uploaderId: string | null,
+      ) => Promise<{ attachment: TicketAttachment; signedUrl: string }>
+    >(),
     fetchCurrentPublicUser: vi.fn<(authUid: string) => Promise<PublicUser | null>>(),
     useOperator: vi.fn<() => { currentOperatorId: string | null }>(),
     useAuth: vi.fn<() => { user: { id: string } | null }>(),
@@ -44,6 +60,11 @@ vi.mock('@/lib/tickets', async () => {
   return {
     ...actual,
     createTicket: (payload: TicketCreate) => mocks.createTicket(payload),
+    uploadTicketAttachment: (
+      ticketId: string,
+      file: File,
+      uploaderId: string | null,
+    ) => mocks.uploadTicketAttachment(ticketId, file, uploaderId),
     fetchCurrentPublicUser: (authUid: string) =>
       mocks.fetchCurrentPublicUser(authUid),
   }
@@ -81,10 +102,11 @@ import { toast } from 'sonner'
 import { ReportFab } from './ReportFab'
 
 const OP_ID = 'op-test-1'
+const TICKET_ID = 'ticket-uuid-0001'
 
 function makeTicketRow(overrides: Partial<TicketRow> = {}): TicketRow {
   return {
-    id: 'ticket-1',
+    id: TICKET_ID,
     context: 'operations',
     type: 'bug',
     title: 'Something broke',
@@ -103,6 +125,22 @@ function makeTicketRow(overrides: Partial<TicketRow> = {}): TicketRow {
   }
 }
 
+function makeAttachment(): { attachment: TicketAttachment; signedUrl: string } {
+  return {
+    attachment: {
+      id: 'att-1',
+      ticket_id: TICKET_ID,
+      uploader_id: null,
+      storage_path: 'ticket-attachments/ticket-uuid-0001/att-1/file.png',
+      filename: 'file.png',
+      content_type: 'image/png',
+      size_bytes: 1024,
+      created_at: '2026-05-24T10:00:00Z',
+    },
+    signedUrl: 'https://example.com/signed/file.png',
+  }
+}
+
 function render(ui: ReactElement) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -110,7 +148,7 @@ function render(ui: ReactElement) {
   return rtlRender(ui, {
     wrapper: ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={client}>
-        <MemoryRouter>{children}</MemoryRouter>
+        <MemoryRouter initialEntries={['/dashboard/overview']}>{children}</MemoryRouter>
       </QueryClientProvider>
     ),
   })
@@ -120,43 +158,35 @@ const PUBLIC_USER_ID = 'public-user-uuid-1'
 
 beforeEach(() => {
   mocks.createTicket.mockReset()
+  mocks.uploadTicketAttachment.mockReset()
   mocks.fetchCurrentPublicUser.mockReset()
   mocks.useOperator.mockReset()
   mocks.useAuth.mockReset()
   mocks.useOperator.mockReturnValue({ currentOperatorId: OP_ID })
   mocks.useAuth.mockReturnValue({ user: { id: 'auth-user-1' } })
-  // Default: auth uid resolves to a public.users row.
   mocks.fetchCurrentPublicUser.mockResolvedValue({
     id: PUBLIC_USER_ID,
     email: 'martin@example.com',
     is_landr_staff: false,
   })
+  mocks.uploadTicketAttachment.mockResolvedValue(makeAttachment())
   vi.mocked(toast.success).mockReset()
   vi.mocked(toast.error).mockReset()
 })
 
-// ---- Unit tests for resolveTicketType (import directly) --------------------
-// We test the mapping logic without the DOM to keep the contract clear. The
-// helper lives in @/lib/tickets (a non-component module) so it doesn't trip
-// react-refresh/only-export-components; here we exercise the real impl via the
-// vi.importActual passthrough in the @/lib/tickets mock above.
+// ---- Unit tests for resolveTicketType (new single-arg form) -----------------
 
 import { resolveTicketType } from '@/lib/tickets'
 
-describe('resolveTicketType (unit)', () => {
-  it('problem + blocking → bug', () => {
-    expect(resolveTicketType('problem', 'blocking')).toBe('bug')
+describe('resolveTicketType (unit — single-arg, landr-wwhn.29)', () => {
+  it('blocking → bug', () => {
+    expect(resolveTicketType('blocking')).toBe('bug')
   })
-  it('problem + annoying → bug', () => {
-    expect(resolveTicketType('problem', 'annoying')).toBe('bug')
+  it('annoying → bug', () => {
+    expect(resolveTicketType('annoying')).toBe('bug')
   })
-  it('problem + idea → annoyance', () => {
-    expect(resolveTicketType('problem', 'idea')).toBe('annoyance')
-  })
-  it('idea + any → feature', () => {
-    expect(resolveTicketType('idea', 'blocking')).toBe('feature')
-    expect(resolveTicketType('idea', 'annoying')).toBe('feature')
-    expect(resolveTicketType('idea', 'idea')).toBe('feature')
+  it('idea → feature', () => {
+    expect(resolveTicketType('idea')).toBe('feature')
   })
 })
 
@@ -180,7 +210,7 @@ describe('ReportFab', () => {
     render(<ReportFab />)
     await user.click(screen.getByTestId('report-fab-trigger'))
     expect(
-      screen.getByRole('heading', { name: /tell us what/i }),
+      screen.getByRole('heading', { name: /report an issue/i }),
     ).toBeInTheDocument()
   })
 
@@ -196,95 +226,85 @@ describe('ReportFab', () => {
     expect(submit).toBeEnabled()
   })
 
-  it('shows the repro hint when toggle is "Problem"', async () => {
+  it('shows all three impact options always', async () => {
     const user = userEvent.setup()
     render(<ReportFab />)
     await user.click(screen.getByTestId('report-fab-trigger'))
 
-    // Default is "Problem"
-    expect(screen.getByTestId('report-repro-hint')).toBeInTheDocument()
-  })
-
-  it('hides the repro hint when toggle is "Idea"', async () => {
-    const user = userEvent.setup()
-    render(<ReportFab />)
-    await user.click(screen.getByTestId('report-fab-trigger'))
-
-    // Click the "Idea" type-toggle chip label (not the impact radio).
-    // getByText scoped to the type radiogroup chip avoids the ambiguity with
-    // the "Just an idea" impact option.
-    const typeGroup = screen.getByRole('radiogroup', { name: /^type$/i })
-    await user.click(typeGroup.querySelector('label:last-child') as HTMLElement)
-    expect(screen.queryByTestId('report-repro-hint')).not.toBeInTheDocument()
-  })
-
-  it('shows blocking + annoying impact options for Problem toggle', async () => {
-    const user = userEvent.setup()
-    render(<ReportFab />)
-    await user.click(screen.getByTestId('report-fab-trigger'))
-
-    // Default is Problem — all three impact options visible
     expect(screen.getByTestId('report-impact-blocking')).toBeInTheDocument()
     expect(screen.getByTestId('report-impact-annoying')).toBeInTheDocument()
     expect(screen.getByTestId('report-impact-idea')).toBeInTheDocument()
   })
 
-  it('hides blocking/annoying impact options when Idea toggle is selected', async () => {
+  it('shows repro hint for Blocking impact', async () => {
     const user = userEvent.setup()
     render(<ReportFab />)
     await user.click(screen.getByTestId('report-fab-trigger'))
 
-    await user.click(screen.getByText('Idea'))
-
-    expect(screen.queryByTestId('report-impact-blocking')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('report-impact-annoying')).not.toBeInTheDocument()
-    expect(screen.getByTestId('report-impact-idea')).toBeInTheDocument()
+    await user.click(screen.getByTestId('report-impact-blocking'))
+    expect(screen.getByTestId('report-repro-hint')).toBeInTheDocument()
   })
 
-  it('submits correct payload and closes dialog on success', async () => {
+  it('shows repro hint for Annoying impact (default)', async () => {
+    const user = userEvent.setup()
+    render(<ReportFab />)
+    await user.click(screen.getByTestId('report-fab-trigger'))
+
+    // Default impact is "annoying"
+    expect(screen.getByTestId('report-repro-hint')).toBeInTheDocument()
+  })
+
+  it('hides repro hint for Idea/suggestion impact', async () => {
+    const user = userEvent.setup()
+    render(<ReportFab />)
+    await user.click(screen.getByTestId('report-fab-trigger'))
+
+    await user.click(screen.getByTestId('report-impact-idea'))
+    expect(screen.queryByTestId('report-repro-hint')).not.toBeInTheDocument()
+  })
+
+  it('submits correct payload (blocking → bug) and closes dialog on success', async () => {
     const user = userEvent.setup()
     mocks.createTicket.mockResolvedValue(makeTicketRow())
     render(<ReportFab />)
 
     await user.click(screen.getByTestId('report-fab-trigger'))
+    await user.click(screen.getByTestId('report-impact-blocking'))
     await user.type(screen.getByLabelText(/summary/i), 'Login fails')
     await user.type(screen.getByLabelText(/details/i), 'Steps to repro here')
-
-    // Select "Blocking" impact
-    await user.click(screen.getByTestId('report-impact-blocking'))
 
     await user.click(screen.getByRole('button', { name: /send feedback/i }))
 
     await waitFor(() => {
       expect(mocks.createTicket).toHaveBeenCalledTimes(1)
     })
-    // reporter_id must be the resolved public.users.id (not the auth uid).
     expect(mocks.fetchCurrentPublicUser).toHaveBeenCalledWith('auth-user-1')
     expect(mocks.createTicket).toHaveBeenCalledWith(
       expect.objectContaining({
         operator_id: OP_ID,
         reporter_id: PUBLIC_USER_ID,
         type: 'bug',
-        title: 'Login fails',
-        body: 'Steps to repro here',
         perceived_impact: 'blocking',
+        title: 'Login fails',
       }),
     )
 
-    // Toast fired
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledTimes(1)
     })
+    // Friendly toast includes short ticket ID
+    const msg = vi.mocked(toast.success).mock.calls[0][0] as string
+    expect(msg).toMatch(TICKET_ID.slice(0, 8))
 
     // Dialog closed
     await waitFor(() => {
       expect(
-        screen.queryByRole('heading', { name: /tell us what/i }),
+        screen.queryByRole('heading', { name: /report an issue/i }),
       ).not.toBeInTheDocument()
     })
   })
 
-  it('submits an Idea ticket with feature type and idea impact', async () => {
+  it('submits idea ticket with feature type', async () => {
     const user = userEvent.setup()
     mocks.createTicket.mockResolvedValue(
       makeTicketRow({ type: 'feature', perceived_impact: 'idea' }),
@@ -292,7 +312,7 @@ describe('ReportFab', () => {
     render(<ReportFab />)
 
     await user.click(screen.getByTestId('report-fab-trigger'))
-    await user.click(screen.getByText('Idea'))
+    await user.click(screen.getByTestId('report-impact-idea'))
     await user.type(screen.getByLabelText(/summary/i), 'Export to PDF')
     await user.click(screen.getByRole('button', { name: /send feedback/i }))
 
@@ -304,6 +324,113 @@ describe('ReportFab', () => {
         type: 'feature',
         perceived_impact: 'idea',
       }),
+    )
+  })
+
+  it('appends auto-context (route + version) to body', async () => {
+    const user = userEvent.setup()
+    mocks.createTicket.mockResolvedValue(makeTicketRow())
+    render(<ReportFab />)
+
+    await user.click(screen.getByTestId('report-fab-trigger'))
+    await user.type(screen.getByLabelText(/summary/i), 'Context test')
+    await user.type(screen.getByLabelText(/details/i), 'User body')
+
+    await user.click(screen.getByRole('button', { name: /send feedback/i }))
+
+    await waitFor(() => expect(mocks.createTicket).toHaveBeenCalledTimes(1))
+    const payload = mocks.createTicket.mock.calls[0][0] as TicketCreate
+    expect(payload.body).toMatch(/\[context: route=/)
+    expect(payload.body).toMatch(/app=test/)
+    expect(payload.body).toContain('User body')
+  })
+
+  it('appends context even with empty body', async () => {
+    const user = userEvent.setup()
+    mocks.createTicket.mockResolvedValue(makeTicketRow())
+    render(<ReportFab />)
+
+    await user.click(screen.getByTestId('report-fab-trigger'))
+    await user.type(screen.getByLabelText(/summary/i), 'No body test')
+    // Leave body blank
+
+    await user.click(screen.getByRole('button', { name: /send feedback/i }))
+
+    await waitFor(() => expect(mocks.createTicket).toHaveBeenCalledTimes(1))
+    const payload = mocks.createTicket.mock.calls[0][0] as TicketCreate
+    // body still has the context note even when the operator left it blank
+    expect(payload.body).toMatch(/\[context: route=/)
+  })
+
+  it('appends link URL into context note when provided', async () => {
+    const user = userEvent.setup()
+    mocks.createTicket.mockResolvedValue(makeTicketRow())
+    render(<ReportFab />)
+
+    await user.click(screen.getByTestId('report-fab-trigger'))
+    await user.type(screen.getByLabelText(/summary/i), 'Link test')
+    await user.type(
+      screen.getByTestId('report-link-input'),
+      'https://example.com/page',
+    )
+
+    await user.click(screen.getByRole('button', { name: /send feedback/i }))
+
+    await waitFor(() => expect(mocks.createTicket).toHaveBeenCalledTimes(1))
+    const payload = mocks.createTicket.mock.calls[0][0] as TicketCreate
+    expect(payload.body).toContain('https://example.com/page')
+  })
+
+  it('shows link validation error for non-https URL', async () => {
+    const user = userEvent.setup()
+    render(<ReportFab />)
+
+    await user.click(screen.getByTestId('report-fab-trigger'))
+    await user.type(screen.getByLabelText(/summary/i), 'Link error test')
+    await user.type(
+      screen.getByTestId('report-link-input'),
+      'http://example.com',
+    )
+
+    await user.click(screen.getByRole('button', { name: /send feedback/i }))
+
+    // createTicket must NOT have been called
+    expect(mocks.createTicket).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+  })
+
+  it('uploads staged file after ticket is created', async () => {
+    const user = userEvent.setup()
+    mocks.createTicket.mockResolvedValue(makeTicketRow())
+    render(<ReportFab />)
+
+    await user.click(screen.getByTestId('report-fab-trigger'))
+    await user.type(screen.getByLabelText(/summary/i), 'With attachment')
+
+    // Use the file input (click-to-attach path) since jsdom does not ship
+    // ClipboardEvent. The Ctrl+V paste handler is exercised in a browser e2e
+    // test; here we verify the upload flow itself is correct.
+    const file = new File(['content'], 'screenshot.png', { type: 'image/png' })
+    const fileInput = screen.getByTestId('report-file-input') as HTMLInputElement
+    Object.defineProperty(fileInput, 'files', { value: [file], configurable: true })
+    fireEvent.change(fileInput)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('report-staged-files')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /send feedback/i }))
+
+    await waitFor(() => {
+      expect(mocks.createTicket).toHaveBeenCalledTimes(1)
+    })
+    await waitFor(() => {
+      expect(mocks.uploadTicketAttachment).toHaveBeenCalledTimes(1)
+    })
+    expect(mocks.uploadTicketAttachment).toHaveBeenCalledWith(
+      TICKET_ID,
+      file,
+      PUBLIC_USER_ID,
     )
   })
 
@@ -326,18 +453,17 @@ describe('ReportFab', () => {
 
     // Dialog stays open
     expect(
-      screen.getByRole('heading', { name: /tell us what/i }),
+      screen.getByRole('heading', { name: /report an issue/i }),
     ).toBeInTheDocument()
   })
 
-  it('trims whitespace from title and omits empty body', async () => {
+  it('trims whitespace from title', async () => {
     const user = userEvent.setup()
     mocks.createTicket.mockResolvedValue(makeTicketRow({ body: null }))
     render(<ReportFab />)
 
     await user.click(screen.getByTestId('report-fab-trigger'))
     await user.type(screen.getByLabelText(/summary/i), '  Missing feature  ')
-    // Leave body blank
 
     await user.click(screen.getByRole('button', { name: /send feedback/i }))
 
@@ -346,7 +472,6 @@ describe('ReportFab', () => {
     })
     const payload = mocks.createTicket.mock.calls[0][0] as TicketCreate
     expect(payload.title).toBe('Missing feature')
-    expect(payload.body).toBeNull()
   })
 
   it('shows Sending… and disables buttons while mutation is in flight', async () => {
@@ -371,14 +496,12 @@ describe('ReportFab', () => {
     resolve(makeTicketRow())
     await waitFor(() => {
       expect(
-        screen.queryByRole('heading', { name: /tell us what/i }),
+        screen.queryByRole('heading', { name: /report an issue/i }),
       ).not.toBeInTheDocument()
     })
   })
 
-  it('submits with reporter_id=null when fetchCurrentPublicUser returns null (broken signup)', async () => {
-    // Covers the graceful fallback: public.users row missing — ticket still
-    // created without reporter attribution; auto-watch trigger silently skips.
+  it('submits with reporter_id=null when fetchCurrentPublicUser returns null', async () => {
     const user = userEvent.setup()
     mocks.fetchCurrentPublicUser.mockResolvedValue(null)
     mocks.createTicket.mockResolvedValue(makeTicketRow())
@@ -393,14 +516,12 @@ describe('ReportFab', () => {
     })
     const payload = mocks.createTicket.mock.calls[0][0] as TicketCreate
     expect(payload.reporter_id).toBeNull()
-    // Toast still fires — the ticket was created successfully.
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledTimes(1)
     })
   })
 
   it('submits with reporter_id=null when user is not authenticated', async () => {
-    // Covers the unauthenticated edge — fetchCurrentPublicUser must not be called.
     const user = userEvent.setup()
     mocks.useAuth.mockReturnValue({ user: null })
     mocks.createTicket.mockResolvedValue(makeTicketRow())

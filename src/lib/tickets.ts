@@ -161,7 +161,7 @@ export const TYPE_LABEL: Record<TicketType, string> = {
 export const PERCEIVED_IMPACT_LABEL: Record<TicketPerceivedImpact, string> = {
   blocking: 'Blocking',
   annoying: 'Annoying',
-  idea: 'Idea',
+  idea: 'Idea / suggestion',
 }
 
 // ---- MoSCoW labels (landr-wwhn.23) ------------------------------------------
@@ -187,7 +187,7 @@ export const MOSCOW_DESCRIPTION: Record<TicketMoscow, string> = {
 /** Ordered for planning UI: Must → Should → Could → Won't. */
 export const MOSCOW_VALUES: TicketMoscow[] = ['must', 'should', 'could', 'wont']
 
-// ---- create-ticket flow (landr-wwhn.12) -------------------------------------
+// ---- create-ticket flow (landr-wwhn.12 / landr-wwhn.29) ---------------------
 
 export type TicketCreate = {
   operator_id: string
@@ -201,29 +201,29 @@ export type TicketCreate = {
   context?: 'operations' | 'community'
 }
 
-// The create-ticket form (ReportFab) shows the reporter a simplified two-option
-// toggle (Problem | Idea) rather than the full four-value ticket_type enum.
-// This helper maps that toggle + the reporter's perceived_impact onto the DB
-// type. Lives here (not in the .tsx) so it can be unit-tested without mounting
-// the component and so it doesn't trip react-refresh/only-export-components.
+// landr-wwhn.29: The form no longer exposes a type toggle — ticket.type is now
+// derived solely from perceived_impact and set internally by staff during
+// triage. This helper maps perceived_impact → a sensible default DB type for
+// the initial row; staff can retype in the detail sheet.
+//
+// Lives here (not in the .tsx) so it can be unit-tested without mounting the
+// component and so it doesn't trip react-refresh/only-export-components.
 
+/** @deprecated Use resolveTicketType(impact) — single-arg form (landr-wwhn.29). */
 export type ReporterToggle = 'problem' | 'idea'
 
 /**
- * Derive the DB ticket_type from the reporter's simplified two-option toggle
- * and their perceived_impact selection.
+ * Derive the DB ticket_type from the reporter's perceived_impact.
+ * tickets.type is internal; staff retype during triage. This provides a
+ * sensible default so the initial row is not blank.
  *
- *   Problem + blocking or annoying → 'bug'  (something is broken)
- *   Problem + idea                 → 'annoyance'  (mild friction, not a crash)
- *   Idea                           → 'feature'
+ *   blocking | annoying  → 'bug'     (something is broken / friction)
+ *   idea                 → 'feature' (idea or suggestion)
  */
 export function resolveTicketType(
-  toggle: ReporterToggle,
   impact: TicketPerceivedImpact,
 ): TicketType {
-  if (toggle === 'idea') return 'feature'
-  // problem branch
-  return impact === 'idea' ? 'annoyance' : 'bug'
+  return impact === 'idea' ? 'feature' : 'bug'
 }
 
 // ---- select strings ---------------------------------------------------------
