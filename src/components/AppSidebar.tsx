@@ -6,6 +6,7 @@ import {
   ChartAreaIcon,
   CheckCircleIcon,
   FlagIcon,
+  InboxIcon,
   LayersIcon,
   LayoutDashboardIcon,
   MapPinnedIcon,
@@ -181,6 +182,13 @@ const staffItems: NavItem[] = [
     to: '/revenue',
     label: t.nav.revenue,
     icon: BanknoteIcon,
+    exact: false,
+  },
+  // landr-wwhn.28 — cross-operator feedback triage inbox.
+  {
+    to: '/feedback-inbox',
+    label: t.nav.feedbackInbox,
+    icon: InboxIcon,
     exact: false,
   },
 ]

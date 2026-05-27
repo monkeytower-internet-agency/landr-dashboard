@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 import { useAuth } from '@/lib/auth'
+import { useEntitlements } from '@/lib/entitlements'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import {
   fetchNotifications,
@@ -82,6 +83,7 @@ function relativeTime(iso: string): string {
 
 export function NotificationsBell() {
   const { user } = useAuth()
+  const { effectiveIsStaff } = useEntitlements()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -146,6 +148,10 @@ export function NotificationsBell() {
   })
 
   // ---- item click (mark read + navigate if ticket) ----------------------------
+  //
+  // landr-wwhn.28: staff are deep-linked into the feedback inbox
+  // (/feedback-inbox?open=<ticketId>) so the triage surface opens. Operators
+  // land on the board (/tickets?open=<ticketId>) as before.
 
   const handleItemClick = useCallback(
     (notification: NotificationRow) => {
@@ -154,10 +160,18 @@ export function NotificationsBell() {
       }
       if (notification.ticket_id) {
         setOpen(false)
-        navigate(`/tickets?open=${encodeURIComponent(notification.ticket_id)}`)
+        if (effectiveIsStaff) {
+          navigate(
+            `/feedback-inbox?open=${encodeURIComponent(notification.ticket_id)}`,
+          )
+        } else {
+          navigate(
+            `/tickets?open=${encodeURIComponent(notification.ticket_id)}`,
+          )
+        }
       }
     },
-    [markReadMutation, navigate],
+    [effectiveIsStaff, markReadMutation, navigate],
   )
 
   // ---- render -----------------------------------------------------------------

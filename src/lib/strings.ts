@@ -178,6 +178,8 @@ export const t = {
     retrieve: 'Retrieve board',
     // landr-sbhz.8 — /revenue owner platform-commission overview (staff-only).
     revenue: 'Revenue',
+    // landr-wwhn.28 — /feedback-inbox cross-operator triage surface (staff-only).
+    feedbackInbox: 'Feedback inbox',
   },
   // landr-aref — /audit route strings (audit_log viewer).
   audit: {
@@ -473,6 +475,41 @@ export const t = {
     columnBookings: 'Bookings',
     operatorTotalRow: 'Total',
     generatedAt: (iso: string) => `As of ${new Date(iso).toLocaleString('de-DE')}`,
+  },
+  // landr-wwhn.28 — /feedback-inbox: cross-operator triage INBOX (STAFF-ONLY).
+  feedbackInbox: {
+    title: 'Feedback inbox',
+    subtitle:
+      'Triage inbound operator feedback one operator at a time. Left rail shows all operators with their unread and awaiting-reply counts.',
+    loading: 'Loading inbox…',
+    errorSummary: 'Could not load inbox summary.',
+    errorThreads: 'Could not load threads.',
+    emptyRail: 'No operators with feedback yet.',
+    emptyThreads: 'No threads match the current filters.',
+    emptyThreadsNoFilter: 'No feedback threads from this operator yet.',
+    // Left-rail operator row
+    unreadBadge: (n: number): string => `${n} unread`,
+    awaitingBadge: (n: number): string => `${n} awaiting reply`,
+    ticketCount: (n: number): string => `${n} ticket${n === 1 ? '' : 's'}`,
+    lastActivity: 'Last activity',
+    // Filter bar
+    filtersTitle: 'Filters',
+    filterAll: 'All',
+    filterUnread: 'Unread',
+    filterAwaiting: 'Awaiting reply',
+    filterStatusLabel: 'Status',
+    filterImpactLabel: 'Impact',
+    filterAssigneeLabel: 'Assignee',
+    filterClear: 'Clear filters',
+    // Timeline event labels
+    ticketOpenedLabel: 'Opened ticket',
+    commentLabel: 'Replied',
+    internalNoteLabel: 'Internal note',
+    staffLabel: 'Staff',
+    operatorLabel: 'Operator',
+    // Thread header
+    viewOnBoardLink: 'View on board',
+    noSubject: '(No subject)',
   },
   theme: {
     switchToDark: 'Switch to dark theme',
