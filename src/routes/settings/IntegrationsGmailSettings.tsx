@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRef } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -43,18 +44,26 @@ export function IntegrationsGmailSettings() {
 
 function GmailCard({ operatorId }: { operatorId: string }) {
   const qc = useQueryClient()
+  const popupRef = useRef<Window | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['operator-gmail-status', operatorId],
     queryFn: () => fetchGmailStatus(operatorId),
+    refetchOnWindowFocus: true,
   })
 
   const connectMutation = useMutation({
     mutationFn: () => fetchGmailInstallUrl(operatorId),
     onSuccess: ({ install_url }) => {
-      window.location.href = install_url
+      if (popupRef.current) {
+        popupRef.current.location.href = install_url
+      } else {
+        window.location.href = install_url
+      }
     },
     onError: (err: Error) => {
+      popupRef.current?.close()
+      popupRef.current = null
       toast.error(t.settings.gmailConnectError, { description: err.message })
     },
   })
@@ -113,7 +122,10 @@ function GmailCard({ operatorId }: { operatorId: string }) {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => connectMutation.mutate()}
+                  onClick={() => {
+                    popupRef.current = window.open('about:blank', '_blank', 'noopener,noreferrer')
+                    connectMutation.mutate()
+                  }}
                   disabled={connectMutation.isPending || isLoading}
                 >
                   {connectMutation.isPending
