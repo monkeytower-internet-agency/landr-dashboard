@@ -5,10 +5,10 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ReactElement } from 'react'
+import { useEffect, type ReactElement } from 'react'
 
 type ChannelHandle = {
   on: ReturnType<typeof vi.fn>
@@ -42,12 +42,21 @@ const { mock } = vi.hoisted(() => {
     return channel
   })
 
+  // landr-rcmy — fetchBookings adds .ilike('search_text', '%query%') when
+  // a search term is set; record every .ilike() call so tests can assert
+  // the server-side search is wired (and keep the chain alive — without
+  // this stub the request would throw `TypeError: req.ilike is not a fn`).
+  const ilikeCalls: Array<{ column: string; pattern: string }> = []
   const fromBuilder = () => {
     const builder: Record<string, unknown> = {}
     Object.assign(builder, {
       select: vi.fn(() => builder),
       eq: vi.fn(() => builder),
       is: vi.fn(() => builder),
+      ilike: vi.fn((column: string, pattern: string) => {
+        ilikeCalls.push({ column, pattern })
+        return builder
+      }),
       order: vi.fn(() => builder),
       limit: vi.fn(async () => ({ data: state.rows, error: state.error })),
     })
@@ -58,13 +67,61 @@ const { mock } = vi.hoisted(() => {
     from: vi.fn(() => fromBuilder()),
     channel: vi.fn(() => channel),
     removeChannel: vi.fn(),
+    // landr-vaob — api-client.getBearerToken() reads the session before
+    // every fetch; provide a stable test token so the bulk-reminder path
+    // can mount without an AuthProvider.
+    auth: {
+      getSession: vi.fn(async () => ({
+        data: { session: { access_token: 'test-token' } },
+      })),
+    },
   }
-  return { mock: { state, supabase, channel, realtimeHandlers } }
+  return { mock: { state, supabase, channel, realtimeHandlers, ilikeCalls } }
 })
 
 vi.mock('@/lib/supabase', () => ({
   supabase: mock.supabase,
   getSupabase: () => mock.supabase,
+}))
+
+// landr-vaob — capture sonner toast calls so we can assert the bulk
+// reminder toast distinguishes success / partial / total failure.
+const { toastCalls } = vi.hoisted(() => ({
+  toastCalls: {
+    success: [] as Array<{ message: unknown; options?: unknown }>,
+    warning: [] as Array<{ message: unknown; options?: unknown }>,
+    error: [] as Array<{ message: unknown; options?: unknown }>,
+  },
+}))
+
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn((message: unknown, options?: unknown) => {
+      toastCalls.success.push({ message, options })
+    }),
+    warning: vi.fn((message: unknown, options?: unknown) => {
+      toastCalls.warning.push({ message, options })
+    }),
+    error: vi.fn((message: unknown, options?: unknown) => {
+      toastCalls.error.push({ message, options })
+    }),
+  },
+  Toaster: () => null,
+}))
+
+// Stub window.fetch — bulkSendReminder posts to the FastAPI bulk-reminder
+// endpoint via the centralised api() wrapper.
+const fetchSpy = vi.fn()
+vi.stubGlobal('fetch', fetchSpy)
+
+// landr-1lj — Bookings now reads useAuth() inside useBookingsFilters().
+vi.mock('@/lib/auth', () => ({
+  useAuth: () => ({
+    user: { id: 'user-test' },
+    session: null,
+    loading: false,
+    signOut: async () => {},
+  }),
 }))
 
 vi.mock('@/lib/operator', () => ({
@@ -75,28 +132,56 @@ vi.mock('@/lib/operator', () => ({
     loading: false,
     switchOperator: () => {},
   }),
+  // landr-f1s — BookingsTable now reads calendar prefs.
+  useOperatorCalendarPrefs: () => ({
+    workHoursStart: '08:00',
+    workHoursEnd: '20:00',
+    hour12: false,
+  }),
   OperatorProvider: ({ children }: { children: ReactElement }) => children,
 }))
 
 import { Bookings } from './Bookings'
 
-function render(ui: ReactElement) {
+function render(ui: ReactElement, { initialEntry = '/' }: { initialEntry?: string } = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   return rtlRender(ui, {
     wrapper: ({ children }) => (
       <QueryClientProvider client={client}>
-        <MemoryRouter>{children}</MemoryRouter>
+        <MemoryRouter initialEntries={[initialEntry]}>{children}</MemoryRouter>
       </QueryClientProvider>
     ),
   })
+}
+
+// landr-j57l — captures current location so tests can assert URL pushes
+// from filter / search interactions. We mutate a module-scope object via
+// useEffect (not during render) so React's strict mode and the
+// react-hooks/globals lint rule stay happy.
+const probe = { search: '' }
+function LocationProbe() {
+  const loc = useLocation()
+  useEffect(() => {
+    probe.search = loc.search
+  }, [loc.search])
+  return null
 }
 
 beforeEach(() => {
   mock.state.rows = []
   mock.state.error = null
   mock.realtimeHandlers.length = 0
+  mock.ilikeCalls.length = 0
+  fetchSpy.mockReset()
+  toastCalls.success.length = 0
+  toastCalls.warning.length = 0
+  toastCalls.error.length = 0
+  // landr-j57l — clear per-test localStorage so URL-vs-storage assertions
+  // start from a known baseline.
+  window.localStorage.clear()
+  probe.search = ''
 })
 
 afterEach(() => {
@@ -156,7 +241,53 @@ describe('Bookings route', () => {
     await waitFor(() =>
       expect(screen.queryByText('Alice Anderson')).not.toBeInTheDocument(),
     )
-    expect(screen.getByText('Bob Brown')).toBeInTheDocument()
+    // landr-11d5 — the matching substring is wrapped in a yellow <mark>,
+    // so 'Bob Brown' is split across nodes. Assert via the <mark>.
+    const bobMark = Array.from(document.querySelectorAll('mark')).find(
+      (m) => m.textContent === 'Bob',
+    )
+    expect(bobMark).toBeDefined()
+    expect(bobMark?.className).toContain('bg-yellow-200/40')
+    expect(bobMark?.parentElement?.textContent).toBe('Bob Brown')
+  })
+
+  // landr-rcmy — server-side global search via the indexed search_text
+  // column. Typing in the bar should (after debounce) issue a Supabase
+  // request with .ilike('search_text', '%term%'); the client-side
+  // highlight + filter still narrows on top.
+  it('issues a server-side ilike against search_text after the debounce', async () => {
+    mock.state.rows = sampleRows
+    const user = userEvent.setup()
+    render(<Bookings />)
+
+    await screen.findByText('Alice Anderson')
+    // Initial fetch happens with no query — no ilike call yet.
+    expect(mock.ilikeCalls).toEqual([])
+
+    await user.type(screen.getByLabelText(/search bookings/i), 'Bob')
+
+    await waitFor(() => {
+      expect(mock.ilikeCalls).toHaveLength(1)
+    })
+    expect(mock.ilikeCalls[0].column).toBe('search_text')
+    expect(mock.ilikeCalls[0].pattern).toBe('%bob%')
+  })
+
+  // landr-rcmy — defensive escaping: the three PostgREST LIKE wildcards
+  // (\ % _) in the user's input must be escaped so a literal "50%" doesn't
+  // degenerate into "match anything".
+  it('escapes %, _ and \\ in the search pattern', async () => {
+    mock.state.rows = sampleRows
+    const user = userEvent.setup()
+    render(<Bookings />)
+
+    await screen.findByText('Alice Anderson')
+    await user.type(screen.getByLabelText(/search bookings/i), '50%_x\\y')
+
+    await waitFor(() => {
+      expect(mock.ilikeCalls).toHaveLength(1)
+    })
+    expect(mock.ilikeCalls[0].pattern).toBe('%50\\%\\_x\\\\y%')
   })
 
   it('opens the booking detail sheet when a row is clicked', async () => {
@@ -164,14 +295,19 @@ describe('Bookings route', () => {
     const user = userEvent.setup()
     render(<Bookings />)
 
-    const cell = await screen.findByText('Alice Anderson')
+    // Clicking the customer name itself opens the customer overlay (m05.27)
+    // instead of the booking sheet, so click the product cell to open the row.
+    const cell = await screen.findByText('Tandem Flight')
     await user.click(cell)
 
     const dialog = await screen.findByRole('dialog')
+    // Product appears as the line-item heading inside the dialog
     expect(
-      within(dialog).getByText(/Tandem Flight/i),
-    ).toBeInTheDocument()
-    expect(within(dialog).getByText(/Alice Anderson/i)).toBeInTheDocument()
+      within(dialog).getAllByText(/Tandem Flight/i).length,
+    ).toBeGreaterThan(0)
+    // Customer first/last name appear as editable input values
+    expect(within(dialog).getByLabelText(/first name/i)).toHaveValue('Alice')
+    expect(within(dialog).getByLabelText(/last name/i)).toHaveValue('Anderson')
   })
 
   it('subscribes to realtime updates on the bookings table', async () => {
@@ -190,11 +326,290 @@ describe('Bookings route', () => {
     )
   })
 
+  // ---- landr-lbbj ------------------------------------------------------
+
+  it('bulk toolbar is hidden until a row is selected', async () => {
+    mock.state.rows = sampleRows
+    render(<Bookings />)
+
+    await screen.findByText('Alice Anderson')
+    expect(
+      screen.queryByTestId('bookings-bulk-toolbar'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('selecting a row reveals the bulk toolbar with the correct count', async () => {
+    mock.state.rows = sampleRows
+    const user = userEvent.setup()
+    render(<Bookings />)
+
+    await screen.findByText('Alice Anderson')
+    await user.click(screen.getByTestId('bookings-select-b-1111111111'))
+
+    expect(screen.getByTestId('bookings-bulk-toolbar')).toBeInTheDocument()
+    expect(screen.getByText('1 selected')).toBeInTheDocument()
+    // Bookings page exposes export-csv + send-reminder only.
+    expect(
+      screen.getByTestId('bookings-bulk-toolbar-export-csv'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByTestId('bookings-bulk-toolbar-send-reminder'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByTestId('bookings-bulk-toolbar-approve'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('bookings-bulk-toolbar-reject'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('select-all toggles every visible row', async () => {
+    mock.state.rows = sampleRows
+    const user = userEvent.setup()
+    render(<Bookings />)
+
+    await screen.findByText('Alice Anderson')
+    await user.click(screen.getByTestId('bookings-select-all'))
+    expect(screen.getByText('2 selected')).toBeInTheDocument()
+  })
+
+  // ---- landr-vaob (bulk-reminder wiring) ------------------------------
+
+  it('bulk-send-reminder POSTs to the bulk-reminder endpoint and surfaces a success toast', async () => {
+    mock.state.rows = sampleRows
+    fetchSpy.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ sent: 2, failed: [] }), { status: 200 }),
+    )
+    const user = userEvent.setup()
+    render(<Bookings />)
+
+    await screen.findByText('Alice Anderson')
+    await user.click(screen.getByTestId('bookings-select-all'))
+    await user.click(screen.getByTestId('bookings-bulk-toolbar-send-reminder'))
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/staff/operators/op-1/bookings/bulk-reminder')
+    expect(opts.method).toBe('POST')
+    const body = JSON.parse(opts.body as string) as { booking_ids: string[] }
+    expect(body.booking_ids).toEqual(
+      expect.arrayContaining(['b-1111111111', 'b-2222222222']),
+    )
+
+    await waitFor(() => expect(toastCalls.success).toHaveLength(1))
+    expect(String(toastCalls.success[0].message)).toBe('2 reminders sent')
+  })
+
+  it('bulk-send-reminder surfaces a partial-failure toast when failed[] is non-empty', async () => {
+    mock.state.rows = sampleRows
+    fetchSpy.mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({ sent: 1, failed: ['b-2222222222'] }),
+          { status: 200 },
+        ),
+    )
+    const user = userEvent.setup()
+    render(<Bookings />)
+
+    await screen.findByText('Alice Anderson')
+    await user.click(screen.getByTestId('bookings-select-all'))
+    await user.click(screen.getByTestId('bookings-bulk-toolbar-send-reminder'))
+
+    await waitFor(() => expect(toastCalls.warning).toHaveLength(1))
+    expect(String(toastCalls.warning[0].message)).toBe('1 sent, 1 failed')
+    expect(toastCalls.success).toHaveLength(0)
+  })
+
+  // ---- landr-uqr2 — bulk-apply tags ------------------------------------
+
+  it('bulk-apply tag fans setBookingTags out per selected row and toasts on success', async () => {
+    mock.state.rows = sampleRows
+    // First call: fetchTags (TagPicker loads operator tag list).
+    // Subsequent calls: setBookingTags per selected row.
+    // landr-uqr2 / fetch-spy-response-mockResolvedValue-footgun — use
+    // mockImplementation so each parallel POST gets a fresh Response
+    // (Response bodies can only be consumed once).
+    const tagListBody = JSON.stringify([
+      {
+        id: 't1',
+        operator_id: 'op-1',
+        name: 'VIP',
+        color: '#3b82f6',
+        created_at: '2026-05-21T00:00:00Z',
+        updated_at: '2026-05-21T00:00:00Z',
+      },
+    ])
+    fetchSpy.mockImplementation(async (url: string) => {
+      if (url.endsWith('/tags') && !url.includes('/bookings/')) {
+        return new Response(tagListBody, { status: 200 })
+      }
+      // setBookingTags returns { tag_ids: [...] }
+      return new Response(JSON.stringify({ tag_ids: ['t1'] }), { status: 200 })
+    })
+    const user = userEvent.setup()
+    render(<Bookings />)
+
+    await screen.findByText('Alice Anderson')
+    await user.click(screen.getByTestId('bookings-select-all'))
+    // Open the toolbar Apply-tag popover, then the picker, then tick a tag.
+    await user.click(screen.getByTestId('bookings-bulk-toolbar-tag'))
+    await user.click(
+      screen.getByTestId('bookings-bulk-toolbar-tag-picker-trigger'),
+    )
+    await screen.findByTestId('bookings-bulk-toolbar-tag-picker-option-t1')
+    await user.click(
+      screen.getByTestId('bookings-bulk-toolbar-tag-picker-option-t1'),
+    )
+    await user.click(screen.getByTestId('bookings-bulk-toolbar-tag-confirm'))
+
+    // setBookingTags should have been POSTed once per selected row.
+    await waitFor(() => {
+      const setCalls = fetchSpy.mock.calls.filter((c) =>
+        String((c as [string])[0]).match(
+          /\/api\/staff\/operators\/op-1\/bookings\/[^/]+\/tags$/,
+        ),
+      )
+      expect(setCalls.length).toBe(2)
+    })
+    await waitFor(() => expect(toastCalls.success).toHaveLength(1))
+    expect(String(toastCalls.success[0].message)).toMatch(
+      /^Applied 1 tag to 2 rows$/,
+    )
+  })
+
   it('shows an error card when the query fails', async () => {
     mock.state.error = { message: 'boom' }
     render(<Bookings />)
 
     await screen.findByText(/failed to load bookings/i)
     expect(screen.getByText(/boom/i)).toBeInTheDocument()
+  })
+
+  // landr-s1mr — friendly empty-state card surfaces when there are zero
+  // bookings (the filter chrome + empty table is suppressed).
+  it('renders the shared EmptyState card when the operator has zero bookings', async () => {
+    mock.state.rows = []
+    render(<Bookings />)
+
+    const empty = await screen.findByTestId('bookings-empty-state')
+    expect(empty).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: /no bookings yet/i }),
+    ).toBeInTheDocument()
+    // The filter search input should be hidden (no rows to filter).
+    expect(screen.queryByLabelText(/search bookings/i)).not.toBeInTheDocument()
+  })
+
+  // ---- landr-j57l — URL ⇄ filter round-trip ---------------------------
+
+  describe('URL deep-linking (landr-j57l)', () => {
+    function renderWithProbe(initialEntry: string) {
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      })
+      return rtlRender(<Bookings />, {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={client}>
+            <MemoryRouter initialEntries={[initialEntry]}>
+              {children}
+              <LocationProbe />
+            </MemoryRouter>
+          </QueryClientProvider>
+        ),
+      })
+    }
+
+    it('mount with ?q= deep-links the search input', async () => {
+      mock.state.rows = sampleRows
+      renderWithProbe('/?q=Bob')
+
+      // The URL value seeds the input on first paint.
+      await waitFor(() =>
+        expect(screen.getByLabelText(/search bookings/i)).toHaveValue('Bob'),
+      )
+      // 'Bob' is wrapped in <mark> when the search matches — the text
+      // is split across nodes — assert via the <mark> element.
+      await waitFor(() => {
+        const bobMark = Array.from(document.querySelectorAll('mark')).find(
+          (m) => m.textContent === 'Bob',
+        )
+        expect(bobMark).toBeDefined()
+        expect(bobMark?.parentElement?.textContent).toBe('Bob Brown')
+      })
+      expect(screen.queryByText('Alice Anderson')).not.toBeInTheDocument()
+    })
+
+    it('mount with ?dateRange= preselects the quick-filter pill', async () => {
+      mock.state.rows = sampleRows
+      renderWithProbe('/?dateRange=this_week')
+
+      await screen.findByTestId('bookings-quick-filters-this_week')
+      const pill = screen.getByTestId('bookings-quick-filters-this_week')
+      expect(pill).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('mount URL params win over stored localStorage selection', async () => {
+      // Pre-seed localStorage with a DIFFERENT preset…
+      window.localStorage.setItem(
+        'landr.dashboard.bookingsFilters.user-test',
+        JSON.stringify({
+          lifecycleStates: ['cancelled'],
+          productIds: [],
+          pickupLocationIds: [],
+          productKinds: [],
+          serviceTimeShapes: [],
+          showPast: false,
+          serviceDateRange: 'next_30d',
+        }),
+      )
+      mock.state.rows = sampleRows
+      // …mount with a URL pointing at a different preset.
+      renderWithProbe('/?dateRange=this_week')
+
+      // Wait for the quick-filter strip to render (route mounted).
+      await screen.findByTestId('bookings-quick-filters-bar')
+      expect(
+        screen.getByTestId('bookings-quick-filters-this_week'),
+      ).toHaveAttribute('aria-pressed', 'true')
+      expect(
+        screen.getByTestId('bookings-quick-filters-upcoming'),
+      ).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('typing in the search input pushes ?q= to the URL', async () => {
+      mock.state.rows = sampleRows
+      const user = userEvent.setup()
+      renderWithProbe('/')
+
+      await screen.findByText('Alice Anderson')
+      await user.type(screen.getByLabelText(/search bookings/i), 'Bob')
+      await waitFor(() => expect(probe.search).toContain('q=Bob'))
+    })
+
+    it('clicking a quick-filter pill pushes ?dateRange= to the URL', async () => {
+      mock.state.rows = sampleRows
+      const user = userEvent.setup()
+      renderWithProbe('/')
+
+      await screen.findByText('Alice Anderson')
+      await user.click(screen.getByTestId('bookings-quick-filters-this_week'))
+      await waitFor(() => expect(probe.search).toContain('dateRange=this_week'))
+    })
+
+    it('clearing the search drops ?q= from the URL', async () => {
+      mock.state.rows = sampleRows
+      const user = userEvent.setup()
+      renderWithProbe('/?q=Bob')
+
+      // Wait for the URL-derived value to seed the input.
+      await waitFor(() =>
+        expect(screen.getByLabelText(/search bookings/i)).toHaveValue('Bob'),
+      )
+      const input = screen.getByLabelText(/search bookings/i) as HTMLInputElement
+      await user.clear(input)
+      await waitFor(() => expect(probe.search).not.toContain('q='))
+    })
   })
 })

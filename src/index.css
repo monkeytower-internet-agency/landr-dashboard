@@ -3,6 +3,24 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Theme tokens — landr-z7t visual depth pass.
+ *
+ * Three-shade OKLCH ramp (stepped ~0.1 lightness, hue 264 = cool blue-gray):
+ *   --bg-dark   = page background (deepest)
+ *   --bg        = card / surface (mid)
+ *   --bg-light  = highlighted / selected / interactive (lifted)
+ *
+ * shadcn's stock --background / --card / --muted / --accent are remapped
+ * onto this ramp so existing components inherit depth without per-component
+ * edits. Top-level Card border kept (shadcn identity); inner-card border
+ * dropped via the <Card inner> variant once shade differential separates them.
+ *
+ * Compound shadow tokens (--shadow-s/m/l) follow the Sajid recipe:
+ *   inset top highlight + 2-layer drop (tight + soft).
+ * Surfaced as Tailwind utilities via @theme inline (shadow-s/m/l).
+ */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -31,71 +49,145 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  /* 3-shade depth ramp surfaced as Tailwind colors. */
+  --color-bg-dark: var(--bg-dark);
+  --color-bg: var(--bg);
+  --color-bg-light: var(--bg-light);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  /* Compound shadow tiers — small (buttons/chips), medium (cards),
+     large (hover / elevated / modals). Plus a recessed inset for
+     tables / progress tracks. Surfaced as `shadow-s`, `shadow-m`,
+     `shadow-l`, `shadow-recessed` Tailwind utilities. */
+  --shadow-s: var(--shadow-s-recipe);
+  --shadow-m: var(--shadow-m-recipe);
+  --shadow-l: var(--shadow-l-recipe);
+  --shadow-recessed: var(--shadow-inset-recipe);
 }
 
+/* Light theme (default — no class on <html>). */
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+
+  /* Three-shade ramp — light theme. Steps ~0.03 here because surfaces
+     are already bright; bigger steps would feel chalky. Page is dimmest
+     so cards lift forward; selected/highlighted gets pure white. */
+  --bg-dark: oklch(0.94 0 264);
+  --bg: oklch(0.97 0 264);
+  --bg-light: oklch(1 0 264);
+  --text: oklch(0.15 0 264);
+  --text-muted: oklch(0.45 0 264);
+
+  /* shadcn aliases mapped onto the ramp. */
+  --background: var(--bg-dark);
+  --foreground: var(--text);
+  --card: var(--bg);
+  --card-foreground: var(--text);
+  --popover: var(--bg);
+  --popover-foreground: var(--text);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.92 0 264);
+  --secondary-foreground: var(--text);
+  /* --muted is used on recessed elements (progress track, inputs) — pin
+     to the dimmest rung so it reads "deeper" than the card surface. */
+  --muted: oklch(0.91 0 264);
+  --muted-foreground: var(--text-muted);
+  /* --accent is the selected/highlighted shade. */
+  --accent: var(--bg-light);
+  --accent-foreground: var(--text);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: oklch(0.88 0 264);
+  --input: oklch(0.88 0 264);
   --ring: oklch(0.708 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
+  /* Sidebar sits on the page; selected items use --bg-light. */
+  --sidebar: var(--bg-dark);
+  --sidebar-foreground: var(--text);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-accent: var(--bg-light);
+  --sidebar-accent-foreground: var(--text);
+  --sidebar-border: oklch(0.88 0 264);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Light-mode shadow recipes — lower inset white opacity (surfaces
+     already bright); darks unchanged. */
+  --shadow-s-recipe:
+    inset 0 1px 2px #ffffff80,
+    0 1px 2px #00000018,
+    0 2px 4px #0000000d;
+  --shadow-m-recipe:
+    inset 0 1px 2px #ffffff80,
+    0 2px 4px #00000018,
+    0 4px 8px #0000000d;
+  --shadow-l-recipe:
+    inset 0 1px 2px #ffffff80,
+    0 4px 6px #00000018,
+    0 8px 10px #0000000d;
+  /* Recessed inset — for tables, progress tracks. */
+  --shadow-inset-recipe: inset 0 2px 4px #00000018;
 }
 
+/* Dark theme. */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+  --bg-dark: oklch(0.14 0 264);
+  --bg: oklch(0.22 0 264);
+  --bg-light: oklch(0.31 0 264);
+  --text: oklch(0.985 0 264);
+  --text-muted: oklch(0.72 0 264);
+
+  --background: var(--bg-dark);
+  --foreground: var(--text);
+  --card: var(--bg);
+  --card-foreground: var(--text);
+  --popover: var(--bg);
+  --popover-foreground: var(--text);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --secondary: var(--bg-light);
+  --secondary-foreground: var(--text);
+  /* --muted is recessed — used on progress tracks, input bg etc. Sits
+     *between* page and card so it reads "deeper than the surface."
+     ProgressBar in Onboarding.tsx relies on this token. */
+  --muted: oklch(0.18 0 264);
+  --muted-foreground: var(--text-muted);
+  /* --accent is the selected/highlighted shade. */
+  --accent: var(--bg-light);
+  --accent-foreground: var(--text);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar: var(--bg-dark);
+  --sidebar-foreground: var(--text);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-accent: var(--bg-light);
+  --sidebar-accent-foreground: var(--text);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Dark-mode shadow recipes — inset top highlight grows with tier
+     (30 / 50 / 70) per the Sajid recipe. */
+  --shadow-s-recipe:
+    inset 0 1px 2px #ffffff30,
+    0 1px 2px #00000030,
+    0 2px 4px #00000015;
+  --shadow-m-recipe:
+    inset 0 1px 2px #ffffff50,
+    0 2px 4px #00000030,
+    0 4px 8px #00000015;
+  --shadow-l-recipe:
+    inset 0 1px 2px #ffffff70,
+    0 4px 6px #00000030,
+    0 8px 10px #00000015;
+  --shadow-inset-recipe: inset 0 2px 4px #00000033;
 }
 
 @layer base {
@@ -104,5 +196,158 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* landr-pztv — print stylesheet for BookingDetailSheet.
+   Ctrl+P (or the explicit print button in the sheet footer) produces a
+   clean receipt: customer + service date + line items + total. App chrome
+   (sidebar, sticky topbar, bulk-action toolbar, tab strip, action buttons)
+   is hidden; only the element marked [data-print-target="booking-detail"]
+   is rendered. Note: we hide everything via visibility (not display) on
+   the body so the Sheet's portal positioning + dialog scrim collapse
+   gracefully — display:none on the Sheet's parents would force the
+   tablist + close button into the print flow before our targeted hides
+   could take effect. */
+@media print {
+  /* Hide app chrome (sidebar, sticky topbar, floating bulk toolbar, sheet
+     tab strip, in-sheet copy-link / print buttons). Selectors mirror the
+     concrete data-slot / class names emitted by the shadcn primitives and
+     the BookingDetailSheet body. */
+  [data-slot="sidebar"],
+  [data-slot="sidebar-wrapper"] > [data-slot="sidebar"],
+  header.sticky,
+  header[class*="sticky"],
+  .bulk-action-toolbar,
+  [data-slot="sheet-overlay"],
+  [data-print-target="booking-detail"] [role="tablist"],
+  [data-print-target="booking-detail"] [data-print-hide],
+  [data-slot="sheet-footer"] {
+    display: none !important;
+  }
+
+  /* Two-stage visibility: hide everything, then re-show the print target
+     and its descendants. This keeps the printed page focused on the open
+     booking detail even when other surfaces (lists, dialogs) are in the
+     DOM. */
+  body * {
+    visibility: hidden;
+  }
+  [data-print-target="booking-detail"],
+  [data-print-target="booking-detail"] * {
+    visibility: visible;
+  }
+  [data-print-target="booking-detail"] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    box-shadow: none;
+    border: none;
+  }
+
+  /* Clean receipt typography — force white background + black ink, drop
+     link decoration (URLs are noise on paper). */
+  html,
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt;
+  }
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+}
+
+/* FullCalendar theming — scope all overrides under .landr-fc so the
+   library only inherits shadcn tokens where we render it. */
+.landr-fc {
+  --fc-border-color: var(--border);
+  --fc-page-bg-color: var(--background);
+  --fc-neutral-bg-color: var(--muted);
+  --fc-neutral-text-color: var(--muted-foreground);
+  --fc-today-bg-color: color-mix(in oklab, var(--accent) 60%, transparent);
+  --fc-now-indicator-color: var(--destructive);
+  --fc-button-bg-color: var(--secondary);
+  --fc-button-text-color: var(--secondary-foreground);
+  --fc-button-border-color: var(--border);
+  --fc-button-hover-bg-color: var(--accent);
+  --fc-button-hover-border-color: var(--border);
+  --fc-button-active-bg-color: var(--primary);
+  --fc-button-active-border-color: var(--primary);
+  --fc-event-bg-color: transparent;
+  --fc-event-border-color: transparent;
+  --fc-event-text-color: var(--foreground);
+  --fc-list-event-hover-bg-color: var(--accent);
+  color: var(--foreground);
+  font-family: inherit;
+}
+.landr-fc .fc-toolbar-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.landr-fc .fc-button {
+  font-size: 0.8125rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  text-transform: capitalize;
+}
+.landr-fc .fc-button:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+.landr-fc .fc-col-header-cell-cushion,
+.landr-fc .fc-daygrid-day-number,
+.landr-fc .fc-timegrid-slot-label-cushion {
+  color: var(--foreground);
+  text-decoration: none;
+}
+.landr-fc .fc-day-today {
+  background-color: var(--fc-today-bg-color) !important;
+}
+.landr-fc .fc-event {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.landr-fc .fc-h-event,
+.landr-fc .fc-v-event {
+  background: transparent;
+  border: none;
+}
+/* landr-gu14 — phone (375px) overrides. The default FullCalendar toolbar
+   keeps prev/next + today + title on one row, which overflows below ~480px.
+   Stack the toolbar vertically and shrink the title so the calendar header
+   no longer eats horizontal scroll. Day-grid cells already flex, so the
+   grid itself fits as long as the toolbar isn't forcing a wider box. */
+@media (max-width: 640px) {
+  .landr-fc .fc-toolbar.fc-header-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .landr-fc .fc-toolbar-chunk {
+    display: flex;
+    justify-content: center;
+  }
+  .landr-fc .fc-toolbar-title {
+    font-size: 0.9375rem;
+  }
+  .landr-fc .fc-button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  .landr-fc .fc-daygrid-day-number {
+    font-size: 0.75rem;
+    padding: 0.125rem;
+  }
+  .landr-fc .fc-col-header-cell-cushion {
+    font-size: 0.6875rem;
+    padding: 0.25rem 0.125rem;
   }
 }

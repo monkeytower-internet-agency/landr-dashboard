@@ -60,4 +60,32 @@ if (typeof window !== 'undefined') {
         }) as unknown as MediaQueryList,
     })
   }
+  // landr-wmsc — jsdom doesn't ship Element.prototype.scrollIntoView;
+  // cmdk calls it whenever the selected CommandItem changes (so the row
+  // stays in view inside its scroll container). Tests would otherwise
+  // throw `i.scrollIntoView is not a function` the moment the palette
+  // mounts. Stub with a noop — the visual scroll isn't asserted on.
+  if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = function () {}
+  }
+  // landr-fzcg — jsdom doesn't ship ResizeObserver; Radix's Tooltip /
+  // Popper rely on it. A noop polyfill is enough — Radix doesn't act on
+  // the measurements during these tests.
+  if (typeof window.ResizeObserver === 'undefined') {
+    class ResizeObserverPolyfill {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    Object.defineProperty(window, 'ResizeObserver', {
+      configurable: true,
+      writable: true,
+      value: ResizeObserverPolyfill,
+    })
+    Object.defineProperty(globalThis, 'ResizeObserver', {
+      configurable: true,
+      writable: true,
+      value: ResizeObserverPolyfill,
+    })
+  }
 }

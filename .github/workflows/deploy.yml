@@ -2,7 +2,7 @@ name: Deploy dashboard to Cloudflare Pages
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, staging, dev]
   pull_request:
   workflow_dispatch:
 
@@ -10,8 +10,13 @@ permissions:
   contents: read
   deployments: write
 
-env:
-  PAGES_PROJECT_NAME: landr-dashboard
+# Requirements (GitHub Actions secrets):
+# - CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID: Cloudflare deployment
+# - VITE_SUPABASE_URL_PROD, VITE_SUPABASE_PUB_KEY, VITE_SUPABASE_PUB_KEY_DEV: Supabase keys
+# - VITE_SUPABASE_URL_STAGING, VITE_SUPABASE_PUB_KEY_STAGING: Staging Supabase keys
+# - LANDR_DEPLOY_TOKEN: Shared secret for deploy-close endpoint
+#   (POST /api/internal/deploy/mark_tickets_shipped). Same value as the one
+#   set in landr-api and landr-mobile. See landr-yzoi for secret setup.
 
 jobs:
   build-and-deploy:
@@ -20,6 +25,10 @@ jobs:
       name: ${{ github.event_name == 'push' && 'production' || 'preview' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history required to collect Landr-Ticket trailers across the
+          # release range (post_deploy_close.sh uses git log <from>..<to>).
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -30,20 +39,35 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
-      - name: Build (production)
-        if: github.ref == 'refs/heads/main'
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL_PROD }}
-          VITE_SUPABASE_PUB_KEY: ${{ secrets.VITE_SUPABASE_PUB_KEY }}
-          VITE_API_BASE_URL: https://landr-api-service-693721943357.europe-west3.run.app
-        run: npm run build
 
-      - name: Build (dev / preview)
-        if: github.ref != 'refs/heads/main'
+      - name: Pick project + API base per branch
+        id: env
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "project=landr-dashboard"                                                 >> "$GITHUB_OUTPUT"
+            echo "api_base=https://landr-api-service-693721943357.europe-west3.run.app"   >> "$GITHUB_OUTPUT"
+            echo "production_branch=main"                                                  >> "$GITHUB_OUTPUT"
+            echo "supabase_url=${{ secrets.VITE_SUPABASE_URL_PROD }}"                     >> "$GITHUB_OUTPUT"
+            echo "supabase_pub_key=${{ secrets.VITE_SUPABASE_PUB_KEY }}"                  >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref }}" = "refs/heads/staging" ]; then
+            echo "project=landr-dashboard-staging"                                         >> "$GITHUB_OUTPUT"
+            echo "api_base=https://landr-api-staging-693721943357.europe-west3.run.app"   >> "$GITHUB_OUTPUT"
+            echo "production_branch=staging"                                               >> "$GITHUB_OUTPUT"
+            echo "supabase_url=${{ secrets.VITE_SUPABASE_URL_STAGING }}"                  >> "$GITHUB_OUTPUT"
+            echo "supabase_pub_key=${{ secrets.VITE_SUPABASE_PUB_KEY_STAGING }}"          >> "$GITHUB_OUTPUT"
+          else
+            echo "project=landr-dashboard-dev"                                             >> "$GITHUB_OUTPUT"
+            echo "api_base=https://api.dev.landr.de"                                      >> "$GITHUB_OUTPUT"
+            echo "production_branch=dev"                                                   >> "$GITHUB_OUTPUT"
+            echo "supabase_url=https://kong.dev.landr.de"                                 >> "$GITHUB_OUTPUT"
+            echo "supabase_pub_key=${{ secrets.VITE_SUPABASE_PUB_KEY_DEV }}"              >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
         env:
-          VITE_SUPABASE_URL: https://kong.dev.landr.de
-          VITE_SUPABASE_PUB_KEY: ${{ secrets.VITE_SUPABASE_PUB_KEY_DEV }}
-          VITE_API_BASE_URL: https://api.dev.landr.de
+          VITE_SUPABASE_URL: ${{ steps.env.outputs.supabase_url }}
+          VITE_SUPABASE_PUB_KEY: ${{ steps.env.outputs.supabase_pub_key }}
+          VITE_API_BASE_URL: ${{ steps.env.outputs.api_base }}
         run: npm run build
 
       - name: Ensure Cloudflare Pages project exists (idempotent)
@@ -51,8 +75,9 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          npx --yes wrangler@3 pages project create "${{ env.PAGES_PROJECT_NAME }}" \
-            --production-branch=main 2>&1 | tee /tmp/pages-create.log \
+          npx --yes wrangler@3 pages project create "${{ steps.env.outputs.project }}" \
+            --production-branch=${{ steps.env.outputs.production_branch }} 2>&1 \
+            | tee /tmp/pages-create.log \
             || grep -qi "already exists" /tmp/pages-create.log
 
       - name: Publish to Cloudflare Pages
@@ -62,5 +87,30 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: >
             pages deploy dist
-            --project-name=${{ env.PAGES_PROJECT_NAME }}
+            --project-name=${{ steps.env.outputs.project }}
             --branch=${{ github.head_ref || github.ref_name }}
+
+      - name: Deploy-close tickets (mark_tickets_shipped)
+        # Runs only on production deploys (main branch push).
+        # Collects Landr-Ticket: trailers from commits in this release range and
+        # POSTs them to mark_tickets_shipped to set status=done + emit ticket.shipped.
+        # Full git history is needed to walk the from..to range; the checkout above
+        # uses fetch-depth: 0 for this reason.
+        # Safe to fail: a non-zero exit here does NOT roll back the deploy.
+        # Operator: ensure LANDR_DEPLOY_TOKEN is set as a repo/org secret (landr-yzoi).
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          LANDR_DEPLOY_TOKEN: ${{ secrets.LANDR_DEPLOY_TOKEN }}
+        run: |
+          curl -fsSL \
+            https://raw.githubusercontent.com/monkeytower-internet-agency/landr-api/main/scripts/post_deploy_close.sh \
+            -o /tmp/post_deploy_close.sh
+          curl -fsSL \
+            https://raw.githubusercontent.com/monkeytower-internet-agency/landr-api/main/scripts/collect_trailer_uuids.py \
+            -o /tmp/collect_trailer_uuids.py
+          bash /tmp/post_deploy_close.sh \
+            --api-url  "https://landr-api-service-693721943357.europe-west3.run.app" \
+            --token    "$LANDR_DEPLOY_TOKEN" \
+            --release  "${{ github.sha }}" \
+            --from     "${{ github.event.before }}"

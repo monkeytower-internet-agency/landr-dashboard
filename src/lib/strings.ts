@@ -9,6 +9,69 @@
 export const t = {
   app: {
     name: 'LANDR Operator Dashboard',
+    collapseMenu: 'Collapse menu',
+    expandMenu: 'Expand menu',
+    // landr-fzcg — 3-state sidebar collapse control.
+    sidebarMode: {
+      groupLabel: 'Sidebar display mode',
+      collapsed: 'Always collapsed',
+      expanded: 'Always expanded',
+      hoverExpand: 'Expand on hover',
+      cycleHint: 'Cycle sidebar mode',
+    },
+    account: 'Account',
+    settings: 'Settings',
+    // landr-v0xg — Views section label (sidebar primary nav).
+    views: 'Views',
+  },
+  // landr-wmsc — Cmd/Ctrl+K command palette.
+  commandPalette: {
+    triggerLabel: 'Open command palette',
+    dialogTitle: 'Command palette',
+    dialogDescription:
+      'Search across bookings, contacts, products, and views. Jump to any page or run a quick action.',
+    inputPlaceholder: 'Type a command or search…',
+    empty: 'No results found.',
+    groupNav: 'Navigation',
+    groupActions: 'Quick actions',
+    groupBookings: 'Bookings',
+    groupContacts: 'Contacts',
+    groupProducts: 'Products',
+    groupViews: 'Views',
+    actionNewBooking: 'New booking',
+    actionNewView: 'New view',
+    actionOpenSettings: 'Open settings',
+    loadingHint: 'Loading…',
+    bookingMissingCustomer: 'Unknown customer',
+  },
+  // landr-kwu9 — global ? keyboard shortcuts cheat sheet.
+  keyboardShortcuts: {
+    dialogTitle: 'Keyboard shortcuts',
+    dialogDescription:
+      'Speed up navigation with these keyboard shortcuts. Press ? from anywhere to reopen this sheet.',
+    closeLabel: 'Close',
+    groupGlobal: 'Global',
+    groupNavigation: 'Navigation',
+    // landr-euta — j/k/Enter/x row navigation on Bookings, Contacts,
+    // Approvals.
+    groupLists: 'Lists & tables',
+    groupDialogs: 'Dialogs & sheets',
+    shortcuts: {
+      commandPalette: 'Open command palette',
+      keyboardHelp: 'Show this shortcuts sheet',
+      toggleSidebar: 'Toggle sidebar',
+      closeOverlay: 'Close any open dialog, sheet, or palette',
+      sortColumn:
+        'Sort a table column (click the header arrow; arrow keys cycle directions)',
+      calendarPrevNext:
+        'Previous / next period in the calendar (use the toolbar buttons)',
+      // landr-euta — row navigation shortcuts. j/k move the cursor;
+      // Enter opens the row's detail surface; x toggles bulk-select.
+      rowDown: 'Move to next row',
+      rowUp: 'Move to previous row',
+      rowOpen: 'Open focused row',
+      rowToggleSelect: 'Toggle selection of focused row',
+    },
   },
   auth: {
     signInHeading: 'Sign in',
@@ -24,17 +87,536 @@ export const t = {
     passwordRequired: 'Password is required.',
     genericError: 'Unable to sign in. Check your credentials and try again.',
     loadingSession: 'Loading session…',
+    sessionExpired: 'Your session expired — please sign in again.',
+    continueWith: (provider: string) => `Continue with ${provider}`,
+    continueWithLoading: (provider: string) => `Connecting to ${provider}…`,
+    continueDivider: 'or',
+    emailInUseTitle: 'That email already has an account',
+    emailInUseBody:
+      'Sign in with your password, then connect Google from Settings → Connected accounts.',
+    oauthUnknownError:
+      'Sign-in did not complete. Please try again or use your password.',
+  },
+  connectedAccounts: {
+    title: 'Connected accounts',
+    description:
+      'Link additional sign-in methods to your account. You can sign in with any linked provider.',
+    loading: 'Loading connected accounts…',
+    error: 'Failed to load connected accounts.',
+    statusLinked: 'Linked',
+    statusNotLinked: 'Not linked',
+    primaryEmail: 'Email & password',
+    primaryEmailDescription: 'Sign in with your email address and password.',
+    connect: 'Connect',
+    connecting: 'Connecting…',
+    disconnect: 'Disconnect',
+    disconnecting: 'Disconnecting…',
+    disconnectDisabledTooltip: 'Cannot remove your only sign-in method.',
+    confirmDisconnectTitle: 'Disconnect this provider?',
+    confirmDisconnectBody: (provider: string) =>
+      `You will no longer be able to sign in with ${provider}. You can re-connect later.`,
+    confirmDisconnectCancel: 'Keep connected',
+    confirmDisconnectAction: 'Disconnect',
+    toastLinked: (provider: string) => `${provider} connected.`,
+    toastLinkError: (provider: string) => `Failed to connect ${provider}.`,
+    toastUnlinked: (provider: string) => `${provider} disconnected.`,
+    toastUnlinkError: (provider: string) => `Failed to disconnect ${provider}.`,
   },
   operator: {
     switcherLabel: 'Operator',
     noOperators: 'No operators available for this account.',
     switchTo: 'Switch operator',
     loading: 'Loading operators…',
+    // landr-2soj — staff "View as operator" mode.
+    viewAs: {
+      // Picker section header inside the operator switcher (staff-only).
+      sectionLabel: 'View as operator (staff)',
+      // Banner copy. Built at render time (no i18n interpolation lib here):
+      // bannerPrefix + <operator> + bannerMiddle + <email> + bannerSuffix.
+      bannerPrefix: 'Viewing as ',
+      bannerMiddle: ' — you’re still ',
+      bannerSuffix: '; actions are attributed to you.',
+      exit: 'Exit to staff view',
+      // aria-live announcement when exiting view-as (entering is announced by
+      // the banner itself mounting as a role="status" region).
+      exitedAnnouncement: 'Exited view-as mode; restored full staff view.',
+      bannerRegionLabel: 'Staff view-as status',
+    },
   },
   nav: {
     sectionMain: 'Workspace',
+    sectionAdmin: 'Admin',
     dashboard: 'Dashboard',
     bookings: 'Bookings',
+    calendar: 'Calendar',
+    // landr-af6c — Analytics sits between Calendar and Contacts in the
+    // primary nav. Keep Reporting as a separate (older) destination so
+    // existing operator bookmarks and the CSV export don't move.
+    analytics: 'Analytics',
+    contacts: 'Contacts',
+    products: 'Products',
+    reporting: 'Reporting',
+    generalApprovals: 'Approvals',
+    staff: 'Staff',
+    // landr-fzcg — Account is now a top-level sidebar item alongside
+    // Settings. Account holds user/billing-scoped subsections; Settings
+    // holds program/operator-scoped subsections.
+    account: 'Account',
+    settings: 'Settings',
+    emailTemplates: 'Email templates',
+    pickupLocations: 'Pickup locations',
+    schedule: 'Schedule',
+    // landr-aref — /audit route (audit_log viewer).
+    audit: 'Audit log',
+    // landr-4pn1 — /trash route (recently-deleted bin per type).
+    trash: 'Trash',
+    // landr-wwhn.11 — /tickets kanban board.
+    tickets: 'Tickets',
+    // landr-wwhn.23 — /tickets/planning release-planning overlay.
+    ticketPlanning: 'Release planning',
+    // landr-znzz.8 — /retrieve operator retrieve board (day check-ins).
+    retrieve: 'Retrieve board',
+    // landr-sbhz.8 — /revenue owner platform-commission overview (staff-only).
+    revenue: 'Revenue',
+    // landr-wwhn.28 — /feedback-inbox cross-operator triage surface (staff-only).
+    feedbackInbox: 'Feedback inbox',
+    // landr-a99u.6 — /release promotion console (staff-only).
+    release: 'Release',
+  },
+  // landr-aref — /audit route strings (audit_log viewer).
+  audit: {
+    title: 'Audit log',
+    subtitle:
+      'Tenant-scoped audit trail of INSERT / UPDATE / DELETE on operator data. Click a row to inspect the full payload.',
+    filtersTitle: 'Filters',
+    filterAllOption: 'All',
+    filterEntityTypeLabel: 'Entity type',
+    filterOperationLabel: 'Operation',
+    filterActorLabel: 'Actor user ID',
+    filterActorPlaceholder: 'auth.users UUID (exact match)',
+    filterFromLabel: 'From',
+    filterToLabel: 'To',
+    filterResetLabel: 'Reset filters',
+    columnOccurredAt: 'Occurred at',
+    columnEntityType: 'Entity',
+    columnOperation: 'Op',
+    columnActor: 'Actor',
+    columnRowId: 'Row ID',
+    loading: 'Loading audit log…',
+    error: 'Failed to load audit log.',
+    empty: 'No audit entries match the current filters.',
+    prevPage: 'Previous',
+    nextPage: 'Next',
+    pageLabel: (page: number, count: number) =>
+      `Page ${page} · ${count} ${count === 1 ? 'entry' : 'entries'}`,
+    drawerTitle: 'Audit entry',
+    drawerRowId: 'Row ID',
+    drawerActor: 'Actor',
+    drawerCorrelation: 'External correlation',
+    drawerOperator: 'Operator',
+    drawerPayload: 'Payload (old_row + new_row)',
+  },
+  // landr-znzz.8 — /retrieve operator retrieve board strings.
+  retrieve: {
+    title: 'Retrieve board',
+    subtitle:
+      "Who's down, who's still out, and where pickups are needed — for one day.",
+    dayLabel: 'Day',
+    loading: 'Loading the board…',
+    error: 'Failed to load the retrieve board.',
+    empty: 'No check-ins for this day yet.',
+    stillOutHeading: 'Still out',
+    elsewhereHeading: 'Landed elsewhere',
+    designatedHeading: 'Landed at the LZ',
+    overdueHint: 'Not yet checked in — keep an eye out.',
+    noteLabel: 'Note',
+    mapLink: 'Open map',
+    retrieveStateLabel: 'Retrieve',
+    retrieveNoteLabel: 'Retrieve note',
+    retrieveNotePlaceholder: "e.g. Tom's on his way, 20 min",
+    saveRetrieveNote: 'Save note',
+    clearRetrieveState: 'Clear',
+    toastSaved: 'Retrieve status updated.',
+    toastError: 'Could not update the retrieve status.',
+    countLabel: (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`,
+  },
+  // landr-4pn1 — /trash route strings (recently-deleted bin).
+  trash: {
+    title: 'Recently deleted',
+    subtitle:
+      'Soft-deleted items per category. Restore brings the row back. Server-side cleanup eventually empties the bin.',
+    loading: 'Loading…',
+    error: 'Failed to load this category.',
+    empty: 'Nothing in the bin for this category.',
+    columnItem: 'Item',
+    columnDeletedAt: 'Deleted',
+    columnRestore: '',
+    restore: 'Restore',
+    restoring: 'Restoring…',
+    restoreSuccess: 'Restored.',
+    restoreError: 'Failed to restore. Try again.',
+    tabs: {
+      bookings: 'Bookings',
+      contacts: 'Contacts',
+      products: 'Products',
+      operator_tags: 'Tags',
+      pricing_schemes: 'Pricing schemes',
+    },
+  },
+  // landr-fzcg — sibling of settingsHub for the Account sub-sidebar.
+  accountHub: {
+    navLabel: 'Account sections',
+  },
+  settingsHub: {
+    navLabel: 'Settings sections',
+    sections: {
+      company: 'Company',
+      calendarDisplay: 'Calendar & display',
+      displayPreferences: 'Display preferences',
+      team: 'Team',
+      // landr-funh — operational delivery roster (instructors, pilots,
+      // drivers). Distinct from Team (operator_memberships / dashboard
+      // sign-in). landr-genericity-northstar.
+      providers: 'Providers',
+      pickupLocations: 'Pickup locations',
+      products: 'Products',
+      // landr-up1b — nested product categories (the operator-owned
+      // product_groups tree). Sits right after Products in the IA.
+      categories: 'Categories',
+      // landr-up1b — booking-widget embed/shortcode generator.
+      embed: 'Embed widget',
+      // landr-znzz.5 — generic per-operator offers/upsells shown in the
+      // AFTER phase of the customer event page.
+      offers: 'Upsells & offers',
+      // landr-e8jf — Schedule moved from main sidebar into Settings
+      // (capacity pills now on Calendar; Schedule is a setup tool).
+      schedule: 'Schedule',
+      emailTemplates: 'Email templates',
+      // landr-qg4q — outbound_emails viewer (failed sends, retried, sent).
+      emailLog: 'Email log',
+      integrationsGmail: 'Gmail',
+      // landr-6ybs — per-operator subscribable ICS calendar feed.
+      integrationsCalendar: 'Calendar feed',
+      // landr-1nwu.2 — per-operator Stripe + Holded credentials.
+      integrationsPayments: 'Payments & invoicing',
+      connectedAccounts: 'Connected accounts',
+      plan: 'Plan',
+      pricing: 'Pricing',
+      // landr-9n0l — commission schemes (platform/agent/provider) + the
+      // read-only agent-earnings report.
+      commissions: 'Commissions',
+      // landr-yp8x — operator branding shown in the embedded booking widget.
+      branding: 'Branding',
+      // landr-znzz.7 — optional weather forecast hint for the conditions verdict.
+      weather: 'Weather',
+      // landr-iz58 — operator-scoped tags applied to bookings + contacts.
+      tags: 'Tags',
+      // landr-1tqx — operator-scoped participant service roles
+      // (Pilot/Passenger/Diver…) read by the booking widget.
+      serviceRoles: 'Service roles',
+      // landr-sp4r — operator-scoped marketing campaigns for booking
+      // attribution (bookings.campaign_id).
+      campaigns: 'Campaigns',
+      // landr-v198 — operator-scoped voucher / promo-code editor.
+      vouchers: 'Vouchers',
+      // landr-r87i — default per-booking checklist items the operator
+      // customises (v2 of landr-84n1; defaults move from hardcoded to
+      // operator_checklist_templates).
+      operations: 'Operations',
+      // landr-ah9u — operator webhook configuration (v1 localStorage,
+      // v2 server-delivered via background worker).
+      webhooks: 'Webhooks',
+      // landr-wwhn.16 — personal notification preferences (bell/email/push
+      // + per-ticket overrides). Personal scope, not operator scope.
+      notifications: 'Notifications',
+      // landr-sbhz.5 — STAFF-ONLY tier/feature editor. Hidden from non-staff
+      // in the sub-sidebar; this is Landr platform tooling, not operator scope.
+      tiers: 'Tiers & features',
+    },
+    // landr-fnhz — one-line description for each settings subsection,
+    // rendered as the PageTitle subtitle on the matching sub-page so the
+    // topbar gives operators at-a-glance context about what the section
+    // controls.
+    sectionDescriptions: {
+      company: 'Legal entity, tax ID, and contact details on invoices.',
+      calendarDisplay: 'Default work hours and time format.',
+      displayPreferences: 'Toggles for dashboard hints and teasers.',
+      team: 'Add and remove operator staff members.',
+      providers:
+        'Manage the people who deliver your service (instructors, pilots, drivers) and assign them to booking days.',
+      pickupLocations: 'Manage pickup sites and sub-points for bookings.',
+      products: 'Configure bookable products and their availability rules.',
+      categories:
+        'Organise products into a nested category tree. Drag-free reparenting, rename, and reorder.',
+      embed:
+        'Generate the [landr_booking] shortcode/iframe to embed your booking widget on any website.',
+      offers:
+        'Add-ons shown after the trip on the customer event page. Each links out to your own shop, merch store, or form.',
+      schedule: 'Plan capacity windows and one-off closures.',
+      emailTemplates:
+        'Customise transactional emails sent to customers for each booking event.',
+      // landr-qg4q — read-only audit surface for the outbound_emails queue.
+      emailLog:
+        'Outbound email queue: see what was sent, what failed, and why.',
+      integrationsGmail:
+        'Send outbound booking emails from your Gmail account via OAuth.',
+      // landr-6ybs — per-operator subscribable ICS calendar feed.
+      integrationsCalendar:
+        'Subscribe to a live ICS feed of all your bookings in Google, Apple, or Outlook calendar.',
+      // landr-1nwu.2 — per-operator Stripe + Holded credentials (test/live).
+      integrationsPayments:
+        'Enter your own Stripe (test + live) and Holded (demo + live) API keys. Secrets are encrypted and never shown again.',
+      connectedAccounts:
+        'Identity links (Google, Apple, GitHub) for this operator.',
+      plan: 'Your current subscription plan.',
+      pricing: 'Discounts, surcharges, and pricing modifiers.',
+      // landr-9n0l — commission scheme editor + agent-earnings report.
+      commissions:
+        'Commission schemes for agents, providers, and the platform, plus per-agent earnings.',
+      branding: 'Apply your logo and brand theme (3 colours + dark mode) to the booking widget.',
+      // landr-znzz.7 — optional weather forecast hint for the conditions verdict.
+      weather:
+        'Opt in to a weather forecast hint shown next to the conditions chips when setting daily updates.',
+      tags: 'Define operator-scoped tags to apply to bookings and contacts.',
+      // landr-1tqx — participant service-role catalogue read by the widget.
+      serviceRoles:
+        'Define the participant roles (Pilot, Passenger, Diver…) customers pick on the booking form.',
+      // landr-sp4r — marketing campaigns for booking attribution.
+      campaigns:
+        'Create marketing campaigns and codes to attribute bookings against.',
+      // landr-v198 — promo-code editor.
+      vouchers:
+        'Create and manage discount codes customers redeem at booking.',
+      // landr-r87i — default per-booking checklist editor.
+      operations:
+        'Default checklist items that seed every new booking. Per-booking progress stays local.',
+      // landr-ah9u — operator webhook configuration.
+      webhooks:
+        'Subscribe an HTTPS endpoint to booking and payment events. Configuration is saved locally; server-side delivery ships in v2.',
+      // landr-wwhn.16 — personal notification preferences.
+      notifications:
+        'Choose how you receive notifications for ticket activity — bell, email, and mobile push.',
+      // landr-sbhz.5 — staff-only tier/feature entitlement editor.
+      tiers:
+        'Landr staff: enable features per subscription tier, or override a single operator one feature at a time.',
+    },
+    plan: {
+      title: 'Plan',
+      description: 'Your current subscription plan.',
+      currentLabel: 'Current plan',
+      slugLabel: 'Plan slug',
+      noPlan: 'No plan information available.',
+      upgradeHint:
+        'Plan upgrades will land in a future release. Contact support to change your plan today.',
+    },
+  },
+  // landr-sbhz.5 — STAFF-ONLY tier/feature editor (Settings → Tiers & features).
+  tierEditor: {
+    title: 'Tiers & features',
+    subtitle:
+      'Landr staff control surface for feature entitlements. Set what each subscription tier includes, and override individual operators one feature at a time.',
+    loading: 'Loading…',
+    errorTitle: 'Failed to load features',
+    noFeatures: 'No features in the registry.',
+    saveFailed: 'Save failed',
+    // Tier panel
+    tierSectionTitle: 'Tier defaults',
+    tierSectionHint:
+      'Toggle which features a subscription tier includes by default. Per-operator overrides below take precedence over these.',
+    tierPickerLabel: 'Tier',
+    tierSaved: 'Tier feature updated.',
+    inactiveSuffix: '(inactive)',
+    defaultBadge: 'default',
+    // Operator override panel
+    overrideSectionTitle: 'Per-operator override',
+    overrideSectionHint:
+      'Force a single feature on or off for one operator, regardless of their tier — the incremental-unlock lever. The effective column shows what the operator actually gets (override > tier > default).',
+    operatorPickerLabel: 'Operator',
+    operatorPickerPlaceholder: 'Select an operator…',
+    overrideEmpty: 'Select an operator to manage their feature overrides.',
+    noteLabel: 'Override note (optional)',
+    notePlaceholder: 'e.g. Unlocking manifest for Para42 contract pilot.',
+    noteHint:
+      'Saved with the next override you set, for the audit trail. Clear it before setting an override you do not want annotated.',
+    notePrefix: 'Note:',
+    forceOn: 'On',
+    forceOff: 'Off',
+    clearOverride: 'Clear',
+    overrideSaved: 'Operator override updated.',
+    overrideCleared: 'Override cleared — reverted to tier default.',
+    effectiveOn: 'effective: on',
+    effectiveOff: 'effective: off',
+    effectiveTooltip:
+      'Effective entitlement after resolving override > tier > registry default.',
+  },
+  // landr-sbhz.8 — /revenue: owner platform-commission overview (STAFF-ONLY).
+  revenue: {
+    title: 'Revenue',
+    subtitle:
+      'Platform commission Landr earns from each operator — a percentage of net booking revenue per the operator contract (5% in 2026, 4% from 2027). Realized = finalised bookings; projected = confirmed/pending bookings not yet finalised.',
+    loading: 'Loading revenue…',
+    errorTitle: 'Failed to load revenue',
+    empty: 'No operators with platform commission yet.',
+    // Totals cards
+    realizedLabel: 'Realized',
+    realizedHint: 'Commission on finalised bookings (net of reversals).',
+    projectedLabel: 'Projected',
+    projectedHint: 'Commission on confirmed / pending bookings not yet finalised.',
+    totalLabel: 'Total payable',
+    totalHint: 'Realized + projected platform commission Olaf earns.',
+    grandTotalLabel: 'All operators',
+    // Per-operator section
+    noPlatformScheme: 'No platform commission scheme',
+    // Year table columns
+    columnYear: 'Year',
+    columnRate: 'Rate',
+    columnNetBase: 'Net revenue',
+    columnRealized: 'Realized',
+    columnProjected: 'Projected',
+    columnTotal: 'Total',
+    columnBookings: 'Bookings',
+    operatorTotalRow: 'Total',
+    generatedAt: (iso: string) => `As of ${new Date(iso).toLocaleString('de-DE')}`,
+  },
+  // landr-wwhn.28 — /feedback-inbox: cross-operator triage INBOX (STAFF-ONLY).
+  feedbackInbox: {
+    title: 'Feedback inbox',
+    subtitle:
+      'Triage inbound operator feedback one operator at a time. Left rail shows all operators with their unread and awaiting-reply counts.',
+    loading: 'Loading inbox…',
+    errorSummary: 'Could not load inbox summary.',
+    errorThreads: 'Could not load threads.',
+    emptyRail: 'No operators with feedback yet.',
+    emptyThreads: 'No threads match the current filters.',
+    emptyThreadsNoFilter: 'No feedback threads from this operator yet.',
+    // Left-rail operator row
+    unreadBadge: (n: number): string => `${n} unread`,
+    awaitingBadge: (n: number): string => `${n} awaiting reply`,
+    ticketCount: (n: number): string => `${n} ticket${n === 1 ? '' : 's'}`,
+    lastActivity: 'Last activity',
+    // Filter bar
+    filtersTitle: 'Filters',
+    filterAll: 'All',
+    filterUnread: 'Unread',
+    filterAwaiting: 'Awaiting reply',
+    filterStatusLabel: 'Status',
+    filterImpactLabel: 'Impact',
+    filterAssigneeLabel: 'Assignee',
+    filterClear: 'Clear filters',
+    // Timeline event labels
+    ticketOpenedLabel: 'Opened ticket',
+    commentLabel: 'Replied',
+    internalNoteLabel: 'Internal note',
+    staffLabel: 'Staff',
+    operatorLabel: 'Operator',
+    // Thread header
+    viewOnBoardLink: 'View on board',
+    noSubject: '(No subject)',
+  },
+  // landr-a99u.6 — /release: dashboard-driven, role-gated promotion console
+  // (dev → staging → main). STAFF-ONLY. Action buttons gate on the server's
+  // `viewer` capability block, not raw roles.
+  release: {
+    title: 'Release promotion',
+    subtitle:
+      'Promote code through the deploy pipeline: dev → staging (one click) then staging → main (propose → approve). Each promotion merges the pinned head SHA per repo and pushes — the push triggers each repo’s deploy.',
+    loading: 'Loading release status…',
+    errorTitle: 'Failed to load release status',
+    refresh: 'Refresh',
+    // Environment matrix
+    matrixTitle: 'Environment matrix',
+    matrixSubtitle: 'Commits each branch is ahead of the next, per repo.',
+    columnRepo: 'Repo',
+    columnDevToStaging: 'dev → staging',
+    columnStagingToMain: 'staging → main',
+    upToDate: 'up to date',
+    commitsAhead: (n: number) => `${n} commit${n === 1 ? '' : 's'}`,
+    matrixEmpty: 'No deployable repos reported.',
+    // Promote to staging
+    stagingTitle: 'Promote to staging',
+    stagingSubtitle:
+      'Merge dev into staging across every repo that has changes. No approval required.',
+    stagingButton: 'Promote dev → staging',
+    stagingNothing: 'Staging is up to date with dev.',
+    stagingNoPermission: 'You do not have permission to promote to staging.',
+    stagingNotesLabel: 'Notes (optional)',
+    stagingNotesPlaceholder: 'e.g. promoting the booking-widget fix',
+    stagingConfirmTitle: 'Promote dev → staging?',
+    stagingConfirmDescription:
+      'The following repos will be merged from dev into staging and pushed. The push triggers each repo’s staging deploy.',
+    stagingConfirmAction: 'Promote',
+    stagingToast: 'Staging promotion queued.',
+    // Propose to production
+    prodTitle: 'Promote to production',
+    prodSubtitle:
+      'Propose merging staging into main. An approver gives the final go; you cannot ship to production unilaterally.',
+    proposeButton: 'Propose to production',
+    prodNothing: 'Production is up to date with staging.',
+    proposeNotesLabel: 'Proposal notes (required)',
+    proposeNotesPlaceholder: 'What was validated on staging? Why ship now?',
+    proposeConfirmTitle: 'Propose staging → main?',
+    proposeConfirmDescription:
+      'The following repos and SHAs are pinned to this proposal. An approver reviews and gives the final go.',
+    proposeConfirmAction: 'Propose',
+    proposeToast: 'Production promotion proposed — approvers notified.',
+    proposeNotesRequired: 'Proposal notes are required.',
+    // Pending proposals
+    pendingTitle: 'Pending production proposals',
+    pendingEmpty: 'No proposals awaiting a decision.',
+    proposedBy: (who: string, when: string) =>
+      `Proposed by ${who} · ${new Date(when).toLocaleString('de-DE')}`,
+    approveButton: 'Approve & promote',
+    rejectButton: 'Reject',
+    cancelButton: 'Cancel proposal',
+    approveNotesLabel: 'Approval notes (optional)',
+    approveNotesPlaceholder: 'e.g. validated checkout + calendar on staging',
+    rejectNotesLabel: 'Rejection reason (required)',
+    rejectNotesPlaceholder: 'Why is this proposal being rejected?',
+    rejectNotesRequired: 'A rejection reason is required.',
+    approveConfirmTitle: 'Approve & promote to production?',
+    approveConfirmDescription:
+      'This queues the staging → main merge for the pinned SHAs and triggers the production deploy.',
+    approveConfirmAction: 'Approve & promote',
+    rejectConfirmTitle: 'Reject this proposal?',
+    rejectConfirmAction: 'Reject',
+    cancelConfirmTitle: 'Cancel your proposal?',
+    cancelConfirmDescription:
+      'This withdraws the proposal. It will not be promoted.',
+    cancelConfirmAction: 'Cancel proposal',
+    approveToast: 'Production promotion approved & queued.',
+    rejectToast: 'Proposal rejected.',
+    cancelToast: 'Proposal cancelled.',
+    // History
+    historyTitle: 'History',
+    historyEmpty: 'No promotion runs yet.',
+    historySubtitle: 'Recent promotion runs and their per-repo merge results.',
+    notesLabel: 'Notes',
+    decisionNotesLabel: 'Decision',
+    decidedBy: (who: string, when: string) =>
+      `Decided by ${who} · ${new Date(when).toLocaleString('de-DE')}`,
+    keep: 'Keep',
+    // Status badge labels
+    statusProposed: 'Proposed',
+    statusApproved: 'Approved',
+    statusQueued: 'Queued',
+    statusExecuting: 'Executing',
+    statusCompleted: 'Completed',
+    statusFailed: 'Failed',
+    statusRejected: 'Rejected',
+    statusCancelled: 'Cancelled',
+    // Per-repo merge status labels
+    mergePending: 'pending',
+    mergeMerged: 'merged',
+    mergeNoop: 'no-op',
+    mergeConflict: 'conflict',
+    mergeError: 'error',
+    // landr-a99u.11 — graceful no-token state
+    notConfiguredTitle: 'Release promotion not configured',
+    notConfiguredDescription:
+      'Release promotion isn’t configured yet. Set up the GitHub promotion token to enable this console.',
+    // landr-a99u.12 — staff view: customer signoff badge on pending proposals
+    signoffByCustomer: (label: string) => `Requested by ${label}`,
+    signoffByStaff: 'Proposed by staff',
   },
   theme: {
     switchToDark: 'Switch to dark theme',
@@ -43,18 +625,2910 @@ export const t = {
   userMenu: {
     label: 'User menu',
   },
+  // landr-wwhn.15 — topbar notifications bell. v2 replaces the v1 booking-only
+  // bell with the ticket-system notifications feed (the reliable source of truth
+  // per the EPIC design §Notifications). Backed by the `notifications` table;
+  // realtime via postgres_changes; read-state via read_at (web↔mobile in sync).
+  notifications: {
+    label: 'Notifications',
+    open: 'Open notifications',
+    badge: (n: number): string => `${n} unread notifications`,
+    heading: 'Notifications',
+    empty: 'You are all caught up.',
+    markAllRead: 'Mark all as read',
+    viewTicket: 'View ticket',
+    loadError: 'Could not load notifications.',
+  },
+  // landr-wwhn.12 / landr-wwhn.29 — persistent report/suggest entry point + create-ticket form.
+  reportButton: {
+    // Topbar trigger (persistent, visible on every protected route).
+    triggerLabel: 'Report an issue or send feedback',
+    triggerText: 'Feedback',
+    // Dialog.
+    dialogTitle: 'Report an issue / Send feedback',
+    dialogDescription:
+      'We read everything and get back to you here in the dashboard.',
+    // Impact picker (replaces the old type toggle — the single classifier).
+    impactLabel: 'How is it affecting you?',
+    impactBlocking: 'Blocking — I cannot get work done',
+    impactAnnoying: 'Annoying — it slows me down',
+    impactIdea: 'Idea / suggestion',
+    // Contextual hints shown below the body textarea.
+    reproHintBlocking: 'What happened, what did you expect, and what were you trying to do?',
+    reproHintAnnoying: 'What is the friction — what did you expect to happen instead?',
+    // Fields.
+    titleLabel: 'Summary',
+    titlePlaceholder: 'One-line summary',
+    bodyLabel: 'Details',
+    bodyPlaceholder: 'More context, steps to reproduce, or background — the more, the better.',
+    // Attachment zone.
+    attachLabel: 'Attach a file or screenshot',
+    attachHint: 'Paste (Ctrl+V) or click to attach',
+    attachUploading: 'Uploading…',
+    // Optional URL field.
+    linkLabel: 'Related link',
+    linkPlaceholder: 'https://…',
+    // Buttons.
+    submit: 'Send feedback',
+    submitting: 'Sending…',
+    cancel: 'Cancel',
+    // Success / error toasts.
+    toastSuccess: (ticketId: string): string =>
+      `Got it — thanks! Ticket #${ticketId.slice(0, 8)} filed.`,
+    toastError: "Couldn't send feedback. Try again.",
+    // Validation.
+    titleRequired: 'A one-line summary is required.',
+    linkInvalid: 'Enter a valid URL (starting with https://).',
+  },
+  // landr-wwhn.13 — ticket detail sheet.
+  ticketDetail: {
+    sheetTitle: 'Ticket details',
+    sheetDescription: (id: string): string => `#${id.slice(0, 8)}`,
+    tabDetails: 'Details',
+    tabComments: 'Comments',
+    tabTimeline: 'Timeline',
+    tabAttachments: 'Attachments',
+    // landr-wwhn.32 — header who-to-contact
+    headerOperatorLabel: 'Org',
+    headerReporterLabel: 'Reporter',
+    headerOperatorUnknown: 'Unknown org',
+    headerReporterUnknown: 'Unknown reporter',
+    // Fields
+    sectionStatus: 'Status',
+    sectionType: 'Type',
+    sectionImpact: 'Impact',
+    sectionPriority: 'Priority',
+    sectionBody: 'Description',
+    noBody: 'No description provided.',
+    createdAt: 'Opened',
+    updatedAt: 'Last updated',
+    // Staff-only fields
+    sectionInternal: 'Internal (staff only)',
+    severityLabel: 'Severity',
+    linkedBdLabel: 'bd issue',
+    syncStatusLabel: 'Sync status',
+    // Watch toggle
+    watchLabel: 'Watch',
+    watchingLabel: 'Watching',
+    watchToastOn: 'Watching this ticket',
+    watchToastOff: 'Stopped watching',
+    watchToastError: 'Could not update watch status',
+    // Comments
+    commentPlaceholder: 'Write a comment… (type @ to mention someone)',
+    commentInternalPlaceholder: 'Internal note (staff only)…',
+    commentSubmit: 'Post',
+    commentSubmitting: 'Posting…',
+    commentInternalToggle: 'Internal note',
+    commentToastError: 'Could not post comment',
+    noComments: 'No comments yet.',
+    // @mentions (landr-wwhn.24)
+    mentionNoResults: 'No matching users.',
+    mentionSearching: 'Searching…',
+    // Timeline
+    noEvents: 'No activity yet.',
+    eventCreated: 'Ticket opened',
+    eventStatusChanged: (from: string, to: string): string =>
+      `Status changed from ${from} to ${to}`,
+    eventAssigned: 'Ticket assigned',
+    eventUnassigned: 'Ticket unassigned',
+    eventBlocked: 'Marked as blocked',
+    eventUnblocked: 'Unblocked',
+    eventCommentAdded: 'Comment added',
+    eventCommentInternal: 'Internal note added',
+    eventLabelAdded: 'Label added',
+    eventLabelRemoved: 'Label removed',
+    eventPromoted: (bdId: string): string => `Sent to development (${bdId})`,
+    eventShipped: (ref: string): string => `Shipped (${ref})`,
+    eventUnknown: 'Activity',
+    // Attachments
+    noAttachments: 'No attachments.',
+    attachmentUploadLabel: 'Attach file',
+    attachmentUploading: 'Uploading…',
+    attachmentToastError: (name: string): string =>
+      `Could not upload ${name}`,
+    attachmentDownload: 'Download',
+    attachmentPasteHint: 'You can also paste an image (Ctrl+V / Cmd+V).',
+    // Gateway (landr-wwhn.14) — send-to-development, landr-staff only
+    gatewaySectionTitle: 'Send to development',
+    gatewayPromptLabel: 'Engineering prompt',
+    gatewayPromptPlaceholder:
+      'Describe what needs to be built — this prompt is sent directly to the bd tracker…',
+    gatewaySubmitLabel: 'Send to development',
+    gatewaySubmitting: 'Sending…',
+    gatewayAlreadyPromoted: (bdId: string): string =>
+      `Already in development — bd issue ${bdId}`,
+    gatewayToastSuccess: (bdId: string): string =>
+      `Sent to development — bd issue ${bdId}`,
+    gatewayToastError: 'Could not send to development',
+    // Assignee (landr-wwhn.22)
+    assigneeSectionTitle: 'Assignee',
+    assigneeUnassigned: 'Unassigned',
+    assigneePickerPlaceholder: '— Assign to someone —',
+    assigneeToastSet: (email: string): string => `Assigned to ${email}`,
+    assigneeToastCleared: 'Assignee removed',
+    assigneeToastError: 'Could not update assignee',
+    assigneeAgentBadge: 'Agent',
+    assigneeStaffBadge: 'Staff',
+    assigneeLoading: 'Loading assignees…',
+    assigneeNone: 'No assignees available.',
+    // Errors
+    loadError: 'Could not load ticket.',
+    notFound: 'Ticket not found.',
+  },
+  // landr-wwhn.23 — /tickets/planning MoSCoW release-planning overlay.
+  ticketPlanning: {
+    pageTitle: 'Release planning',
+    pageSubtitle:
+      'Tag feature tickets with Must/Should/Could/Won\'t to scope your next release. Changes are landr-staff only.',
+    filterAll: 'All types',
+    filterFeatures: 'Features only',
+    unplannedLabel: 'Unplanned',
+    unplannedHint: 'These tickets have no MoSCoW tag yet.',
+    emptyAll: 'No tickets found.',
+    emptyUnplanned: 'All tickets have been assigned a MoSCoW tag.',
+    clearLabel: "Clear tag",
+    clearConfirm: "Remove MoSCoW tag from this ticket?",
+    saveToast: (title: string, tag: string) => `${title} → ${tag}`,
+    clearToast: (title: string) => `Cleared MoSCoW tag for "${title}"`,
+    errorToast: 'Failed to update MoSCoW tag.',
+    staffOnlyBanner: 'MoSCoW tags are set by landr staff. You can view but not edit them here.',
+  },
+  // landr-wwhn.16 — Notification preferences settings page + per-ticket
+  // override control in the ticket detail sheet.
+  notificationPrefs: {
+    // Settings page
+    pageTitle: 'Notifications',
+    pageSubtitle:
+      'Control how and when you receive notifications for ticket activity.',
+    globalSectionTitle: 'Default notification settings',
+    globalSectionDesc:
+      'These settings apply to all new tickets by default. Per-ticket overrides take precedence when set.',
+    channelSectionTitle: 'Notification channels',
+    bellLabel: 'In-app bell',
+    bellDesc: 'Show ticket activity in the notification bell (always available).',
+    emailLabel: 'Email',
+    emailDesc: 'Receive email echoes of ticket activity.',
+    pushLabel: 'Mobile push',
+    pushDesc: 'Receive push notifications on your phone (requires the mobile app).',
+    deliveryModeLabel: 'Delivery',
+    deliveryModeImmediate: 'Immediate',
+    deliveryModeDigest: 'Digest (batched)',
+    deliveryModeImmediateDesc: 'Deliver each notification as it happens.',
+    deliveryModeDigestDesc: 'Batch notifications and deliver periodically.',
+    saveAction: 'Save',
+    saving: 'Saving…',
+    revert: 'Revert',
+    toastSaved: 'Notification preferences saved.',
+    toastSaveError: 'Could not save notification preferences.',
+    noUser: 'Sign in to manage notification preferences.',
+    loading: 'Loading preferences…',
+    // Per-ticket override (TicketDetailSheet)
+    perTicketSectionTitle: 'Notifications for this ticket',
+    followingGlobal: 'Following your global default',
+    customForTicket: 'Custom for this ticket',
+    customHint: 'Overrides your global notification settings for this ticket.',
+    followGlobalAction: 'Reset to global default',
+    followGlobalDesc: 'Remove the override — this ticket will follow your global default.',
+    overrideToastSaved: 'Ticket notification override saved.',
+    overrideToastCleared: 'Ticket notification override cleared.',
+    overrideToastError: 'Could not save notification override.',
+  },
+  // landr-a8fg — shared "Copy link" affordance on detail sheets + ViewPage
+  // headers. Centralised so the tooltip, success toast and error toast stay
+  // consistent across every surface that mounts CopyLinkButton.
+  copyLink: {
+    tooltip: 'Copy link to this',
+    toastSuccess: 'Link copied',
+    toastError: 'Could not copy link.',
+  },
   bookings: {
     title: 'Bookings',
+    // landr-fnhz — topbar subtitle. Shows the current filtered count and
+    // gross revenue total so operators see the at-a-glance shape of what
+    // they're looking at without scanning the table.
+    subtitleSummary: (count: number, revenue: string): string =>
+      `${count} ${count === 1 ? 'booking' : 'bookings'} · ${revenue}`,
     empty: 'No bookings yet.',
     loading: 'Loading bookings…',
     error: 'Failed to load bookings.',
-    columnDate: 'Date',
+    columnDate: 'Booked on',
+    columnServiceDate: 'Service date',
     columnCustomer: 'Customer',
     columnProduct: 'Product',
     columnStatus: 'Status',
     columnPrice: 'Price',
+    columnDays: 'Days',
+    // landr-iz58 — operator-applied tag chips.
+    columnTags: 'Tags',
     filterPlaceholder: 'Search bookings…',
+    // landr-xnpc — download the filtered view as CSV.
+    exportCsv: 'Download CSV',
+    exportCsvAria: (n: number): string =>
+      `Download ${n} filtered bookings as CSV`,
     detailsTitle: 'Booking',
     detailsClose: 'Close',
+    // landr-1lj — filter bar above the table + calendar.
+    filters: {
+      lifecycleState: 'Status',
+      product: 'Product',
+      pickupLocation: 'Pickup',
+      productKind: 'Kind',
+      serviceTimeShape: 'Time shape',
+      clearAll: 'Clear filters',
+      noOptions: 'No options to filter by yet.',
+      activeCount: (n: number): string => ` (${n})`,
+      kindLabels: {
+        service: 'Service',
+        digital_good: 'Digital good',
+        physical_good: 'Physical good',
+        gift_card: 'Gift card',
+      } as Record<string, string>,
+      shapeLabels: {
+        single_date: 'Single date',
+        days_range: 'Days range',
+        fixed_window: 'Fixed window',
+        time_slot: 'Time slot',
+      } as Record<string, string>,
+      // Fallback formatter for lifecycle codes the dashboard hasn't given
+      // a friendly label to yet. Turns 'awaiting_general_approval' into
+      // 'Awaiting general approval' so the chip is still readable.
+      stageFallback: (code: string): string =>
+        code.charAt(0).toUpperCase() + code.slice(1).replace(/_/g, ' '),
+      // landr-knz3 — tooltip shown on a counted filter chip when its
+      // count is zero (e.g. an enum value with no bookings yet).
+      noOfValue: (label: string): string => `No bookings match ${label}`,
+      // landr-qhi0 — view toggle that surfaces bookings whose activity
+      // date is already in the past. Default off so the operator focuses
+      // on upcoming work.
+      showPastLabel: 'Show past bookings',
+    },
+    // landr-68a9 — pill strip above the Bookings table with hardcoded
+    // presets that programmatically set the underlying filter state. The
+    // active pill mirrors the current filters; "All" clears every filter.
+    quickFilters: {
+      ariaLabel: 'Quick filter presets',
+      all: 'All',
+      today: 'Today',
+      thisWeek: 'This week',
+      pendingPayment: 'Pending payment',
+      upcoming: 'Upcoming (next 30d)',
+    },
+    // landr-oxlk — right-click context menu on a Bookings row. Mark-no-
+    // show + Cancel labels deliberately mirror the BookingDetailSheet
+    // actions so the operator sees the same wording in both places.
+    rowContextMenu: {
+      openDetail: 'Open booking',
+      copyLink: 'Copy link',
+      applyTag: 'Apply tag',
+      tagsLoading: 'Loading tags…',
+      tagsEmpty: 'No tags yet.',
+      tagSelectedMark: '✓',
+      markNoShow: 'Mark as no-show',
+      cancelBooking: 'Cancel booking',
+    },
+    // landr-n2j2 — click-to-edit cell labels + toasts.
+    inlineEdit: {
+      clickToEdit: 'Click to edit',
+      statusAria: (current: string): string => `Edit status (currently ${current})`,
+      statusUpdateError: 'Could not update status.',
+      statusUpdated: 'Status updated.',
+      statusUnchangedFromStage: (stage: string): string =>
+        `No status change available from "${stage}".`,
+      startDateAria: 'Edit start date',
+      endDateAria: 'Edit end date',
+      datesUpdateError: 'Could not update dates.',
+      datesUpdated: 'Dates updated.',
+      datesNoItem: 'No scheduled line item to edit.',
+      // landr-puix — manual price override on the Bookings table cell.
+      priceAria: (current: string): string => `Edit price (currently ${current})`,
+      priceUpdated: 'Price override applied.',
+      priceUpdateError: 'Could not apply price override.',
+      priceNoOperator: 'Select an operator before overriding the price.',
+      priceInvalidValue: 'Enter a non-negative number.',
+      priceReasonRequired: 'A reason is required for a manual price override.',
+      priceOverrideTooltip:
+        'Manual override — click "Clear override" in the booking sheet to revert.',
+      priceDialogTitle: 'Override booking price',
+      priceDialogDescription:
+        'Enter the new gross total and a short reason. The override replaces the engine-computed price until you clear it.',
+      priceNewAmountLabel: 'New gross total',
+      priceReasonLabel: 'Reason',
+      priceReasonPlaceholder:
+        'e.g. Loyalty discount, voucher comp, hand-shake deal',
+      priceDialogConfirm: 'Apply override',
+      priceDialogCancel: 'Cancel',
+      priceClearAction: 'Clear override',
+      priceClearedToast: 'Price override cleared.',
+      priceClearError: 'Could not clear price override.',
+    },
+    // landr-sbhz.2 — Custom Offer composer (per-participant pricing,
+    // >N group discount, fair-use commission-free free spots).
+    customOffer: {
+      title: 'Custom offer',
+      description:
+        'Set an individual price per participant, an automatic group discount above a headcount, and free (commission-free) spots.',
+      action: 'Custom offer',
+      linesLabel: 'Participants',
+      addLine: 'Add participant',
+      removeLine: 'Remove participant',
+      linePlaceholder: 'Name / label',
+      priceLabel: 'Price',
+      freeLabel: 'Free',
+      freeHint:
+        'Free spots (e.g. a staff companion) are complimentary and commission-free — they never accrue platform commission.',
+      thresholdLabel: 'Discount above',
+      discountLabel: 'Discount %',
+      taxLabel: 'Tax %',
+      payingCount: 'Paying participants',
+      freeCount: 'Free spots',
+      discountApplied: 'Group discount',
+      netLabel: 'Net',
+      taxTotalLabel: 'Tax',
+      grossLabel: 'Gross total',
+      commissionFreeHint:
+        'Free spots are excluded from the net base used for platform commission.',
+      apply: 'Apply offer',
+      clear: 'Clear offer',
+      cancel: 'Cancel',
+      saved: 'Custom offer applied.',
+      cleared: 'Custom offer cleared.',
+      saveFailed: 'Could not save the custom offer.',
+    },
+    detail: {
+      sectionStatus: 'Status',
+      sectionCustomer: 'Customer',
+      sectionDates: 'Dates',
+      // landr-iz58 — operator-applied tags.
+      sectionTags: 'Tags',
+      tagsToastError: 'Failed to update booking tags.',
+      sectionPricing: 'Pricing',
+      customerFirstName: 'First name',
+      customerLastName: 'Last name',
+      customerEmail: 'Email',
+      customerPhone: 'Phone',
+      dateRangeStart: 'Start date',
+      dateRangeEnd: 'End date',
+      pickerLabel: 'Pick days',
+      pickerHint:
+        'Click to pick a date. Click another to make a range. Hold Shift (or Cmd/Ctrl) to toggle individual days.',
+      selectedDaysLabel: 'Selected days',
+      selectedDaysHint:
+        'Click a day chip to toggle it on or off. Pricing recomputes on save.',
+      rangeSummary: (range: string) => `Range: ${range}`,
+      noSelectedDays: 'No specific days selected for this line item.',
+      grossTotalLabel: 'Gross total',
+      recomputeHint: 'Recomputed automatically on save.',
+      save: 'Save changes',
+      saving: 'Saving…',
+      cancel: 'Cancel',
+      // landr-pztv — explicit print button in the sheet footer. The @media
+      // print stylesheet in src/index.css strips chrome and renders only
+      // the [data-print-target="booking-detail"] subtree so Ctrl+P or this
+      // button produces a clean receipt.
+      print: 'Print',
+      noChanges: 'No changes to save.',
+      saveToastSuccess: 'Booking updated.',
+      saveToastError: 'Failed to save booking.',
+      stageTooltip: (code: string) => `Stage: ${code}`,
+      itemHeading: (name: string | null, index: number) =>
+        name ? name : `Line item ${index + 1}`,
+    },
+    cancel: {
+      action: 'Cancel booking',
+      dialogTitle: 'Cancel this booking?',
+      dialogDescription:
+        'The booking will be soft-cancelled. Capacity is released automatically. The audit trail is preserved.',
+      reasonLabel: 'Reason (required)',
+      reasonPlaceholder: 'Why are you cancelling?',
+      reasonTooShort: 'Please give a reason of at least 3 characters.',
+      cancelAction: 'Keep booking',
+      confirmAction: 'Cancel booking',
+      cancelling: 'Cancelling…',
+      toastSuccess: 'Booking cancelled.',
+      toastError: 'Failed to cancel booking.',
+    },
+    hotelUnblock: {
+      label: 'Hotel confirmed — unblock booking',
+      description:
+        'This will move the booking to the next stage and notify the customer. Continue?',
+      cancel: 'Keep waiting',
+      confirm: 'Unblock booking',
+      working: 'Unblocking…',
+      toastSuccess: 'Booking unblocked.',
+      toastError: 'Failed to unblock booking.',
+    },
+    // landr-z4lj — Participants tab: read-only roster of booking_participants
+    // (service-recipients on this booking). Distinct from the booker, who
+    // is shown in the Details tab's Customer card. Clicking a participant
+    // name opens ContactDetailSheet over the BookingDetailSheet (same
+    // stacked-sheets pattern as Customer 360 / landr-7o2a).
+    participants: {
+      tabParticipants: 'Participants',
+      loading: 'Loading participants…',
+      error: 'Could not load participants.',
+      empty: 'No participants recorded.',
+      columnName: 'Name',
+      columnRole: 'Role',
+      columnEmail: 'Email',
+      columnPhone: 'Phone',
+      // landr-h46a — small badge next to participants who flipped the
+      // contacts.do_not_contact flag (set via the CustomerDetailSheet
+      // checkbox). EmailSenderService still sends transactional kinds
+      // (confirmations, hotel requests, no-show) — the badge is purely
+      // an operator-facing nudge before they manually trigger a reminder.
+      doNotContactBadge: 'no marketing',
+      doNotContactHint:
+        'This contact opted out of non-transactional emails (reminders / marketing). Booking-flow confirmations still send.',
+    },
+    // landr-9qo1 — operator-internal notes on a booking. Never sent to
+    // the customer; staff-side only.
+    notes: {
+      tabNotes: 'Notes',
+      sectionTitle: 'Internal notes',
+      sectionHint:
+        'Private to staff. Never sent to the customer.',
+      composerPlaceholder: 'Add an internal note…',
+      composerSave: 'Save note',
+      composerSaving: 'Saving…',
+      composerError: 'Could not save note.',
+      composerSuccess: 'Note saved.',
+      empty: 'No internal notes yet.',
+      loading: 'Loading notes…',
+      loadError: 'Could not load notes.',
+      deleteLabel: 'Delete note',
+      deleteConfirm: 'Delete this note? This cannot be undone.',
+      deleteSuccess: 'Note deleted.',
+      deleteError: 'Could not delete note.',
+      deletedUser: '(deleted user)',
+      byAuthor: (author: string, when: string): string =>
+        `${author} · ${when}`,
+    },
+    // landr-irds — server-rendered invoice PDF download. The button lives
+    // in the BookingDetailSheet footer next to Print and fetches the
+    // auth-protected GET /api/staff/operators/{op}/bookings/{id}/invoice.pdf
+    // endpoint, then triggers a browser download via createObjectURL.
+    invoice: {
+      action: 'Download invoice',
+      working: 'Generating…',
+      toastError: 'Failed to download invoice.',
+    },
+    // landr-uzup — Payments tab inside BookingDetailSheet. Lists every
+    // payments + payment_refunds row with a Refund button on succeeded
+    // payments. Hits POST /api/staff/operators/{op}/bookings/{bid}/
+    // payments/{pid}/refund which inserts a payment_refunds row.
+    payments: {
+      tabPayments: 'Payments',
+      loading: 'Loading payments…',
+      error: 'Could not load payments.',
+      empty: 'No payments recorded yet.',
+      providerStripe: 'Stripe',
+      providerCash: 'Cash',
+      providerTransfer: 'Bank transfer',
+      providerCard: 'Card',
+      providerImported: 'Imported',
+      statusSucceeded: 'Succeeded',
+      statusPending: 'Pending',
+      statusFailed: 'Failed',
+      statusRefunded: 'Refunded',
+      statusPartiallyRefunded: 'Partially refunded',
+      refundStatusSucceeded: 'Refunded',
+      refundStatusPending: 'Refund pending',
+      refundStatusFailed: 'Refund failed',
+      refundAction: 'Refund',
+      refundDialogTitle: 'Refund this payment?',
+      refundDialogDescription: (remaining: string, provider: string): string =>
+        `Up to ${remaining} can be refunded on this ${provider} payment. ` +
+        `Refunds are recorded immediately — make sure the money has already ` +
+        `been returned to the customer.`,
+      refundAmountLabel: 'Refund amount',
+      refundAmountHint:
+        'Defaults to the full refundable remaining. Lower it for a partial refund.',
+      refundReasonLabel: 'Reason (optional)',
+      refundReasonPlaceholder: 'e.g. cancelled half-day; cash returned at desk',
+      refundCancel: 'Cancel',
+      refundConfirm: 'Record refund',
+      refundWorking: 'Recording…',
+      refundToastSuccess: 'Refund recorded.',
+      refundToastError: 'Failed to record refund.',
+      refundedSoFar: (refunded: string, remaining: string): string =>
+        `${refunded} refunded · ${remaining} remaining refundable.`,
+    },
+    // landr-okxm — manual "mark as paid" for payments taken outside
+    // Stripe (cash, bank transfer, other). Only shown when the booking
+    // is in stage code 'awaiting_payment' with a positive balance_due.
+    markPaid: {
+      action: 'Mark as paid',
+      dialogTitle: 'Record manual payment',
+      dialogDescription:
+        'Use this when a customer has paid by cash, bank transfer, or another method outside Stripe. The booking will advance out of "awaiting payment" once the balance is covered.',
+      methodLabel: 'Payment method',
+      methodCash: 'Cash',
+      methodBankTransfer: 'Bank transfer',
+      methodOther: 'Other',
+      amountLabel: 'Amount',
+      amountHint: 'Defaults to the outstanding balance. Lower it to record a partial payment.',
+      noteLabel: 'Note (optional)',
+      notePlaceholder: 'e.g. paid at reception, ref #12345',
+      cancel: 'Cancel',
+      confirm: 'Mark as paid',
+      working: 'Recording…',
+      toastSuccess: 'Marked as paid.',
+      toastError: 'Failed to mark as paid.',
+    },
+    // landr-ng3m — terminal "customer never showed" transition. Distinct
+    // from cancel: the booking happened on paper, the customer didn't
+    // appear. Captures (but does not yet enforce) a cancellation-fee
+    // intent for a future auto-charge job.
+    noShow: {
+      action: 'Mark as no-show',
+      dialogTitle: 'Mark this booking as no-show?',
+      dialogDescription:
+        'The booking will move to the No-show terminal stage. This action cannot be undone from the dashboard.',
+      chargeFeeLabel: 'Charge cancellation fee',
+      chargeFeeHint:
+        'Records the intent in the audit log. No payment is collected automatically in this version.',
+      cancel: 'Keep as is',
+      confirm: 'Mark as no-show',
+      working: 'Marking…',
+      toastSuccess: 'Marked as no-show.',
+      toastError: 'Failed to mark as no-show.',
+    },
+    stage: {
+      pending: 'Pending',
+      awaitingGeneralApproval: 'Awaiting approval',
+      awaitingSecondaryApproval: 'Awaiting secondary approval',
+      awaitingHotelApproval: 'Awaiting hotel',
+      confirmed: 'Confirmed',
+      finalised: 'Finalised',
+      cancelled: 'Cancelled',
+      noShow: 'No-show',
+    },
+    // landr-5f8q — Timeline tab: chronological history of booking events
+    // (created, approved, paid, emails sent, cancelled …). Sourced from
+    // audit_log + payments + outbound_emails.
+    timeline: {
+      tabDetails: 'Details',
+      tabTimeline: 'Timeline',
+      // landr-funh — per-booking-day provider assignment tab label.
+      tabProviders: 'Providers',
+      loading: 'Loading timeline…',
+      error: 'Failed to load timeline.',
+      empty: 'No timeline events yet.',
+    },
+    // landr-84n1 — Checklist tab: operator-private per-booking todo list.
+    // v1 lives in localStorage scoped on (operator, booking_id); v2 will
+    // move to a Postgres table.
+    checklist: {
+      tabChecklist: 'Checklist',
+      progress: (done: number, total: number): string => `${done}/${total} done`,
+      progressAria: (done: number, total: number): string =>
+        `${done} of ${total} checklist steps complete`,
+      itemAria: (label: string): string => `Toggle "${label}"`,
+      addPlaceholder: 'Add a step (e.g. "Sign waiver")',
+      addAction: 'Add',
+      addAria: 'Add a custom checklist step',
+      removeAria: (label: string): string => `Remove "${label}"`,
+      empty: 'No checklist steps yet.',
+      footnote:
+        'Saved on this device only. Switching devices or clearing site data resets the list.',
+    },
+    // landr-znzz.2 — Customer page tab: edits the customer-facing briefing
+    // ("event") page — title/welcome/tone/publish/review nudge — plus the
+    // per-day "tonight's update" (conditions verdict + plan + meeting point).
+    briefing: {
+      tabBriefing: 'Customer page',
+      loading: 'Loading customer page…',
+      loadError: 'Could not load the customer page.',
+      // Empty / create state.
+      emptyTitle: 'No customer page yet',
+      emptyBody:
+        'Create a customer-facing page for this booking. You’ll get a private link to share, plus a place to post nightly conditions, plans and meeting points.',
+      createAction: 'Create customer page',
+      createWorking: 'Creating…',
+      createError: 'Could not create the customer page.',
+      // Share / link section.
+      shareTitle: 'Share link',
+      shareHint:
+        'This is the customer’s private page. Anyone with the link can see published content — keep it to the booking’s group.',
+      copyLink: 'Copy link',
+      copyToastSuccess: 'Link copied.',
+      copyToastError: 'Could not copy the link.',
+      shareWhatsApp: 'Share on WhatsApp',
+      openPreview: 'Open preview',
+      whatsappGreeting: 'Here’s your trip page:',
+      // Publish toggle.
+      publishLabel: 'Published',
+      publishHintOff:
+        'The page is private until you publish it. Customers see nothing yet.',
+      publishHintOn:
+        'The page is live. Customers with the link see all published content below.',
+      // Content section.
+      contentTitle: 'Page content',
+      contentHint:
+        'Pickup times come from the day / attendance editor and appear on the page automatically — you don’t set them here.',
+      fieldTitle: 'Title',
+      fieldTitlePlaceholder: 'e.g. Your sunrise paddle with LANDR',
+      fieldWelcome: 'Welcome note',
+      fieldWelcomePlaceholder:
+        'A short hello — what to expect, what to bring, how excited you are to host them.',
+      fieldTone: 'Tone',
+      toneOptionPlayful: 'Playful',
+      toneOptionCalm: 'Calm',
+      toneOptionMinimal: 'Minimal',
+      // Review nudge.
+      reviewTitle: 'Review nudge',
+      reviewShowLabel: 'Invite a review on the page',
+      reviewUrlLabel: 'Review link',
+      reviewUrlPlaceholder: 'https://g.page/r/…',
+      // Save (content/review).
+      save: 'Save changes',
+      saving: 'Saving…',
+      saveToastSuccess: 'Customer page updated.',
+      saveToastError: 'Could not save the customer page.',
+      // Per-day section.
+      daysTitle: 'Daily updates',
+      daysHint:
+        'Post tonight’s verdict for tomorrow: is it a go? Add the plan and where to meet. Publish each day when it’s ready — pickup times are pulled in automatically.',
+      daysEmpty: 'This booking has no scheduled days.',
+      dayConditionsLabel: 'Conditions',
+      conditionPending: 'Pending',
+      conditionGo: 'Go',
+      conditionMarginal: 'Marginal',
+      conditionNoGo: 'No go',
+      dayConditionsNoteLabel: 'Why this call',
+      dayConditionsNotePlaceholder:
+        'e.g. clean 3ft swell, light offshore wind — perfect window at dawn.',
+      dayPlanHeadlineLabel: 'Plan headline',
+      dayPlanHeadlinePlaceholder: 'e.g. Dawn patrol at the point',
+      dayPlanDetailLabel: 'Plan detail',
+      dayPlanDetailPlaceholder:
+        'What we’ll do, the running order, what to bring.',
+      dayMeetingPointLabel: 'Meeting point',
+      dayMeetingPointPlaceholder: 'e.g. North car park, by the kiosk.',
+      dayPublishLabel: 'Published',
+      dayPublishHint: 'Customers only see this day once you publish it.',
+      daySave: 'Save day',
+      daySaving: 'Saving…',
+      daySaveToastSuccess: (day: string): string => `Saved ${day}.`,
+      daySaveToastError: 'Could not save this day.',
+      // Rotate token.
+      rotateTitle: 'Reset link',
+      rotateHint:
+        'If the link was over-shared, reset it to kill the old one. You’ll need to re-send the new link to the group.',
+      rotateAction: 'Reset link',
+      rotateConfirmTitle: 'Reset the share link?',
+      rotateConfirmBody:
+        'The current link will stop working immediately. Anyone you’ve already sent it to will need the new link.',
+      rotateConfirmCancel: 'Keep current link',
+      rotateConfirm: 'Reset link',
+      rotateWorking: 'Resetting…',
+      rotateToastSuccess: 'Link reset. Share the new one.',
+      rotateToastError: 'Could not reset the link.',
+    },
+  },
+  calendar: {
+    title: 'Calendar',
+    loading: 'Loading calendar…',
+    error: 'Failed to load calendar.',
+    empty: 'No bookings scheduled.',
+    viewMonth: 'Month',
+    viewWeek: 'Week',
+    viewDay: 'Day',
+    rescheduleError: 'Could not reschedule booking.',
+    // landr-nnbm — drag-to-reschedule confirmation toast + Undo action.
+    rescheduleToast: (label: string, dateLabel: string): string =>
+      `Rescheduled ${label} to ${dateLabel}`,
+    rescheduleUndo: 'Undo',
+    rescheduleUndone: 'Reschedule undone.',
+    rescheduleUndoError: 'Could not undo reschedule.',
+    // landr-f1s — off-hours expand/collapse for the time-grid views.
+    expandOffHours: (start: string, end: string): string =>
+      `Show hours outside ${start}–${end}`,
+    collapseOffHours: 'Hide off-hours',
+    // landr-3uai — per-day capacity pill rendered in the dayGrid view when
+    // a product filter is active. Click → opens the Schedule editor for
+    // that date + product.
+    capacityPillAria: (reserved: number, capacity: number, date: string) =>
+      `${reserved} of ${capacity} reserved on ${date}. Open schedule editor.`,
+  },
+  contacts: {
+    title: 'Contacts',
+    // landr-fnhz — topbar subtitle. Shows total contact count so the
+    // operator can eyeball list size without scrolling.
+    subtitleCount: (n: number): string =>
+      `${n} ${n === 1 ? 'contact' : 'contacts'}`,
+    empty: 'No contacts yet.',
+    loading: 'Loading contacts…',
+    error: 'Failed to load contacts.',
+    columnName: 'Name',
+    columnEmail: 'Email',
+    columnPhone: 'Phone',
+    columnCreated: 'Created',
+    columnStatus: 'Status',
+    columnActivity: 'Activity',
+    columnActions: 'Actions',
+    // landr-iz58 — operator-applied tag chips.
+    columnTags: 'Tags',
+    filterPlaceholder: 'Search contacts…',
+    // landr-xnpc — download the filtered view as CSV.
+    exportCsv: 'Download CSV',
+    exportCsvAria: (n: number): string =>
+      `Download ${n} filtered contacts as CSV`,
+    statusActive: 'Active',
+    statusErased: 'Erased',
+    actionErase: 'GDPR erase',
+    actionAudit: 'Audit log',
+    actionEraseShort: 'Erase',
+    erasing: 'Erasing…',
+    eraseToastSuccess: 'Contact erased and audit log scrubbed.',
+    eraseToastError: 'GDPR erase failed.',
+    auditTitle: 'Audit log',
+    auditEmpty: 'No audit entries.',
+    auditLoading: 'Loading audit log…',
+    auditError: 'Failed to load audit log.',
+    auditClose: 'Close',
+    eraseDialogTitle: 'Trigger GDPR erase',
+    eraseDialogIntro:
+      'This will scrub all PII from this contact, the audit log, and any linked bookings. Commercial fields are preserved per Spanish 6-year retention. This action is irreversible.',
+    eraseDialogConfirmLabel: 'Type ERASE to confirm',
+    eraseDialogReasonLabel: 'Jurisdiction note (required)',
+    eraseDialogReasonPlaceholder: 'e.g. GDPR Art. 17 request via email 2026-05-…',
+    eraseDialogCancel: 'Cancel',
+    eraseDialogSubmit: 'Erase contact',
+    activityRecent: 'Recent: ',
+    // landr-oxlk — right-click context menu on a Contacts row. Mirrors
+    // the action labels in the actions column / detail sheet so the
+    // wording stays consistent.
+    rowContextMenu: {
+      openDetail: 'Open contact',
+      copyLink: 'Copy link',
+      applyTag: 'Apply tag',
+      tagsLoading: 'Loading tags…',
+      tagsEmpty: 'No tags yet.',
+      tagSelectedMark: '✓',
+      tagsToastError: 'Failed to update contact tags.',
+      erase: 'Erase (GDPR)',
+    },
+    // landr-pqk — sort dropdown + derived-type filter chips.
+    filters: {
+      sortLabel: 'Sort',
+      sortRecentlyAdded: 'Recently added',
+      sortRecentlyChanged: 'Recently changed',
+      sortAlphabetical: 'Alphabetical',
+      // landr-6993 — sort by the next booking date (nearest-future first).
+      sortNextBooking: 'Next booking',
+      typeLabel: 'Type',
+      typeLabels: {
+        customer: 'Customer',
+        attendee: 'Attendee',
+        employee: 'Employee',
+        agent: 'Agent',
+      } as Record<string, string>,
+      clearAll: 'Clear filters',
+      // landr-dp45 — view toggle to surface GDPR-erased tombstones.
+      showErasedLabel: 'Show erased contacts',
+      // landr-knz3 — tooltip shown on a chip when its count=0 so the
+      // operator understands the chip is intentionally non-clickable.
+      noOfType: (label: string): string =>
+        `No contacts of type ${label.toLowerCase()}`,
+      // landr-6993 — booking-window chips ('today' / 'future'). Labels
+      // are short imperative so they stack with the type chip row.
+      bookingLabel: 'Bookings',
+      bookingTodayLabel: 'Has booking today',
+      bookingFutureLabel: 'Has future booking',
+      // landr-6993 — per-row icon + tooltip for the upcoming-booking cell.
+      iconNextBookingTooltip: (dateLabel: string): string =>
+        `Next booking: ${dateLabel}`,
+      iconNoUpcomingTooltip: 'No upcoming bookings',
+      iconTodayAria: 'Has booking today',
+      iconFutureAria: 'Has future booking',
+    },
+    // landr-panu — customer segments (tag-based saved groups). Operators
+    // pick a tag combination once, save it as a named segment, and reuse
+    // it as a one-click chip filter above the table.
+    segments: {
+      label: 'Segments',
+      tagsLabel: 'Tags',
+      addTagPlaceholder: 'Filter by tag…',
+      addTagButton: 'Filter by tag',
+      saveAsSegment: 'Save as segment…',
+      manageButton: 'Manage segments',
+      clearTagFilter: 'Clear tag filter',
+      saveDialogTitle: 'Save segment',
+      saveDialogDescription:
+        'Save the current tag combination as a reusable quick-filter chip.',
+      saveNameLabel: 'Segment name',
+      saveNamePlaceholder: 'e.g. VIP returning customers',
+      saveTagsLabel: 'Tags in this segment',
+      saveColorLabel: 'Chip color',
+      saveSubmit: 'Save segment',
+      saveCancel: 'Cancel',
+      saveValidationName: 'Give the segment a name to save it.',
+      saveValidationTags: 'Pick at least one tag.',
+      toastCreated: (name: string): string => `Segment '${name}' saved.`,
+      toastUpdated: (name: string): string => `Segment '${name}' updated.`,
+      toastDeleted: (name: string): string => `Segment '${name}' deleted.`,
+      manageDialogTitle: 'Manage segments',
+      manageDialogDescription:
+        'Rename, recolor, or delete the segments saved for this operator.',
+      manageEmpty: 'No segments saved yet. Pick tags above and use “Save as segment…”.',
+      manageEdit: 'Edit',
+      manageDelete: 'Delete',
+      manageClose: 'Close',
+      // Aria labels.
+      ariaApply: (name: string): string => `Apply segment ${name}`,
+      ariaActive: (name: string): string => `Segment ${name} is active`,
+      ariaDeleteConfirm: (name: string): string =>
+        `Delete segment '${name}'? This can't be undone.`,
+    },
+  },
+  customerDetail: {
+    title: 'Customer',
+    loading: 'Loading customer…',
+    error: 'Failed to load customer.',
+    fieldFirstName: 'First name',
+    fieldLastName: 'Last name',
+    fieldEmail: 'Email',
+    fieldPhone: 'Phone',
+    fieldPreferredLocale: 'Preferred language',
+    localeNone: '— No preference —',
+    // landr-h46a — opt-out for non-transactional outbound emails.
+    fieldDoNotContact:
+      'This contact does not want to receive marketing or reminder emails',
+    fieldDoNotContactHelp:
+      'Booking confirmations, hotel requests, and other transactional emails still send.',
+    save: 'Save changes',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+    close: 'Close',
+    noChanges: 'No changes to save.',
+    invalidEmail: 'Enter a valid email address.',
+    toastSuccess: 'Customer updated.',
+    toastError: 'Failed to update customer.',
+    // landr-iz58 — operator-scoped tag picker shown inside the form.
+    tagsLabel: 'Tags',
+    tagsToastError: 'Failed to update tags.',
+    discardTitle: 'Discard unsaved changes?',
+    discardDescription:
+      'You have unsaved edits. Closing now will lose them.',
+    discardCancel: 'Keep editing',
+    discardConfirm: 'Discard',
+    openAriaLabel: (name: string) => `Open customer ${name}`,
+    // landr-7o2a — Customer 360 "Bookings" tab. Lists every booking
+    // (past + upcoming) the contact has placed. Mirrors the inline-tablist
+    // pattern from BookingDetailSheet (landr-5f8q).
+    bookings: {
+      tabDetails: 'Details',
+      tabBookings: 'Bookings',
+      loading: 'Loading bookings…',
+      error: 'Failed to load bookings.',
+      empty: 'No bookings yet.',
+      columnDate: 'Date',
+      columnProduct: 'Product',
+      columnStatus: 'Status',
+      columnTotal: 'Total',
+      // "12 bookings, €1,234 total" header — count + currency-formatted sum.
+      summary: (count: number, total: string): string =>
+        `${count} ${count === 1 ? 'booking' : 'bookings'}, ${total} total`,
+      rowAriaLabel: (label: string) => `Open booking ${label}`,
+      // landr-ajb4 — Open / Past section split. "Open" = current or
+      // upcoming bookings (non-terminal stage OR service date today/later);
+      // "Past" = terminal stage AND service date strictly before today.
+      sectionOpenLabel: 'Open',
+      sectionPastLabel: 'Past',
+      sectionOpenEmpty: 'No open bookings',
+      sectionPastEmpty: 'No past bookings',
+    },
+  },
+  products: {
+    title: 'Products & pricing',
+    loading: 'Loading products…',
+    error: 'Failed to load products.',
+    empty: 'No products yet. Create one to get started.',
+    noMatches: 'No products match your filter.',
+    filterPlaceholder: 'Search products…',
+    listAriaLabel: 'Products',
+    createNew: 'New product',
+    headingNew: 'New product',
+    headingPick: 'Select a product',
+    pickHint: 'Pick a product on the left to edit, or create a new one.',
+    backToList: 'Back to products',
+    statusActive: 'Active',
+    statusInactive: 'Inactive',
+    // landr-7zc5.2 — publish state badge + preview affordance.
+    statusDraft: 'Draft',
+    publishProduct: 'Publish',
+    unpublishProduct: 'Unpublish',
+    publishingProduct: 'Publishing…',
+    unpublishingProduct: 'Unpublishing…',
+    toastPublished: 'Product published.',
+    toastUnpublished: 'Product set to draft.',
+    previewProduct: 'Preview (draft)',
+    previewProductAria: (name: string) => `Preview draft — ${name}`,
+
+    fieldName: 'Name',
+    fieldNameHelp:
+      'Short product label shown everywhere (dashboard, widget, emails).',
+    fieldSlug: 'Slug',
+    fieldSlugHint: 'Lowercase, used in URLs. Must be unique per operator.',
+    fieldShortDescription: 'Short description',
+    fieldShortDescriptionHelp:
+      'One-line tagline shown under the name in the booking widget.',
+    fieldDescription: 'Description',
+    fieldDescriptionHelp:
+      'Long Markdown description shown in the widget product card body. Optional.',
+    fieldDescriptionHint: 'Markdown supported — **bold**, _italic_, lists, links.',
+    fieldProductKind: 'Product kind',
+    fieldProductKindTeaserHint:
+      'Options marked with a crown are available on higher plans.',
+    fieldServiceTimeShape: 'Time model',
+    fieldIsContiguous: 'Whole-range (contiguous days)',
+    fieldIsContiguousHint:
+      'On: the customer books an unbroken stretch of days. Off: they pick individual days.',
+    fieldDurationMinutes: 'Duration (minutes)',
+    fieldFixedStartDate: 'Fixed start date',
+    fieldFixedEndDate: 'Fixed end date',
+    fieldFixedDatesHint: 'Leave both empty for a floating date range.',
+    fieldPricingScheme: 'Discount scheme',
+    fieldPricingSchemeHint:
+      'Optional — applied to all bookings of this product. Leave blank for no automatic discount.',
+    manageDiscountSchemes: 'Manage discount schemes',
+    fieldProductGroup: 'Product group',
+    manageProductGroups: 'Manage product groups',
+    productGroupManagerTitle: 'Product groups',
+    productGroupManagerDescription:
+      'Marketing groupings shown as filter chips in the booking widget. Add, rename, or delete groups for this operator.',
+    productGroupManagerEmpty: 'No groups yet. Add one below.',
+    productGroupManagerAddTitle: 'Add group',
+    productGroupManagerEditTitle: 'Rename group',
+    productGroupManagerNameLabel: 'Name',
+    productGroupManagerSortLabel: 'Sort order',
+    productGroupManagerSave: 'Save',
+    productGroupManagerCancel: 'Cancel',
+    productGroupManagerEditAria: (name: string) => `Edit group — ${name}`,
+    productGroupManagerDeleteAria: (name: string) => `Delete group — ${name}`,
+    productGroupManagerDeleteConfirm: (name: string) =>
+      `Delete product group "${name}"? Products still attached to it will fall back to no group.`,
+    productGroupManagerToastCreated: 'Group added.',
+    productGroupManagerToastUpdated: 'Group updated.',
+    productGroupManagerToastDeleted: 'Group deleted.',
+    productGroupManagerToastError: 'Could not save group.',
+    fieldSortOrder: 'Sort order',
+    optionNone: '— None —',
+
+    legendFlags: 'Flags',
+    flagActive: 'Active',
+    flagPubliclyListed: 'Publicly listed',
+    flagNeedsProvider: 'Needs a provider',
+    flagNeedsPickup: 'Needs pickup',
+    flagRevenueThroughOperator: 'Revenue flows through operator',
+    // landr-u34k — is_addon_only checkbox + section copy. The flag hides
+    // the product from the main list and restricts purchase to add-on
+    // flows; the section manages product_addons rows for the current
+    // parent product.
+    flagAddonOnly: 'Add-on only',
+    flagAddonOnlyHint:
+      'Hide from main product list — only available as an add-on of another product.',
+    showAddonsToggle: 'Show add-on products',
+    addonsSectionTitle: 'Add-ons',
+    addonsSectionBody:
+      'Link other products as add-ons for this one. The booking widget surfaces them alongside the parent product.',
+    addonsSaveFirstHint:
+      'Save this product first to manage its add-ons.',
+    addonsLoading: 'Loading add-ons…',
+    addonsEmpty: 'No add-ons linked yet.',
+    addonsAddNew: 'Add add-on',
+    addonsListAriaLabel: 'Add-ons',
+    addonsPickProduct: '— Pick a product —',
+    addonsNoOtherProducts:
+      'Create at least one other product before linking add-ons.',
+    addonsFieldAddon: 'Add-on product',
+    addonsFieldRequired: 'Required',
+    addonsFieldMinQty: 'Min',
+    addonsFieldMaxQty: 'Max',
+    addonsFieldMaxQtyPlaceholder: '∞',
+    addonsFieldSortOrder: 'Sort',
+    addonsSave: 'Save',
+    addonsSaving: 'Saving…',
+    addonsAdd: 'Add',
+    addonsDelete: 'Remove add-on',
+    addonsErrorPickProduct: 'Pick an add-on product first.',
+
+    kindService: 'Service',
+    kindSubscription: 'Subscription',
+    kindDigitalGood: 'Digital good',
+    kindPhysicalGood: 'Physical good',
+    kindGiftCard: 'Gift card',
+    kindHotelRoom: 'Hotel room',
+
+    // landr-ssrx — hotel_room fields + hotel_offering control on services.
+    fieldHotelLocation: 'Hotel',
+    fieldHotelLocationHint:
+      'Pick the hotel this room belongs to. Only locations tagged with the "hotel" role appear here — add the hotel under Pickup locations first if it is missing.',
+    fieldHotelLocationEmpty: '— Select a hotel —',
+    fieldHotelLocationNoneAvailable:
+      'No hotel-role locations yet. Add one under Pickup locations first.',
+    hotelRoomHelperBody:
+      'Hotel room prices are displayed per night to guests but paid directly to the hotel. Revenue does not flow through your operator account.',
+    // landr-knm0 — capacity_per_unit input on hotel_room products.
+    fieldRoomCapacity: 'Room capacity (people)',
+    fieldRoomCapacityHint:
+      'How many guests fit in one of these rooms. Defaults follow the room name (single → 1, double/twin → 2, triple → 3, family → 4).',
+    errorRoomCapacityRequired: 'Room capacity must be at least 1.',
+    fieldHotelOffering: 'Includes accommodation',
+    fieldHotelOfferingHint:
+      'When the booking widget should add a hotel step on top of this service.',
+    optionHotelOfferingNone: 'No — no hotel step',
+    optionHotelOfferingOptional: 'Optional — show with a skip',
+    optionHotelOfferingMandatory: 'Mandatory — require a hotel pick',
+    listGroupHotelPrefix: 'Hotel: ',
+    listGroupHotelUnassigned: 'Unassigned hotel rooms',
+
+    // landr-pugm — sort dropdown + product_kind chip filters.
+    filters: {
+      sortLabel: 'Sort',
+      sortRecentlyAdded: 'Recently added',
+      sortRecentlyChanged: 'Recently changed',
+      sortAlphabetical: 'Alphabetical',
+      kindLabel: 'Kind',
+      clearAll: 'Clear filters',
+      // landr-knz3 — tooltip shown on a chip when its count=0 so the
+      // operator understands the chip is intentionally non-clickable.
+      noOfKind: (label: string): string =>
+        `No products of kind ${label.toLowerCase()}`,
+    },
+
+    shapeSingleDate: 'Single date',
+    shapeDaysRange: 'Day picker (days range)',
+    shapeFixedWindow: 'Course window (fixed date range)',
+    shapeTimeSlot: 'Time slot',
+
+    nonServiceComingSoonTitle: 'Coming soon — Shop UI',
+    nonServiceComingSoonBody:
+      'Configuration for non-service product kinds lives in the upcoming Shop surface (see landr-vh9 epic). This product kind is not editable here yet.',
+    nonServiceDisabledTooltip:
+      'This product kind requires the upcoming Shop surface (see landr-vh9 epic).',
+    physicalGoodComingSoonBody:
+      'Inventory & shipping for physical goods will be configured in the upcoming Shop surface.',
+
+    save: 'Save changes',
+    saving: 'Saving…',
+    create: 'Create product',
+    delete: 'Delete',
+    deleting: 'Deleting…',
+    confirmDelete:
+      'Delete this product? This is a soft delete — it can be restored from the database if needed.',
+
+    formCreateLabel: 'Create product form',
+    formEditLabel: 'Edit product form',
+
+    toastCreated: 'Product created.',
+    toastUpdated: 'Product updated.',
+    toastDeleted: 'Product deleted.',
+    // landr-v6aq — fallback used in the undo toast when the product row
+    // is no longer in cache (e.g. the operator typed in the filter so
+    // hard the only matching row is the one being deleted).
+    deletedFallbackLabel: 'product',
+    slugCollisionTitle: 'That slug is already taken',
+    slugCollisionBody:
+      'A product with this slug already exists for your operator. Pick a different name or edit the slug.',
+    duplicate: 'Duplicate',
+    duplicating: 'Duplicating…',
+    toastDuplicated: 'Product duplicated — edit and save.',
+
+    errorNameRequired: 'Name is required.',
+    errorSlugRequired: 'Slug is required.',
+    errorSlugFormat: 'Slug may only contain letters, numbers and hyphens.',
+    errorDurationRequired: 'Time-slot products must specify a duration.',
+    errorDateRangePaired: 'Set both the start and end date, or neither.',
+    fixedDateWindowsHeading: 'Course windows',
+    fixedDateWindowsHint:
+      'Operator-published windows customers can book. Each window has its own capacity.',
+    windowColumnStart: 'Start',
+    windowColumnEnd: 'End',
+    windowColumnCapacity: 'Capacity',
+    windowColumnReserved: 'Reserved',
+    windowColumnActive: 'Active',
+    windowColumnActions: '',
+    windowAddButton: 'Add window',
+    windowEditButton: 'Edit',
+    windowDeleteButton: 'Delete',
+    windowSaveAdd: 'Add',
+    windowSaveEdit: 'Save',
+    windowCancel: 'Cancel',
+    windowEmpty: 'No windows yet — add the first one to make this product bookable.',
+    windowFormStart: 'Start date',
+    windowFormEnd: 'End date',
+    windowFormCapacity: 'Capacity',
+    windowConfirmDelete: 'Delete this window?',
+    windowErrorRange: 'End date must be on or after start date.',
+    windowErrorCapacity: 'Capacity must be at least 1.',
+    windowErrorLoad: 'Failed to load course windows.',
+    windowErrorSave: 'Failed to save window.',
+    windowErrorDelete: 'Failed to delete window.',
+  },
+  generalApprovals: {
+    title: 'Pending approvals',
+    // landr-fnhz — topbar subtitle. Mirrors the pendingCount badge in
+    // the page header so the count is also visible when the user has
+    // scrolled the page down.
+    subtitleCount: (n: number): string =>
+      n === 0 ? 'No pending approvals' : `${n} pending`,
+    // landr-aqn4 — friendlier empty state ('All caught up').
+    empty: 'All caught up — no pending approvals.',
+    emptyEmoji: '🎉',
+    loading: 'Loading approval queue…',
+    error: 'Failed to load approval queue.',
+    // landr-aqn4 — count badge next to the page title.
+    pendingCount: (n: number): string => `${n} pending`,
+    columnDate: 'Requested',
+    // landr-aqn4 — new activity-date column. Sorted alongside the
+    // request date column so operators can prioritise by when the
+    // booking is *happening*, not when it was *submitted*.
+    columnActivityDate: 'Activity',
+    // landr-qmdo — "Awaiting X" stage chip column. Sorted by stage code
+    // so operators can batch by "all the Hotel ones" / "all secondary".
+    columnStage: 'Stage',
+    columnCustomer: 'Customer',
+    columnProduct: 'Product',
+    columnPrice: 'Price',
+    columnActions: 'Actions',
+    actionApprove: 'Approve',
+    actionReject: 'Reject',
+    approveDialogTitle: 'Approve booking',
+    approveDialogDescription:
+      'The booking will move to confirmed. You can add an optional note.',
+    rejectDialogTitle: 'Reject booking',
+    rejectDialogDescription:
+      'The booking will be declined. You can add an optional note for the record.',
+    notePlaceholder: 'Optional note…',
+    noteLabel: 'Note (optional)',
+    cancel: 'Cancel',
+    confirmApprove: 'Approve',
+    confirmReject: 'Reject',
+    approving: 'Approving…',
+    rejecting: 'Rejecting…',
+    toastApproved: 'Booking approved.',
+    toastRejected: 'Booking rejected.',
+    toastError: 'Action failed.',
+    // landr-oxlk — right-click context menu on an Approvals row. Mirrors
+    // the inline Approve/Reject buttons; selecting Approve/Reject opens
+    // the same confirmation dialog the buttons do.
+    rowContextMenu: {
+      openDetail: 'Open booking',
+      approve: 'Approve',
+      reject: 'Reject',
+    },
+    // landr-xnpc — download the filtered approval queue as CSV.
+    exportCsv: 'Download CSV',
+    exportCsvAria: (n: number): string =>
+      `Download ${n} filtered approvals as CSV`,
+    // landr-aqn4 — filter bar above the table.
+    filters: {
+      reason: 'Reason',
+      product: 'Product',
+      customerStatus: 'Customer',
+      urgency: 'Urgency',
+      price: 'Price',
+      // landr-qmdo — "Awaiting X" stage filter dim (Operator review /
+      // Secondary approver / Hotel). Orthogonal to the other dims.
+      stage: 'Awaiting',
+      clearAll: 'Clear filters',
+      noOptions: 'No options to filter by yet.',
+      activeCount: (n: number): string => ` (${n})`,
+      reasonLabels: {
+        capacity_warning: 'Capacity',
+        new_customer: 'New customer',
+        voucher_invalid: 'Voucher',
+        manual_override: 'Override',
+        other: 'Other',
+      } as Record<string, string>,
+      // landr-qmdo — labels for the three Approvals stage buckets. These
+      // match the per-row StageChip labels so the operator sees the same
+      // wording on the chip and in the filter dropdown.
+      stageLabels: {
+        general: 'Operator review',
+        secondary: 'Secondary approver',
+        hotel: 'Hotel review',
+      } as Record<string, string>,
+      customerStatusLabels: {
+        new: 'New',
+        returning: 'Returning',
+      } as Record<string, string>,
+      urgencyLabels: {
+        urgent: 'Urgent (≤3d)',
+        soon: 'Soon (4–14d)',
+        later: 'Later (15+d)',
+        unknown: 'Unscheduled',
+      } as Record<string, string>,
+      priceLabels: {
+        low: '<100 €',
+        mid: '100–500 €',
+        high: '500 €+',
+      } as Record<string, string>,
+      // Tooltip shown on a counted chip when its count=0.
+      noOfValue: (label: string): string => `No bookings match ${label}`,
+    },
+  },
+  // landr-lbbj — bulk-select toolbar shown on Approvals + Bookings tables
+  // once one or more row checkboxes are ticked. Reused across both pages
+  // (the component itself decides which actions to expose via props).
+  bulkActions: {
+    selectRowAria: (id: string) => `Select row ${id}`,
+    selectAllAria: 'Select all rows on this page',
+    selectionCount: (n: number) =>
+      n === 1 ? '1 selected' : `${n} selected`,
+    clear: 'Clear',
+    approve: 'Approve',
+    reject: 'Reject',
+    exportCsv: 'Export CSV',
+    sendReminder: 'Send reminder',
+    confirmRejectTitle: 'Reject selected bookings?',
+    confirmRejectDescription: (n: number) =>
+      n === 1
+        ? 'This will mark 1 booking as rejected. You cannot undo this from here.'
+        : `This will mark ${n} bookings as rejected. You cannot undo this from here.`,
+    confirmRejectAction: 'Reject',
+    cancel: 'Cancel',
+    working: 'Working…',
+    toastApproved: (n: number) =>
+      n === 1 ? 'Approved 1 booking' : `Approved ${n} bookings`,
+    toastRejected: (n: number) =>
+      n === 1 ? 'Rejected 1 booking' : `Rejected ${n} bookings`,
+    toastReminderSent: (n: number) =>
+      n === 1 ? '1 reminder sent' : `${n} reminders sent`,
+    // landr-vaob — partial-failure variant for the bulk-reminder endpoint
+    // (POST /api/staff/operators/{op}/bookings/bulk-reminder, landr-s0wo).
+    // The endpoint is best-effort per booking — cross-tenant ids and
+    // template/enqueue failures both surface in `failed` rather than
+    // aborting the batch, so the toast must distinguish "N sent, M failed"
+    // from the all-success and all-fail paths.
+    toastReminderPartial: (ok: number, fail: number) =>
+      `${ok} sent, ${fail} failed`,
+    toastExported: (n: number) =>
+      n === 1 ? 'Exported 1 booking to CSV' : `Exported ${n} bookings to CSV`,
+    // Partial failure: some rows succeeded, some didn't.
+    toastPartial: (ok: number, fail: number) =>
+      `${ok} succeeded, ${fail} failed`,
+    toastError: 'Bulk action failed',
+    // landr-uqr2 — "Apply tag" action surfaced on Bookings + Contacts.
+    // Clicking the toolbar button reveals a TagPicker; submit fans the
+    // chosen tags out to every selected row via bulkApplyTagsTo{...}.
+    applyTags: 'Apply tag',
+    applyTagsPopoverTitle: 'Apply tags to selection',
+    applyTagsPopoverHint: (n: number) =>
+      n === 1
+        ? 'Pick one or more tags to add to the selected row.'
+        : `Pick one or more tags to add to the ${n} selected rows.`,
+    applyTagsConfirm: 'Apply',
+    applyTagsConfirmBusy: 'Applying…',
+    applyTagsPickPrompt: 'Pick at least one tag to apply.',
+    toastTagsApplied: (rows: number, tags: number) => {
+      const rowLabel = rows === 1 ? '1 row' : `${rows} rows`
+      const tagLabel = tags === 1 ? '1 tag' : `${tags} tags`
+      return `Applied ${tagLabel} to ${rowLabel}`
+    },
+    toastTagsPartial: (ok: number, fail: number) =>
+      `${ok} tagged, ${fail} failed`,
+  },
+  staff: {
+    title: 'Staff',
+    subtitle:
+      'Manage operator memberships, roles and per-user permissions.',
+    loading: 'Loading staff…',
+    error: 'Failed to load staff.',
+    empty: 'No staff yet. Use “Invite by email” to add a member.',
+    listAriaLabel: 'Staff memberships',
+    filterPlaceholder: 'Search staff…',
+    matches: (n: number, total: number) => `${n} / ${total}`,
+
+    columnEmail: 'Email',
+    columnRole: 'Role',
+    columnPermissions: 'Permissions',
+    columnJoined: 'Joined',
+    columnActions: 'Actions',
+
+    actionInvite: 'Invite by email',
+    actionEdit: 'Edit',
+    actionRevoke: 'Revoke',
+
+    // Invite sheet
+    inviteTitle: 'Invite by email',
+    inviteDescription:
+      'Add a user to this operator. The user must already exist in LANDR (signed-in once via the mobile app or dashboard).',
+    inviteEmailLabel: 'Email',
+    inviteEmailPlaceholder: 'staff@example.com',
+    inviteRoleLabel: 'Role',
+    invitePermissionsLabel: 'Permissions (JSON)',
+    invitePermissionsHint:
+      'Optional JSON object. Example: { "manage_bookings": true, "view_revenue": false }',
+    inviteSubmit: 'Add membership',
+    inviteSubmitting: 'Adding…',
+    inviteCancel: 'Cancel',
+    inviteToastSuccess: 'Staff member added.',
+    inviteToastError: 'Failed to add staff member.',
+    inviteUserNotFound:
+      'No user found with that email. They must sign in to LANDR at least once first.',
+    inviteEmailRequired: 'Enter a valid email address.',
+    inviteRoleRequired: 'Role is required.',
+
+    inviteDeferralNotice:
+      'Email-invite send is deferred (landr-m05.15 Gmail OAuth). For now, the user must already be signed in to LANDR — this just links them to this operator.',
+
+    // Edit sheet
+    editTitle: 'Edit membership',
+    editDescription:
+      'Update the role and permissions for this staff member.',
+    editRoleLabel: 'Role',
+    editPermissionsLabel: 'Permissions (JSON)',
+    editPermissionsHint:
+      'Leave empty for no overrides. Must be a JSON object if set.',
+    editSubmit: 'Save changes',
+    editSubmitting: 'Saving…',
+    editCancel: 'Cancel',
+    editToastSuccess: 'Membership updated.',
+    editToastError: 'Failed to update membership.',
+
+    // Revoke confirm dialog
+    revokeTitle: 'Revoke staff access?',
+    revokeDescription:
+      'This removes the membership for this user. They will no longer see this operator. Their global LANDR account is not affected. This action cannot be undone.',
+    revokeConfirm: 'Type REVOKE to confirm',
+    revokeCancel: 'Cancel',
+    revokeSubmit: 'Revoke access',
+    revokeSubmitting: 'Revoking…',
+    revokeToastSuccess: 'Staff access revoked.',
+    revokeToastError: 'Failed to revoke staff access.',
+
+    permissionsParseError: 'Permissions JSON is invalid.',
+  },
+  settings: {
+    title: 'Operator Settings',
+    noOperator: 'No operator selected.',
+    loading: 'Loading settings…',
+    error: 'Failed to load settings.',
+    save: 'Save changes',
+    saving: 'Saving…',
+    toastSuccess: 'Settings saved.',
+    toastError: 'Failed to save settings.',
+
+    sectionCompany: 'Company',
+    sectionCompanyDesc: 'Your public-facing company identity. Slug is read-only.',
+    sectionTax: 'Tax & Legal',
+    sectionContact: 'Contact & Address',
+    sectionLocale: 'Locale',
+    sectionCalendar: 'Calendar & display',
+    sectionCalendarDesc:
+      'Tune the calendar to your working day. The primary view shows the hours you choose; off-hours collapse to a strip you can expand.',
+    sectionDisplayPrefs: 'Display preferences',
+    sectionDisplayPrefsDesc:
+      'Control which product types and upgrade prompts appear in the dashboard.',
+    fieldShowPremiumTeasers: 'Show upgrade prompts for premium features',
+    fieldShowPremiumTeasersHint:
+      'When enabled, your dashboard shows product types available on higher plans.',
+    fieldShowPremiumTeasersFreeLockedHint:
+      'Always shown on Free plan to highlight upgrade paths.',
+    sectionIntegrations: 'Integrations',
+    sectionIntegrationsDesc: 'Connect third-party services to your operator account.',
+
+    fieldName: 'Company name',
+    fieldLegalName: 'Legal name',
+    fieldSlug: 'Slug',
+    fieldSlugHint: 'Read-only. Used in URLs.',
+    fieldTaxId: 'Tax ID',
+    fieldTaxIdKind: 'Tax ID type',
+    fieldPhone: 'Phone',
+    fieldStreet: 'Street',
+    fieldCity: 'City',
+    fieldPostalCode: 'Postal code',
+    fieldRegion: 'Region / State',
+    fieldCountry: 'Country (ISO-3166 alpha-2)',
+    fieldTimezone: 'Timezone (IANA)',
+    fieldLocale: 'Default locale',
+    fieldWorkHoursStart: 'Work hours — start',
+    fieldWorkHoursEnd: 'Work hours — end',
+    fieldWorkHoursHint:
+      'Defaults to 08:00 – 20:00. Calendar renders this window first; off-hours are one collapsible strip.',
+    fieldTimeFormat: 'Time format',
+    timeFormat24h: '24-hour (13:05)',
+    timeFormat12h: '12-hour AM/PM (1:05 PM)',
+    // landr-m4zq — first day of week. v1 exposes Sunday / Monday; the DB
+    // column accepts 0..6 so other anchors can land without a migration.
+    fieldFirstDayOfWeek: 'First day of week',
+    fieldFirstDayOfWeekHint:
+      'Drives the calendar column order and the start of relative-date ranges like "This week".',
+    firstDayOfWeekSunday: 'Sunday',
+    firstDayOfWeekMonday: 'Monday',
+    errorWorkHoursOrder: 'End time must be later than start time.',
+    optionNone: '— Select —',
+
+    // landr-yp8x — operator branding (logo + primary colour).
+    // landr-znzz.11 — extended to full 3-colour semantic theme + dark logo.
+    sectionBranding: 'Branding',
+    sectionBrandingDesc:
+      'Your logo and primary colour appear in the embedded booking widget on your website.',
+    fieldLogo: 'Logo (light)',
+    fieldLogoHint:
+      'Square PNG or SVG works best (max 2 MB). Shown at the top of every booking step.',
+    fieldLogoNone: 'No logo uploaded yet.',
+    fieldLogoUpload: 'Upload logo',
+    fieldLogoReplace: 'Replace logo',
+    fieldLogoRemove: 'Remove logo',
+    fieldLogoUploading: 'Uploading…',
+    fieldLogoDark: 'Dark-mode logo (optional)',
+    fieldLogoDarkHint:
+      "Used when the visitor's device is in dark mode. Leave blank to use the same logo.",
+    fieldLogoDarkNone: 'No dark-mode logo uploaded.',
+    fieldLogoDarkUpload: 'Upload dark logo',
+    fieldLogoDarkReplace: 'Replace dark logo',
+    fieldLogoDarkRemove: 'Remove dark logo',
+    fieldLogoDarkUploading: 'Uploading…',
+    fieldPrimaryColor: 'Primary colour',
+    fieldPrimaryColorHint:
+      "Drives the booking widget's buttons and accents. Pick any 7-char hex (#RRGGBB).",
+    fieldPrimaryColorReset: 'Reset to default',
+    // landr-znzz.11 — 3-colour theme fields
+    themeSectionTitle: 'Theme colours',
+    themeSectionDesc:
+      "Three semantic slots control the widget's look. Brand is headings and text, Accent is buttons, Background is the page canvas.",
+    fieldBrandColor: 'Brand colour (text / headings)',
+    fieldBrandColorHint: 'Primary text colour shown on the widget canvas.',
+    fieldAccentColor: 'Accent colour (buttons)',
+    fieldAccentColorHint: 'Fill colour for CTA buttons. Should contrast well with white button text.',
+    fieldBackgroundColor: 'Background colour',
+    fieldBackgroundColorHint: 'Page canvas background of the widget.',
+    darkOverridesSectionTitle: 'Dark-mode overrides (optional)',
+    darkOverridesSectionDesc:
+      "Leave blank to let the browser derive dark colours automatically. Override only if the default derivation doesn't match your brand.",
+    darkOverridesToggle: 'Customise dark-mode colours',
+    fieldDarkBrandColor: 'Dark brand colour',
+    fieldDarkAccentColor: 'Dark accent colour',
+    fieldDarkBackgroundColor: 'Dark background colour',
+    themeToastSaved: 'Theme saved.',
+    contrastWarningBrand: 'Brand on background contrast is below WCAG AA (4.5:1) — text may be hard to read.',
+    contrastWarningAccent: 'Accent button text contrast is below WCAG AA (4.5:1) — button text may be hard to read.',
+    brandingPreviewTitle: 'Preview',
+    brandingPreviewDesc:
+      'Live preview of your widget colours in light and dark mode.',
+    brandingPreviewCta: 'Continue',
+    brandingPreviewLight: 'Light',
+    brandingPreviewDark: 'Dark',
+    brandingFileTooLarge: 'File is too large. Max 2 MB.',
+    brandingFileTypeUnsupported: 'Only PNG, JPG, SVG, or WebP files are supported.',
+    brandingUploadError: 'Failed to upload logo.',
+    brandingRemoveError: 'Failed to remove logo.',
+    brandingToastUploaded: 'Logo uploaded.',
+    brandingToastRemoved: 'Logo removed.',
+    brandingToastColorSaved: 'Primary colour saved.',
+    brandingDarkLogoUploadError: 'Failed to upload dark logo.',
+    brandingDarkLogoRemoveError: 'Failed to remove dark logo.',
+    brandingDarkLogoToastUploaded: 'Dark logo uploaded.',
+    brandingDarkLogoToastRemoved: 'Dark logo removed.',
+
+    gmailLoading: 'Loading Gmail status…',
+    gmailError: 'Failed to load Gmail status.',
+    gmailNotConnected: 'Not connected',
+    gmailConnect: 'Connect Gmail',
+    gmailConnecting: 'Connecting…',
+    gmailConnectError: 'Failed to start Gmail connect.',
+    gmailConnectedAt: 'Connected:',
+    gmailDisconnect: 'Disconnect',
+    gmailDisconnecting: 'Disconnecting…',
+    gmailDisconnected: 'Gmail disconnected.',
+    gmailDisconnectError: 'Failed to disconnect Gmail.',
+
+    // landr-6ybs — Calendar feed subsection.
+    calendarFeedTitle: 'Calendar feed',
+    calendarFeedDescription:
+      'A subscribable URL that streams every non-cancelled booking into your personal calendar app. Updates roughly hourly depending on your calendar client.',
+    calendarFeedUrlLabel: 'Subscribe URL',
+    calendarFeedLoading: 'Loading feed URL…',
+    calendarFeedError: 'Failed to load the feed URL.',
+    calendarFeedCopy: 'Copy URL',
+    calendarFeedCopied: 'URL copied to clipboard.',
+    calendarFeedCopyError: 'Could not copy. Select + copy manually.',
+    calendarFeedRegenerate: 'Regenerate URL',
+    calendarFeedRegenerating: 'Regenerating…',
+    calendarFeedRegenerated:
+      'New URL issued. The previous URL has been invalidated.',
+    calendarFeedRegenerateError: 'Failed to regenerate the URL.',
+    calendarFeedRegenerateConfirmTitle: 'Regenerate calendar URL?',
+    calendarFeedRegenerateConfirmBody:
+      'This will invalidate the current URL. Any calendar app already subscribed will stop receiving updates until you re-subscribe with the new URL.',
+    calendarFeedRegenerateConfirmCta: 'Regenerate',
+    calendarFeedRegenerateCancelCta: 'Cancel',
+    calendarFeedInstructionsHeading: 'How to subscribe',
+    calendarFeedInstructionsIntro:
+      'Copy the URL above, then add it as a subscribed calendar (not an import — subscriptions auto-refresh).',
+    calendarFeedGoogleHeading: 'Google Calendar',
+    calendarFeedGoogleSteps: [
+      'Open Google Calendar in a browser (the mobile app cannot add subscriptions; once added on the web it syncs to mobile).',
+      'In the left sidebar, click the "+" next to "Other calendars" and choose "From URL".',
+      'Paste the URL and click "Add calendar". The feed appears under "Other calendars".',
+    ],
+    calendarFeedAppleHeading: 'Apple Calendar (macOS / iOS)',
+    calendarFeedAppleSteps: [
+      'macOS: open Calendar, then File → New Calendar Subscription. Paste the URL and click Subscribe.',
+      'iOS: open Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar. Paste the URL.',
+      'Choose how often the calendar refreshes; 15 min is the most frequent option.',
+    ],
+    calendarFeedOutlookHeading: 'Outlook',
+    calendarFeedOutlookSteps: [
+      'Open Outlook on the web (outlook.live.com or outlook.office.com).',
+      'In the calendar view, click "Add calendar" → "Subscribe from web".',
+      'Paste the URL, name the calendar, pick a colour, and click Import.',
+    ],
+
+    // landr-1nwu.2 — per-operator payment/ERP integration credentials.
+    // Secrets are WRITE-ONLY: the API never returns a stored secret, so the
+    // UI shows "Configured" + last-updated and a Rotate/Replace input.
+    paymentsLoading: 'Loading credentials…',
+    paymentsError: 'Failed to load integration credentials.',
+    paymentsStripeTitle: 'Stripe',
+    paymentsStripeDescription:
+      'Your Stripe API keys. Test keys are used everywhere except production; Live keys take real payments.',
+    paymentsHoldedTitle: 'Holded',
+    paymentsHoldedDescription:
+      'Your Holded ERP API key for invoice sync. Demo keys are used outside production; Live takes effect in production.',
+    paymentsModeTest: 'Test',
+    paymentsModeLive: 'Live',
+    paymentsModeDemo: 'Demo',
+    paymentsStripePublishableLabel: 'Publishable key',
+    paymentsStripePublishablePlaceholder: 'pk_test_…',
+    paymentsStripeSecretLabel: 'Secret key',
+    paymentsStripeWebhookLabel: 'Webhook signing secret',
+    paymentsHoldedApiKeyLabel: 'API key',
+    // Shown in place of a stored secret value (which is never returned).
+    paymentsConfigured: 'Configured ••••••••',
+    paymentsNotConfigured: 'Not configured',
+    paymentsRotate: 'Rotate / replace',
+    paymentsRotateCancel: 'Cancel',
+    paymentsSecretRotatePlaceholder: 'Enter a new value to replace it',
+    paymentsSecretEnterPlaceholder: 'Paste the secret value',
+    paymentsLastUpdated: (when: string) => `Last updated ${when}`,
+    paymentsSave: 'Save',
+    paymentsSaving: 'Saving…',
+    paymentsSaved: 'Credentials saved.',
+    paymentsSaveError: 'Failed to save credentials.',
+    paymentsNothingToSave: 'Nothing to save — enter or rotate a value first.',
+    paymentsSecretNeverShown:
+      'For your security, saved secrets are never shown again. Enter a new value to replace one.',
+  },
+  // landr-znzz.7 — Settings → Weather
+  weatherSettings: {
+    cardTitle: 'Conditions forecast hint',
+    cardDescription:
+      'When enabled, a one-line weather summary is shown next to the conditions chips in the briefing day-card editor. The verdict (Go / Marginal / No-go) is always set manually — weather only informs.',
+    enableLabel: 'Enable forecast hint',
+    enableHint:
+      'Fetch a daily forecast for the configured location and show it as a hint when you set conditions.',
+    providerLabel: 'Weather provider',
+    latLabel: 'Latitude',
+    lonLabel: 'Longitude',
+    locationHint:
+      'WGS-84 decimal degrees (e.g. 28.9716, -13.5538 for Famara, Lanzarote). Tip: right-click any location in Google Maps and choose "What\'s here?" to get precise coordinates.',
+    save: 'Save',
+    saving: 'Saving…',
+    toastSaved: 'Weather settings saved.',
+    toastError: 'Failed to save weather settings.',
+    validationLatitude: 'Latitude must be between -90 and 90.',
+    validationLongitude: 'Longitude must be between -180 and 180.',
+    // Shown in the briefing day-card editor when weather is enabled.
+    forecastHintLabel: 'Forecast hint',
+    forecastHintLoading: 'Fetching forecast…',
+    forecastHintError: 'Forecast unavailable.',
+  },
+  pickupLocations: {
+    title: 'Pickup locations',
+    subtitle: 'Manage pickup sites and sub-points for bookings.',
+    loading: 'Loading locations…',
+    error: 'Failed to load locations.',
+    empty: 'No locations yet. Add one to get started.',
+    addLocation: 'Add location',
+    columnName: 'Name',
+    columnRoleType: 'Type',
+    columnParent: 'Parent site',
+    columnEmail: 'Email',
+    columnActions: 'Actions',
+    actionEdit: 'Edit',
+    actionDelete: 'Delete',
+    filterPlaceholder: 'Search locations…',
+    matches: (n: number, total: number) => `${n} / ${total}`,
+
+    formCreateTitle: 'Add location',
+    formEditTitle: 'Edit location',
+    formDescription: 'Site-level locations have no parent. Sub-points pick a parent site.',
+
+    fieldName: 'Name',
+    fieldRoleType: 'Type',
+    fieldParent: 'Parent site (optional)',
+    fieldEmail: 'Contact email',
+    fieldEmailHotel: 'Hotel contact email',
+    fieldParentNone: '— Site level —',
+    fieldRoleTypeNone: '— Select type —',
+
+    errorNameRequired: 'Name is required.',
+    errorRoleTypeRequired: 'Role type is required.',
+    errorEmailFormat: 'Enter a valid email address.',
+    errorSubPointDepth: 'Sub-points cannot have their own sub-points.',
+
+    save: 'Save changes',
+    saving: 'Saving…',
+    create: 'Add location',
+    creating: 'Adding…',
+    cancel: 'Cancel',
+
+    toastCreated: 'Location added.',
+    toastUpdated: 'Location updated.',
+    toastDeleted: 'Location deleted.',
+    toastError: 'Action failed.',
+
+    deleteDialogTitle: 'Delete location?',
+    deleteDialogDescription:
+      'This soft-deletes the location. It will disappear from the list immediately. This action can be reversed from the database.',
+    deleteDialogConfirm: 'Delete',
+    deleteDialogDeleting: 'Deleting…',
+    deleteDialogCancel: 'Cancel',
+    roleTypesError: 'Failed to load role types.',
+
+    // landr-ogf: type-manager sheet reached via pen icon
+    roleTypeManagerTitle: 'Pickup location types',
+    roleTypeManagerDescription:
+      'Add or rename the types operators can pick for a pickup location (e.g. hotel, port, beach).',
+    roleTypeManagerEdit: 'Edit type',
+    roleTypeManagerEditAria: (label: string) => `Edit type — ${label}`,
+    roleTypeManagerDeleteAria: (label: string) => `Delete type — ${label}`,
+    roleTypeManagerEmpty: 'No types yet. Add one below.',
+    roleTypeManagerAddTitle: 'Add type',
+    roleTypeManagerEditTitle: 'Rename type',
+    roleTypeManagerCodeLabel: 'Code',
+    roleTypeManagerCodeHint: 'Short identifier (lowercase, hyphenated).',
+    roleTypeManagerLabelLabel: 'Label',
+    roleTypeManagerSortLabel: 'Sort order',
+    roleTypeManagerSave: 'Save',
+    roleTypeManagerCancel: 'Cancel',
+    roleTypeManagerToastCreated: 'Type added.',
+    roleTypeManagerToastUpdated: 'Type updated.',
+    roleTypeManagerToastDeleted: 'Type deleted.',
+    roleTypeManagerToastError: 'Could not save type.',
+    roleTypeManagerEditAffordanceAria: 'Manage pickup location types',
+  },
+  // landr-funh — delivery roster (Settings → Providers) + per-booking-day
+  // assignment picker (BookingDetailSheet).
+  providers: {
+    title: 'Providers',
+    subtitle:
+      'The people who deliver your service — instructors, pilots, drivers. Assign them to booking days from the booking detail.',
+    noOperator: 'Select an operator to manage providers.',
+    loading: 'Loading providers…',
+    error: 'Failed to load providers.',
+    empty: 'No providers yet. Add one to get started.',
+    addProvider: 'Add provider',
+
+    columnName: 'Name',
+    columnRole: 'Default role',
+    columnStatus: 'Status',
+    columnActions: 'Actions',
+    statusActive: 'Active',
+    statusInactive: 'Inactive',
+    roleNone: '—',
+
+    actionEdit: 'Edit',
+    actionActivate: 'Activate',
+    actionDeactivate: 'Deactivate',
+    actionDelete: 'Delete',
+
+    formCreateTitle: 'Add provider',
+    formEditTitle: 'Edit provider',
+    fieldName: 'Display name',
+    fieldNamePlaceholder: 'e.g. Marie Dubois',
+    fieldRole: 'Default role',
+    fieldRoleNone: '— No default —',
+    fieldActive: 'Active',
+    errorNameRequired: 'Name is required.',
+
+    save: 'Save changes',
+    saving: 'Saving…',
+    create: 'Add provider',
+    creating: 'Adding…',
+    cancel: 'Cancel',
+
+    toastCreated: 'Provider added.',
+    toastUpdated: 'Provider updated.',
+    toastDeleted: 'Provider removed.',
+    toastError: 'Action failed.',
+
+    deleteDialogTitle: 'Remove provider?',
+    deleteDialogDescription:
+      'This soft-deletes the provider from the roster. Existing assignments and revenue history are preserved.',
+    deleteDialogConfirm: 'Remove',
+    deleteDialogDeleting: 'Removing…',
+    deleteDialogCancel: 'Cancel',
+
+    // ---- per-booking-day assignment picker (BookingDetailSheet) ----
+    assignSectionTitle: 'Who delivers each day',
+    assignSectionHint:
+      'Assign a provider to each day of this booking. Days come from the booking line items above.',
+    assignLoading: 'Loading assignments…',
+    assignError: 'Failed to load assignments.',
+    assignNoDays:
+      'This booking has no scheduled days yet. Pick dates above first.',
+    assignNoProviders:
+      'No providers in your roster yet. Add some under Settings → Providers.',
+    assignDayLabel: (day: string) => `Day — ${day}`,
+    assignProviderPlaceholder: '— Assign a provider —',
+    assignAdd: 'Assign',
+    assignAdding: 'Assigning…',
+    assignRemoveAria: (name: string, day: string) =>
+      `Unassign ${name} on ${day}`,
+    assignToastAdded: 'Provider assigned.',
+    assignToastRemoved: 'Assignment removed.',
+    assignToastError: 'Could not update assignment.',
+    assignedBadge: (name: string) => name,
+  },
+  // landr-up1b — nested category tree editor (Settings → Categories).
+  categoriesSettings: {
+    title: 'Categories',
+    subtitle:
+      'Organise products into a nested category tree. Categories drive the booking widget filter and the [landr_booking group="…"] shortcode.',
+    noOperator: 'Select an operator to manage categories.',
+    loading: 'Loading categories…',
+    empty: 'No categories yet. Add your first one below.',
+    createTitle: 'Add category',
+    fieldName: 'Name',
+    fieldParent: 'Parent category',
+    parentRoot: '— Top level —',
+    placeholderName: 'e.g. Courses',
+    create: 'Add',
+    creating: 'Adding…',
+    dupeName: 'A category with this name already exists.',
+    rootBadge: 'Top level',
+    inactiveBadge: 'Inactive',
+    edit: 'Rename',
+    save: 'Save',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    deleting: 'Deleting…',
+    confirmDelete: 'Confirm delete',
+    moveLabel: 'Move under',
+    moveAria: (name: string) => `Move category "${name}" under another`,
+    copyShortcode: 'Copy shortcode',
+    copyShortcodeAria: (name: string) => `Copy widget shortcode for "${name}"`,
+    deleteConfirmText: (name: string) =>
+      `Delete category "${name}"? Its sub-categories move up to its parent and any products on it fall back to no category.`,
+    toastCreated: 'Category added.',
+    toastUpdated: 'Category updated.',
+    toastMoved: 'Category moved.',
+    toastDeleted: 'Category deleted.',
+    toastError: 'Could not save category.',
+    toastReparentCycle: 'Cannot move a category under one of its own sub-categories.',
+    toastCopied: 'Shortcode copied.',
+    childCount: (n: number) =>
+      n === 1 ? '1 sub-category' : `${n} sub-categories`,
+  },
+  // landr-znzz.5 — generic per-operator offers/upsells editor. No defaults,
+  // nothing vendor-specific; each offer links out to the operator's own
+  // shop/merch/form via cta_url. No price field.
+  offersSettings: {
+    title: 'Upsells & offers',
+    subtitle:
+      'Add-ons shown after the trip on the customer event page. Each offer links out to your own shop, merch store, or form — set the link, we render the card.',
+    noOperator: 'Select an operator to manage offers.',
+    loading: 'Loading offers…',
+    empty: 'No offers yet. Add your first one below.',
+    createTitle: 'Add offer',
+    fieldTitle: 'Title',
+    fieldDescription: 'Description',
+    fieldCtaLabel: 'Button label',
+    fieldCtaUrl: 'Button link (your shop / form)',
+    fieldImageUrl: 'Image URL',
+    fieldActive: 'Show this offer on the event page',
+    activeShort: 'Active',
+    placeholderTitle: 'e.g. Your flight footage is ready',
+    placeholderDescription: 'Tell customers what they get and why.',
+    placeholderCtaLabel: 'e.g. Buy your video',
+    placeholderCtaUrl: 'https://your-shop.example/…',
+    placeholderImageUrl: 'https://…/preview.jpg',
+    ctaFallback: 'Open link',
+    inactiveBadge: 'Hidden',
+    create: 'Add',
+    creating: 'Adding…',
+    edit: 'Edit offer',
+    save: 'Save',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    deleting: 'Deleting…',
+    confirmDelete: 'Confirm delete',
+    moveUp: 'Move offer up',
+    moveDown: 'Move offer down',
+    toastCreated: 'Offer added.',
+    toastUpdated: 'Offer updated.',
+    toastDeleted: 'Offer deleted.',
+    toastError: 'Could not save offer.',
+  },
+  // landr-up1b — booking-widget embed / shortcode generator (Settings → Embed).
+  embedSettings: {
+    title: 'Embed your booking widget',
+    subtitle:
+      'Generate the shortcode (and matching iframe) to embed your LANDR booking widget on any website. Paste the shortcode into a WordPress page with the LANDR Booking plugin installed.',
+    noOperator: 'Select an operator to generate an embed.',
+    modeLabel: 'What to show',
+    modeAll: 'All products',
+    modeCategory: 'A category (and its sub-categories)',
+    modeProduct: 'A single product',
+    categoryLabel: 'Category',
+    categoryPlaceholder: 'Select a category…',
+    productLabel: 'Product',
+    productPlaceholder: 'Select a product…',
+    heightLabel: 'Height (px)',
+    heightHint: 'Optional. The iframe height in pixels. Leave blank for the default (800).',
+    srcLabel: 'Widget URL override',
+    srcHint:
+      'Optional. Pin a specific widget origin (e.g. a preview deploy). Leave blank to use the site default.',
+    srcPlaceholder: 'https://bw.landr.de/',
+    shortcodeLabel: 'Shortcode',
+    iframeLabel: 'Raw iframe (non-WordPress sites)',
+    copy: 'Copy',
+    copied: 'Copied!',
+    copyShortcodeAria: 'Copy shortcode',
+    copyIframeAria: 'Copy iframe HTML',
+    loadingCategories: 'Loading categories…',
+    loadingProducts: 'Loading products…',
+    noCategories: 'No categories yet — create some under Settings → Categories.',
+    noProducts: 'No products yet.',
+    toastCopied: 'Copied to clipboard.',
+    toastCopyError: 'Could not copy to clipboard.',
+    // landr-7zc5.4 — environment selector + raw URL + open button
+    envLabel: 'Environment',
+    envDevelopment: 'Development',
+    envTesting: 'Testing',
+    envLive: 'Live',
+    rawUrlLabel: 'Raw URL',
+    copyRawUrlAria: 'Copy raw widget URL',
+    openWidgetButton: 'Open booking widget',
+  },
+  // landr-up1b — per-product copy-shortcode affordance (list row + detail).
+  productShortcode: {
+    menuLabel: 'Embed shortcode',
+    copyProductRow: 'Copy product shortcode',
+    copyProductDetail: 'Copy this single product',
+    categoryLevelsLabel: 'Copy for a category level',
+    copyCategoryLevel: (name: string) => `Copy "${name}"`,
+    loading: 'Loading categories…',
+    noCategory: 'This product has no category.',
+    toastCopied: 'Shortcode copied.',
+    toastError: 'Could not copy to clipboard.',
+  },
+  // landr-iz58 — operator-scoped tag CRUD (Settings → Tags).
+  tagsSettings: {
+    title: 'Tags',
+    subtitle:
+      'Operator-scoped labels with a color. Apply to bookings or contacts to slice and filter.',
+    noOperator: 'Select an operator to manage tags.',
+    loading: 'Loading tags…',
+    empty: 'No tags yet. Create one above.',
+
+    createTitle: 'New tag',
+    existingTitle: 'Your tags',
+    placeholderName: 'e.g. VIP, Returning, Hen party',
+    fieldName: 'Name',
+    fieldColor: 'Color',
+    create: 'Create',
+    creating: 'Creating…',
+    edit: 'Edit',
+    save: 'Save',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    deleting: 'Deleting…',
+    confirmDelete: 'Confirm delete',
+    dupeName: 'A tag with this name already exists on this operator.',
+
+    toastCreated: 'Tag created.',
+    toastCreateError: 'Could not create tag.',
+    toastUpdated: 'Tag updated.',
+    toastUpdateError: 'Could not update tag.',
+    toastDeleted: 'Tag deleted.',
+    toastDeleteError: 'Could not delete tag.',
+  },
+  // landr-1tqx — Settings → Service roles. Operator-scoped catalogue of
+  // participant roles (Pilot/Passenger/Diver…) the booking widget reads.
+  serviceRolesSettings: {
+    title: 'Service roles',
+    subtitle:
+      'Participant roles customers choose on the booking form. Every operator starts with one role; add, rename, reorder, or deactivate them here.',
+    noOperator: 'Select an operator to manage service roles.',
+    loading: 'Loading service roles…',
+    empty: 'No service roles yet. Add one above.',
+
+    createTitle: 'New service role',
+    existingTitle: 'Your service roles',
+    placeholderLabel: 'e.g. Pilot, Passenger, Diver',
+    fieldLabel: 'Label',
+    fieldCode: 'Code',
+    codeHint: 'Auto-generated from the label. Used internally; not editable later.',
+    fieldActive: 'Active',
+    create: 'Add',
+    creating: 'Adding…',
+    edit: 'Edit',
+    save: 'Save',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    deleting: 'Deleting…',
+    confirmDelete: 'Confirm delete',
+    activate: 'Activate',
+    deactivate: 'Deactivate',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+    inactiveBadge: 'Inactive',
+    codeBadge: (code: string) => `(${code})`,
+
+    dupeCode: 'A service role with this code already exists. Try a different label.',
+    lastActiveRole:
+      'You must keep at least one active service role — the booking form needs it.',
+
+    toastCreated: 'Service role added.',
+    toastCreateError: 'Could not add service role.',
+    toastUpdated: 'Service role updated.',
+    toastUpdateError: 'Could not update service role.',
+    toastDeleted: 'Service role deleted.',
+    toastDeleteError: 'Could not delete service role.',
+    toastReordered: 'Order updated.',
+    toastReorderError: 'Could not reorder.',
+  },
+  // landr-sp4r — Settings → Campaigns. Operator-scoped marketing
+  // campaigns + codes used for booking attribution (bookings.campaign_id).
+  campaignsSettings: {
+    title: 'Campaigns',
+    subtitle:
+      'Marketing campaigns with a unique code per operator. Attribute bookings against them to measure reach.',
+    noOperator: 'Select an operator to manage campaigns.',
+    loading: 'Loading campaigns…',
+    empty: 'No campaigns yet. Create one to start attributing bookings.',
+    errorTitle: 'Could not load campaigns.',
+
+    newButton: 'New campaign',
+    existingTitle: 'Your campaigns',
+
+    // dialog
+    createTitle: 'New campaign',
+    editTitle: 'Edit campaign',
+    dialogDescription:
+      'Code must be unique per operator. Inactive campaigns stay attributable but are hidden from new pickers.',
+
+    fieldCode: 'Code',
+    fieldCodeHint: 'Short, unique identifier (e.g. SUMMER25).',
+    fieldLabel: 'Label',
+    fieldKind: 'Kind',
+    fieldScope: 'Scope',
+    fieldDescription: 'Description',
+    fieldStartDate: 'Start date',
+    fieldEndDate: 'End date',
+    fieldEndDateHint: 'Leave blank for an open-ended campaign.',
+    fieldActive: 'Active',
+
+    placeholderCode: 'e.g. SUMMER25',
+    placeholderLabel: 'e.g. Summer 2025 push',
+    placeholderDescription: 'Optional internal note.',
+
+    scopeBooking: 'Booking',
+    scopeSubscription: 'Subscription',
+    scopeAny: 'Any',
+
+    statusActive: 'Active',
+    statusInactive: 'Inactive',
+
+    save: 'Save',
+    saving: 'Saving…',
+    create: 'Create',
+    creating: 'Creating…',
+    cancel: 'Cancel',
+    edit: 'Edit',
+    deactivate: 'Deactivate',
+    deactivating: 'Deactivating…',
+    confirmDeactivate: 'Confirm deactivate',
+
+    dateWindowError: 'End date must not be before the start date.',
+
+    toastCreated: 'Campaign created.',
+    toastCreateError: 'Could not create campaign.',
+    toastUpdated: 'Campaign updated.',
+    toastUpdateError: 'Could not update campaign.',
+    toastDeactivated: 'Campaign deactivated.',
+    toastDeactivateError: 'Could not deactivate campaign.',
+  },
+  // landr-v198 — Settings → Vouchers. Operator-scoped promo-code editor
+  // over the vouchers table (create/edit/list/deactivate). Distinct from
+  // the read-only voucher-performance card on /analytics.
+  vouchersSettings: {
+    title: 'Vouchers',
+    subtitle:
+      'Discount codes customers redeem at booking. Percent or flat amount, with optional usage caps and a validity window.',
+    noOperator: 'Select an operator to manage vouchers.',
+    loading: 'Loading vouchers…',
+    empty: 'No vouchers yet. Create one to start offering discount codes.',
+
+    newVoucher: 'New voucher',
+
+    colCode: 'Code',
+    colKind: 'Type',
+    colAmount: 'Amount',
+    colUsage: 'Used',
+    colWindow: 'Valid',
+    colActive: 'Status',
+
+    kindPercent: 'Percentage',
+    kindFlat: 'Flat amount',
+
+    statusActive: 'Active',
+    statusInactive: 'Inactive',
+
+    windowAlways: 'Always',
+    windowFrom: 'From',
+    windowUntil: 'Until',
+
+    scopes: {
+      booking: 'Bookings',
+      subscription: 'Subscriptions',
+      any: 'Any',
+    },
+
+    dialogCreateTitle: 'New voucher',
+    dialogEditTitle: 'Edit voucher',
+    dialogDescription:
+      'Codes are stored upper-cased. Customers enter them at checkout.',
+
+    fieldCode: 'Code',
+    fieldKind: 'Type',
+    fieldAmount: 'Amount',
+    fieldScope: 'Applies to',
+    fieldMaxUses: 'Max uses',
+    fieldValidFrom: 'Valid from',
+    fieldValidUntil: 'Valid until',
+    fieldDescription: 'Description',
+    fieldActive: 'Active (customers can redeem this code)',
+
+    maxUsesHint: 'Leave blank for unlimited.',
+    placeholderCode: 'e.g. SUMMER25',
+    placeholderUnlimited: 'Unlimited',
+    placeholderDescription: 'Internal note (optional)',
+
+    create: 'Create',
+    save: 'Save',
+    saving: 'Saving…',
+    edit: 'Edit',
+    cancel: 'Cancel',
+    deactivate: 'Deactivate',
+    deactivating: 'Deactivating…',
+    confirmDeactivate: 'Confirm',
+
+    toastCreated: 'Voucher created.',
+    toastCreateError: 'Could not create voucher.',
+    toastUpdated: 'Voucher updated.',
+    toastUpdateError: 'Could not update voucher.',
+    toastDeactivated: 'Voucher deactivated.',
+    toastDeactivateError: 'Could not deactivate voucher.',
+  },
+  // landr-r87i — Settings → Operations. v2 of landr-84n1: operators
+  // curate the DEFAULT per-booking checklist items (saved server-side
+  // in operator_checklist_templates). Per-booking done flags + custom
+  // items continue to live in dashboard localStorage.
+  operationsSettings: {
+    title: 'Operations',
+    subtitle:
+      'Default checklist items that seed every new booking. Per-booking progress + custom items stay on each device.',
+    noOperator: 'Select an operator to manage the checklist template.',
+    loading: 'Loading template…',
+    error: 'Failed to load checklist template.',
+
+    sectionChecklist: 'Default booking checklist',
+    sectionChecklistDesc:
+      'Reorder, rename, add, or remove the items every new booking starts with.',
+
+    empty: 'No default items yet — add one below or save an empty list for fully bespoke checklists.',
+
+    labelPlaceholder: 'e.g. Sign waiver',
+    addAction: 'Add item',
+    addAria: 'Add a new default checklist item',
+    removeAria: (label: string) => `Remove "${label}"`,
+    moveUpAria: (label: string) => `Move "${label}" up`,
+    moveDownAria: (label: string) => `Move "${label}" down`,
+    labelAria: (idx: number) => `Item ${idx + 1} label`,
+    editAria: (label: string) => `Edit "${label}"`,
+    save: 'Save changes',
+    saving: 'Saving…',
+    revert: 'Discard',
+
+    toastSaved: 'Checklist template saved.',
+    toastSaveError: 'Could not save the checklist template.',
+    duplicateLabelError: 'Each item must have a unique label.',
+    emptyLabelError: 'Item labels cannot be blank.',
+  },
+  // landr-qg4q — Settings → Email log. Read-only viewer over the
+  // public.outbound_emails queue so operators can debug why a customer
+  // didn't get an email without reaching for Supabase Studio.
+  emailLog: {
+    title: 'Email log',
+    subtitle:
+      'The outbound email queue. Click a row to inspect the full body and any sender error.',
+    noOperator: 'Select an operator to view the email log.',
+    loading: 'Loading email log…',
+    error: 'Failed to load the email log.',
+    empty: 'No outbound emails match the current filters.',
+
+    filtersLabel: 'Filter by status',
+    clearFilters: 'Clear filters',
+    fromLabel: 'From',
+    toLabel: 'To',
+
+    columnSubject: 'Subject',
+    columnRecipient: 'Recipient',
+    columnStatus: 'Status',
+    columnSentAt: 'Sent at',
+    columnCreatedAt: 'Queued at',
+
+    rowAriaLabel: (subject: string): string =>
+      `Open email log entry: ${subject}`,
+
+    statusLabels: {
+      queued: 'Queued',
+      sending: 'Sending',
+      sent: 'Sent',
+      failed: 'Failed',
+    } as Record<string, string>,
+
+    drawerHeader: (recipient: string, kind: string, locale: string): string =>
+      `${recipient} · ${kind} · ${locale}`,
+
+    fieldStatus: 'Status',
+    fieldRetries: 'Retries',
+    fieldLastError: 'Last sender error',
+    fieldBodyHtml: 'HTML body',
+    fieldBodyHtmlTitle: 'Email HTML body (sandboxed preview)',
+    fieldBodyText: 'Plain-text body',
+  },
+  reporting: {
+    title: 'Reporting',
+    loading: 'Loading bookings…',
+    error: 'Failed to load reporting data.',
+    empty: 'No bookings in the selected range.',
+
+    kpiBookingsLabel: 'Bookings',
+    kpiBookingsHint: 'Total bookings (incl. cancelled)',
+    kpiRevenueLabel: 'Revenue',
+    kpiRevenueHint: 'Excludes cancelled bookings',
+    kpiAvgTicketLabel: 'Average ticket',
+    kpiAvgTicketHint: 'Revenue ÷ non-cancelled bookings',
+
+    rangeLabel: 'Date range',
+    rangeFromLabel: 'From',
+    rangeToLabel: 'To',
+    rangeReset: 'Reset',
+    rangeAllTime: 'All time',
+    rangeLast30: 'Last 30 days',
+    rangeLast90: 'Last 90 days',
+    rangeThisYear: 'This year',
+
+    chartRevenueTitle: 'Revenue over time',
+    chartRevenueDescription:
+      'Daily gross revenue, cancelled bookings excluded.',
+    chartBookingsTitle: 'Bookings per week',
+    chartBookingsDescription:
+      'ISO-8601 weeks, bucketed by earliest scheduled date.',
+
+    exportCsv: 'Export CSV',
+    exportRowsLabel: (n: number) => `${n} row${n === 1 ? '' : 's'}`,
+
+    cancelledNote: (n: number) =>
+      n === 0
+        ? ''
+        : `${n} cancelled booking${n === 1 ? '' : 's'} excluded from revenue.`,
+    mixedCurrencyWarning:
+      'Multiple currencies detected — totals shown in the first currency seen.',
+
+    holdedSyncTitle: 'Holded sync',
+    holdedSyncBody:
+      'Holded sync runs automatically after the Para42 cancellation period. ' +
+      'A manual “sync now” trigger from this screen is deferred until the ' +
+      'matching FastAPI endpoint ships (landr-m05.9 carry-over).',
+  },
+  // landr-af6c — /analytics route copy. Lives next to the reporting bucket
+  // because both surfaces consume the same bookings fetch; analytics is the
+  // operational-insight view while reporting is the export-and-numbers view.
+  analytics: {
+    title: 'Analytics',
+    loading: 'Loading analytics…',
+    error: 'Failed to load analytics data.',
+    empty: 'No bookings in the selected range yet.',
+
+    rangeLabel: 'Range',
+    rangeLast30: 'Last 30 days',
+    rangeLast90: 'Last 90 days',
+    rangeLast365: 'Last 365 days',
+    rangeNote: (from: string, to: string) => `${from} → ${to}`,
+
+    kpiBookingsLabel: 'Bookings',
+    kpiBookingsHint: 'Total bookings (incl. cancelled)',
+    kpiRevenueLabel: 'Revenue',
+    kpiRevenueHint: 'Excludes cancelled bookings',
+    kpiAvgTicketLabel: 'Average ticket',
+    kpiAvgTicketHint: 'Revenue ÷ non-cancelled bookings',
+
+    cancelledNote: (n: number) =>
+      n === 0
+        ? ''
+        : `${n} cancelled booking${n === 1 ? '' : 's'} excluded from revenue.`,
+    mixedCurrencyWarning:
+      'Multiple currencies detected — totals shown in the first currency seen.',
+
+    revenueOverTimeTitle: 'Revenue over time',
+    revenueOverTimeDescription:
+      'Gross revenue per bucket, cancelled bookings excluded.',
+    bucketDay: 'daily buckets',
+    bucketWeek: 'weekly buckets',
+    bucketMonth: 'monthly buckets',
+
+    productsTitle: 'Bookings per product',
+    productsDescription:
+      'Top 10 products by booking line count. Multi-product bookings ' +
+      'allocate revenue evenly across their lines.',
+
+    funnelTitle: 'Conversion funnel',
+    funnelDescription:
+      'Initiated → confirmed → completed. Each stage contains its successors.',
+    funnelInitiated: 'Initiated',
+    funnelConfirmed: 'Confirmed',
+    funnelCompleted: 'Completed',
+    funnelFromTop: (pct: string) => `${pct} of top`,
+    funnelFromPrev: (pct: string) => `${pct} of previous`,
+    funnelCancelledNote: (n: number) =>
+      `${n} cancelled booking${n === 1 ? '' : 's'} dropped off before confirmation.`,
+    funnelNoShowNote: (n: number) =>
+      `${n} no-show booking${n === 1 ? '' : 's'} confirmed but never arrived.`,
+
+    topCustomersTitle: 'Top customers',
+    topCustomersDescription: 'By revenue, then booking count. Up to 10 rows.',
+    topCustomersColumnName: 'Customer',
+    topCustomersColumnEmail: 'Email',
+    topCustomersColumnBookings: 'Bookings',
+    topCustomersColumnRevenue: 'Revenue',
+    topCustomersEmpty: 'No customers in the selected range.',
+
+    heatmapTitle: 'Occupancy heatmap',
+    heatmapDescription:
+      'When bookings come in. Rows are weekdays of the service date; ' +
+      'columns are the booking-creation hour (UTC).',
+    heatmapEmpty: 'No bookings in the selected range to plot.',
+    heatmapHourAxis: 'Hour of day (UTC)',
+    heatmapCellAria: (count: number, weekday: string, hour: number) =>
+      `${count} booking${count === 1 ? '' : 's'} on ${weekday} at ${hour.toString().padStart(2, '0')}:00 UTC`,
+
+    // landr-ce45 — revenue per staff card. Attributes booking revenue via
+    // booking_day_provider_assignments; multi-provider days split evenly.
+    perStaffTitle: 'Revenue per staff',
+    perStaffDescription:
+      'Booking revenue attributed via per-day provider assignments. ' +
+      'When multiple providers work the same day, revenue is split evenly.',
+    perStaffColumnName: 'Staff',
+    perStaffColumnBookings: 'Bookings',
+    perStaffColumnRevenue: 'Revenue',
+    perStaffColumnAverage: 'Avg / booking',
+    perStaffEmpty:
+      'No provider assignments in the selected range yet.',
+
+    // landr-1jgr — voucher performance card. Counts bookings with
+    // voucher_id_applied per voucher; discount totals are approximated
+    // from voucher metadata (no per-redemption persisted discount column
+    // today — see lib/analytics.shapeVoucherPerformance for the formula).
+    voucherPerformanceTitle: 'Voucher performance',
+    voucherPerformanceDescription:
+      'Top vouchers by redemption count. Discount totals are approximated ' +
+      'from voucher kind + amount; cancelled bookings contribute 0.',
+    voucherPerformanceColumnCode: 'Code',
+    voucherPerformanceColumnKind: 'Kind',
+    voucherPerformanceColumnRedemptions: 'Redemptions',
+    voucherPerformanceColumnDiscount: 'Discount given',
+    voucherPerformanceEmpty:
+      'No voucher redemptions in the selected range.',
+    voucherKindPercent: 'Percent',
+    voucherKindFlat: 'Flat',
+    voucherKindUnknown: 'Unknown',
+  },
+  emailTemplates: {
+    title: 'Email templates',
+    subtitle: 'Customise the transactional emails sent to customers for each booking event.',
+    loading: 'Loading email templates…',
+    error: 'Failed to load email templates.',
+    selectHint: 'Select a template kind and locale on the left to edit.',
+    statusCustom: 'Custom',
+    statusDefault: 'Default',
+
+    kindLabels: {
+      booking_received: 'Booking received',
+      hotel_request: 'Hotel request',
+      booking_confirmation: 'Booking confirmation',
+    } as Record<string, string>,
+
+    localeLabels: {
+      de: 'German (de)',
+      en: 'English (en)',
+    } as Record<string, string>,
+
+    fieldSubject: 'Subject',
+    fieldSubjectPlaceholder: 'e.g. Your booking is confirmed',
+    fieldBodyHtml: 'HTML body',
+    fieldBodyHtmlPlaceholder: '<p>Hello {{customer_name}},</p>',
+    fieldBodyText: 'Plain-text body',
+    fieldBodyTextPlaceholder: 'Hello {{customer_name}},\n\nYour booking is confirmed.',
+    optional: 'optional',
+
+    formAriaLabel: 'Email template editor',
+
+    save: 'Save',
+    saving: 'Saving…',
+    resetToDefault: 'Reset to default',
+    resetting: 'Resetting…',
+
+    toastSaved: 'Template saved.',
+    toastSaveError: 'Failed to save template',
+    toastReset: 'Template reset to built-in default.',
+    toastResetError: 'Failed to reset template',
+
+    previewTitle: 'Preview',
+    previewLoading: 'Loading preview…',
+    previewError: 'Preview failed',
+    previewSelectTemplate: 'Save a template to see the preview.',
+    previewSubject: 'Subject',
+    previewHtml: 'HTML',
+    previewHtmlTitle: 'Email HTML preview',
+    previewText: 'Plain text',
+    // landr-7tyo — Jinja render error surfaced from the preview endpoint
+    // (landr-tq6j). Banner sits below the iframe so the operator can
+    // still see whatever partial output the engine produced before the
+    // failure.
+    previewRenderErrorTitle: 'Template did not render',
+    previewRenderErrorHint:
+      'This template references a variable that the email engine does not provide. Pick a name from the catalog on the right.',
+    // landr-7tyo — variable catalog sidebar (C2 from email-templates.md).
+    // Surfaced from the preview endpoint's fixture.context payload so
+    // the dashboard always shows the same keys the renderer accepts.
+    variablesTitle: 'Available variables',
+    variablesHint:
+      'Click a chip to copy the Jinja placeholder. Paste into the subject or body to inject the value at send time.',
+    variablesEmpty: 'Run the preview to load available variables.',
+    variablesCopyAria: (key: string): string => `Copy {{ ${key} }} to clipboard`,
+    variablesCopied: 'Copied to clipboard.',
+    variablesCopyError: 'Could not copy to clipboard.',
+    variablesSampleLabel: 'Sample',
+  },
+  onboarding: {
+    title: 'Welcome to LANDR',
+    progress: (current: number, total: number) => `Step ${current} of ${total}`,
+    next: 'Next',
+    back: 'Back',
+    skip: 'Skip for now',
+    skipConfirm: "Are you sure? You can come back later from Settings.",
+    finish: 'Finish setup',
+    saving: 'Saving…',
+    saveError: 'Could not save your changes. Try again.',
+    rerunLink: 'Re-run onboarding',
+
+    step1: {
+      heading: 'Welcome to LANDR',
+      body:
+        'LANDR is the booking platform you use to take, confirm and run reservations for your activities. ' +
+        'This short setup walks you through the essentials so you can start taking bookings today.',
+      cta: "Let's get started",
+    },
+    step2: {
+      heading: 'Your company',
+      body: 'How your business shows up to customers and on invoices.',
+    },
+    step3: {
+      heading: 'Address & contact',
+      body: 'Used on invoices, customer emails, and the booking widget.',
+    },
+    step4: {
+      heading: 'Pickup locations',
+      body:
+        'Where do you pick customers up? Add at least one site so the booking widget can offer it ' +
+        '(hotels, meeting points, harbour, etc.). You can add more later.',
+      count: (n: number) =>
+        n === 0
+          ? 'No pickup locations yet.'
+          : `${n} pickup location${n === 1 ? '' : 's'} configured.`,
+      manage: 'Open pickup locations',
+      skipWarning:
+        'You have no pickup locations yet — customers will not see any pickup options. Skip anyway?',
+    },
+    step5: {
+      heading: 'Your first products',
+      body:
+        'Products are the activities customers can book. Start with a template — you can tune ' +
+        'prices, durations and details later from the Products page.',
+      templateGuided: 'Guided day',
+      templateGuidedDesc: 'Single-day guided activity. Time-slot bookable, needs a guide.',
+      templateCourse: 'Course (multi-day)',
+      templateCourseDesc: 'Multi-day course over a fixed date range.',
+      templateHotel: 'Hotel package',
+      templateHotelDesc: 'Day activity bundled with hotel pickup. Needs hotel coordination.',
+      create: 'Create',
+      creating: 'Creating…',
+      created: (name: string) => `Created “${name}”.`,
+      createError: 'Could not create product. Open Products to add manually.',
+      manage: 'Open products',
+      count: (n: number) =>
+        n === 0 ? 'No products yet.' : `${n} product${n === 1 ? '' : 's'} configured.`,
+    },
+    step6: {
+      heading: 'Connect your Gmail',
+      body:
+        'Send booking emails from YOUR Gmail address — not a generic no-reply. Customers see ' +
+        'emails coming from a real person at your company, which dramatically improves deliverability ' +
+        'and replies. Free to set up; takes about a minute.',
+      connect: 'Connect Gmail',
+      connecting: 'Connecting…',
+      connectedAs: (email: string) => `Connected as ${email}`,
+      reconnect: 'Reconnect',
+      connectError: 'Could not start Gmail connect.',
+      loading: 'Checking Gmail status…',
+    },
+    step7: {
+      heading: 'Email templates',
+      body:
+        'LANDR ships with sensible default templates for the three customer-facing emails. ' +
+        'Open the Email templates page if you want to tweak the wording, otherwise the defaults are fine to ship with.',
+      defaultKinds: 'Booking received · Hotel request · Booking confirmation',
+      manage: 'Open email templates',
+    },
+    step8: {
+      heading: 'Embed the booking widget',
+      body:
+        'Paste this WordPress shortcode anywhere on your website to show the booking widget. ' +
+        'The widget reads your products, pickup locations and prices automatically.',
+      copy: 'Copy',
+      copied: 'Copied!',
+      loading: 'Generating your embed code…',
+      tokenError: "Couldn't load your embed code — open Settings → Embed to copy it.",
+      filterHint:
+        'Want to embed only a specific category or product? Generate filtered snippets any time under Settings → Embed.',
+      done: "I've embedded it",
+    },
+    step9: {
+      heading: "You're ready to take bookings",
+      body:
+        'Setup complete. The dashboard is now your home base for managing reservations, ' +
+        'the calendar, and customer contacts.',
+      ctaDashboard: 'Open dashboard',
+      ctaBookings: 'See bookings',
+      ctaCalendar: 'Open calendar',
+    },
+
+    steps: {
+      welcome: 'Welcome',
+      company: 'Company',
+      address: 'Address',
+      pickup: 'Pickup',
+      products: 'Products',
+      gmail: 'Gmail',
+      emails: 'Emails',
+      embed: 'Embed',
+      done: 'Done',
+    },
+
+    banner: {
+      title: 'Finish setting up your account',
+      body: 'Complete the 9-step onboarding to start taking bookings.',
+      resume: 'Resume',
+      dismiss: 'Dismiss',
+    },
+  },
+  schedule: {
+    title: 'Schedule',
+    description:
+      'Manage bookable days for each product. Operators extend the seeded availability beyond the template window, block holidays, or adjust capacity per day.',
+    productLabel: 'Product',
+    productPlaceholder: 'Select a product…',
+    noProducts: 'No products yet — create one in Products first.',
+    loading: 'Loading availability…',
+    error: 'Failed to load availability.',
+    rangeHint:
+      'Showing the visible month. Drag-select a range or click a single day.',
+    addButton: 'Add availability',
+
+    dayClosed: 'Closed',
+    dayUnscheduled: 'Not scheduled',
+
+    formTitle: 'Add availability',
+    formNoProduct: 'Pick a product first.',
+    formFromLabel: 'From',
+    formToLabel: 'To (inclusive)',
+    formCapacityLabel: 'Capacity',
+    formCapacityHint: 'Set 0 to mark the days as Closed.',
+    formNotesLabel: 'Notes (optional)',
+    formSlotsLabel: 'Time slots',
+    formSlotAdd: 'Add slot',
+    formSlotRemove: 'Remove',
+    formSlotStartLabel: 'Start',
+    formSlotEndLabel: 'End',
+    formCancel: 'Cancel',
+    formSubmit: 'Save',
+    formSaving: 'Saving…',
+    formDatesRequired: 'From and To dates are required.',
+    formRangeInverted: 'To must be on or after From.',
+    formCapacityInvalid: 'Capacity must be a non-negative integer.',
+    formSlotInvalid: 'Slot times must be HH:MM.',
+    formSlotInverted: 'Slot end time must be after start time.',
+
+    popoverTitle: 'Edit day',
+    popoverDelete: 'Delete',
+    popoverBlock: 'Block (capacity 0)',
+    popoverSave: 'Save',
+    popoverReservedHint: (reserved: number, capacity: number) =>
+      `${reserved} of ${capacity} reserved.`,
+    popoverMultiSlotsHint: (count: number) =>
+      `${count} time slots on this day. Editing the first; manage others via bulk add.`,
+
+    toastBulkSuccess: (n: number) => `Added ${n} availability rows.`,
+    toastBulkError: 'Failed to add availability.',
+    toastSaveSuccess: 'Availability updated.',
+    toastSaveError: 'Failed to update availability.',
+    toastDeleteSuccess: 'Availability removed.',
+    toastDeleteError: 'Failed to remove availability.',
+
+    // landr-lp9t — Month/List view toggle + List view chrome.
+    viewToggleMonth: 'Month',
+    viewToggleList: 'List',
+    viewToggleLabel: 'View',
+    listEmpty: 'No availability in the visible window yet.',
+    listOneDay: '1 day',
+    listDayCount: (n: number) => `${n} days`,
+    listSeatsPerDay: (n: number) => `${n} seats/day`,
+    listReservedHint: (reserved: number, total: number) =>
+      `${reserved}/${total} reserved`,
+  },
+
+  // landr-v0xg — saved Views index page (empty-state with templates,
+  // 'pick a view' helper text, '+ New view' affordance). Phase 6
+  // (landr-c58d) will add starring/hiding controls; phase 2 (landr-hgtv)
+  // adds the per-view ViewPage chrome.
+  viewsIndex: {
+    title: 'Views',
+    emptyTitle: 'No views yet',
+    emptyDescription:
+      'Create your first view or pick a template to get started.',
+    newButton: '+ New view',
+    templateSectionTitle: 'Start with a template',
+  },
+  // landr-ne58 — Recently-viewed section in the app sidebar (last 5
+  // detail surfaces the operator opened — bookings, contacts, products,
+  // views).
+  recentlyViewed: {
+    heading: 'Recently viewed',
+    collapse: 'Collapse Recently viewed',
+    expand: 'Expand Recently viewed',
+    empty: 'Items you open will show up here.',
+    typeBooking: 'Booking',
+    typeContact: 'Contact',
+    typeProduct: 'Product',
+    typeView: 'View',
+  },
+  // landr-c58d / landr-45pb / landr-79f5 — Views sub-list in the app sidebar.
+  // landr-79f5 simplifies the IA: pinned-only sidebar (no More / Hidden buckets).
+  // Pin = appears in sidebar; Unpin = does not. The `hidden` schema column
+  // still exists but is a no-op in the sidebar (treated as "not visible").
+  viewsSidebar: {
+    unpin: 'Unpin from sidebar',
+    pinView: 'Pin this view',
+    unpinView: 'Unpin this view',
+    emptyHint: 'No views pinned. Pin views from /views to add them here.',
+    emptyHintLinkLabel: '/views',
+    newViewButton: '+ New view',
+    pinError: 'Failed to update pin.',
+    reorderError: 'Failed to reorder views.',
+    rowMenuLabel: (name: string): string => `More actions for ${name}`,
+  },
+  // landr-hgtv — per-view ViewPage chrome (toolbar, layout switcher,
+  // filter chips, dirty-state save UX). Layout body strings only describe
+  // the placeholder; the real layouts (D Table, E Board, F Calendar) ship
+  // their own copy in landr-7w3s / landr-kjls / landr-9kbl.
+  views: {
+    star: 'Star this view',
+    unstar: 'Unstar this view',
+    rename: 'Rename view',
+    renameSave: 'Save name',
+    renameCancel: 'Cancel rename',
+    setDefaultLayout: 'Set as default layout',
+    duplicate: 'Duplicate',
+    duplicating: 'Duplicating…',
+    duplicateError: 'Failed to duplicate view.',
+    delete: 'Delete view',
+    deleting: 'Deleting…',
+    deleteConfirm: 'Delete this view? This cannot be undone.',
+    deleteError: 'Failed to delete view.',
+    notFoundTitle: 'View not found',
+    loadError: 'Failed to load view.',
+    loading: 'Loading view…',
+    unsavedTitle: 'Unsaved changes',
+    unsavedBody: 'Save or discard your changes before navigating away.',
+    save: 'Save',
+    saving: 'Saving…',
+    discard: 'Discard',
+    saved: 'Saved',
+    saveError: 'Save failed',
+    leaveConfirm: 'You have unsaved changes — leave anyway?',
+    layout: {
+      groupLabel: 'View layout',
+      table: 'Table',
+      board: 'Board',
+      calendar: 'Calendar',
+    },
+    toolbar: {
+      sortLabel: 'Sort:',
+      sortNone: 'No sort',
+      sortAsc: 'Ascending',
+      sortDesc: 'Descending',
+      columns: 'Columns',
+      columnsPlaceholderTip: 'Column picker arrives with the Table layout.',
+      // landr-1ztq — Group-by dropdown (Table layout only). Other layouts
+      // ignore the value; the dropdown stays in the toolbar so the operator
+      // sees one consistent control surface across layouts.
+      groupByLabel: 'Group:',
+      groupByNone: 'No grouping',
+      // landr-4cwh — Board swimlanes (secondary grouping).
+      swimlaneLabel: 'Swimlanes:',
+      swimlaneNone: 'None (flat)',
+      // landr-79f5 — layout-locked placeholder shown on non-Board layouts
+      // so operators can see the control exists. The Tooltip explains the
+      // gate: switch to Board to use it.
+      swimlanePlaceholder: 'Swimlanes (Board only)',
+      swimlaneLockedTip: 'Switch to Board layout to use swimlanes.',
+      // landr-9nj9 — Board column-by picker (primary grouping). "None"
+      // clears the key so the BoardLayout default fallback kicks in
+      // (first enum field, typically current_stage).
+      columnByLabel: 'Column by:',
+      columnByNone: 'Default',
+      // landr-79f5 — layout-locked placeholder shown on non-Board layouts.
+      columnByPlaceholder: 'Column by (Board only)',
+      columnByLockedTip: 'Switch to Board layout to use column-by.',
+    },
+    filters: {
+      addFilter: '+ Filter',
+      remove: 'Remove filter',
+      fieldLabel: 'Field',
+      opLabel: 'Operator',
+      valueLabel: 'Value',
+      apply: 'Apply',
+      cancel: 'Cancel',
+    },
+    body: {
+      // landr-lx7s — shared loading/error copy used by all 3 layout branches
+      // (Table / Board / Calendar). Per-layout buckets keep only their
+      // layout-specific strings.
+      loading: 'Loading items…',
+      loadError: 'Failed to load items.',
+      calendar: {
+        placeholderTitle: 'Pick a date field to use Calendar layout',
+        placeholderBody:
+          'Open the view settings and set a date field (e.g. Start date) for the Calendar layout to plot items on.',
+        empty: 'No items to display.',
+      },
+      board: {
+        mustBeEnum: 'Column-by must be an enum field.',
+        unknownField: (key: string) => `Unknown column-by field: ${key}.`,
+        unsupportedField: (label: string) =>
+          `Column-by on “${label}” is not wired up yet — only Stage is supported in v1.`,
+        emptyColumn: 'No items',
+        disallowedTarget: 'No supported transition into this column.',
+        mutateError: 'Could not move card — change reverted.',
+        // landr-4cwh — swimlane (secondary grouping) copy.
+        swimlaneUnknownField: (key: string) =>
+          `Unknown swimlane field: ${key}.`,
+        swimlaneMustBeGroupable:
+          'Swimlane field must be an enum or id field.',
+        swimlaneEmptyCell: '—',
+      },
+    },
+    // landr-7w3s — Table layout copy.
+    table: {
+      loading: 'Loading items…',
+      loadError: 'Failed to load items.',
+      empty: 'No items match this view.',
+      rowCount: (visible: number, total: number) =>
+        visible === total
+          ? `${total} item${total === 1 ? '' : 's'}`
+          : `${visible} of ${total} items`,
+      columnPickerLabel: 'Columns',
+      columnPickerHeading: 'Visible columns',
+      columnPickerEmpty: 'No columns available for this entity.',
+      moneyFallback: '—',
+      dateFallback: '—',
+      // landr-1ztq — group header chrome.
+      groupCountSuffix: (n: number): string => `(${n})`,
+      groupNullLabel: '— Empty —',
+      groupCollapse: (label: string): string => `Collapse ${label}`,
+      groupExpand: (label: string): string => `Expand ${label}`,
+    },
+  },
+  // landr-p600 — Dashboard home revamp. Daily-ops view with today's
+  // bookings list, this-week summary cards (revenue + spark, bookings,
+  // new contacts), pending-approvals badge, and a recent-activity feed.
+  dashboard: {
+    title: 'Dashboard',
+    loading: 'Loading dashboard…',
+    error: 'Failed to load dashboard data.',
+    todayHeading: "Today's bookings",
+    todayEmpty: 'No bookings scheduled for today.',
+    todayCount: (n: number): string =>
+      n === 1 ? '1 booking' : `${n} bookings`,
+    weekRevenueLabel: 'Revenue this week',
+    weekBookingsLabel: 'Bookings this week',
+    weekContactsLabel: 'New contacts this week',
+    weekRevenueEmpty: 'No revenue yet.',
+    pendingApprovalsLabel: 'Pending approvals',
+    pendingApprovalsCta: 'Review queue',
+    pendingApprovalsEmpty: 'All caught up.',
+    pendingApprovalsCount: (n: number): string =>
+      n === 1 ? '1 awaiting' : `${n} awaiting`,
+    activityHeading: 'Recent activity',
+    activityEmpty: 'No activity yet.',
+    activityBookingCreated: 'New booking',
+    activityContactCreated: 'New contact',
+    activityApprovalPending: 'Awaiting approval',
+    customerFallback: 'Unknown customer',
+    // landr-kav4 — today's-capacity card on the dashboard home.
+    capacityHeading: "Today's capacity",
+    capacityEmpty: 'No schedulable products with a per-unit capacity yet.',
+    capacityRowAria: (name: string, booked: number, capacity: number): string =>
+      `${name}: ${booked} of ${capacity} booked`,
+    // landr-a99u.12 — operator go-live request banner on dashboard home.
+    goLiveBannerTitle: 'Ready for go-live?',
+    goLiveBannerDescription:
+      'You\'re on staging. If everything looks good, request go-live and Landr staff will review and ship it.',
+    goLiveBannerButton: 'Request go-live',
+    goLiveBannerRequestedTitle: 'Go-live requested',
+    goLiveBannerRequestedDescription:
+      'Landr will review your staging environment and promote it to production.',
+    goLiveDialogTitle: 'Request go-live?',
+    goLiveDialogDescription:
+      'Landr staff will review staging and promote it to production. You can add a note for the reviewer.',
+    goLiveNotesLabel: 'Notes for the reviewer (optional)',
+    goLiveNotesPlaceholder: 'e.g. tested checkout, calendar, and email flows',
+    goLiveConfirmAction: 'Send request',
+    goLiveAlreadyPending: 'A go-live request is already awaiting staff review.',
+    goLiveSuccessToast: 'Go-live requested — Landr will review and ship it.',
+  },
+  // landr-s1mr — Copy for the shared <EmptyState> cards across surfaces.
+  // Each surface gets a friendly title + sub-copy + CTA so the empty
+  // screen still tells the operator what to do next. Approvals uses the
+  // celebratory tone (nothing pending is the *good* state).
+  emptyStates: {
+    bookings: {
+      title: 'No bookings yet',
+      description:
+        'New customer bookings will show up here. Share your booking link or create one manually to get started.',
+    },
+    contacts: {
+      title: 'No contacts yet',
+      description:
+        'Your customer list is empty. Contacts are added automatically when a booking comes in.',
+    },
+    products: {
+      title: 'No products yet',
+      description:
+        'Add your first product so customers can book it from your widget.',
+      cta: 'New product',
+    },
+    views: {
+      title: 'No views yet',
+      description:
+        'Saved views let you filter and revisit the bookings that matter most. Create one or start from a template.',
+      cta: '+ New view',
+    },
+    calendar: {
+      title: 'No bookings to show',
+      description:
+        'When you have scheduled bookings they will appear on the calendar.',
+    },
+    recentlyViewed: {
+      title: 'Nothing here yet',
+      description: 'Bookings, contacts, products and views you open will land here.',
+    },
+    approvals: {
+      title: 'All caught up',
+      description: 'No approvals are waiting on you right now. Nice work.',
+    },
+  },
+  // landr-v6aq — shared strings for the delete + undo confirmation toast.
+  // Used by src/lib/undo-toast.ts so every soft-delete surface (booking
+  // cancel, product delete, future trash kinds) speaks the same copy.
+  undo: {
+    action: 'Undo',
+    restored: 'Restored.',
+    restoreError: 'Could not undo — please try again from the Trash page.',
+    // Per-kind toast headers. Composed in the call site as
+    // `t.undo.deleted(kind, label)` so the noun stays close to the action.
+    deletedBooking: (label: string): string => `Deleted booking — ${label}`,
+    deletedProduct: (label: string): string => `Deleted product — ${label}`,
+  },
+  // landr-ah9u — Settings → Webhooks. v1 is a UI-only configuration
+  // surface that persists the operator's webhook list to localStorage;
+  // v2 (future) graduates to operator_webhooks + a background delivery
+  // worker. Copy here covers the list, the add/edit dialog, validation
+  // errors, and the 'v1 stub' notice that warns the operator nothing is
+  // wired up to actually POST yet.
+  webhooksSettings: {
+    title: 'Webhooks',
+    subtitle:
+      'Subscribe an HTTPS endpoint to receive booking and payment events.',
+    v1Notice:
+      'Configuration saved locally. Server-side delivery in v2.',
+    addButton: 'Add webhook',
+    empty: 'No webhooks yet. Add one to subscribe to events.',
+    columnUrl: 'URL',
+    columnEvents: 'Events',
+    columnCreated: 'Created',
+    edit: 'Edit',
+    delete: 'Delete',
+    confirmDelete: 'Confirm delete',
+    cancel: 'Cancel',
+    dialogAddTitle: 'Add webhook',
+    dialogEditTitle: 'Edit webhook',
+    dialogDescription:
+      'Enter the endpoint URL and pick the events you want to receive.',
+    fieldUrl: 'Endpoint URL',
+    fieldUrlPlaceholder: 'https://example.com/webhooks/landr',
+    fieldUrlHint: 'Must start with https://',
+    fieldEvents: 'Events',
+    fieldEventsHint: 'Choose at least one event to subscribe to.',
+    fieldSecret: 'Signing secret',
+    fieldSecretHint:
+      'Use this secret to verify the HMAC signature on delivered payloads (v2).',
+    fieldSecretCopy: 'Copy secret',
+    fieldSecretCopied: 'Secret copied to clipboard.',
+    fieldSecretCopyError: 'Could not copy. Select + copy manually.',
+    errorUrlRequired: 'Enter an endpoint URL.',
+    errorUrlInvalid: 'Enter a valid https:// URL.',
+    errorEventsRequired: 'Pick at least one event.',
+    save: 'Save webhook',
+    saving: 'Saving…',
+    create: 'Add webhook',
+    creating: 'Adding…',
+    toastCreated: 'Webhook saved locally.',
+    toastUpdated: 'Webhook updated.',
+    toastDeleted: 'Webhook deleted.',
+    // Display names for each event in WEBHOOK_EVENTS — keep aligned with
+    // src/lib/webhooks.ts. The wire name (e.g. 'booking.created') is the
+    // contract; this lookup is purely for the UI label.
+    eventLabels: {
+      'booking.created': 'Booking created',
+      'booking.approved': 'Booking approved',
+      'booking.cancelled': 'Booking cancelled',
+      'booking.completed': 'Booking completed',
+      'payment.received': 'Payment received',
+    },
   },
 } as const
