@@ -357,6 +357,9 @@ function WatchToggle({ ticketId, publicUserId }: WatchToggleProps) {
 
   const mutation = useMutation({
     mutationFn: async () => {
+      // Guard: publicUserId must be resolved before the mutation can run.
+      // The button is disabled while watchQuery is pending, but double-check
+      // here to avoid acting on stale closure state.
       if (!publicUserId) return
       if (isWatching) {
         await unwatchTicket(ticketId, publicUserId)
@@ -372,12 +375,19 @@ function WatchToggle({ ticketId, publicUserId }: WatchToggleProps) {
         isWatching ? t.ticketDetail.watchToastOff : t.ticketDetail.watchToastOn,
       )
     },
-    onError: () => {
-      toast.error(t.ticketDetail.watchToastError)
+    onError: (err: Error) => {
+      // Surface the real error so it's visible in the toast and debuggable in
+      // the console — not just a generic "could not update" fallback.
+      console.error('[WatchToggle] watch mutation failed:', err)
+      toast.error(t.ticketDetail.watchToastError, { description: err.message })
     },
   })
 
   if (!publicUserId) return null
+
+  // Disable the button while the watch-status query is loading OR in error
+  // state (can't determine current watch state, so a click would be a guess).
+  const isQueryBusy = watchQuery.isPending || watchQuery.isError
 
   return (
     <Button
@@ -386,7 +396,7 @@ function WatchToggle({ ticketId, publicUserId }: WatchToggleProps) {
       size="sm"
       className="shrink-0 gap-1.5 text-xs"
       onClick={() => mutation.mutate()}
-      disabled={mutation.isPending || watchQuery.isPending}
+      disabled={mutation.isPending || isQueryBusy}
       data-testid="ticket-watch-toggle"
       title={isWatching ? t.ticketDetail.watchingLabel : t.ticketDetail.watchLabel}
     >
