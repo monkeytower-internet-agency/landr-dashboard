@@ -43,6 +43,9 @@ const RetrieveBoard = lazy(() => import('@/routes/RetrieveBoard'))
 // landr-sbhz.8 — owner revenue overview (staff-only, staff-rare). Lazy so it
 // stays off the operator-facing initial bundle.
 const Revenue = lazy(() => import('@/routes/Revenue'))
+// landr-wwhn.28 — feedback inbox (staff-only, triage surface). Lazy so it
+// stays off the operator-facing initial bundle.
+const FeedbackInbox = lazy(() => import('@/routes/FeedbackInbox'))
 import { AuthCallback } from '@/routes/AuthCallback'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
@@ -240,6 +243,11 @@ function App() {
                   Revenue self-redirects non-staff to home and the FastAPI
                   endpoint enforces is_landr_staff with a 403. */}
               <Route path="/revenue" element={<Revenue />} />
+
+              {/* landr-wwhn.28 — cross-operator feedback triage inbox.
+                  STAFF-ONLY: self-redirects non-staff to home; DB view is
+                  gated on is_landr_staff so zero data leaks to operators. */}
+              <Route path="/feedback-inbox" element={<FeedbackInbox />} />
 
               {/* landr-fzcg — Account is a virtual top-level nav item
                   whose subsections live under /settings/*. Hitting
