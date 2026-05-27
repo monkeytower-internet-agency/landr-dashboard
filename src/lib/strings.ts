@@ -151,7 +151,7 @@ export const t = {
     noOperators: 'No operators available for this account.',
     switchTo: 'Switch operator',
     loading: 'Loading operators…',
-    // landr-2soj — staff "View as operator" mode.
+    // landr-2soj / landr-7dya.13 — staff "View as operator" mode.
     viewAs: {
       // Picker section header inside the operator switcher (staff-only).
       sectionLabel: 'View as operator (staff)',
@@ -165,6 +165,14 @@ export const t = {
       // the banner itself mounting as a role="status" region).
       exitedAnnouncement: 'Exited view-as mode; restored full staff view.',
       bannerRegionLabel: 'Staff view-as status',
+      // landr-7dya.13 — operator picker dialog (command dialog).
+      pickerTitle: 'View as operator',
+      pickerDescription: 'Pick an operator to preview their dashboard exactly as they see it.',
+      pickerPlaceholder: 'Search operators…',
+      pickerGroupLabel: 'Operators',
+      pickerLoading: 'Loading operators…',
+      pickerEmpty: 'No operators found.',
+      pickerActive: 'viewing',
     },
   },
   nav: {

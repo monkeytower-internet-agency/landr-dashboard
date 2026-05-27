@@ -1,4 +1,4 @@
-// landr-7dya.10 — top-level workspace mode switch.
+// landr-7dya.10 / landr-7dya.13 — top-level workspace mode switch.
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -9,16 +9,17 @@ const { mock } = vi.hoisted(() => {
   const state = {
     mode: 'operator' as AppMode,
     capabilities: {
-      can_use_ticket_system: true,
+      is_staff: true,
+      is_owner: false,
+      can_triage_tickets: true,
+      can_admin_roles: false,
       can_view_as_operator: true,
+      roles: [],
     } as StaffCapabilities,
     showSwitcher: true,
-    staffOperators: [
-      { id: 'op-1', slug: 'para42', name: 'Para42' },
-    ] as Array<{ id: string; slug: string; name: string | null }>,
     enterOperatorMode: vi.fn(),
     enterTicketSystem: vi.fn(),
-    enterViewAs: vi.fn(),
+    enterViewAsMode: vi.fn(),
   }
   return { mock: { state } }
 })
@@ -31,26 +32,27 @@ vi.mock('@/lib/app-mode-context', () => ({
     showSwitcher: mock.state.showSwitcher,
     enterOperatorMode: mock.state.enterOperatorMode,
     enterTicketSystem: mock.state.enterTicketSystem,
+    enterViewAsMode: mock.state.enterViewAsMode,
+    viewAsPickerOpen: false,
+    closeViewAsPicker: vi.fn(),
   }),
 }))
 
-vi.mock('@/lib/operator', () => ({
-  useOperator: () => ({
-    staffOperators: mock.state.staffOperators,
-    enterViewAs: mock.state.enterViewAs,
-  }),
-}))
+// AppModeSwitcher no longer imports useOperator — no mock needed.
 
 import { AppModeSwitcher } from './AppModeSwitcher'
 
 beforeEach(() => {
   mock.state.mode = 'operator'
   mock.state.capabilities = {
-    can_use_ticket_system: true,
+    is_staff: true,
+    is_owner: false,
+    can_triage_tickets: true,
+    can_admin_roles: false,
     can_view_as_operator: true,
+    roles: [],
   }
   mock.state.showSwitcher = true
-  mock.state.staffOperators = [{ id: 'op-1', slug: 'para42', name: 'Para42' }]
 })
 
 afterEach(() => {
@@ -75,8 +77,12 @@ describe('AppModeSwitcher', () => {
 
   it('hides the ticket-system mode when the capability is false', async () => {
     mock.state.capabilities = {
-      can_use_ticket_system: false,
+      is_staff: false,
+      is_owner: false,
+      can_triage_tickets: false,
+      can_admin_roles: false,
       can_view_as_operator: true,
+      roles: [],
     }
     const user = userEvent.setup()
     render(<AppModeSwitcher />)
@@ -88,8 +94,12 @@ describe('AppModeSwitcher', () => {
 
   it('hides the view-as mode when the capability is false', async () => {
     mock.state.capabilities = {
-      can_use_ticket_system: true,
+      is_staff: true,
+      is_owner: false,
+      can_triage_tickets: true,
+      can_admin_roles: false,
       can_view_as_operator: false,
+      roles: [],
     }
     const user = userEvent.setup()
     render(<AppModeSwitcher />)
@@ -116,12 +126,12 @@ describe('AppModeSwitcher', () => {
     expect(mock.state.enterOperatorMode).toHaveBeenCalledTimes(1)
   })
 
-  it('enters view-as for the first staff operator when that mode is selected', async () => {
+  it('calls enterViewAsMode (opens picker) when view-as mode is selected', async () => {
     const user = userEvent.setup()
     render(<AppModeSwitcher />)
     await user.click(screen.getByTestId('app-mode-switcher-trigger'))
     await user.click(screen.getByTestId('app-mode-option-view-as'))
-    expect(mock.state.enterViewAs).toHaveBeenCalledWith('op-1')
+    expect(mock.state.enterViewAsMode).toHaveBeenCalledTimes(1)
   })
 
   it('reflects the current mode on the trigger', () => {
@@ -131,5 +141,20 @@ describe('AppModeSwitcher', () => {
       'data-current-mode',
       'tickets',
     )
+  })
+
+  it('shows the ticket-system mode when only can_triage_tickets is true', async () => {
+    mock.state.capabilities = {
+      is_staff: false,
+      is_owner: false,
+      can_triage_tickets: true,
+      can_admin_roles: false,
+      can_view_as_operator: true,
+      roles: [],
+    }
+    const user = userEvent.setup()
+    render(<AppModeSwitcher />)
+    await user.click(screen.getByTestId('app-mode-switcher-trigger'))
+    expect(screen.getByTestId('app-mode-option-tickets')).toBeInTheDocument()
   })
 })

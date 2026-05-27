@@ -1,10 +1,12 @@
-// landr-7dya.10 — top-level WORKSPACE MODE SWITCH (not a sidebar item).
+// landr-7dya.10 / landr-7dya.13 — top-level WORKSPACE MODE SWITCH.
 //
 // A clear, topbar-level control that switches between the three first-class
 // app modes (ADR 0005):
 //   1. Operator dashboard   — the normal operator-scoped chrome.
-//   2. View as operator     — staff preview of the customer view (scaffold;
-//                             deep behaviour is landr-7dya.13).
+//   2. View as operator     — staff preview of what a SaaS customer sees.
+//                             Selecting this opens the ViewAsOperatorPicker
+//                             dialog (landr-7dya.13) so the staff user can
+//                             choose WHICH operator to view as.
 //   3. Ticket system        — the full-screen support/feedback workspace.
 //
 // Staff-only: the whole control renders null unless `showSwitcher` (a Landr
@@ -12,12 +14,6 @@
 // never see modes 2/3 — they stay implicitly in mode 1 with the switcher
 // absent. Capability gating (per-mode) comes from the feature-detected staff
 // capabilities (degrades gracefully when landr-7dya.14 is unmerged).
-//
-// View-as ENTRY here is a scaffold per the ticket: selecting "View as operator"
-// opens the existing staff operator picker (in the OperatorSwitcher) rather
-// than duplicating it. We expose the entry point + keep the mode wired; the
-// full preview UX lands in landr-7dya.13. When already in view-as, the entry is
-// shown active so the staff user can tell which mode they're in.
 
 import { CheckIcon, ChevronsUpDownIcon, EyeIcon, InboxIcon, LayoutDashboardIcon } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -31,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useAppMode } from '@/lib/app-mode-context'
-import { useOperator } from '@/lib/operator'
+import { canUseTicketSystem } from '@/lib/staff-capabilities'
 import type { AppMode } from '@/lib/app-mode'
 import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
@@ -50,12 +46,8 @@ export function AppModeSwitcher() {
     showSwitcher,
     enterOperatorMode,
     enterTicketSystem,
+    enterViewAsMode,
   } = useAppMode()
-  // View-as is entered via the existing staff operator picker — selecting the
-  // row simply enters view-as for the first available staff operator as a
-  // convenience entry point (the picker remains the primary, richer affordance
-  // and landr-7dya.13 deepens the preview UX).
-  const { staffOperators, enterViewAs } = useOperator()
 
   if (!showSwitcher) return null
 
@@ -75,7 +67,7 @@ export function AppModeSwitcher() {
       hint: t.appMode.viewAsHint,
     })
   }
-  if (capabilities.can_use_ticket_system) {
+  if (canUseTicketSystem(capabilities)) {
     rows.push({
       mode: 'tickets',
       icon: InboxIcon,
@@ -96,12 +88,9 @@ export function AppModeSwitcher() {
       enterTicketSystem()
       return
     }
-    // view-as: scaffold entry. Enter view-as for the first staff operator if
-    // one exists; otherwise leave the staff user on the operator picker (the
-    // OperatorSwitcher's "View as operator" section). landr-7dya.13 owns the
-    // richer operator-picker-driven preview flow.
-    const first = staffOperators[0]
-    if (first) enterViewAs(first.id)
+    // view-as: open the operator picker dialog (landr-7dya.13). The user picks
+    // which operator to view as from there; no immediate enterViewAs call here.
+    enterViewAsMode()
   }
 
   return (

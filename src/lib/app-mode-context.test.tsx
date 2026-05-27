@@ -1,5 +1,5 @@
-// landr-7dya.10 — AppModeProvider: mode derivation, capability gating, and the
-// enter-mode navigation actions.
+// landr-7dya.10 / landr-7dya.13 — AppModeProvider: mode derivation, capability
+// gating, enter-mode navigation actions, and view-as picker open state.
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
@@ -10,6 +10,7 @@ import {
 } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { StaffCapabilities } from '@/lib/staff-capabilities'
 
 const { mock } = vi.hoisted(() => {
   const state = {
@@ -17,9 +18,13 @@ const { mock } = vi.hoisted(() => {
     viewAsActive: false,
     exitViewAs: vi.fn(),
     capabilities: {
-      can_use_ticket_system: true,
+      is_staff: true,
+      is_owner: false,
+      can_triage_tickets: true,
+      can_admin_roles: false,
       can_view_as_operator: true,
-    },
+      roles: [],
+    } as StaffCapabilities,
   }
   return { mock: { state } }
 })
@@ -54,22 +59,38 @@ import { AppModeProvider, useAppMode } from './app-mode-context'
 import { TICKET_SYSTEM_PATH } from './app-mode'
 
 function Probe() {
-  const { mode, showSwitcher, capabilities, enterTicketSystem, enterOperatorMode } =
-    useAppMode()
+  const {
+    mode,
+    showSwitcher,
+    capabilities,
+    enterTicketSystem,
+    enterOperatorMode,
+    enterViewAsMode,
+    viewAsPickerOpen,
+    closeViewAsPicker,
+  } = useAppMode()
   const { pathname } = useLocation()
   return (
     <div>
       <span data-testid="mode">{mode}</span>
       <span data-testid="show-switcher">{String(showSwitcher)}</span>
       <span data-testid="can-tickets">
-        {String(capabilities.can_use_ticket_system)}
+        {String(capabilities.is_staff || capabilities.can_triage_tickets)}
       </span>
+      <span data-testid="can-view-as">{String(capabilities.can_view_as_operator)}</span>
+      <span data-testid="picker-open">{String(viewAsPickerOpen)}</span>
       <span data-testid="pathname">{pathname}</span>
       <button data-testid="go-tickets" onClick={enterTicketSystem}>
         tickets
       </button>
       <button data-testid="go-operator" onClick={enterOperatorMode}>
         operator
+      </button>
+      <button data-testid="go-view-as" onClick={enterViewAsMode}>
+        view-as
+      </button>
+      <button data-testid="close-picker" onClick={closeViewAsPicker}>
+        close
       </button>
     </div>
   )
@@ -96,8 +117,12 @@ beforeEach(() => {
   mock.state.isLandrStaff = true
   mock.state.viewAsActive = false
   mock.state.capabilities = {
-    can_use_ticket_system: true,
+    is_staff: true,
+    is_owner: false,
+    can_triage_tickets: true,
+    can_admin_roles: false,
     can_view_as_operator: true,
+    roles: [],
   }
 })
 
@@ -136,6 +161,22 @@ describe('AppModeProvider switcher gating', () => {
       'false',
     )
   })
+
+  it('hides the switcher when staff has no capabilities', async () => {
+    mock.state.capabilities = {
+      is_staff: false,
+      is_owner: false,
+      can_triage_tickets: false,
+      can_admin_roles: false,
+      can_view_as_operator: false,
+      roles: [],
+    }
+    renderAt('/')
+    await waitFor(() =>
+      expect(screen.getByTestId('can-tickets')).toHaveTextContent('false'),
+    )
+    expect(screen.getByTestId('show-switcher')).toHaveTextContent('false')
+  })
 })
 
 describe('AppModeProvider navigation actions', () => {
@@ -157,18 +198,64 @@ describe('AppModeProvider navigation actions', () => {
     expect(screen.getByTestId('mode')).toHaveTextContent('operator')
   })
 
-  it('enterTicketSystem is a no-op without the ticket-system capability', async () => {
+  it('enterTicketSystem is a no-op without ticket capability', async () => {
     mock.state.capabilities = {
-      can_use_ticket_system: false,
+      is_staff: false,
+      is_owner: false,
+      can_triage_tickets: false,
+      can_admin_roles: false,
       can_view_as_operator: true,
+      roles: [],
     }
     const user = userEvent.setup()
     renderAt('/bookings')
-    // wait for the capability query to settle so the guard reads false
     await waitFor(() =>
       expect(screen.getByTestId('can-tickets')).toHaveTextContent('false'),
     )
     await user.click(screen.getByTestId('go-tickets'))
     expect(screen.getByTestId('pathname')).toHaveTextContent('/bookings')
+  })
+})
+
+describe('AppModeProvider view-as picker state (landr-7dya.13)', () => {
+  it('picker starts closed', async () => {
+    renderAt('/')
+    expect(await screen.findByTestId('picker-open')).toHaveTextContent('false')
+  })
+
+  it('enterViewAsMode opens the picker', async () => {
+    const user = userEvent.setup()
+    renderAt('/')
+    await screen.findByTestId('picker-open')
+    await user.click(screen.getByTestId('go-view-as'))
+    expect(screen.getByTestId('picker-open')).toHaveTextContent('true')
+  })
+
+  it('closeViewAsPicker closes the picker', async () => {
+    const user = userEvent.setup()
+    renderAt('/')
+    await screen.findByTestId('picker-open')
+    await user.click(screen.getByTestId('go-view-as'))
+    expect(screen.getByTestId('picker-open')).toHaveTextContent('true')
+    await user.click(screen.getByTestId('close-picker'))
+    expect(screen.getByTestId('picker-open')).toHaveTextContent('false')
+  })
+
+  it('enterViewAsMode is a no-op without can_view_as_operator', async () => {
+    mock.state.capabilities = {
+      is_staff: true,
+      is_owner: false,
+      can_triage_tickets: true,
+      can_admin_roles: false,
+      can_view_as_operator: false,
+      roles: [],
+    }
+    const user = userEvent.setup()
+    renderAt('/')
+    await waitFor(() =>
+      expect(screen.getByTestId('can-view-as')).toHaveTextContent('false'),
+    )
+    await user.click(screen.getByTestId('go-view-as'))
+    expect(screen.getByTestId('picker-open')).toHaveTextContent('false')
   })
 })
