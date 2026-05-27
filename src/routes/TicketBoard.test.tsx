@@ -80,14 +80,31 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 vi.mock('@/lib/operator', () => ({
-  useOperator: () => ({
+  useOperator: vi.fn(() => ({
     operators: [{ id: 'op-1', slug: 'para42', name: 'Para42' }],
     currentOperator: { id: 'op-1', slug: 'para42', name: 'Para42' },
     currentOperatorId: 'op-1',
     loading: false,
-    switchOperator: () => {},
-  }),
+    switchOperator: vi.fn(),
+    staffOperators: [],
+    staffOperatorsLoading: false,
+    viewAsActive: false,
+    viewAsOperator: null,
+    enterViewAs: vi.fn(),
+    exitViewAs: vi.fn(),
+    refreshOperators: vi.fn(),
+  })),
   OperatorProvider: ({ children }: { children: ReactElement }) => children,
+}))
+
+vi.mock('@/lib/entitlements', () => ({
+  useEntitlements: vi.fn(() => ({
+    isEnabled: () => true,
+    isLandrStaff: false,
+    effectiveIsStaff: false,
+    isLoading: false,
+  })),
+  EntitlementsProvider: ({ children }: { children: ReactElement }) => children,
 }))
 
 vi.mock('sonner', () => ({
@@ -100,6 +117,8 @@ vi.mock('sonner', () => ({
 }))
 
 import { TicketBoard } from './TicketBoard'
+import { useOperator } from '@/lib/operator'
+import { useEntitlements } from '@/lib/entitlements'
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -279,3 +298,82 @@ describe('TicketBoard rendering', () => {
 // NOTE: resolveTicketDrop is a pure function exported from @/lib/tickets and
 // is unit-tested in src/lib/tickets-board.test.ts (it was moved there out of
 // the .tsx route to satisfy react-refresh/only-export-components).
+
+// ---- operator filter (landr-wwhn.31) ----------------------------------------
+
+const STAFF_OPS = [
+  { id: 'op-alpha', slug: 'alpha', name: 'Alpha Travels' },
+  { id: 'op-beta', slug: 'beta', name: 'Beta Outdoors' },
+]
+
+function asStaff() {
+  vi.mocked(useOperator).mockReturnValue({
+    operators: [
+      { id: 'op-alpha', slug: 'alpha', name: 'Alpha Travels', onboarded_at: null },
+    ],
+    currentOperator: {
+      id: 'op-alpha',
+      slug: 'alpha',
+      name: 'Alpha Travels',
+      onboarded_at: null,
+    },
+    currentOperatorId: 'op-alpha',
+    loading: false,
+    switchOperator: vi.fn(),
+    staffOperators: STAFF_OPS,
+    staffOperatorsLoading: false,
+    viewAsActive: false,
+    viewAsOperator: null,
+    enterViewAs: vi.fn(),
+    exitViewAs: vi.fn(),
+    refreshOperators: vi.fn(),
+  })
+  vi.mocked(useEntitlements).mockReturnValue({
+    isEnabled: () => true,
+    isLandrStaff: true,
+    effectiveIsStaff: true,
+    isLoading: false,
+  })
+}
+
+describe('TicketBoard — operator filter (landr-wwhn.31)', () => {
+  it('does NOT render operator filter bar for non-staff', async () => {
+    mock.state.rows = []
+    render(<TicketBoard />)
+    await waitFor(() => {
+      expect(screen.getByTestId('ticket-board-column-backlog')).toBeInTheDocument()
+    })
+    expect(
+      screen.queryByTestId('ticket-board-operator-filter'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('renders operator filter bar for staff with staffOperators', async () => {
+    asStaff()
+    mock.state.rows = []
+    render(<TicketBoard />)
+    await waitFor(() => {
+      expect(screen.getByTestId('ticket-board-column-backlog')).toBeInTheDocument()
+    })
+    expect(
+      screen.getByTestId('ticket-board-operator-filter'),
+    ).toBeInTheDocument()
+    for (const op of STAFF_OPS) {
+      expect(
+        screen.getByTestId(`ticket-operator-filter-${op.id}`),
+      ).toBeInTheDocument()
+    }
+  })
+
+  it('does NOT show Clear button when no operator is selected', async () => {
+    asStaff()
+    mock.state.rows = []
+    render(<TicketBoard />)
+    await waitFor(() => {
+      expect(screen.getByTestId('ticket-board-column-backlog')).toBeInTheDocument()
+    })
+    expect(
+      screen.queryByTestId('ticket-operator-filter-clear'),
+    ).not.toBeInTheDocument()
+  })
+})
