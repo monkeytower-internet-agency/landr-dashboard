@@ -46,6 +46,9 @@ const Revenue = lazy(() => import('@/routes/Revenue'))
 // landr-wwhn.28 — feedback inbox (staff-only, triage surface). Lazy so it
 // stays off the operator-facing initial bundle.
 const FeedbackInbox = lazy(() => import('@/routes/FeedbackInbox'))
+// landr-a99u.6 — release promotion console (staff-only, staff-rare). Lazy so
+// it stays off the operator-facing initial bundle.
+const Release = lazy(() => import('@/routes/Release'))
 import { AuthCallback } from '@/routes/AuthCallback'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
@@ -248,6 +251,13 @@ function App() {
                   STAFF-ONLY: self-redirects non-staff to home; DB view is
                   gated on is_landr_staff so zero data leaks to operators. */}
               <Route path="/feedback-inbox" element={<FeedbackInbox />} />
+
+              {/* landr-a99u.6 — release promotion console (dev → staging →
+                  main). STAFF-ONLY like /revenue: Release self-redirects
+                  non-staff to home, gates each action on the server-computed
+                  `viewer` capability block, and the FastAPI endpoints enforce
+                  is_landr_staff with a 403. */}
+              <Route path="/release" element={<Release />} />
 
               {/* landr-fzcg — Account is a virtual top-level nav item
                   whose subsections live under /settings/*. Hitting
