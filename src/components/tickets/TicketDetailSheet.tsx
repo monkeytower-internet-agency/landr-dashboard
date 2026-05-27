@@ -110,6 +110,7 @@ import {
 } from '@/lib/tickets'
 
 import { TicketTriageCard } from './TicketTriageCard'
+import { OriginChip } from './CardVisuals'
 
 // ---- Types ------------------------------------------------------------------
 
@@ -243,9 +244,25 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
       <SheetHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <SheetTitle className="line-clamp-2 text-base leading-snug">
-              {ticket.title}
-            </SheetTitle>
+            <div className="flex items-start gap-2 flex-wrap">
+              <SheetTitle className="line-clamp-2 text-base leading-snug">
+                {ticket.title}
+              </SheetTitle>
+              {/* landr-7dya.2 — origin chip. For staff: from tickets_staff (has
+                  staging relay context). For operators: from the public ticket
+                  row (operators also see the chip on their own staging tickets). */}
+              {(staffDetail?.origin_tier ?? ticket.origin_tier) && (
+                <OriginChip
+                  tier={staffDetail?.origin_tier ?? ticket.origin_tier}
+                  operatorLabel={
+                    staffDetail?.origin_operator_label ??
+                    ticket.origin_operator_label
+                  }
+                  className="mt-0.5 shrink-0"
+                  data-testid="ticket-detail-origin-chip"
+                />
+              )}
+            </div>
             {/* Who-to-contact meta: org name + reporter */}
             <SheetDescription className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span data-testid="ticket-header-ticket-id">

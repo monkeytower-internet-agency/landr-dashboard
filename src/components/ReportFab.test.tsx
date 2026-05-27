@@ -119,6 +119,8 @@ function makeTicketRow(overrides: Partial<TicketRow> = {}): TicketRow {
     assignee_id: null,
     blocked: false,
     moscow: null,
+    origin_tier: null,
+    origin_operator_label: null,
     created_at: '2026-05-24T10:00:00Z',
     updated_at: '2026-05-24T10:00:00Z',
     ...overrides,

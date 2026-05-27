@@ -151,6 +151,8 @@ function makeTicket(overrides: Partial<TicketRow> = {}): TicketRow {
     assignee_id: null,
     blocked: false,
     moscow: null,
+    origin_tier: null,
+    origin_operator_label: null,
     created_at: '2026-05-24T10:00:00Z',
     updated_at: '2026-05-24T10:00:00Z',
     ...overrides,
@@ -228,29 +230,31 @@ describe('TicketBoard rendering', () => {
     expect(screen.getByText('DB gone')).toBeInTheDocument()
   })
 
-  it('renders blocked badge on blocked tickets', async () => {
+  it('renders blocked indicator on blocked tickets', async () => {
     const blocked = makeTicket({ id: 'tk-blocked', blocked: true })
     mock.state.rows = [blocked]
     render(<TicketBoard />)
     await waitFor(() => {
+      // landr-7dya.3: blocked now renders as an icon in the status-icons row
       expect(
-        screen.getByTestId('ticket-card-blocked-tk-blocked'),
+        screen.getByTestId('ticket-card-status-icons-tk-blocked'),
       ).toBeInTheDocument()
     })
     expect(
-      screen.getByTestId('ticket-card-blocked-tk-blocked'),
-    ).toHaveTextContent('Blocked')
+      screen.getByTestId('card-status-blocked'),
+    ).toBeInTheDocument()
   })
 
-  it('does NOT render blocked badge on non-blocked tickets', async () => {
+  it('does NOT render blocked indicator on non-blocked tickets', async () => {
     const ticket = makeTicket({ id: 'tk-ok', blocked: false })
     mock.state.rows = [ticket]
     render(<TicketBoard />)
     await waitFor(() => {
       expect(screen.getByTestId('ticket-card-tk-ok')).toBeInTheDocument()
     })
+    // landr-7dya.3: non-blocked tickets have no blocked icon in status row
     expect(
-      screen.queryByTestId('ticket-card-blocked-tk-ok'),
+      screen.queryByTestId('card-status-blocked'),
     ).not.toBeInTheDocument()
   })
 

@@ -35,6 +35,7 @@ import {
   ArrowUpRightIcon,
   UserIcon,
 } from 'lucide-react'
+import { OriginChip, CardStatusIcons } from '@/components/tickets/CardVisuals'
 
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
@@ -311,6 +312,14 @@ function ThreadCard({
   const displayedEvents = expanded ? timeline : timeline.slice(-2)
   const hiddenCount = timeline.length - 2
 
+  // Derive comment count from timeline (comment events only)
+  const commentCount = timeline.filter((e) => e.kind === 'comment').length
+
+  // Resolved assignee for the status-icon avatar
+  const resolvedAssignee = ticket.assignee_id
+    ? (assigneeMap.get(ticket.assignee_id) ?? null)
+    : null
+
   return (
     <div
       className={cn(
@@ -324,6 +333,12 @@ function ThreadCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-sm truncate">{ticket.title}</span>
+            {/* landr-7dya.2 — origin chip */}
+            <OriginChip
+              tier={ticket.origin_tier ?? null}
+              operatorLabel={ticket.origin_operator_label ?? null}
+              data-testid={`inbox-thread-origin-${ticket.id}`}
+            />
             {hasUnread && (
               <span
                 className="inline-flex size-2 shrink-0 rounded-full bg-primary"
@@ -344,16 +359,19 @@ function ThreadCard({
             <span>{PERCEIVED_IMPACT_LABEL[ticket.perceived_impact]}</span>
             <span>·</span>
             <span>{ticket.status.replace('_', ' ')}</span>
-            {ticket.assignee_id && (
-              <>
-                <span>·</span>
-                <span>
-                  {assigneeMap.get(ticket.assignee_id)?.email ??
-                    ticket.assignee_id.slice(0, 8)}
-                </span>
-              </>
-            )}
           </div>
+          {/* landr-7dya.3 — Trello-style status icons */}
+          <CardStatusIcons
+            attachmentCount={0}
+            isWatching={false}
+            assignee={resolvedAssignee}
+            priority={ticket.priority}
+            commentCount={commentCount}
+            moscow={ticket.moscow ?? null}
+            blocked={ticket.blocked}
+            className="mt-1.5"
+            data-testid={`inbox-thread-status-icons-${ticket.id}`}
+          />
         </div>
         <Button
           variant="ghost"
