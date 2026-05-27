@@ -72,6 +72,18 @@ export type TicketRow = {
   blocked: boolean
   /** landr-wwhn.23: release-planning overlay. null = unplanned. */
   moscow: TicketMoscow | null
+  /**
+   * landr-7dya.2 — origin tier.
+   * Exposed on the public SELECT grant so operators can see the chip on their
+   * own tickets. 'prod' = native; 'staging' = relayed from landr-staging.
+   * Null on legacy rows or lower-env installs without the column.
+   */
+  origin_tier: 'prod' | 'staging' | null
+  /**
+   * landr-7dya.2 — staging operator label (denormalised text, no FK).
+   * Null for prod-origin rows.
+   */
+  origin_operator_label: string | null
   created_at: string
   updated_at: string
 }
@@ -85,6 +97,9 @@ export type TicketStaffFields = {
   promotion_requested_at: string | null
   sync_status: string | null
   last_synced_at: string | null
+  // Note: origin_tier and origin_operator_label are on the base TicketRow
+  // (exposed to all authenticated roles for the origin chip). Staff get them
+  // via the same columns — no duplication here.
 }
 
 export type TicketRowStaff = TicketRow & TicketStaffFields
@@ -242,6 +257,8 @@ const TICKET_SELECT = `
   assignee_id,
   blocked,
   moscow,
+  origin_tier,
+  origin_operator_label,
   created_at,
   updated_at
 `
@@ -266,6 +283,8 @@ const TICKET_STAFF_SELECT = `
   promotion_requested_at,
   sync_status,
   last_synced_at,
+  origin_tier,
+  origin_operator_label,
   created_at,
   updated_at
 `
@@ -277,7 +296,7 @@ export async function createTicket(payload: TicketCreate): Promise<TicketRow> {
     .from('tickets')
     .insert(payload)
     .select(
-      'id, context, type, title, body, status, priority, perceived_impact, reporter_id, operator_id, assignee_id, blocked, moscow, created_at, updated_at',
+      'id, context, type, title, body, status, priority, perceived_impact, reporter_id, operator_id, assignee_id, blocked, moscow, origin_tier, origin_operator_label, created_at, updated_at',
     )
     .single()
   if (error) throw new Error(error.message)

@@ -124,6 +124,8 @@ function makeTicket(
     assignee_id: null,
     blocked: false,
     moscow: null,
+    origin_tier: null,
+    origin_operator_label: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     ...overrides,
