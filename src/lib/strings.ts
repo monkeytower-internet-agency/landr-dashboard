@@ -495,39 +495,46 @@ export const t = {
     viewTicket: 'View ticket',
     loadError: 'Could not load notifications.',
   },
-  // landr-wwhn.12 — persistent report/suggest entry point + create-ticket form.
+  // landr-wwhn.12 / landr-wwhn.29 — persistent report/suggest entry point + create-ticket form.
   reportButton: {
     // Topbar trigger (persistent, visible on every protected route).
-    triggerLabel: 'Report a problem or suggest an idea',
+    triggerLabel: 'Report an issue or send feedback',
     triggerText: 'Feedback',
     // Dialog.
-    dialogTitle: "Tell us what's on your mind",
+    dialogTitle: 'Report an issue / Send feedback',
     dialogDescription:
-      'Found a bug or have an idea? We read everything and get back to you in the dashboard.',
-    // Type toggle labels (map to DB ticket_type enum).
-    typeProblem: 'Problem',
-    typeIdea: 'Idea',
+      'We read everything and get back to you here in the dashboard.',
+    // Impact picker (replaces the old type toggle — the single classifier).
+    impactLabel: 'How is it affecting you?',
+    impactBlocking: 'Blocking — I cannot get work done',
+    impactAnnoying: 'Annoying — it slows me down',
+    impactIdea: 'Idea / suggestion',
+    // Contextual hints shown below the body textarea.
+    reproHintBlocking: 'What happened, what did you expect, and what were you trying to do?',
+    reproHintAnnoying: 'What is the friction — what did you expect to happen instead?',
     // Fields.
     titleLabel: 'Summary',
-    titlePlaceholder: 'One-line summary of the issue or idea',
+    titlePlaceholder: 'One-line summary',
     bodyLabel: 'Details',
-    bodyPlaceholder: 'More context, steps, or background — the more, the better.',
-    // Bug-type repro hint (light; full template is a later ticket).
-    reproHint: 'Tip: include what you did, what you expected, and what happened instead.',
-    // Impact picker labels (map to DB ticket_perceived_impact enum).
-    impactLabel: 'How badly is this affecting you?',
-    impactBlocking: "Blocking — I can't get work done",
-    impactAnnoying: 'Annoying — it slows me down',
-    impactIdea: 'Just an idea',
+    bodyPlaceholder: 'More context, steps to reproduce, or background — the more, the better.',
+    // Attachment zone.
+    attachLabel: 'Attach a file or screenshot',
+    attachHint: 'Paste (Ctrl+V) or click to attach',
+    attachUploading: 'Uploading…',
+    // Optional URL field.
+    linkLabel: 'Related link',
+    linkPlaceholder: 'https://…',
     // Buttons.
     submit: 'Send feedback',
     submitting: 'Sending…',
     cancel: 'Cancel',
     // Success / error toasts.
-    toastSuccess: 'Got it — thanks for the feedback!',
+    toastSuccess: (ticketId: string): string =>
+      `Got it — thanks! Ticket #${ticketId.slice(0, 8)} filed.`,
     toastError: "Couldn't send feedback. Try again.",
     // Validation.
     titleRequired: 'A one-line summary is required.',
+    linkInvalid: 'Enter a valid URL (starting with https://).',
   },
   // landr-wwhn.13 — ticket detail sheet.
   ticketDetail: {
