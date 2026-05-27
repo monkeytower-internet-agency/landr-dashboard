@@ -62,6 +62,7 @@ import {
 } from '@/lib/tickets'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
+import { useTicketFilter } from '@/lib/ticket-filter-context'
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -594,6 +595,13 @@ function FeedbackInboxInner() {
   )
   const [filter, setFilter] = useState<InboxFilter>(INBOX_FILTER_DEFAULTS)
 
+  // landr-7dya.11 — the shell-level shared filter (operator/type/urgency/time/
+  // assigned-to-me/unread/watching/mentioned/unassigned/status/blocked/tier).
+  // Layered ON TOP of this surface's own status/impact/assignee/unread chips
+  // (AND). When the inbox is rendered standalone (/feedback-inbox, no shell)
+  // useTicketFilter() returns a fallback whose `matches` passes everything.
+  const { matches: shellMatches } = useTicketFilter()
+
   // Left-rail summary
   const summaryQuery = useQuery({
     queryKey: ['feedback-inbox-summary'],
@@ -666,18 +674,19 @@ function FeedbackInboxInner() {
     return ids
   }, [threads, selectedSummary, staffUserIds])
 
-  // Apply filters
+  // Apply filters — the inbox's own chips AND the shell-level shared filter.
   const filteredThreads = useMemo(
     () =>
-      threads.filter((th) =>
-        threadMatchesFilter(
-          th,
-          filter,
-          unreadTicketIds,
-          awaitingReplyTicketIds,
-        ),
+      threads.filter(
+        (th) =>
+          threadMatchesFilter(
+            th,
+            filter,
+            unreadTicketIds,
+            awaitingReplyTicketIds,
+          ) && shellMatches(th.ticket),
       ),
-    [threads, filter, unreadTicketIds, awaitingReplyTicketIds],
+    [threads, filter, unreadTicketIds, awaitingReplyTicketIds, shellMatches],
   )
 
   // Bell deep-link: ?open=<ticketId> clears param and keeps current selection

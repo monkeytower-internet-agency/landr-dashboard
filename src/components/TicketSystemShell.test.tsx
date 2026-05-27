@@ -1,4 +1,5 @@
 // landr-7dya.10 — full-screen ticket-system shell chrome.
+import type { ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
@@ -32,6 +33,18 @@ vi.mock('@/components/NotificationsBell', () => ({
 }))
 vi.mock('@/components/ThemeToggle', () => ({
   ThemeToggle: () => <div data-testid="theme-stub" />,
+}))
+// landr-7dya.11 — the shared filter bar + its provider pull auth + query
+// providers; stub them so this test stays a pure SHELL-chrome test (the filter
+// bar / provider have their own dedicated tests). The provider stub is a plain
+// passthrough so the <Outlet /> still renders.
+vi.mock('@/lib/ticket-filter-context', () => ({
+  TicketFilterProvider: ({ children }: { children: ReactNode }) => (
+    <>{children}</>
+  ),
+}))
+vi.mock('@/components/tickets/TicketFilterBar', () => ({
+  TicketFilterBar: () => <div data-testid="ticket-filter-bar-stub" />,
 }))
 
 import { TicketSystemShell } from './TicketSystemShell'

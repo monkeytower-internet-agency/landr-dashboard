@@ -64,6 +64,7 @@ import {
 } from '@/lib/tickets'
 import { TicketBoardColumn } from '@/components/tickets/TicketBoardColumn'
 import { TicketDetailSheet } from '@/components/tickets/TicketDetailSheet'
+import { useTicketFilter } from '@/lib/ticket-filter-context'
 
 // ---- component --------------------------------------------------------------
 
@@ -71,6 +72,12 @@ export function TicketBoard() {
   const { currentOperatorId, staffOperators } = useOperator()
   const { effectiveIsStaff } = useEntitlements()
   const [searchParams, setSearchParams] = useSearchParams()
+
+  // landr-7dya.11 — shell-level shared filter. When this board is rendered
+  // INSIDE the ticket-system app-view, useTicketFilter() returns the live
+  // shell filter; when rendered standalone (operator-chrome /tickets) it
+  // returns a no-op fallback whose `matches` passes everything.
+  const { matches: filterMatches } = useTicketFilter()
 
   // landr-wwhn.31 — staff-only operator filter (local, session state).
   // null = use currentOperatorId (default). Set to a specific operator ID to
@@ -202,12 +209,21 @@ export function TicketBoard() {
     })
   }
 
+  // landr-7dya.11 — apply the shared shell filter to the board rows. The board
+  // loads the PUBLIC tickets row (no severity / origin_tier); the predicate
+  // skips facets whose field the row doesn't carry, so a severity/tier filter
+  // never wrongly empties the board.
+  const visibleTickets = useMemo(
+    () => localTickets.filter((t) => filterMatches(t)),
+    [localTickets, filterMatches],
+  )
+
   const columns = useMemo(() => {
     return TICKET_COLUMNS.map((col) => ({
       ...col,
-      items: localTickets.filter((t) => t.status === col.key),
+      items: visibleTickets.filter((t) => t.status === col.key),
     }))
-  }, [localTickets])
+  }, [visibleTickets])
 
   // ---- render ----
 
@@ -232,7 +248,7 @@ export function TicketBoard() {
     )
   }
 
-  const totalCount = localTickets.length
+  const totalCount = visibleTickets.length
 
   return (
     <div className="flex flex-col gap-6">
