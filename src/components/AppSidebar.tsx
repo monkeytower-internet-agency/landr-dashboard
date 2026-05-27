@@ -45,6 +45,7 @@ import { useEntitlements } from '@/lib/entitlements'
 import { featureForRoute } from '@/lib/entitlements-map'
 import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
 import type { SidebarMode } from '@/lib/sidebar-mode'
+import { TICKET_SYSTEM_PATH } from '@/lib/app-mode'
 import { t } from '@/lib/strings'
 // landr-c58d — Views sub-list (star + hide) rendered under the
 // top-level "Views" primary nav entry.
@@ -186,8 +187,13 @@ const staffItems: NavItem[] = [
     exact: false,
   },
   // landr-wwhn.28 — cross-operator feedback triage inbox.
+  // landr-7dya.10 — the inbox is now a FIRST-CLASS APP-VIEW (full-screen
+  // ticket-system workspace), not an operator-chrome sidebar page. This launcher
+  // points at the app-view (/staff/tickets) so staff enter the dedicated chrome
+  // rather than embedding the inbox in the operator sidebar. The legacy
+  // /feedback-inbox route still works (deep-links / bookmarks) — coexists.
   {
-    to: '/feedback-inbox',
+    to: TICKET_SYSTEM_PATH,
     label: t.nav.feedbackInbox,
     icon: InboxIcon,
     exact: false,

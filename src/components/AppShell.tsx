@@ -16,6 +16,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/AppSidebar'
+import { AppModeSwitcher } from '@/components/AppModeSwitcher'
 import { CommandPalette } from '@/components/CommandPalette'
 import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp'
 import { NotificationsBell } from '@/components/NotificationsBell'
@@ -114,6 +115,12 @@ function AppShellInner({
               the Sidebar component). md:hidden keeps the topbar clean on
               desktop, where the persistent rail is always visible. */}
           <SidebarTrigger className="md:hidden" />
+          {/* landr-7dya.10 — top-level workspace mode switch (single-operator ·
+              view-as · ticket-system). Staff-only; renders null for non-staff
+              and for staff without any staff-only capability, so the topbar is
+              unchanged for ordinary operators. Sits left of the operator
+              scope so it reads as the outermost level of context. */}
+          <AppModeSwitcher />
           <OperatorSwitcher />
           <div className="min-w-0 flex-1">
             <PageTitleDisplay />

@@ -24,6 +24,30 @@ export const t = {
     // landr-v0xg — Views section label (sidebar primary nav).
     views: 'Views',
   },
+  // landr-7dya.10 — top-level app-mode switch (single-operator · view-as ·
+  // ticket-system). Staff-only; non-staff never see the switcher.
+  appMode: {
+    // Trigger label / aria for the topbar mode switch.
+    switcherLabel: 'Workspace mode',
+    triggerLabel: 'Switch workspace',
+    menuLabel: 'Workspace',
+    // Mode entries.
+    operator: 'Operator dashboard',
+    operatorHint: 'Your normal operator-scoped workspace',
+    viewAs: 'View as operator',
+    viewAsHint: 'Preview what a SaaS customer sees',
+    tickets: 'Ticket system',
+    ticketsHint: 'Full-screen support & feedback workspace',
+    // Ticket-system shell chrome.
+    ticketSystemTitle: 'Ticket system',
+    ticketSystemSubtitle: 'Staff support & feedback workspace',
+    exitToOperator: 'Exit to dashboard',
+    exitToOperatorAria: 'Exit the ticket system and return to the operator dashboard',
+    // Ticket-system sub-surface tabs.
+    surfaceInbox: 'Inbox',
+    surfaceBoard: 'Board',
+    surfacePlanning: 'Planning',
+  },
   // landr-wmsc — Cmd/Ctrl+K command palette.
   commandPalette: {
     triggerLabel: 'Open command palette',
