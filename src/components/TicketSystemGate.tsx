@@ -13,6 +13,7 @@ import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useEntitlements } from '@/lib/entitlements'
 import { useAppMode } from '@/lib/app-mode-context'
+import { canUseTicketSystem } from '@/lib/staff-capabilities'
 import { t } from '@/lib/strings'
 
 export function TicketSystemGate({ children }: { children: ReactNode }) {
@@ -27,7 +28,7 @@ export function TicketSystemGate({ children }: { children: ReactNode }) {
     )
   }
 
-  if (!isLandrStaff || !capabilities.can_use_ticket_system) {
+  if (!isLandrStaff || !canUseTicketSystem(capabilities)) {
     return <Navigate to="/" replace />
   }
 

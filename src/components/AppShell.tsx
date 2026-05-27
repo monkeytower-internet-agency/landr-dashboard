@@ -23,6 +23,7 @@ import { NotificationsBell } from '@/components/NotificationsBell'
 import { OnboardingBanner } from '@/components/OnboardingBanner'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
 import { ViewAsBanner } from '@/components/ViewAsBanner'
+import { ViewAsOperatorPicker } from '@/components/ViewAsOperatorPicker'
 import { QuickCaptureFab } from '@/components/QuickCaptureFab'
 import { ReportFab } from '@/components/ReportFab'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -157,6 +158,12 @@ function AppShellInner({
           pattern as the palette: provider installs the keydown listener,
           this component renders the dialog wherever in the shell. */}
       <KeyboardShortcutsHelp />
+      {/* landr-7dya.13 — "View as operator" picker dialog. Mounted once at the
+          shell level. Open state lives in AppModeContext (above the chrome
+          split); only visible after staff selects "View as operator" from the
+          AppModeSwitcher. Non-staff: picker is a no-op (staffOperators empty,
+          can_view_as_operator false). */}
+      <ViewAsOperatorPicker />
     </SidebarProvider>
   )
 }

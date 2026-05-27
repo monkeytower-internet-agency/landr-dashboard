@@ -1,4 +1,4 @@
-// landr-7dya.10 — React surface for the top-level app-mode switch.
+// landr-7dya.10 / landr-7dya.13 — React surface for the top-level app-mode switch.
 //
 // Provides the current mode (derived from the route + the operator view-as
 // flag), the staff capability block (feature-detected, degrades gracefully —
@@ -7,13 +7,26 @@
 // ticket-system shell can read it.
 //
 // Capability gating (landr-7dya.14 may be unmerged → DEGRADE GRACEFULLY):
-//   • `canUseTicketSystem` / `canViewAsOperator` come from
-//     GET /api/landr-staff/me/capabilities when present, else the conservative
-//     staff fallback (staff = all modes, non-staff = none). The switch UI hides
-//     a mode whose capability is false, so a non-staff user never sees modes
-//     2/3 and the whole switcher collapses to nothing for them.
+//   • `canUseTicketSystem(caps)` / `caps.can_view_as_operator` come from
+//     GET /api/landr-staff/me/capabilities (landr-api PR #171) when present,
+//     else the conservative staff fallback (staff = all modes, non-staff =
+//     none). The switch UI hides a mode whose capability is false, so a
+//     non-staff user never sees modes 2/3 and the whole switcher collapses
+//     to nothing for them.
+//
+// VIEW-AS PICKER (landr-7dya.13):
+//   `enterViewAsMode()` opens the ViewAsOperatorPicker dialog — it doesn't
+//   directly call enterViewAs because the user must first pick an operator.
+//   The picker lives in AppShell (mounted once); this context carries the
+//   open/close state for it.
 
-import { createContext, useCallback, useContext, useMemo } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react'
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -26,6 +39,7 @@ import {
   type AppMode,
 } from '@/lib/app-mode'
 import {
+  canUseTicketSystem,
   fallbackCapabilities,
   fetchStaffCapabilities,
   type StaffCapabilities,
@@ -47,6 +61,13 @@ type AppModeContextValue = {
   enterOperatorMode: () => void
   /** Enter the ticket-system workspace (mode 3). No-op without the capability. */
   enterTicketSystem: () => void
+  /** Open the "Pick an operator to view as" picker dialog (mode 2 entry point).
+   *  No-op without the can_view_as_operator capability. */
+  enterViewAsMode: () => void
+  /** Whether the view-as operator picker dialog is open. */
+  viewAsPickerOpen: boolean
+  /** Close the view-as picker without entering view-as (e.g. Escape). */
+  closeViewAsPicker: () => void
 }
 
 const AppModeContext = createContext<AppModeContextValue | undefined>(undefined)
@@ -56,6 +77,11 @@ export function AppModeProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const { isLandrStaff } = useEntitlements()
   const { viewAsActive, exitViewAs } = useOperator()
+
+  // landr-7dya.13 — picker open state. Owned here (above the AppShell chrome
+  // split) so both the AppModeSwitcher (trigger) and the ViewAsOperatorPicker
+  // (dialog, mounted in AppShell) can share it without prop-drilling.
+  const [viewAsPickerOpen, setViewAsPickerOpen] = useState(false)
 
   // Feature-detect the staff capability endpoint. Disabled for non-staff (they
   // have no staff capabilities; the fetch short-circuits anyway). The query
@@ -84,18 +110,29 @@ export function AppModeProvider({ children }: { children: ReactNode }) {
   }, [viewAsActive, exitViewAs, pathname, navigate])
 
   const enterTicketSystem = useCallback(() => {
-    if (!capabilities.can_use_ticket_system) return
+    if (!canUseTicketSystem(capabilities)) return
     // Leaving view-as on the way in keeps the chrome clean (the ticket
     // workspace is the staff's own scope, not a customer preview).
     if (viewAsActive) exitViewAs()
     navigate(TICKET_SYSTEM_PATH)
-  }, [capabilities.can_use_ticket_system, viewAsActive, exitViewAs, navigate])
+  }, [capabilities, viewAsActive, exitViewAs, navigate])
+
+  // landr-7dya.13 — open the operator picker. The picker calls enterViewAs()
+  // on the operator.tsx context directly once the user confirms a selection.
+  const enterViewAsMode = useCallback(() => {
+    if (!capabilities.can_view_as_operator) return
+    setViewAsPickerOpen(true)
+  }, [capabilities.can_view_as_operator])
+
+  const closeViewAsPicker = useCallback(() => {
+    setViewAsPickerOpen(false)
+  }, [])
 
   // The switcher only appears for staff who can reach at least one staff-only
   // mode. Non-staff get no switcher (they are implicitly always in mode 1).
   const showSwitcher =
     isLandrStaff &&
-    (capabilities.can_use_ticket_system || capabilities.can_view_as_operator)
+    (canUseTicketSystem(capabilities) || capabilities.can_view_as_operator)
 
   const value = useMemo<AppModeContextValue>(
     () => ({
@@ -105,6 +142,9 @@ export function AppModeProvider({ children }: { children: ReactNode }) {
       showSwitcher,
       enterOperatorMode,
       enterTicketSystem,
+      enterViewAsMode,
+      viewAsPickerOpen,
+      closeViewAsPicker,
     }),
     [
       mode,
@@ -114,6 +154,9 @@ export function AppModeProvider({ children }: { children: ReactNode }) {
       showSwitcher,
       enterOperatorMode,
       enterTicketSystem,
+      enterViewAsMode,
+      viewAsPickerOpen,
+      closeViewAsPicker,
     ],
   )
 
