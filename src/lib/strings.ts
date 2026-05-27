@@ -610,6 +610,13 @@ export const t = {
     mergeNoop: 'no-op',
     mergeConflict: 'conflict',
     mergeError: 'error',
+    // landr-a99u.11 — graceful no-token state
+    notConfiguredTitle: 'Release promotion not configured',
+    notConfiguredDescription:
+      'Release promotion isn’t configured yet. Set up the GitHub promotion token to enable this console.',
+    // landr-a99u.12 — staff view: customer signoff badge on pending proposals
+    signoffByCustomer: (label: string) => `Requested by ${label}`,
+    signoffByStaff: 'Proposed by staff',
   },
   theme: {
     switchToDark: 'Switch to dark theme',
@@ -3397,6 +3404,22 @@ export const t = {
     capacityEmpty: 'No schedulable products with a per-unit capacity yet.',
     capacityRowAria: (name: string, booked: number, capacity: number): string =>
       `${name}: ${booked} of ${capacity} booked`,
+    // landr-a99u.12 — operator go-live request banner on dashboard home.
+    goLiveBannerTitle: 'Ready for go-live?',
+    goLiveBannerDescription:
+      'You\'re on staging. If everything looks good, request go-live and Landr staff will review and ship it.',
+    goLiveBannerButton: 'Request go-live',
+    goLiveBannerRequestedTitle: 'Go-live requested',
+    goLiveBannerRequestedDescription:
+      'Landr will review your staging environment and promote it to production.',
+    goLiveDialogTitle: 'Request go-live?',
+    goLiveDialogDescription:
+      'Landr staff will review staging and promote it to production. You can add a note for the reviewer.',
+    goLiveNotesLabel: 'Notes for the reviewer (optional)',
+    goLiveNotesPlaceholder: 'e.g. tested checkout, calendar, and email flows',
+    goLiveConfirmAction: 'Send request',
+    goLiveAlreadyPending: 'A go-live request is already awaiting staff review.',
+    goLiveSuccessToast: 'Go-live requested — Landr will review and ship it.',
   },
   // landr-s1mr — Copy for the shared <EmptyState> cards across surfaces.
   // Each surface gets a friendly title + sub-copy + CTA so the empty

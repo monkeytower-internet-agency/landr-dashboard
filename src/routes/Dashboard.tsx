@@ -2,17 +2,38 @@
 // the existing data fetchers (no new backend). Layout: 3-column
 // responsive grid — today's bookings on the left (largest), summary
 // cards top right, recent activity below.
+//
+// landr-a99u.12 — operator go-live banner. When
+// GET /api/operator/release/eligibility returns can_request_golive === true,
+// a banner is shown at the top of the dashboard (above the grid) prompting
+// the operator to request go-live. The eligibility check is only true on
+// staging for signer users, so the backend controls visibility entirely.
+// Placement decision: above the dashboard grid (full-width, before the
+// 3-column layout) so it's unmissable on staging without disrupting the
+// normal operator daily-ops view on production.
 
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { CheckCircleIcon, ChevronRightIcon } from 'lucide-react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { CheckCircleIcon, ChevronRightIcon, RocketIcon } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { CapacityCard } from '@/components/dashboard/CapacityCard'
 import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
 import { DashboardRevenueSpark } from '@/components/DashboardRevenueSpark'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   fetchSchedulableProducts,
   type ProductForSchedule,
@@ -37,9 +58,15 @@ import {
 } from '@/lib/dashboard-home'
 import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
+import { fetchGoLiveEligibility, requestGoLive } from '@/lib/release-promotion'
 import { formatCount, formatCurrency } from '@/lib/reporting'
 import { t } from '@/lib/strings'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
+
+// ---------------------------------------------------------------------------
+// Go-live eligibility query key — module-level so it's stable across renders.
+// ---------------------------------------------------------------------------
+const GOLIVE_ELIGIBILITY_KEY = ['operator', 'release', 'eligibility'] as const
 
 export function Dashboard() {
   const { currentOperator, currentOperatorId } = useOperator()
@@ -171,6 +198,10 @@ export function Dashboard() {
           {currentOperator?.name ?? currentOperator?.slug ?? t.dashboard.title}
         </h1>
       </header>
+
+      {/* landr-a99u.12 — go-live banner (staging only, signer users only).
+          Renders nothing when eligibility is false/loading/errored. */}
+      <GoLiveBanner />
 
       {errored ? (
         <Card>
@@ -489,4 +520,147 @@ function activityKindLabel(kind: ActivityEvent['kind']): string {
     case 'approval_pending':
       return t.dashboard.activityApprovalPending
   }
+}
+
+// ---------------------------------------------------------------------------
+// landr-a99u.12 — Go-live request banner (operator-facing, staging only)
+// ---------------------------------------------------------------------------
+
+/**
+ * Polls GET /api/operator/release/eligibility and renders a go-live request
+ * banner only when can_request_golive === true (staging + signer user).
+ * Renders nothing on production or for non-signer users — entirely
+ * backend-controlled, no env detection in the client.
+ *
+ * Placement: full-width above the dashboard grid so it's unmissable on
+ * staging but doesn't interfere with the daily-ops layout on production.
+ */
+function GoLiveBanner() {
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [requested, setRequested] = useState(false)
+
+  const eligibilityQuery = useQuery({
+    queryKey: GOLIVE_ELIGIBILITY_KEY,
+    queryFn: fetchGoLiveEligibility,
+    // Infrequent — stale after 5 min. This endpoint is only active on staging.
+    staleTime: 1000 * 60 * 5,
+    // Don't surface errors — silently hide the banner if the endpoint isn't
+    // available (e.g. on a dev build without the route deployed yet).
+    retry: false,
+  })
+
+  const mutation = useMutation({
+    mutationFn: () => requestGoLive(notes.trim() || undefined),
+    onSuccess: (data) => {
+      if (data.status === 'already_pending') {
+        toast.info(t.dashboard.goLiveAlreadyPending)
+      } else {
+        toast.success(t.dashboard.goLiveSuccessToast)
+      }
+      setRequested(true)
+      setDialogOpen(false)
+      setNotes('')
+    },
+    onError: (err: Error) => {
+      toast.error(err.message)
+    },
+  })
+
+  // Only show when the backend confirms eligibility.
+  if (!eligibilityQuery.data?.can_request_golive) return null
+
+  // Post-request: show a calm "requested" state.
+  if (requested) {
+    return (
+      <div
+        className="flex items-start gap-3 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 dark:border-violet-800 dark:bg-violet-950/30"
+        data-testid="golive-banner-requested"
+      >
+        <RocketIcon className="mt-0.5 size-4 shrink-0 text-violet-600 dark:text-violet-400" />
+        <div className="flex flex-col gap-0.5">
+          <p className="text-sm font-semibold text-violet-900 dark:text-violet-100">
+            {t.dashboard.goLiveBannerRequestedTitle}
+          </p>
+          <p className="text-muted-foreground text-sm">
+            {t.dashboard.goLiveBannerRequestedDescription}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div
+        className="flex items-start justify-between gap-4 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 dark:border-violet-800 dark:bg-violet-950/30"
+        data-testid="golive-banner"
+      >
+        <div className="flex items-start gap-3">
+          <RocketIcon className="mt-0.5 size-4 shrink-0 text-violet-600 dark:text-violet-400" />
+          <div className="flex flex-col gap-0.5">
+            <p className="text-sm font-semibold text-violet-900 dark:text-violet-100">
+              {t.dashboard.goLiveBannerTitle}
+            </p>
+            <p className="text-muted-foreground text-sm">
+              {t.dashboard.goLiveBannerDescription}
+            </p>
+          </div>
+        </div>
+        <Button
+          size="sm"
+          className="shrink-0"
+          onClick={() => setDialogOpen(true)}
+          data-testid="golive-banner-cta"
+        >
+          <RocketIcon className="size-4" />
+          {t.dashboard.goLiveBannerButton}
+        </Button>
+      </div>
+
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(o) => {
+          if (mutation.isPending) return
+          setDialogOpen(o)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.dashboard.goLiveDialogTitle}</DialogTitle>
+            <DialogDescription>
+              {t.dashboard.goLiveDialogDescription}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="golive-notes">{t.dashboard.goLiveNotesLabel}</Label>
+            <Textarea
+              id="golive-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder={t.dashboard.goLiveNotesPlaceholder}
+              disabled={mutation.isPending}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+              disabled={mutation.isPending}
+            >
+              {/* reuse t.release.keep — "Keep" is universal */}
+              Cancel
+            </Button>
+            <Button
+              onClick={() => mutation.mutate()}
+              disabled={mutation.isPending}
+            >
+              <RocketIcon className="size-4" />
+              {t.dashboard.goLiveConfirmAction}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
 }

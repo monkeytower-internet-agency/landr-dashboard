@@ -1,6 +1,15 @@
 // landr-a99u.6 — /release: dashboard-driven release promotion console
 // (STAFF-ONLY). Implements docs/adr/0004-release-promotion-console.md.
 //
+// landr-a99u.11 — graceful no-token state: when GET /status fails with HTTP
+// 503 (detail === 'promotion_not_configured'), render a friendly disabled card
+// instead of surfacing an error toast/crash. api() extracts the FastAPI
+// `detail` string, so we can detect it by inspecting err.message.
+//
+// landr-a99u.12 — staff side: pending staging_to_main proposals now show a
+// signoff badge when signoff_source === 'customer', so the approver knows it
+// came from a customer UAT request (e.g. "Requested by Para42").
+//
 // A "promotion" merges one branch into the next (dev → staging, then
 // staging → main) across the deployable repos and pushes; the push triggers
 // each repo's deploy. dev → staging is a one-click promoter action; staging →
@@ -63,6 +72,16 @@ import { t } from '@/lib/strings'
 
 const STATUS_QUERY_KEY = ['release', 'status'] as const
 const RUNS_QUERY_KEY = ['release', 'runs'] as const
+
+/**
+ * landr-a99u.11 — detect the 503 "not configured" state. The FastAPI backend
+ * returns HTTP 503 with `detail: "promotion_not_configured"` when the GitHub
+ * promotion token has not yet been provisioned. The api() wrapper extracts the
+ * `detail` string as err.message, so we check the message here.
+ */
+function isPromotionNotConfigured(err: Error | null): boolean {
+  return !!err && err.message === 'promotion_not_configured'
+}
 
 export function Release() {
   const { effectiveIsStaff, isLoading: entLoading } = useEntitlements()
@@ -138,16 +157,32 @@ function ReleaseInner() {
       </header>
 
       {statusQuery.isError ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t.release.errorTitle}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground text-sm">
-              {statusQuery.error?.message ?? ''}
-            </p>
-          </CardContent>
-        </Card>
+        isPromotionNotConfigured(statusQuery.error) ? (
+          // landr-a99u.11 — 503 promotion_not_configured: friendly empty state
+          // instead of a crash/toast. The feature is inert without the GitHub
+          // token; showing an error here would be misleading for a known state.
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.release.notConfiguredTitle}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-sm">
+                {t.release.notConfiguredDescription}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.release.errorTitle}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-sm">
+                {statusQuery.error?.message ?? ''}
+              </p>
+            </CardContent>
+          </Card>
+        )
       ) : statusQuery.isPending ? (
         <p className="text-muted-foreground text-sm">{t.release.loading}</p>
       ) : (
@@ -573,7 +608,14 @@ function ProposalCard({
           <span className="font-mono text-sm font-medium">
             {kindLabel(run.kind)}
           </span>
-          <StatusBadge status={run.status} />
+          <div className="flex items-center gap-2">
+            {/* landr-a99u.12 — show who signed off so the approver knows
+                whether this came from a customer UAT request or a staff member */}
+            {run.signoff_source === 'customer' ? (
+              <SignoffBadge label={run.signoff_by_label ?? undefined} />
+            ) : null}
+            <StatusBadge status={run.status} />
+          </div>
         </div>
         <p className="text-muted-foreground text-xs">
           {t.release.proposedBy(run.requested_by, run.requested_at)}
@@ -777,6 +819,21 @@ function HistoryRow({ run }: { run: PromotionRun }) {
 }
 
 // --- shared pieces ---------------------------------------------------------
+
+/**
+ * landr-a99u.12 — badge shown on pending staging_to_main proposals when the
+ * go-live was requested by a customer (operator signer) rather than a staff
+ * member. Helps the approver understand the context at a glance.
+ */
+function SignoffBadge({ label }: { label?: string }) {
+  return (
+    <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-950 dark:text-violet-300">
+      {label
+        ? t.release.signoffByCustomer(label)
+        : t.release.signoffByStaff}
+    </span>
+  )
+}
 
 /** Per-repo confirm checklist used in the promote/propose dialogs. */
 function RepoChecklist({
