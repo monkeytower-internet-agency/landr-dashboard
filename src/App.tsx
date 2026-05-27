@@ -43,6 +43,12 @@ const RetrieveBoard = lazy(() => import('@/routes/RetrieveBoard'))
 // landr-sbhz.8 — owner revenue overview (staff-only, staff-rare). Lazy so it
 // stays off the operator-facing initial bundle.
 const Revenue = lazy(() => import('@/routes/Revenue'))
+// landr-wwhn.28 — feedback inbox (staff-only, triage surface). Lazy so it
+// stays off the operator-facing initial bundle.
+const FeedbackInbox = lazy(() => import('@/routes/FeedbackInbox'))
+// landr-a99u.6 — release promotion console (staff-only, staff-rare). Lazy so
+// it stays off the operator-facing initial bundle.
+const Release = lazy(() => import('@/routes/Release'))
 import { AuthCallback } from '@/routes/AuthCallback'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
@@ -67,6 +73,7 @@ import { CalendarDisplaySettings } from '@/routes/settings/CalendarDisplaySettin
 import { DisplayPreferencesSettings } from '@/routes/settings/DisplayPreferencesSettings'
 import { IntegrationsCalendarSettings } from '@/routes/settings/IntegrationsCalendarSettings'
 import { IntegrationsGmailSettings } from '@/routes/settings/IntegrationsGmailSettings'
+import { IntegrationsPaymentsSettings } from '@/routes/settings/IntegrationsPaymentsSettings'
 import { ConnectedAccountsSettings } from '@/routes/settings/ConnectedAccountsSettings'
 import { EmailLog } from '@/routes/settings/EmailLog'
 import { PlanSettings } from '@/routes/settings/PlanSettings'
@@ -82,6 +89,8 @@ import { EmbedSettings } from '@/routes/settings/EmbedSettings'
 import { NotificationPrefsSettings } from '@/routes/settings/NotificationPrefsSettings'
 import { OperationsSettings } from '@/routes/settings/OperationsSettings'
 import { WebhooksSettings } from '@/routes/settings/WebhooksSettings'
+// landr-znzz.7 — Settings → Weather (opt-in forecast hint).
+import { WeatherSettings } from '@/routes/settings/WeatherSettings'
 // landr-sbhz.5 — staff-only tier/feature editor. Lazy: only Landr staff ever
 // reach it, so it has no place on the operator initial bundle.
 const TierSettings = lazy(() => import('@/routes/settings/TierSettings'))
@@ -238,6 +247,18 @@ function App() {
                   endpoint enforces is_landr_staff with a 403. */}
               <Route path="/revenue" element={<Revenue />} />
 
+              {/* landr-wwhn.28 — cross-operator feedback triage inbox.
+                  STAFF-ONLY: self-redirects non-staff to home; DB view is
+                  gated on is_landr_staff so zero data leaks to operators. */}
+              <Route path="/feedback-inbox" element={<FeedbackInbox />} />
+
+              {/* landr-a99u.6 — release promotion console (dev → staging →
+                  main). STAFF-ONLY like /revenue: Release self-redirects
+                  non-staff to home, gates each action on the server-computed
+                  `viewer` capability block, and the FastAPI endpoints enforce
+                  is_landr_staff with a 403. */}
+              <Route path="/release" element={<Release />} />
+
               {/* landr-fzcg — Account is a virtual top-level nav item
                   whose subsections live under /settings/*. Hitting
                   /account lands the user on /settings/company (first
@@ -256,6 +277,8 @@ function App() {
                 {/* landr-yp8x — Branding (logo + primary colour shown in
                     the embedded booking widget). */}
                 <Route path="branding" element={gatedSection('/settings/branding', <BrandingSettings />)} />
+                {/* landr-znzz.7 — Weather (opt-in forecast hint for conditions pre-fill). */}
+                <Route path="weather" element={<WeatherSettings />} />
                 <Route path="team" element={gatedSection('/settings/team', <Staff />)} />
                 <Route path="providers" element={gatedSection('/settings/providers', <Providers />)} />
                 <Route path="pickup-locations" element={gatedSection('/settings/pickup-locations', <PickupLocations />)} />
@@ -282,6 +305,11 @@ function App() {
                 <Route path="integrations/gmail" element={gatedSection('/settings/integrations/gmail', <IntegrationsGmailSettings />)} />
                 {/* landr-6ybs — per-operator subscribable ICS calendar feed. */}
                 <Route path="integrations/calendar" element={gatedSection('/settings/integrations/calendar', <IntegrationsCalendarSettings />)} />
+                {/* landr-1nwu.2 — per-operator Stripe + Holded credentials.
+                    Ungated: operators always need to enter their own payment
+                    keys (like connected-accounts), so no feature-entitlement
+                    gate. */}
+                <Route path="integrations/payments" element={<IntegrationsPaymentsSettings />} />
                 <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
                 <Route path="pricing" element={gatedSection('/settings/pricing', <PricingSettings />)} />
                 {/* landr-9n0l — Settings → Commissions: scheme/rule/tier

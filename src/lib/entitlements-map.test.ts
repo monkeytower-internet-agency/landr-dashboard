@@ -68,6 +68,9 @@ describe('featureForSection', () => {
     expect(featureForSection('/settings/display-preferences')).toBeNull()
     expect(featureForSection('/settings/connected-accounts')).toBeNull()
     expect(featureForSection('/settings/notifications')).toBeNull()
+    // landr-1nwu.2 — Payments & invoicing is ungated: operators always need
+    // to enter their own Stripe/Holded keys (like connected-accounts).
+    expect(featureForSection('/settings/integrations/payments')).toBeNull()
     expect(featureForSection('/settings/offers')).toBeNull()
     expect(featureForSection('/settings/service-roles')).toBeNull()
     expect(featureForSection('/settings/operations')).toBeNull()

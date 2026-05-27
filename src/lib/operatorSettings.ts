@@ -55,6 +55,51 @@ export const OperatorSettingsSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour like #FF8800.')
     .nullable()
     .optional(),
+  // landr-znzz.7 — opt-in weather forecast hint for the conditions verdict
+  // pre-fill. OFF by default; operator enables in Settings → Weather.
+  // weather_provider is the provider slug (currently only 'open_meteo').
+  // lat/lon are WGS-84 coordinates for the fetch location.
+  weather_enabled: z.boolean().nullable().optional(),
+  weather_provider: z.string().nullable().optional(),
+  weather_lat: z.number().nullable().optional(),
+  weather_lon: z.number().nullable().optional(),
+  // landr-znzz.11 — extended branding: dark-mode logo + 3-colour theme.
+  // logo_dark_url: optional dark-mode variant uploaded to the same bucket.
+  // theme: { brand, accent, background } (light) + optional dark overrides.
+  logo_dark_url: z.string().nullable().optional(),
+  theme: z
+    .object({
+      brand: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour.')
+        .optional(),
+      accent: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour.')
+        .optional(),
+      background: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour.')
+        .optional(),
+      dark: z
+        .object({
+          brand: z
+            .string()
+            .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour.')
+            .optional(),
+          accent: z
+            .string()
+            .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour.')
+            .optional(),
+          background: z
+            .string()
+            .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour.')
+            .optional(),
+        })
+        .optional(),
+    })
+    .nullable()
+    .optional(),
   // landr-c3t — embedded subscription_package (read-only on Settings; the
   // GET returns it via PostgREST FK join). Drives the disabled-on UX for
   // free-tier operators so they can't opt out of teasers.
@@ -163,4 +208,131 @@ export async function regenerateOperatorIcalToken(
     'POST',
     `/api/staff/operators/${operatorId}/ical-token`,
   )
+}
+
+// landr-znzz.7 — weather forecast hint for the conditions pre-fill.
+//
+// The API returns one of three shapes:
+//   {enabled: false}                            — weather opt-in is off
+//   {enabled: true, error: string}              — enabled but provider failed
+//   {enabled: true, provider, date, hint, detail} — full forecast
+//
+// The `hint` string is a compact human-readable summary from the API
+// (e.g. "Partly cloudy · 18–25°C · wind 15 km/h W · cloud 30%").
+// The `detail` object carries the raw numeric values for any further
+// rendering the dashboard wants to do.
+
+export type WeatherForecastDetail = {
+  weather_code: number | null
+  temperature_max: number | null
+  temperature_min: number | null
+  wind_speed_max_kmh: number | null
+  wind_direction_dominant_deg: number | null
+  cloud_cover_mean_pct: number | null
+}
+
+export type WeatherForecast =
+  | { enabled: false }
+  | { enabled: true; error: string }
+  | {
+      enabled: true
+      provider: string
+      date: string
+      hint: string
+      detail: WeatherForecastDetail
+    }
+
+export async function fetchWeatherForecast(
+  operatorId: string,
+  date: string,
+): Promise<WeatherForecast> {
+  return api<WeatherForecast>(
+    'GET',
+    `/api/staff/operators/${operatorId}/weather-forecast?date=${encodeURIComponent(date)}`,
+  )
+}
+
+// ---------------------------------------------------------------------------
+// landr-1nwu.2 — per-operator payment/ERP integration credentials.
+//
+// SECURITY-CRITICAL: these are operator PAYMENT secrets (Stripe secret +
+// webhook signing secret, Holded API key). The API stores them encrypted at
+// rest and NEVER returns a decrypted secret — the masked-read endpoint returns
+// only the NON-secret Stripe publishable key plus has_* booleans. The dashboard
+// therefore renders secrets WRITE-ONLY: "Configured ••••" when set, a plaintext
+// input to rotate/replace, never the stored value. Writes route through the
+// FastAPI endpoint (encryption is a server-side side-effect — see the
+// write-routing-convention).
+// ---------------------------------------------------------------------------
+
+export const StripeMode = ['test', 'live'] as const
+export type StripeMode = (typeof StripeMode)[number]
+export const HoldedMode = ['demo', 'live'] as const
+export type HoldedMode = (typeof HoldedMode)[number]
+
+// One MASKED credential bundle as returned by the API. The encrypted secret
+// values are NEVER present — only the booleans (has_*) and the non-secret
+// publishable key.
+export const IntegrationCredentialSchema = z.object({
+  provider: z.enum(['stripe', 'holded']),
+  mode: z.string(),
+  stripe_publishable_key: z.string().nullable().optional(),
+  has_secret_key: z.boolean(),
+  has_webhook_secret: z.boolean(),
+  has_holded_key: z.boolean(),
+  updated_by: z.string().nullable().optional(),
+  updated_at: z.string().nullable().optional(),
+})
+export type IntegrationCredential = z.infer<typeof IntegrationCredentialSchema>
+
+export const IntegrationCredentialsListSchema = z.array(
+  IntegrationCredentialSchema,
+)
+
+// PUT body. All fields optional so the operator can rotate a single secret
+// without re-sending the others. The publishable key is non-secret; the rest
+// are encrypted server-side before the write.
+export type StripeCredentialUpsert = {
+  stripe_publishable_key?: string
+  stripe_secret_key?: string
+  stripe_webhook_secret?: string
+}
+export type HoldedCredentialUpsert = {
+  holded_api_key?: string
+}
+
+export async function fetchIntegrationCredentials(
+  operatorId: string,
+): Promise<IntegrationCredential[]> {
+  const data = await api<unknown>(
+    'GET',
+    `/api/staff/operators/${operatorId}/integration-credentials`,
+  )
+  return IntegrationCredentialsListSchema.parse(data)
+}
+
+export async function upsertStripeCredential(
+  operatorId: string,
+  mode: StripeMode,
+  body: StripeCredentialUpsert,
+): Promise<IntegrationCredential> {
+  const data = await api<unknown>(
+    'PUT',
+    `/api/staff/operators/${operatorId}/integration-credentials/stripe/${mode}`,
+    body,
+  )
+  return IntegrationCredentialSchema.parse(data)
+}
+
+export async function upsertHoldedCredential(
+  operatorId: string,
+  mode: HoldedMode,
+  body: HoldedCredentialUpsert,
+): Promise<IntegrationCredential> {
+  const data = await api<unknown>(
+    'PUT',
+    `/api/staff/operators/${operatorId}/integration-credentials/holded/${mode}`,
+    body,
+  )
+  return IntegrationCredentialSchema.parse(data)
 }

@@ -1,21 +1,27 @@
 // landr-wwhn.13 — TicketDetailSheet component tests.
 // landr-wwhn.14 — Gateway UI tests.
+// landr-wwhn.32 — Rework: header who-to-contact, Comments first, read-only
+//                 Details, staff actions extracted to TicketTriageCard.
 //
 // Covers:
 //   - Sheet opens and shows ticket title + type
-//   - Details tab: core fields, status, description
+//   - Header: operator org name + reporter email displayed
+//   - Tab order: Comments tab is first (primary), Details tab is second
+//   - Details tab: core fields, status, description — view-only
+//   - Details tab: operator sees read-only assignee display
 //   - Staff-only internal section gated on is_landr_staff
-//   - Comments tab: shows comment list + compose area
+//   - Comments tab: shows comment list + compose area (default tab)
 //   - Comments tab: internal toggle only shown for staff
 //   - Timeline tab: shows events list
 //   - Attachments tab: empty state
 //   - Watch toggle renders
 //   - Close button fires onOpenChange(false)
-//   - Gateway panel: hidden for non-staff
-//   - Gateway panel: visible for staff with prompt input + submit button
-//   - Gateway panel: shows already-promoted state when linked_bd_id is set
-//   - Gateway panel: calls promote endpoint and toasts on success
-//   - Gateway panel: toasts error on promote failure
+//   - TicketTriageCard: hidden for non-staff (no assignee picker in sheet)
+//   - TicketTriageCard: visible for staff — assignee picker + gateway panel
+//   - TicketTriageCard — gateway: shows prompt input + submit button
+//   - TicketTriageCard — gateway: shows already-promoted state
+//   - TicketTriageCard — gateway: calls promote endpoint and toasts on success
+//   - TicketTriageCard — gateway: toasts error on promote failure
 
 import {
   render as rtlRender,
@@ -42,6 +48,9 @@ const { mock } = vi.hoisted(() => {
     // landr-wwhn.16 — notification preference rows
     notifPrefsRow: null as unknown,
     ticketNotifySettingsRow: null as unknown,
+    // landr-wwhn.32 — operator + reporter rows for the header
+    operatorRow: null as unknown,
+    reporterRow: null as unknown,
     error: null as { message: string } | null,
   }
 
@@ -51,6 +60,7 @@ const { mock } = vi.hoisted(() => {
     }
     if (table === 'ticket_events') return state.eventRows
     if (table === 'ticket_attachments') return state.attachmentRows
+    if (table === 'assignable_users') return []
     return state.ticketRows
   }
 
@@ -61,30 +71,47 @@ const { mock } = vi.hoisted(() => {
     // landr-wwhn.16 — notification preference tables
     if (table === 'notification_preferences') return state.notifPrefsRow
     if (table === 'ticket_notify_settings') return state.ticketNotifySettingsRow
+    // landr-wwhn.32 — operator + reporter header fetches
+    if (table === 'operators') return state.operatorRow
     return null
   }
 
   const makeBuilder = (table: string) => {
+    // For users table we need to differentiate between the current-user fetch
+    // (by supabase_auth_id) and the reporter fetch (by id). We use a simple
+    // flag approach: the first .eq() call will store the column name so
+    // resolveSingle can pick the right row.
+    let eqColumn = ''
     const result = () => ({ data: resolveRows(table), error: state.error })
     const b: Record<string, unknown> = {}
-    // Make the builder both chainable (return b) and thenable (Promise-like)
-    // so `await supabase.from(...).select(...).eq(...).order(...)` resolves.
     Object.assign(b, {
       select: vi.fn(() => b),
-      eq: vi.fn(() => b),
+      eq: vi.fn((_col: string) => {
+        eqColumn = _col
+        return b
+      }),
       order: vi.fn(() => b),
       limit: vi.fn(() => b),
       insert: vi.fn(() => b),
       delete: vi.fn(() => b),
       upsert: vi.fn(() => b),
+      ilike: vi.fn(() => b),
+      or: vi.fn(() => b),
       single: vi.fn(async () => ({
         data: null as unknown,
         error: null as { message: string } | null,
       })),
-      maybeSingle: vi.fn(async () => ({
-        data: resolveSingle(table),
-        error: state.error,
-      })),
+      maybeSingle: vi.fn(async () => {
+        if (table === 'users') {
+          // If querying by id (reporter fetch), return the reporter row;
+          // otherwise return the current public user (supabase_auth_id).
+          if (eqColumn === 'id') {
+            return { data: state.reporterRow, error: state.error }
+          }
+          return { data: state.userRows[0] ?? null, error: state.error }
+        }
+        return { data: resolveSingle(table), error: state.error }
+      }),
       // Terminal: any awaited builder resolves to the rows for this table.
       then: (
         resolve: (v: { data: unknown[]; error: { message: string } | null }) => void,
@@ -166,7 +193,7 @@ function makeTicket(overrides: Partial<TicketRow> = {}): TicketRow {
     status: 'ready',
     priority: 'p1',
     perceived_impact: 'blocking',
-    reporter_id: null,
+    reporter_id: 'reporter-user-1',
     operator_id: 'op-1',
     assignee_id: null,
     blocked: false,
@@ -179,6 +206,14 @@ function makeTicket(overrides: Partial<TicketRow> = {}): TicketRow {
 
 function makePublicUser(isStaff = false) {
   return { id: 'user-pub-1', email: 'test@example.com', is_landr_staff: isStaff }
+}
+
+function makeOperatorRow() {
+  return { id: 'op-1', name: 'Acme Adventures', slug: 'acme-adventures' }
+}
+
+function makeReporterRow() {
+  return { id: 'reporter-user-1', email: 'reporter@acme.com' }
 }
 
 function render(ui: ReactElement, options?: RenderOptions) {
@@ -202,6 +237,8 @@ beforeEach(() => {
   mock.state.watcherRow = null
   mock.state.notifPrefsRow = null
   mock.state.ticketNotifySettingsRow = null
+  mock.state.operatorRow = makeOperatorRow()
+  mock.state.reporterRow = makeReporterRow()
   mock.state.error = null
   vi.clearAllMocks()
 })
@@ -265,16 +302,100 @@ describe('TicketDetailSheet', () => {
   })
 })
 
-// ---- Details tab ------------------------------------------------------------
+// ---- Header: who-to-contact (landr-wwhn.32) ---------------------------------
+
+describe('TicketDetailSheet — Header', () => {
+  it('shows the operator org name in the header', async () => {
+    mock.state.operatorRow = makeOperatorRow()
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('ticket-header-operator')).toBeInTheDocument()
+      expect(screen.getByTestId('ticket-header-operator')).toHaveTextContent(
+        'Acme Adventures',
+      )
+    })
+  })
+
+  it('shows fallback when operator name is missing', async () => {
+    mock.state.operatorRow = { id: 'op-1', name: null, slug: 'acme' }
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('ticket-header-operator')).toHaveTextContent(
+        'Unknown org',
+      )
+    })
+  })
+
+  it('shows the reporter email in the header when reporter_id is set', async () => {
+    mock.state.reporterRow = makeReporterRow()
+    render(
+      <TicketDetailSheet ticket={makeTicket({ reporter_id: 'reporter-user-1' })} onOpenChange={() => {}} />,
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('ticket-header-reporter')).toBeInTheDocument()
+      expect(screen.getByTestId('ticket-header-reporter')).toHaveTextContent(
+        'reporter@acme.com',
+      )
+    })
+  })
+
+  it('omits the reporter section when reporter_id is null', async () => {
+    render(
+      <TicketDetailSheet
+        ticket={makeTicket({ reporter_id: null })}
+        onOpenChange={() => {}}
+      />,
+    )
+    await waitFor(() => {
+      expect(screen.getByText('Login fails on iOS 17')).toBeInTheDocument()
+    })
+    expect(screen.queryByTestId('ticket-header-reporter')).not.toBeInTheDocument()
+  })
+})
+
+// ---- Tab order (landr-wwhn.32): Comments first ------------------------------
+
+describe('TicketDetailSheet — Tab order', () => {
+  it('opens on the Comments tab by default', async () => {
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+    await waitFor(() => {
+      // The comment compose area (part of CommentsPanel) should be immediately visible
+      expect(screen.getByTestId('comment-body-input')).toBeInTheDocument()
+    })
+  })
+
+  it('all four tabs are present: Comments, Details, Timeline, Attachments', async () => {
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('ticket-detail-tab-comments')).toBeInTheDocument()
+      expect(screen.getByTestId('ticket-detail-tab-details')).toBeInTheDocument()
+      expect(screen.getByTestId('ticket-detail-tab-timeline')).toBeInTheDocument()
+      expect(screen.getByTestId('ticket-detail-tab-attachments')).toBeInTheDocument()
+    })
+  })
+})
+
+// ---- Details tab (view-only) ------------------------------------------------
 
 describe('TicketDetailSheet — Details tab', () => {
   it('renders the ticket description', async () => {
+    const user = userEvent.setup()
     render(
       <TicketDetailSheet
         ticket={makeTicket()}
         onOpenChange={() => {}}
       />,
     )
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
     await waitFor(() => {
       expect(
         screen.getByText('Steps: open app, tap login.'),
@@ -283,24 +404,30 @@ describe('TicketDetailSheet — Details tab', () => {
   })
 
   it('shows placeholder when body is null', async () => {
+    const user = userEvent.setup()
     render(
       <TicketDetailSheet
         ticket={makeTicket({ body: null })}
         onOpenChange={() => {}}
       />,
     )
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
     await waitFor(() => {
       expect(screen.getByText(/No description provided/)).toBeInTheDocument()
     })
   })
 
   it('shows High priority label', async () => {
+    const user = userEvent.setup()
     render(
       <TicketDetailSheet
         ticket={makeTicket({ priority: 'p1' })}
         onOpenChange={() => {}}
       />,
     )
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
     await waitFor(() => {
       expect(screen.getByText('High')).toBeInTheDocument()
     })
@@ -308,9 +435,12 @@ describe('TicketDetailSheet — Details tab', () => {
 
   it('does NOT show internal section for non-staff', async () => {
     mock.state.userRows = [makePublicUser(false)]
+    const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
     await waitFor(() => {
       expect(
         screen.queryByText(/Internal \(staff only\)/),
@@ -332,31 +462,38 @@ describe('TicketDetailSheet — Details tab', () => {
         last_synced_at: null,
       },
     ]
-    render(
-      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
-    )
-    await waitFor(() => {
-      expect(screen.getByText(/Internal \(staff only\)/)).toBeInTheDocument()
-    })
-  })
-})
-
-// ---- Comments tab -----------------------------------------------------------
-
-describe('TicketDetailSheet — Comments tab', () => {
-  it('switches to Comments tab and shows empty state', async () => {
     const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
-
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
     await waitFor(() => {
-      expect(
-        screen.getByTestId('ticket-detail-tab-comments'),
-      ).toBeInTheDocument()
+      expect(screen.getByText(/Internal \(staff only\)/)).toBeInTheDocument()
     })
-    await user.click(screen.getByTestId('ticket-detail-tab-comments'))
+  })
 
+  it('shows read-only unassigned text for non-staff operator', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    const user = userEvent.setup()
+    render(
+      <TicketDetailSheet ticket={makeTicket({ assignee_id: null })} onOpenChange={() => {}} />,
+    )
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
+    await waitFor(() => {
+      expect(screen.getByTestId('assignee-unassigned')).toBeInTheDocument()
+    })
+  })
+})
+
+// ---- Comments tab (now default) ---------------------------------------------
+
+describe('TicketDetailSheet — Comments tab', () => {
+  it('shows empty state immediately (default tab)', async () => {
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
     await waitFor(() => {
       expect(screen.getByTestId('ticket-comments-empty')).toBeInTheDocument()
     })
@@ -375,18 +512,9 @@ describe('TicketDetailSheet — Comments tab', () => {
         updated_at: '2026-05-24T11:00:00Z',
       },
     ]
-    const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
-
-    await waitFor(() => {
-      expect(
-        screen.getByTestId('ticket-detail-tab-comments'),
-      ).toBeInTheDocument()
-    })
-    await user.click(screen.getByTestId('ticket-detail-tab-comments'))
-
     await waitFor(() => {
       expect(screen.getByText('A public reply')).toBeInTheDocument()
     })
@@ -394,43 +522,40 @@ describe('TicketDetailSheet — Comments tab', () => {
 
   it('does NOT show internal toggle for non-staff', async () => {
     mock.state.userRows = [makePublicUser(false)]
-    const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
-
     await waitFor(() => {
-      expect(
-        screen.getByTestId('ticket-detail-tab-comments'),
-      ).toBeInTheDocument()
+      expect(screen.getByTestId('comment-body-input')).toBeInTheDocument()
     })
-    await user.click(screen.getByTestId('ticket-detail-tab-comments'))
-
-    await waitFor(() => {
-      expect(
-        screen.queryByTestId('comment-internal-toggle'),
-      ).not.toBeInTheDocument()
-    })
+    expect(
+      screen.queryByTestId('comment-internal-toggle'),
+    ).not.toBeInTheDocument()
   })
 
-  it('shows internal toggle for staff', async () => {
+  it('shows internal toggle for staff on comments tab', async () => {
     mock.state.userRows = [makePublicUser(true)]
-    const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
-
-    await waitFor(() => {
-      expect(
-        screen.getByTestId('ticket-detail-tab-comments'),
-      ).toBeInTheDocument()
-    })
-    await user.click(screen.getByTestId('ticket-detail-tab-comments'))
-
     await waitFor(() => {
       expect(
         screen.getByTestId('comment-internal-toggle'),
       ).toBeInTheDocument()
+    })
+  })
+
+  it('navigating to Comments tab from another tab still shows compose area', async () => {
+    const user = userEvent.setup()
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+    // Switch away then back
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-comments'))
+    await waitFor(() => {
+      expect(screen.getByTestId('comment-body-input')).toBeInTheDocument()
     })
   })
 })
@@ -557,6 +682,88 @@ describe('TicketDetailSheet — Watch toggle', () => {
       expect(screen.getByTestId('ticket-watch-toggle')).toBeInTheDocument()
     })
   })
+
+  it('shows "Watch" label when user is not watching (no watcher row)', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    mock.state.watcherRow = null
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      // Button should show "Watch" (not "Watching") when not subscribed
+      const btn = screen.getByTestId('ticket-watch-toggle')
+      expect(btn).toHaveTextContent('Watch')
+    })
+  })
+
+  it('shows "Watching" label when user already has a watcher row', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    mock.state.watcherRow = {
+      ticket_id: 'ticket-test-1234',
+      user_id: 'user-pub-1',
+      created_at: '2026-05-24T10:00:00Z',
+    }
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      const btn = screen.getByTestId('ticket-watch-toggle')
+      expect(btn).toHaveTextContent('Watching')
+    })
+  })
+
+  it('calls watchTicket and shows success toast when user watches a ticket', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    mock.state.watcherRow = null
+    mock.state.error = null
+
+    const user = userEvent.setup()
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ticket-watch-toggle')).toBeInTheDocument()
+    })
+
+    // Wait until the toggle is no longer pending (watchQuery resolved)
+    await waitFor(() => {
+      expect(screen.getByTestId('ticket-watch-toggle')).not.toBeDisabled()
+    })
+
+    await user.click(screen.getByTestId('ticket-watch-toggle'))
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith('Watching this ticket')
+    })
+  })
+
+  it('calls unwatchTicket and shows success toast when user unwatches a ticket', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    mock.state.watcherRow = {
+      ticket_id: 'ticket-test-1234',
+      user_id: 'user-pub-1',
+      created_at: '2026-05-24T10:00:00Z',
+    }
+    mock.state.error = null
+
+    const user = userEvent.setup()
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ticket-watch-toggle')).not.toBeDisabled()
+    })
+
+    await user.click(screen.getByTestId('ticket-watch-toggle'))
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith('Stopped watching')
+    })
+  })
 })
 
 // ---- Notify override panel (landr-wwhn.16) ----------------------------------
@@ -568,9 +775,12 @@ describe('TicketDetailSheet — Notification override panel', () => {
     mock.state.ticketNotifySettingsRow = null
     mock.state.notifPrefsRow = null
 
+    const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
 
     await waitFor(() => {
       expect(
@@ -584,9 +794,12 @@ describe('TicketDetailSheet — Notification override panel', () => {
     mock.state.ticketNotifySettingsRow = null
     mock.state.notifPrefsRow = null
 
+    const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
 
     await waitFor(() => {
       expect(
@@ -609,9 +822,12 @@ describe('TicketDetailSheet — Notification override panel', () => {
     }
     mock.state.notifPrefsRow = null
 
+    const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
 
     await waitFor(() => {
       expect(
@@ -633,9 +849,12 @@ describe('TicketDetailSheet — Notification override panel', () => {
       updated_at: '2026-05-24T10:00:00Z',
     }
 
+    const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
 
     await waitFor(() => {
       expect(
@@ -648,9 +867,12 @@ describe('TicketDetailSheet — Notification override panel', () => {
     mock.state.userRows = [makePublicUser(false)]
     mock.state.ticketNotifySettingsRow = null
 
+    const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
 
     await waitFor(() => {
       // Panel must be rendered first
@@ -665,9 +887,12 @@ describe('TicketDetailSheet — Notification override panel', () => {
     mock.state.ticketNotifySettingsRow = null
     mock.state.notifPrefsRow = null
 
+    const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
 
     await waitFor(() => {
       expect(screen.getByTestId('notify-override-bell')).toBeInTheDocument()
@@ -677,7 +902,7 @@ describe('TicketDetailSheet — Notification override panel', () => {
   })
 })
 
-// ---- Gateway panel (landr-wwhn.14) ------------------------------------------
+// ---- TicketTriageCard — staff actions (landr-wwhn.32) -------------------------
 
 function makeStaffTicketRow(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -692,63 +917,87 @@ function makeStaffTicketRow(overrides: Partial<Record<string, unknown>> = {}) {
   }
 }
 
-describe('TicketDetailSheet — Gateway panel', () => {
+describe('TicketDetailSheet — Triage card (staff actions)', () => {
   beforeEach(() => {
     mockApiFn.mockReset()
   })
 
-  it('does NOT show gateway panel for non-staff', async () => {
+  it('does NOT show triage card (assignee picker) for non-staff', async () => {
     mock.state.userRows = [makePublicUser(false)]
+    const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
-
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
     await waitFor(() => {
-      expect(screen.queryByTestId('gateway-panel')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('triage-card')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('triage-assignee-picker')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('triage-gateway-panel')).not.toBeInTheDocument()
     })
   })
 
-  it('shows gateway panel for staff', async () => {
+  it('shows triage card for staff in the details tab', async () => {
     mock.state.userRows = [makePublicUser(true)]
     mock.state.ticketRows = [makeStaffTicketRow()]
+    const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
-
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
     await waitFor(() => {
-      expect(screen.getByTestId('gateway-panel')).toBeInTheDocument()
+      expect(screen.getByTestId('triage-card')).toBeInTheDocument()
     })
   })
 
-  it('shows prompt input and submit button when not yet promoted', async () => {
+  it('shows assignee picker in triage card for staff', async () => {
     mock.state.userRows = [makePublicUser(true)]
-    mock.state.ticketRows = [makeStaffTicketRow({ linked_bd_id: null })]
+    mock.state.ticketRows = [makeStaffTicketRow()]
+    const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
-
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
     await waitFor(() => {
-      expect(screen.getByTestId('gateway-prompt-input')).toBeInTheDocument()
-      expect(screen.getByTestId('gateway-submit-btn')).toBeInTheDocument()
+      expect(screen.getByTestId('triage-assignee-picker')).toBeInTheDocument()
+    })
+  })
+
+  it('shows gateway prompt input and submit button when not yet promoted', async () => {
+    mock.state.userRows = [makePublicUser(true)]
+    mock.state.ticketRows = [makeStaffTicketRow({ linked_bd_id: null })]
+    const user = userEvent.setup()
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
+    await waitFor(() => {
+      expect(screen.getByTestId('triage-gateway-prompt-input')).toBeInTheDocument()
+      expect(screen.getByTestId('triage-gateway-submit-btn')).toBeInTheDocument()
     })
   })
 
   it('shows already-promoted state when linked_bd_id is set', async () => {
     mock.state.userRows = [makePublicUser(true)]
     mock.state.ticketRows = [makeStaffTicketRow({ linked_bd_id: 'landr-abcd' })]
+    const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
-
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
     await waitFor(() => {
-      expect(screen.getByTestId('gateway-already-promoted')).toBeInTheDocument()
-      expect(screen.getByTestId('gateway-already-promoted')).toHaveTextContent(
+      expect(screen.getByTestId('triage-gateway-already-promoted')).toBeInTheDocument()
+      expect(screen.getByTestId('triage-gateway-already-promoted')).toHaveTextContent(
         'landr-abcd',
       )
     })
     // Prompt input and submit button should not be visible
-    expect(screen.queryByTestId('gateway-prompt-input')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('gateway-submit-btn')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('triage-gateway-prompt-input')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('triage-gateway-submit-btn')).not.toBeInTheDocument()
   })
 
   it('calls promote endpoint and shows success toast', async () => {
@@ -763,17 +1012,19 @@ describe('TicketDetailSheet — Gateway panel', () => {
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
 
     await waitFor(() => {
-      expect(screen.getByTestId('gateway-prompt-input')).toBeInTheDocument()
+      expect(screen.getByTestId('triage-gateway-prompt-input')).toBeInTheDocument()
     })
 
     await user.type(
-      screen.getByTestId('gateway-prompt-input'),
+      screen.getByTestId('triage-gateway-prompt-input'),
       'Fix the login crash on iOS 17',
     )
 
-    const submitBtn = screen.getByTestId('gateway-submit-btn')
+    const submitBtn = screen.getByTestId('triage-gateway-submit-btn')
     expect(submitBtn).not.toBeDisabled()
     await user.click(submitBtn)
 
@@ -792,12 +1043,14 @@ describe('TicketDetailSheet — Gateway panel', () => {
   it('disables submit button when prompt is empty', async () => {
     mock.state.userRows = [makePublicUser(true)]
     mock.state.ticketRows = [makeStaffTicketRow()]
+    const user = userEvent.setup()
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
-
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
     await waitFor(() => {
-      expect(screen.getByTestId('gateway-submit-btn')).toBeDisabled()
+      expect(screen.getByTestId('triage-gateway-submit-btn')).toBeDisabled()
     })
   })
 
@@ -810,16 +1063,18 @@ describe('TicketDetailSheet — Gateway panel', () => {
     render(
       <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
     )
+    await waitFor(() => screen.getByTestId('ticket-detail-tab-details'))
+    await user.click(screen.getByTestId('ticket-detail-tab-details'))
 
     await waitFor(() => {
-      expect(screen.getByTestId('gateway-prompt-input')).toBeInTheDocument()
+      expect(screen.getByTestId('triage-gateway-prompt-input')).toBeInTheDocument()
     })
 
     await user.type(
-      screen.getByTestId('gateway-prompt-input'),
+      screen.getByTestId('triage-gateway-prompt-input'),
       'Fix the login crash',
     )
-    await user.click(screen.getByTestId('gateway-submit-btn'))
+    await user.click(screen.getByTestId('triage-gateway-submit-btn'))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(

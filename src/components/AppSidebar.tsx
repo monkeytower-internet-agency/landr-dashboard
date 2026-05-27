@@ -6,6 +6,7 @@ import {
   ChartAreaIcon,
   CheckCircleIcon,
   FlagIcon,
+  InboxIcon,
   LayersIcon,
   LayoutDashboardIcon,
   MapPinnedIcon,
@@ -13,6 +14,7 @@ import {
   MousePointerClickIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
+  RocketIcon,
   ScrollTextIcon,
   SettingsIcon,
   Trash2Icon,
@@ -181,6 +183,20 @@ const staffItems: NavItem[] = [
     to: '/revenue',
     label: t.nav.revenue,
     icon: BanknoteIcon,
+    exact: false,
+  },
+  // landr-wwhn.28 — cross-operator feedback triage inbox.
+  {
+    to: '/feedback-inbox',
+    label: t.nav.feedbackInbox,
+    icon: InboxIcon,
+    exact: false,
+  },
+  // landr-a99u.6 — release promotion console (dev → staging → main).
+  {
+    to: '/release',
+    label: t.nav.release,
+    icon: RocketIcon,
     exact: false,
   },
 ]

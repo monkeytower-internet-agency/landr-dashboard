@@ -8,6 +8,12 @@
 //   - clearing active filters calls onConfigChange with empty labelAreas
 //   - "Clear" button only appears when areas are active
 //   - read-mostly columns render with "auto" badge
+// landr-wwhn.31:
+//   - operator filter bar hidden for non-staff
+//   - operator filter bar visible for staff with operators
+//   - clicking operator chip calls onConfigChange with ticketConfig.operatorId
+//   - clicking active operator chip clears the filter (set to null)
+//   - Clear button clears the operator filter
 //
 // DnD drag semantics are covered by the board-level resolveTicketDrop tests
 // in src/lib/tickets-board.test.ts; we skip pointer-event drive here.
@@ -26,6 +32,41 @@ import type { TicketRow } from '@/lib/tickets'
 import type { SavedViewWithState } from '@/lib/saved-views'
 import { TicketBoardLayout } from './TicketBoardLayout'
 import { TICKET_LABEL_AREAS } from '@/lib/tickets-views-data'
+
+// ---- module mocks -----------------------------------------------------------
+// useOperator: default non-staff (empty staffOperators) so operator filter
+// is hidden. Tests that need it override via mockReturnValue before rendering.
+// useEntitlements: default non-staff (effectiveIsStaff = false).
+
+vi.mock('@/lib/operator', () => ({
+  useOperator: vi.fn(() => ({
+    currentOperatorId: 'op-1',
+    staffOperators: [],
+    operators: [{ id: 'op-1', slug: 'para42', name: 'Para42' }],
+    loading: false,
+    switchOperator: vi.fn(),
+    viewAsActive: false,
+    viewAsOperator: null,
+    enterViewAs: vi.fn(),
+    exitViewAs: vi.fn(),
+    staffOperatorsLoading: false,
+  })),
+  OperatorProvider: ({ children }: { children: ReactElement }) => children,
+}))
+
+vi.mock('@/lib/entitlements', () => ({
+  useEntitlements: vi.fn(() => ({
+    isEnabled: () => true,
+    isLandrStaff: false,
+    effectiveIsStaff: false,
+    isLoading: false,
+  })),
+  EntitlementsProvider: ({ children }: { children: ReactElement }) => children,
+}))
+
+// Import mocked hooks so tests can override return values.
+import { useOperator } from '@/lib/operator'
+import { useEntitlements } from '@/lib/entitlements'
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -262,5 +303,167 @@ describe('TicketBoardLayout — label filter bar', () => {
     const apiChip = screen.getByTestId('ticket-area-filter-api')
     expect(dashChip).toHaveAttribute('aria-pressed', 'true')
     expect(apiChip).toHaveAttribute('aria-pressed', 'false')
+  })
+})
+
+// ---- operator filter bar (landr-wwhn.31) ------------------------------------
+
+const STAFF_OPERATORS = [
+  { id: 'op-a', slug: 'alpha', name: 'Alpha Travels' },
+  { id: 'op-b', slug: 'beta', name: 'Beta Outdoors' },
+]
+
+/** Make useOperator return staffOperators and useEntitlements return staff. */
+function asStaff() {
+  vi.mocked(useOperator).mockReturnValue({
+    currentOperatorId: 'op-a',
+    staffOperators: STAFF_OPERATORS,
+    operators: [{ id: 'op-a', slug: 'alpha', name: 'Alpha Travels', onboarded_at: null }],
+    loading: false,
+    switchOperator: vi.fn(),
+    viewAsActive: false,
+    viewAsOperator: null,
+    enterViewAs: vi.fn(),
+    exitViewAs: vi.fn(),
+    staffOperatorsLoading: false,
+    currentOperator: { id: 'op-a', slug: 'alpha', name: 'Alpha Travels', onboarded_at: null },
+    refreshOperators: vi.fn(),
+  })
+  vi.mocked(useEntitlements).mockReturnValue({
+    isEnabled: () => true,
+    isLandrStaff: true,
+    effectiveIsStaff: true,
+    isLoading: false,
+  })
+}
+
+describe('TicketBoardLayout — operator filter bar (landr-wwhn.31)', () => {
+  it('does NOT render the operator filter bar for non-staff', () => {
+    // Default mock is non-staff / empty staffOperators.
+    render(
+      <TicketBoardLayout
+        view={makeView()}
+        items={[]}
+        onConfigChange={vi.fn()}
+      />,
+    )
+    expect(
+      screen.queryByTestId('ticket-board-operator-filter'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('renders the operator filter bar for staff with operators', () => {
+    asStaff()
+    render(
+      <TicketBoardLayout
+        view={makeView()}
+        items={[]}
+        onConfigChange={vi.fn()}
+      />,
+    )
+    expect(
+      screen.getByTestId('ticket-board-operator-filter'),
+    ).toBeInTheDocument()
+    for (const op of STAFF_OPERATORS) {
+      expect(
+        screen.getByTestId(`ticket-operator-filter-${op.id}`),
+      ).toBeInTheDocument()
+    }
+  })
+
+  it('does NOT show Clear button when no operator is active', () => {
+    asStaff()
+    render(
+      <TicketBoardLayout
+        view={makeView()}
+        items={[]}
+        onConfigChange={vi.fn()}
+      />,
+    )
+    expect(
+      screen.queryByTestId('ticket-operator-filter-clear'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows Clear button when an operator is active in the config', () => {
+    asStaff()
+    render(
+      <TicketBoardLayout
+        view={makeView({ ticketConfig: { operatorId: 'op-a' } })}
+        items={[]}
+        onConfigChange={vi.fn()}
+      />,
+    )
+    expect(
+      screen.getByTestId('ticket-operator-filter-clear'),
+    ).toBeInTheDocument()
+  })
+
+  it('active operator chip has aria-pressed=true; inactive has aria-pressed=false', () => {
+    asStaff()
+    render(
+      <TicketBoardLayout
+        view={makeView({ ticketConfig: { operatorId: 'op-a' } })}
+        items={[]}
+        onConfigChange={vi.fn()}
+      />,
+    )
+    expect(
+      screen.getByTestId('ticket-operator-filter-op-a'),
+    ).toHaveAttribute('aria-pressed', 'true')
+    expect(
+      screen.getByTestId('ticket-operator-filter-op-b'),
+    ).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('clicking an inactive operator chip calls onConfigChange with that operatorId', () => {
+    asStaff()
+    const onConfigChange = vi.fn()
+    render(
+      <TicketBoardLayout
+        view={makeView()}
+        items={[]}
+        onConfigChange={onConfigChange}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('ticket-operator-filter-op-a'))
+    expect(onConfigChange).toHaveBeenCalledOnce()
+    const [newConfig] = onConfigChange.mock.calls[0] as [Record<string, unknown>]
+    const tc = newConfig.ticketConfig as { operatorId: string }
+    expect(tc.operatorId).toBe('op-a')
+  })
+
+  it('clicking the active operator chip clears the filter (removes operatorId)', () => {
+    asStaff()
+    const onConfigChange = vi.fn()
+    render(
+      <TicketBoardLayout
+        view={makeView({ ticketConfig: { operatorId: 'op-a' } })}
+        items={[]}
+        onConfigChange={onConfigChange}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('ticket-operator-filter-op-a'))
+    expect(onConfigChange).toHaveBeenCalledOnce()
+    const [newConfig] = onConfigChange.mock.calls[0] as [Record<string, unknown>]
+    const tc = newConfig.ticketConfig as Record<string, unknown>
+    expect(tc.operatorId).toBeUndefined()
+  })
+
+  it('clicking Clear calls onConfigChange without operatorId', () => {
+    asStaff()
+    const onConfigChange = vi.fn()
+    render(
+      <TicketBoardLayout
+        view={makeView({ ticketConfig: { operatorId: 'op-a' } })}
+        items={[]}
+        onConfigChange={onConfigChange}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('ticket-operator-filter-clear'))
+    expect(onConfigChange).toHaveBeenCalledOnce()
+    const [newConfig] = onConfigChange.mock.calls[0] as [Record<string, unknown>]
+    const tc = newConfig.ticketConfig as Record<string, unknown>
+    expect(tc.operatorId).toBeUndefined()
   })
 })

@@ -1,9 +1,11 @@
 import {
+  BanknoteIcon,
   BellIcon,
   BuildingIcon,
   CalendarClockIcon,
   CalendarDaysIcon,
   CheckSquareIcon,
+  CloudSunIcon,
   CodeIcon,
   CoinsIcon,
   CreditCardIcon,
@@ -71,6 +73,14 @@ export const ACCOUNT_SECTIONS: SettingsSubSection[] = [
     label: t.settingsHub.sections.integrationsCalendar,
     icon: CalendarDaysIcon,
   },
+  // landr-1nwu.2 — per-operator Stripe (test+live) + Holded (demo+live)
+  // payment/ERP credentials. Sits with the other personal third-party
+  // integrations (Gmail, Calendar feed) the operator wires up once.
+  {
+    to: '/settings/integrations/payments',
+    label: t.settingsHub.sections.integrationsPayments,
+    icon: BanknoteIcon,
+  },
   {
     to: '/settings/plan',
     label: t.settingsHub.sections.plan,
@@ -108,6 +118,14 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/branding',
     label: t.settingsHub.sections.branding,
     icon: PaletteIcon,
+  },
+  // landr-znzz.7 — optional weather forecast hint for conditions pre-fill.
+  // Sits next to Branding because both are "how this operator's surfaces
+  // behave" toggles rather than primary domain objects (products/team/etc).
+  {
+    to: '/settings/weather',
+    label: t.settingsHub.sections.weather,
+    icon: CloudSunIcon,
   },
   {
     to: '/settings/team',

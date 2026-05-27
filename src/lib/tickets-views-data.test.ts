@@ -4,6 +4,10 @@
 //   - readTicketConfigLabelAreas: valid/invalid/absent config
 //   - readTicketConfigStatuses: valid/invalid/absent config
 //   - applyTicketViewFilters: no filter, single area, multi-area, tickets without labels
+// landr-wwhn.31:
+//   - readTicketConfigOperatorId: valid/invalid/absent config
+//   - applyTicketViewFilters: operator filter (id match, no match, absent)
+//   - applyTicketViewFilters: combined operator + area filter
 //
 // Note: fetchTicketsWithLabels and useViewTickets involve Supabase I/O;
 // integration-level tests for those live in a separate E2E suite. This file
@@ -12,6 +16,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   readTicketConfigLabelAreas,
+  readTicketConfigOperatorId,
   readTicketConfigStatuses,
   applyTicketViewFilters,
   TICKET_LABEL_AREAS,
@@ -200,5 +205,90 @@ describe('applyTicketViewFilters', () => {
       { ticketConfig: { labelAreas: ['dashboard'] } },
     )
     expect(filtered).toHaveLength(0)
+  })
+})
+
+// ---- readTicketConfigOperatorId (landr-wwhn.31) ------------------------------
+
+describe('readTicketConfigOperatorId', () => {
+  it('returns null when config has no ticketConfig', () => {
+    expect(readTicketConfigOperatorId({})).toBeNull()
+  })
+
+  it('returns null when ticketConfig.operatorId is absent', () => {
+    expect(readTicketConfigOperatorId({ ticketConfig: {} })).toBeNull()
+  })
+
+  it('returns null when ticketConfig.operatorId is empty string', () => {
+    expect(
+      readTicketConfigOperatorId({ ticketConfig: { operatorId: '' } }),
+    ).toBeNull()
+  })
+
+  it('returns null when ticketConfig.operatorId is a non-string value', () => {
+    expect(
+      readTicketConfigOperatorId({ ticketConfig: { operatorId: 42 } }),
+    ).toBeNull()
+  })
+
+  it('returns the operatorId string when valid', () => {
+    const id = 'op-uuid-123'
+    expect(
+      readTicketConfigOperatorId({ ticketConfig: { operatorId: id } }),
+    ).toBe(id)
+  })
+})
+
+// ---- applyTicketViewFilters — operator filter (landr-wwhn.31) ---------------
+
+describe('applyTicketViewFilters — operator filter', () => {
+  it('returns all tickets when no operatorId is set', () => {
+    const tickets = [
+      makeTicket({ id: 'a', operator_id: 'op-1' }),
+      makeTicket({ id: 'b', operator_id: 'op-2' }),
+    ]
+    expect(applyTicketViewFilters(tickets, {})).toHaveLength(2)
+  })
+
+  it('filters to tickets from the specified operator', () => {
+    const tickets = [
+      makeTicket({ id: 'a', operator_id: 'op-1' }),
+      makeTicket({ id: 'b', operator_id: 'op-2' }),
+      makeTicket({ id: 'c', operator_id: 'op-1' }),
+    ]
+    const filtered = applyTicketViewFilters(tickets, {
+      ticketConfig: { operatorId: 'op-1' },
+    })
+    expect(filtered).toHaveLength(2)
+    expect(filtered.map((t) => t.id)).toEqual(['a', 'c'])
+  })
+
+  it('returns empty when no tickets match the specified operator', () => {
+    const tickets = [
+      makeTicket({ id: 'a', operator_id: 'op-1' }),
+    ]
+    const filtered = applyTicketViewFilters(tickets, {
+      ticketConfig: { operatorId: 'op-xyz' },
+    })
+    expect(filtered).toHaveLength(0)
+  })
+
+  it('applies operator filter then area filter in sequence', () => {
+    const t1 = makeTicket({ id: 'op1-dash', operator_id: 'op-1' }) as TicketRow & { labels: { area: string }[] }
+    t1.labels = [{ area: 'dashboard' }]
+
+    const t2 = makeTicket({ id: 'op1-api', operator_id: 'op-1' }) as TicketRow & { labels: { area: string }[] }
+    t2.labels = [{ area: 'api' }]
+
+    const t3 = makeTicket({ id: 'op2-dash', operator_id: 'op-2' }) as TicketRow & { labels: { area: string }[] }
+    t3.labels = [{ area: 'dashboard' }]
+
+    // Operator op-1 AND area dashboard → only t1.
+    const filtered = applyTicketViewFilters(
+      [t1, t2, t3],
+      { ticketConfig: { operatorId: 'op-1', labelAreas: ['dashboard'] } },
+    )
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0].id).toBe('op1-dash')
   })
 })

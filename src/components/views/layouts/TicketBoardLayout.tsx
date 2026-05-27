@@ -35,9 +35,12 @@ import { TicketBoardColumn } from '@/components/tickets/TicketBoardColumn'
 import {
   TICKET_LABEL_AREAS,
   readTicketConfigLabelAreas,
+  readTicketConfigOperatorId,
   type TicketLabelArea,
 } from '@/lib/tickets-views-data'
 import type { SavedViewWithState } from '@/lib/saved-views'
+import { useEntitlements } from '@/lib/entitlements'
+import { useOperator } from '@/lib/operator'
 
 type Props = {
   view: SavedViewWithState
@@ -104,6 +107,28 @@ export function TicketBoardLayout({ view, items, onConfigChange }: Props) {
     })
   }
 
+  // ---- operator filter (landr-wwhn.31) — staff-only ----------------------
+
+  const { effectiveIsStaff } = useEntitlements()
+  const { staffOperators } = useOperator()
+  const activeOperatorId = readTicketConfigOperatorId(view.config)
+
+  function setOperatorFilter(operatorId: string | null) {
+    const tc =
+      ((view.config as { ticketConfig?: Record<string, unknown> })
+        .ticketConfig) ?? {}
+    if (operatorId === null) {
+      const next = { ...tc }
+      delete next.operatorId
+      onConfigChange({ ...view.config, ticketConfig: next })
+    } else {
+      onConfigChange({
+        ...view.config,
+        ticketConfig: { ...tc, operatorId },
+      })
+    }
+  }
+
   // ---- label / area filter bar -------------------------------------------
 
   const activeAreas = readTicketConfigLabelAreas(view.config)
@@ -136,6 +161,49 @@ export function TicketBoardLayout({ view, items, onConfigChange }: Props) {
       className="flex flex-col gap-3"
       data-testid="ticket-board-view-layout"
     >
+      {/* Operator filter chips — staff-only (landr-wwhn.31) */}
+      {effectiveIsStaff && staffOperators.length > 0 ? (
+        <div
+          className="flex flex-wrap items-center gap-2"
+          data-testid="ticket-board-operator-filter"
+          aria-label="Filter by operator"
+        >
+          <span className="text-muted-foreground text-xs">Operator:</span>
+          {staffOperators.map((op) => {
+            const active = activeOperatorId === op.id
+            return (
+              <button
+                key={op.id}
+                type="button"
+                onClick={() =>
+                  setOperatorFilter(active ? null : op.id)
+                }
+                data-testid={`ticket-operator-filter-${op.id}`}
+                data-active={active || undefined}
+                aria-pressed={active}
+                className={
+                  active
+                    ? 'border-primary bg-primary text-primary-foreground rounded-full border px-2.5 py-0.5 text-xs font-medium'
+                    : 'border-input text-muted-foreground hover:border-foreground/40 rounded-full border bg-transparent px-2.5 py-0.5 text-xs font-medium transition-colors'
+                }
+              >
+                {op.name ?? op.slug}
+              </button>
+            )
+          })}
+          {activeOperatorId !== null ? (
+            <button
+              type="button"
+              onClick={() => setOperatorFilter(null)}
+              data-testid="ticket-operator-filter-clear"
+              className="text-muted-foreground text-xs underline underline-offset-2 hover:text-foreground"
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* Label / area filter chips */}
       <div
         className="flex flex-wrap items-center gap-2"

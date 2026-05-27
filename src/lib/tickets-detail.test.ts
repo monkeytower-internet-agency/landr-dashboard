@@ -14,12 +14,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // ---- Supabase mock ----------------------------------------------------------
 
 const { mock } = vi.hoisted(() => {
-  type BuildResult = { data: unknown; error: { message: string } | null }
+  type BuildResult = { data: unknown; error: { message: string; code?: string } | null }
 
   const state = {
     rows: [] as unknown[],
     single: null as unknown,
-    error: null as { message: string } | null,
+    error: null as { message: string; code?: string } | null,
     fromTable: '',
     lastInsert: null as unknown,
     lastDelete: null as unknown,
@@ -270,12 +270,24 @@ describe('watchTicket', () => {
   })
 
   it('ignores 23505 unique_violation (idempotent)', async () => {
-    mock.state.error = { message: 'duplicate key value violates unique constraint' }
-    // We need the mock to return code 23505 for the idempotency branch.
-    // Since the mock only has `message`, not `code`, we simulate it:
-    // watchTicket only throws if error && error.code !== '23505'.
-    // Our simplified mock doesn't set code, so the real function will throw.
-    // We skip this edge case in the unit test and rely on integration for it.
+    // Simulate PostgREST returning a 23505 duplicate-key error (e.g. the
+    // auto-watch trigger already inserted the row before the user clicked).
+    // watchTicket must swallow this and resolve — not throw.
+    mock.state.error = {
+      message: 'duplicate key value violates unique constraint "ticket_watchers_pkey"',
+      code: '23505',
+    }
+    await expect(watchTicket('tk1', 'u1')).resolves.toBeUndefined()
+  })
+
+  it('throws on non-idempotent errors (e.g. RLS violation)', async () => {
+    mock.state.error = {
+      message: 'new row violates row-level security policy for table "ticket_watchers"',
+      code: '42501',
+    }
+    await expect(watchTicket('tk1', 'u-other')).rejects.toThrow(
+      'new row violates row-level security policy',
+    )
   })
 })
 

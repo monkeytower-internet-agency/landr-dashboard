@@ -1,30 +1,23 @@
-// landr-wwhn.12 — persistent "Report a problem / Suggest" entry point.
+// landr-wwhn.29 — simplified operator feedback form.
 //
-// A persistent button in the topbar (see AppShell) that opens a create-ticket
-// dialog. Keeps Martin's effort minimal:
-//   - Title (required)
-//   - Body (optional)
-//   - Type toggle: Problem → bug/annoyance (light repro hint shown for bug),
-//                  Idea   → feature/question
-//   - Perceived impact picker: blocking | annoying | idea
+// One form: "Report an issue / Send feedback". No type toggle.
 //
-// Severity + priority are NOT set by the reporter — internal fields only,
-// see migration 20260524070041_tickets.sql.
+// Single classifier: perceived_impact (Blocking | Annoying | Idea/suggestion).
+// ticket.type is INTERNAL — derived here as a sensible default (blocking/annoying
+// → bug, idea → feature) and staff retypes in triage. No enum changes.
 //
-// Submit = plain row INSERT via direct Supabase REST (write-routing-convention:
-// plain row writes that RLS + audit trigger cover go DIRECT to Supabase).
-//
-// Type mapping (reporter's simplified toggle → DB ticket_type):
-//   "Problem" toggle + perceived_impact == 'blocking' or 'annoying' → 'bug'
-//   "Problem" toggle + perceived_impact == 'idea'                    → 'annoyance'
-//   "Idea"    toggle                                                  → 'feature'
-//
-// This keeps the schema rich while the reporter only sees two top-level options.
+// Additions over the original (landr-wwhn.12):
+//   • File-time attachments: paste (Ctrl+V) or click-to-upload, reusing the
+//     Storage flow from TicketDetailSheet AttachmentsPanel.
+//   • Optional URL/link field.
+//   • Auto-capture of current route + app version into body metadata.
+//   • Friendly on-brand submit confirmation toast linking to the ticket.
 
-import { useState } from 'react'
-import { MessageSquarePlusIcon } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { MessageSquarePlusIcon, Paperclip, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useLocation } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -40,15 +33,19 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
   createTicket,
+  uploadTicketAttachment,
   fetchCurrentPublicUser,
   resolveTicketType,
-  type ReporterToggle,
   type TicketCreate,
   type TicketRow,
 } from '@/lib/tickets'
 import { useOperator } from '@/lib/operator'
 import { useAuth } from '@/lib/auth'
 import { t } from '@/lib/strings'
+
+// ---- constants ---------------------------------------------------------------
+
+const APP_VERSION = __APP_VERSION__
 
 // ---- Public component -------------------------------------------------------
 
@@ -109,6 +106,22 @@ function ReportDialog({ operatorId, open, onOpenChange }: DialogProps) {
   )
 }
 
+// ---- Staged attachment (pre-submit, held in memory) -------------------------
+
+type StagedFile = {
+  /** Unique key for React lists */
+  key: string
+  file: File
+  previewUrl: string | null
+}
+
+function makeStagedFile(file: File): StagedFile {
+  const previewUrl = file.type.startsWith('image/')
+    ? URL.createObjectURL(file)
+    : null
+  return { key: crypto.randomUUID(), file, previewUrl }
+}
+
 // ---- Form body --------------------------------------------------------------
 
 type BodyProps = {
@@ -119,23 +132,99 @@ type BodyProps = {
 function ReportBody({ operatorId, onClose }: BodyProps) {
   const { user } = useAuth()
   const qc = useQueryClient()
+  const location = useLocation()
 
-  const [toggle, setToggle] = useState<ReporterToggle>('problem')
   const [impact, setImpact] = useState<TicketCreate['perceived_impact']>('annoying')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
+  const [linkUrl, setLinkUrl] = useState('')
+  const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
+  const [linkInvalid, setLinkInvalid] = useState(false)
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const titleTrimmed = title.trim()
   const bodyTrimmed = body.trim()
   const titleMissing = titleTrimmed.length === 0
 
+  // Revoke object URLs on unmount or when staged files change.
+  useEffect(() => {
+    return () => {
+      for (const f of stagedFiles) {
+        if (f.previewUrl) URL.revokeObjectURL(f.previewUrl)
+      }
+    }
+    // intentionally only on unmount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Clipboard paste handler — image blobs or any file-kind item.
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    for (const item of Array.from(items)) {
+      if (item.kind === 'file') {
+        const file = item.getAsFile()
+        if (file) setStagedFiles((prev) => [...prev, makeStagedFile(file)])
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste)
+    return () => document.removeEventListener('paste', handlePaste)
+  }, [handlePaste])
+
+  function handleFileInput(files: FileList | null) {
+    if (!files) return
+    setStagedFiles((prev) => [
+      ...prev,
+      ...Array.from(files).map(makeStagedFile),
+    ])
+    // Reset so the same file can be re-selected after removal.
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function removeStagedFile(key: string) {
+    setStagedFiles((prev) => {
+      const removed = prev.find((f) => f.key === key)
+      if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl)
+      return prev.filter((f) => f.key !== key)
+    })
+  }
+
+  // Validate URL (optional field — only if non-empty).
+  function validateLink(raw: string): boolean {
+    if (!raw.trim()) return true
+    try {
+      const u = new URL(raw.trim())
+      return u.protocol === 'https:'
+    } catch {
+      return false
+    }
+  }
+
   const createMutation = useMutation<TicketRow, Error, TicketCreate>({
     mutationFn: (payload) => createTicket(payload),
-    onSuccess: () => {
-      // Invalidate any future ticket list queries (ticket board — slice-2+)
-      // so they pick up the new row when they land.
+    onSuccess: async (ticket) => {
+      // Upload any staged files now that we have a ticket id.
+      let uploaderId: string | null = null
+      if (user?.id) {
+        try {
+          const pub = await fetchCurrentPublicUser(user.id)
+          uploaderId = pub?.id ?? null
+        } catch {
+          uploaderId = null
+        }
+      }
+      await Promise.allSettled(
+        stagedFiles.map((f) =>
+          uploadTicketAttachment(ticket.id, f.file, uploaderId),
+        ),
+      )
       void qc.invalidateQueries({ queryKey: ['tickets'] })
-      toast.success(t.reportButton.toastSuccess)
+      void qc.invalidateQueries({ queryKey: ['ticket-attachments', ticket.id] })
+      toast.success(t.reportButton.toastSuccess(ticket.id))
       onClose()
     },
     onError: (err) => {
@@ -147,31 +236,40 @@ function ReportBody({ operatorId, onClose }: BodyProps) {
     event.preventDefault()
     if (titleMissing || createMutation.isPending) return
 
-    // reporter_id: resolve the Supabase auth.uid → public.users.id via
-    // fetchCurrentPublicUser (added in landr-wwhn.13). The FK on tickets
-    // points to public.users(id), NOT to auth.users(id), so we must do this
-    // round-trip. If the user is not authenticated or no public.users row
-    // exists (broken signup), we fall back to null — the ticket is still
-    // attributed to the operator and fully usable; auto-watch (landr-wwhn.3
-    // trigger) simply won't fire for a null reporter.
-    const authUid = user?.id ?? null
+    const rawLink = linkUrl.trim()
+    if (rawLink && !validateLink(rawLink)) {
+      setLinkInvalid(true)
+      return
+    }
+    setLinkInvalid(false)
+
     const buildAndSubmit = async () => {
       let reporterId: string | null = null
+      const authUid = user?.id ?? null
       if (authUid) {
         try {
           const publicUser = await fetchCurrentPublicUser(authUid)
           reporterId = publicUser?.id ?? null
         } catch {
-          // Non-fatal: submit with null reporter rather than blocking the user.
           reporterId = null
         }
       }
+
+      // Auto-capture route + version appended as metadata note (no migration
+      // needed — piggybacked onto body; staff can read the [context] block).
+      const contextNote =
+        `\n\n[context: route=${location.pathname}, app=${APP_VERSION}]` +
+        (rawLink ? `, link=${rawLink}` : '')
+      const fullBody = bodyTrimmed.length > 0
+        ? `${bodyTrimmed}${contextNote}`
+        : contextNote.trim()
+
       const payload: TicketCreate = {
         operator_id: operatorId,
         reporter_id: reporterId,
-        type: resolveTicketType(toggle, impact),
+        type: resolveTicketType(impact),
         title: titleTrimmed,
-        body: bodyTrimmed.length > 0 ? bodyTrimmed : null,
+        body: fullBody.length > 0 ? fullBody : null,
         perceived_impact: impact,
       }
       createMutation.mutate(payload)
@@ -183,39 +281,39 @@ function ReportBody({ operatorId, onClose }: BodyProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* --- Type toggle --------------------------------------------------- */}
+      {/* --- Impact picker ------------------------------------------------- */}
       <div className="space-y-1.5">
         <span
-          id="report-type-label"
+          id="report-impact-label"
           className="text-xs font-medium leading-none"
         >
-          Type
+          {t.reportButton.impactLabel}
         </span>
         <div
           role="radiogroup"
-          aria-labelledby="report-type-label"
-          className="flex gap-2"
+          aria-labelledby="report-impact-label"
+          className="flex flex-col gap-1.5"
         >
-          <ToggleChip
-            id="report-type-problem"
-            value="problem"
-            checked={toggle === 'problem'}
-            onChange={() => {
-              setToggle('problem')
-              // Reset impact to the most common problem value.
-              if (impact === 'idea') setImpact('annoying')
-            }}
-            label={t.reportButton.typeProblem}
+          <ImpactRadio
+            id="report-impact-blocking"
+            value="blocking"
+            checked={impact === 'blocking'}
+            onChange={() => setImpact('blocking')}
+            label={t.reportButton.impactBlocking}
           />
-          <ToggleChip
-            id="report-type-idea"
+          <ImpactRadio
+            id="report-impact-annoying"
+            value="annoying"
+            checked={impact === 'annoying'}
+            onChange={() => setImpact('annoying')}
+            label={t.reportButton.impactAnnoying}
+          />
+          <ImpactRadio
+            id="report-impact-idea"
             value="idea"
-            checked={toggle === 'idea'}
-            onChange={() => {
-              setToggle('idea')
-              setImpact('idea')
-            }}
-            label={t.reportButton.typeIdea}
+            checked={impact === 'idea'}
+            onChange={() => setImpact('idea')}
+            label={t.reportButton.impactIdea}
           />
         </div>
       </div>
@@ -252,55 +350,107 @@ function ReportBody({ operatorId, onClose }: BodyProps) {
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder={t.reportButton.bodyPlaceholder}
-          rows={4}
+          rows={3}
         />
-        {/* Light repro hint for bug tickets */}
-        {toggle === 'problem' ? (
+        {/* Contextual hints per impact */}
+        {impact === 'blocking' ? (
           <p className="text-muted-foreground text-xs" data-testid="report-repro-hint">
-            {t.reportButton.reproHint}
+            {t.reportButton.reproHintBlocking}
+          </p>
+        ) : impact === 'annoying' ? (
+          <p className="text-muted-foreground text-xs" data-testid="report-repro-hint">
+            {t.reportButton.reproHintAnnoying}
           </p>
         ) : null}
       </div>
 
-      {/* --- Perceived impact ---------------------------------------------- */}
+      {/* --- Attachment zone ----------------------------------------------- */}
       <div className="space-y-1.5">
-        <span
-          id="report-impact-label"
-          className="text-xs font-medium leading-none"
-        >
-          {t.reportButton.impactLabel}
+        <span className="text-xs font-medium leading-none">
+          {t.reportButton.attachLabel}
+          <span className="text-muted-foreground ml-1">(optional)</span>
         </span>
-        <div
-          role="radiogroup"
-          aria-labelledby="report-impact-label"
-          className="flex flex-col gap-1.5"
-        >
-          {toggle === 'problem' ? (
-            <>
-              <ImpactRadio
-                id="report-impact-blocking"
-                value="blocking"
-                checked={impact === 'blocking'}
-                onChange={() => setImpact('blocking')}
-                label={t.reportButton.impactBlocking}
-              />
-              <ImpactRadio
-                id="report-impact-annoying"
-                value="annoying"
-                checked={impact === 'annoying'}
-                onChange={() => setImpact('annoying')}
-                label={t.reportButton.impactAnnoying}
-              />
-            </>
-          ) : null}
-          <ImpactRadio
-            id="report-impact-idea"
-            value="idea"
-            checked={impact === 'idea'}
-            onChange={() => setImpact('idea')}
-            label={t.reportButton.impactIdea}
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="sr-only"
+            aria-label={t.reportButton.attachLabel}
+            onChange={(e) => handleFileInput(e.target.files)}
+            data-testid="report-file-input"
           />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={createMutation.isPending}
+            data-testid="report-attach-btn"
+          >
+            <Paperclip className="size-3.5" aria-hidden />
+            {createMutation.isPending
+              ? t.reportButton.attachUploading
+              : t.reportButton.attachHint}
+          </Button>
         </div>
+        {stagedFiles.length > 0 ? (
+          <ul className="space-y-1" data-testid="report-staged-files">
+            {stagedFiles.map((f) => (
+              <li
+                key={f.key}
+                className="bg-muted flex items-center gap-2 rounded px-2 py-1 text-xs"
+              >
+                {f.previewUrl ? (
+                  <img
+                    src={f.previewUrl}
+                    alt={f.file.name}
+                    className="size-6 rounded object-cover"
+                  />
+                ) : (
+                  <Paperclip className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+                )}
+                <span className="min-w-0 flex-1 truncate">{f.file.name}</span>
+                <button
+                  type="button"
+                  aria-label={`Remove ${f.file.name}`}
+                  onClick={() => removeStagedFile(f.key)}
+                  className="text-muted-foreground hover:text-foreground shrink-0"
+                  data-testid={`report-remove-file-${f.key}`}
+                >
+                  <X className="size-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+
+      {/* --- Optional URL -------------------------------------------------- */}
+      <div className="space-y-1.5">
+        <Label htmlFor="report-link" className="text-xs">
+          {t.reportButton.linkLabel}
+          <span className="text-muted-foreground ml-1">(optional)</span>
+        </Label>
+        <Input
+          id="report-link"
+          type="url"
+          autoComplete="off"
+          value={linkUrl}
+          onChange={(e) => {
+            setLinkUrl(e.target.value)
+            setLinkInvalid(false)
+          }}
+          placeholder={t.reportButton.linkPlaceholder}
+          aria-invalid={linkInvalid ? true : undefined}
+          data-testid="report-link-input"
+        />
+        {linkInvalid ? (
+          <p className="text-destructive text-xs" role="alert">
+            {t.reportButton.linkInvalid}
+          </p>
+        ) : null}
       </div>
 
       <DialogFooter>
@@ -323,37 +473,6 @@ function ReportBody({ operatorId, onClose }: BodyProps) {
 }
 
 // ---- Small sub-components ---------------------------------------------------
-
-type ToggleChipProps = {
-  id: string
-  value: ReporterToggle
-  checked: boolean
-  onChange: () => void
-  label: string
-}
-
-function ToggleChip({ id, checked, onChange, label }: ToggleChipProps) {
-  return (
-    <label
-      htmlFor={id}
-      className={[
-        'flex cursor-pointer select-none items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-        checked
-          ? 'bg-primary text-primary-foreground border-primary'
-          : 'border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground',
-      ].join(' ')}
-    >
-      <input
-        id={id}
-        type="radio"
-        className="sr-only"
-        checked={checked}
-        onChange={onChange}
-      />
-      {label}
-    </label>
-  )
-}
 
 type ImpactRadioProps = {
   id: string

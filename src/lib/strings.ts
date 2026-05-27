@@ -178,6 +178,10 @@ export const t = {
     retrieve: 'Retrieve board',
     // landr-sbhz.8 — /revenue owner platform-commission overview (staff-only).
     revenue: 'Revenue',
+    // landr-wwhn.28 — /feedback-inbox cross-operator triage surface (staff-only).
+    feedbackInbox: 'Feedback inbox',
+    // landr-a99u.6 — /release promotion console (staff-only).
+    release: 'Release',
   },
   // landr-aref — /audit route strings (audit_log viewer).
   audit: {
@@ -293,6 +297,8 @@ export const t = {
       integrationsGmail: 'Gmail',
       // landr-6ybs — per-operator subscribable ICS calendar feed.
       integrationsCalendar: 'Calendar feed',
+      // landr-1nwu.2 — per-operator Stripe + Holded credentials.
+      integrationsPayments: 'Payments & invoicing',
       connectedAccounts: 'Connected accounts',
       plan: 'Plan',
       pricing: 'Pricing',
@@ -301,6 +307,8 @@ export const t = {
       commissions: 'Commissions',
       // landr-yp8x — operator branding shown in the embedded booking widget.
       branding: 'Branding',
+      // landr-znzz.7 — optional weather forecast hint for the conditions verdict.
+      weather: 'Weather',
       // landr-iz58 — operator-scoped tags applied to bookings + contacts.
       tags: 'Tags',
       // landr-1tqx — operator-scoped participant service roles
@@ -355,6 +363,9 @@ export const t = {
       // landr-6ybs — per-operator subscribable ICS calendar feed.
       integrationsCalendar:
         'Subscribe to a live ICS feed of all your bookings in Google, Apple, or Outlook calendar.',
+      // landr-1nwu.2 — per-operator Stripe + Holded credentials (test/live).
+      integrationsPayments:
+        'Enter your own Stripe (test + live) and Holded (demo + live) API keys. Secrets are encrypted and never shown again.',
       connectedAccounts:
         'Identity links (Google, Apple, GitHub) for this operator.',
       plan: 'Your current subscription plan.',
@@ -362,7 +373,10 @@ export const t = {
       // landr-9n0l — commission scheme editor + agent-earnings report.
       commissions:
         'Commission schemes for agents, providers, and the platform, plus per-agent earnings.',
-      branding: 'Apply your logo and brand colour to the booking widget.',
+      branding: 'Apply your logo and brand theme (3 colours + dark mode) to the booking widget.',
+      // landr-znzz.7 — optional weather forecast hint for the conditions verdict.
+      weather:
+        'Opt in to a weather forecast hint shown next to the conditions chips when setting daily updates.',
       tags: 'Define operator-scoped tags to apply to bookings and contacts.',
       // landr-1tqx — participant service-role catalogue read by the widget.
       serviceRoles:
@@ -464,6 +478,146 @@ export const t = {
     operatorTotalRow: 'Total',
     generatedAt: (iso: string) => `As of ${new Date(iso).toLocaleString('de-DE')}`,
   },
+  // landr-wwhn.28 — /feedback-inbox: cross-operator triage INBOX (STAFF-ONLY).
+  feedbackInbox: {
+    title: 'Feedback inbox',
+    subtitle:
+      'Triage inbound operator feedback one operator at a time. Left rail shows all operators with their unread and awaiting-reply counts.',
+    loading: 'Loading inbox…',
+    errorSummary: 'Could not load inbox summary.',
+    errorThreads: 'Could not load threads.',
+    emptyRail: 'No operators with feedback yet.',
+    emptyThreads: 'No threads match the current filters.',
+    emptyThreadsNoFilter: 'No feedback threads from this operator yet.',
+    // Left-rail operator row
+    unreadBadge: (n: number): string => `${n} unread`,
+    awaitingBadge: (n: number): string => `${n} awaiting reply`,
+    ticketCount: (n: number): string => `${n} ticket${n === 1 ? '' : 's'}`,
+    lastActivity: 'Last activity',
+    // Filter bar
+    filtersTitle: 'Filters',
+    filterAll: 'All',
+    filterUnread: 'Unread',
+    filterAwaiting: 'Awaiting reply',
+    filterStatusLabel: 'Status',
+    filterImpactLabel: 'Impact',
+    filterAssigneeLabel: 'Assignee',
+    filterClear: 'Clear filters',
+    // Timeline event labels
+    ticketOpenedLabel: 'Opened ticket',
+    commentLabel: 'Replied',
+    internalNoteLabel: 'Internal note',
+    staffLabel: 'Staff',
+    operatorLabel: 'Operator',
+    // Thread header
+    viewOnBoardLink: 'View on board',
+    noSubject: '(No subject)',
+  },
+  // landr-a99u.6 — /release: dashboard-driven, role-gated promotion console
+  // (dev → staging → main). STAFF-ONLY. Action buttons gate on the server's
+  // `viewer` capability block, not raw roles.
+  release: {
+    title: 'Release promotion',
+    subtitle:
+      'Promote code through the deploy pipeline: dev → staging (one click) then staging → main (propose → approve). Each promotion merges the pinned head SHA per repo and pushes — the push triggers each repo’s deploy.',
+    loading: 'Loading release status…',
+    errorTitle: 'Failed to load release status',
+    refresh: 'Refresh',
+    // Environment matrix
+    matrixTitle: 'Environment matrix',
+    matrixSubtitle: 'Commits each branch is ahead of the next, per repo.',
+    columnRepo: 'Repo',
+    columnDevToStaging: 'dev → staging',
+    columnStagingToMain: 'staging → main',
+    upToDate: 'up to date',
+    commitsAhead: (n: number) => `${n} commit${n === 1 ? '' : 's'}`,
+    matrixEmpty: 'No deployable repos reported.',
+    // Promote to staging
+    stagingTitle: 'Promote to staging',
+    stagingSubtitle:
+      'Merge dev into staging across every repo that has changes. No approval required.',
+    stagingButton: 'Promote dev → staging',
+    stagingNothing: 'Staging is up to date with dev.',
+    stagingNoPermission: 'You do not have permission to promote to staging.',
+    stagingNotesLabel: 'Notes (optional)',
+    stagingNotesPlaceholder: 'e.g. promoting the booking-widget fix',
+    stagingConfirmTitle: 'Promote dev → staging?',
+    stagingConfirmDescription:
+      'The following repos will be merged from dev into staging and pushed. The push triggers each repo’s staging deploy.',
+    stagingConfirmAction: 'Promote',
+    stagingToast: 'Staging promotion queued.',
+    // Propose to production
+    prodTitle: 'Promote to production',
+    prodSubtitle:
+      'Propose merging staging into main. An approver gives the final go; you cannot ship to production unilaterally.',
+    proposeButton: 'Propose to production',
+    prodNothing: 'Production is up to date with staging.',
+    proposeNotesLabel: 'Proposal notes (required)',
+    proposeNotesPlaceholder: 'What was validated on staging? Why ship now?',
+    proposeConfirmTitle: 'Propose staging → main?',
+    proposeConfirmDescription:
+      'The following repos and SHAs are pinned to this proposal. An approver reviews and gives the final go.',
+    proposeConfirmAction: 'Propose',
+    proposeToast: 'Production promotion proposed — approvers notified.',
+    proposeNotesRequired: 'Proposal notes are required.',
+    // Pending proposals
+    pendingTitle: 'Pending production proposals',
+    pendingEmpty: 'No proposals awaiting a decision.',
+    proposedBy: (who: string, when: string) =>
+      `Proposed by ${who} · ${new Date(when).toLocaleString('de-DE')}`,
+    approveButton: 'Approve & promote',
+    rejectButton: 'Reject',
+    cancelButton: 'Cancel proposal',
+    approveNotesLabel: 'Approval notes (optional)',
+    approveNotesPlaceholder: 'e.g. validated checkout + calendar on staging',
+    rejectNotesLabel: 'Rejection reason (required)',
+    rejectNotesPlaceholder: 'Why is this proposal being rejected?',
+    rejectNotesRequired: 'A rejection reason is required.',
+    approveConfirmTitle: 'Approve & promote to production?',
+    approveConfirmDescription:
+      'This queues the staging → main merge for the pinned SHAs and triggers the production deploy.',
+    approveConfirmAction: 'Approve & promote',
+    rejectConfirmTitle: 'Reject this proposal?',
+    rejectConfirmAction: 'Reject',
+    cancelConfirmTitle: 'Cancel your proposal?',
+    cancelConfirmDescription:
+      'This withdraws the proposal. It will not be promoted.',
+    cancelConfirmAction: 'Cancel proposal',
+    approveToast: 'Production promotion approved & queued.',
+    rejectToast: 'Proposal rejected.',
+    cancelToast: 'Proposal cancelled.',
+    // History
+    historyTitle: 'History',
+    historyEmpty: 'No promotion runs yet.',
+    historySubtitle: 'Recent promotion runs and their per-repo merge results.',
+    notesLabel: 'Notes',
+    decisionNotesLabel: 'Decision',
+    decidedBy: (who: string, when: string) =>
+      `Decided by ${who} · ${new Date(when).toLocaleString('de-DE')}`,
+    keep: 'Keep',
+    // Status badge labels
+    statusProposed: 'Proposed',
+    statusApproved: 'Approved',
+    statusQueued: 'Queued',
+    statusExecuting: 'Executing',
+    statusCompleted: 'Completed',
+    statusFailed: 'Failed',
+    statusRejected: 'Rejected',
+    statusCancelled: 'Cancelled',
+    // Per-repo merge status labels
+    mergePending: 'pending',
+    mergeMerged: 'merged',
+    mergeNoop: 'no-op',
+    mergeConflict: 'conflict',
+    mergeError: 'error',
+    // landr-a99u.11 — graceful no-token state
+    notConfiguredTitle: 'Release promotion not configured',
+    notConfiguredDescription:
+      'Release promotion isn’t configured yet. Set up the GitHub promotion token to enable this console.',
+    // landr-a99u.12 — staff view: customer signoff badge on pending proposals
+    signoffByCustomer: (label: string) => `Requested by ${label}`,
+    signoffByStaff: 'Proposed by staff',
+  },
   theme: {
     switchToDark: 'Switch to dark theme',
     switchToLight: 'Switch to light theme',
@@ -485,39 +639,46 @@ export const t = {
     viewTicket: 'View ticket',
     loadError: 'Could not load notifications.',
   },
-  // landr-wwhn.12 — persistent report/suggest entry point + create-ticket form.
+  // landr-wwhn.12 / landr-wwhn.29 — persistent report/suggest entry point + create-ticket form.
   reportButton: {
     // Topbar trigger (persistent, visible on every protected route).
-    triggerLabel: 'Report a problem or suggest an idea',
+    triggerLabel: 'Report an issue or send feedback',
     triggerText: 'Feedback',
     // Dialog.
-    dialogTitle: "Tell us what's on your mind",
+    dialogTitle: 'Report an issue / Send feedback',
     dialogDescription:
-      'Found a bug or have an idea? We read everything and get back to you in the dashboard.',
-    // Type toggle labels (map to DB ticket_type enum).
-    typeProblem: 'Problem',
-    typeIdea: 'Idea',
+      'We read everything and get back to you here in the dashboard.',
+    // Impact picker (replaces the old type toggle — the single classifier).
+    impactLabel: 'How is it affecting you?',
+    impactBlocking: 'Blocking — I cannot get work done',
+    impactAnnoying: 'Annoying — it slows me down',
+    impactIdea: 'Idea / suggestion',
+    // Contextual hints shown below the body textarea.
+    reproHintBlocking: 'What happened, what did you expect, and what were you trying to do?',
+    reproHintAnnoying: 'What is the friction — what did you expect to happen instead?',
     // Fields.
     titleLabel: 'Summary',
-    titlePlaceholder: 'One-line summary of the issue or idea',
+    titlePlaceholder: 'One-line summary',
     bodyLabel: 'Details',
-    bodyPlaceholder: 'More context, steps, or background — the more, the better.',
-    // Bug-type repro hint (light; full template is a later ticket).
-    reproHint: 'Tip: include what you did, what you expected, and what happened instead.',
-    // Impact picker labels (map to DB ticket_perceived_impact enum).
-    impactLabel: 'How badly is this affecting you?',
-    impactBlocking: "Blocking — I can't get work done",
-    impactAnnoying: 'Annoying — it slows me down',
-    impactIdea: 'Just an idea',
+    bodyPlaceholder: 'More context, steps to reproduce, or background — the more, the better.',
+    // Attachment zone.
+    attachLabel: 'Attach a file or screenshot',
+    attachHint: 'Paste (Ctrl+V) or click to attach',
+    attachUploading: 'Uploading…',
+    // Optional URL field.
+    linkLabel: 'Related link',
+    linkPlaceholder: 'https://…',
     // Buttons.
     submit: 'Send feedback',
     submitting: 'Sending…',
     cancel: 'Cancel',
     // Success / error toasts.
-    toastSuccess: 'Got it — thanks for the feedback!',
+    toastSuccess: (ticketId: string): string =>
+      `Got it — thanks! Ticket #${ticketId.slice(0, 8)} filed.`,
     toastError: "Couldn't send feedback. Try again.",
     // Validation.
     titleRequired: 'A one-line summary is required.',
+    linkInvalid: 'Enter a valid URL (starting with https://).',
   },
   // landr-wwhn.13 — ticket detail sheet.
   ticketDetail: {
@@ -527,6 +688,11 @@ export const t = {
     tabComments: 'Comments',
     tabTimeline: 'Timeline',
     tabAttachments: 'Attachments',
+    // landr-wwhn.32 — header who-to-contact
+    headerOperatorLabel: 'Org',
+    headerReporterLabel: 'Reporter',
+    headerOperatorUnknown: 'Unknown org',
+    headerReporterUnknown: 'Unknown reporter',
     // Fields
     sectionStatus: 'Status',
     sectionType: 'Type',
@@ -1897,10 +2063,11 @@ export const t = {
     optionNone: '— Select —',
 
     // landr-yp8x — operator branding (logo + primary colour).
+    // landr-znzz.11 — extended to full 3-colour semantic theme + dark logo.
     sectionBranding: 'Branding',
     sectionBrandingDesc:
       'Your logo and primary colour appear in the embedded booking widget on your website.',
-    fieldLogo: 'Logo',
+    fieldLogo: 'Logo (light)',
     fieldLogoHint:
       'Square PNG or SVG works best (max 2 MB). Shown at the top of every booking step.',
     fieldLogoNone: 'No logo uploaded yet.',
@@ -1908,14 +2075,44 @@ export const t = {
     fieldLogoReplace: 'Replace logo',
     fieldLogoRemove: 'Remove logo',
     fieldLogoUploading: 'Uploading…',
+    fieldLogoDark: 'Dark-mode logo (optional)',
+    fieldLogoDarkHint:
+      "Used when the visitor's device is in dark mode. Leave blank to use the same logo.",
+    fieldLogoDarkNone: 'No dark-mode logo uploaded.',
+    fieldLogoDarkUpload: 'Upload dark logo',
+    fieldLogoDarkReplace: 'Replace dark logo',
+    fieldLogoDarkRemove: 'Remove dark logo',
+    fieldLogoDarkUploading: 'Uploading…',
     fieldPrimaryColor: 'Primary colour',
     fieldPrimaryColorHint:
-      'Drives the booking widget’s buttons and accents. Pick any 7-char hex (#RRGGBB).',
+      "Drives the booking widget's buttons and accents. Pick any 7-char hex (#RRGGBB).",
     fieldPrimaryColorReset: 'Reset to default',
+    // landr-znzz.11 — 3-colour theme fields
+    themeSectionTitle: 'Theme colours',
+    themeSectionDesc:
+      "Three semantic slots control the widget's look. Brand is headings and text, Accent is buttons, Background is the page canvas.",
+    fieldBrandColor: 'Brand colour (text / headings)',
+    fieldBrandColorHint: 'Primary text colour shown on the widget canvas.',
+    fieldAccentColor: 'Accent colour (buttons)',
+    fieldAccentColorHint: 'Fill colour for CTA buttons. Should contrast well with white button text.',
+    fieldBackgroundColor: 'Background colour',
+    fieldBackgroundColorHint: 'Page canvas background of the widget.',
+    darkOverridesSectionTitle: 'Dark-mode overrides (optional)',
+    darkOverridesSectionDesc:
+      "Leave blank to let the browser derive dark colours automatically. Override only if the default derivation doesn't match your brand.",
+    darkOverridesToggle: 'Customise dark-mode colours',
+    fieldDarkBrandColor: 'Dark brand colour',
+    fieldDarkAccentColor: 'Dark accent colour',
+    fieldDarkBackgroundColor: 'Dark background colour',
+    themeToastSaved: 'Theme saved.',
+    contrastWarningBrand: 'Brand on background contrast is below WCAG AA (4.5:1) — text may be hard to read.',
+    contrastWarningAccent: 'Accent button text contrast is below WCAG AA (4.5:1) — button text may be hard to read.',
     brandingPreviewTitle: 'Preview',
     brandingPreviewDesc:
-      'How a CTA in your booking widget will look with these brand settings.',
+      'Live preview of your widget colours in light and dark mode.',
     brandingPreviewCta: 'Continue',
+    brandingPreviewLight: 'Light',
+    brandingPreviewDark: 'Dark',
     brandingFileTooLarge: 'File is too large. Max 2 MB.',
     brandingFileTypeUnsupported: 'Only PNG, JPG, SVG, or WebP files are supported.',
     brandingUploadError: 'Failed to upload logo.',
@@ -1923,6 +2120,10 @@ export const t = {
     brandingToastUploaded: 'Logo uploaded.',
     brandingToastRemoved: 'Logo removed.',
     brandingToastColorSaved: 'Primary colour saved.',
+    brandingDarkLogoUploadError: 'Failed to upload dark logo.',
+    brandingDarkLogoRemoveError: 'Failed to remove dark logo.',
+    brandingDarkLogoToastUploaded: 'Dark logo uploaded.',
+    brandingDarkLogoToastRemoved: 'Dark logo removed.',
 
     gmailLoading: 'Loading Gmail status…',
     gmailError: 'Failed to load Gmail status.',
@@ -1977,6 +2178,65 @@ export const t = {
       'In the calendar view, click "Add calendar" → "Subscribe from web".',
       'Paste the URL, name the calendar, pick a colour, and click Import.',
     ],
+
+    // landr-1nwu.2 — per-operator payment/ERP integration credentials.
+    // Secrets are WRITE-ONLY: the API never returns a stored secret, so the
+    // UI shows "Configured" + last-updated and a Rotate/Replace input.
+    paymentsLoading: 'Loading credentials…',
+    paymentsError: 'Failed to load integration credentials.',
+    paymentsStripeTitle: 'Stripe',
+    paymentsStripeDescription:
+      'Your Stripe API keys. Test keys are used everywhere except production; Live keys take real payments.',
+    paymentsHoldedTitle: 'Holded',
+    paymentsHoldedDescription:
+      'Your Holded ERP API key for invoice sync. Demo keys are used outside production; Live takes effect in production.',
+    paymentsModeTest: 'Test',
+    paymentsModeLive: 'Live',
+    paymentsModeDemo: 'Demo',
+    paymentsStripePublishableLabel: 'Publishable key',
+    paymentsStripePublishablePlaceholder: 'pk_test_…',
+    paymentsStripeSecretLabel: 'Secret key',
+    paymentsStripeWebhookLabel: 'Webhook signing secret',
+    paymentsHoldedApiKeyLabel: 'API key',
+    // Shown in place of a stored secret value (which is never returned).
+    paymentsConfigured: 'Configured ••••••••',
+    paymentsNotConfigured: 'Not configured',
+    paymentsRotate: 'Rotate / replace',
+    paymentsRotateCancel: 'Cancel',
+    paymentsSecretRotatePlaceholder: 'Enter a new value to replace it',
+    paymentsSecretEnterPlaceholder: 'Paste the secret value',
+    paymentsLastUpdated: (when: string) => `Last updated ${when}`,
+    paymentsSave: 'Save',
+    paymentsSaving: 'Saving…',
+    paymentsSaved: 'Credentials saved.',
+    paymentsSaveError: 'Failed to save credentials.',
+    paymentsNothingToSave: 'Nothing to save — enter or rotate a value first.',
+    paymentsSecretNeverShown:
+      'For your security, saved secrets are never shown again. Enter a new value to replace one.',
+  },
+  // landr-znzz.7 — Settings → Weather
+  weatherSettings: {
+    cardTitle: 'Conditions forecast hint',
+    cardDescription:
+      'When enabled, a one-line weather summary is shown next to the conditions chips in the briefing day-card editor. The verdict (Go / Marginal / No-go) is always set manually — weather only informs.',
+    enableLabel: 'Enable forecast hint',
+    enableHint:
+      'Fetch a daily forecast for the configured location and show it as a hint when you set conditions.',
+    providerLabel: 'Weather provider',
+    latLabel: 'Latitude',
+    lonLabel: 'Longitude',
+    locationHint:
+      'WGS-84 decimal degrees (e.g. 28.9716, -13.5538 for Famara, Lanzarote). Tip: right-click any location in Google Maps and choose "What\'s here?" to get precise coordinates.',
+    save: 'Save',
+    saving: 'Saving…',
+    toastSaved: 'Weather settings saved.',
+    toastError: 'Failed to save weather settings.',
+    validationLatitude: 'Latitude must be between -90 and 90.',
+    validationLongitude: 'Longitude must be between -180 and 180.',
+    // Shown in the briefing day-card editor when weather is enabled.
+    forecastHintLabel: 'Forecast hint',
+    forecastHintLoading: 'Fetching forecast…',
+    forecastHintError: 'Forecast unavailable.',
   },
   pickupLocations: {
     title: 'Pickup locations',
@@ -3144,6 +3404,22 @@ export const t = {
     capacityEmpty: 'No schedulable products with a per-unit capacity yet.',
     capacityRowAria: (name: string, booked: number, capacity: number): string =>
       `${name}: ${booked} of ${capacity} booked`,
+    // landr-a99u.12 — operator go-live request banner on dashboard home.
+    goLiveBannerTitle: 'Ready for go-live?',
+    goLiveBannerDescription:
+      'You\'re on staging. If everything looks good, request go-live and Landr staff will review and ship it.',
+    goLiveBannerButton: 'Request go-live',
+    goLiveBannerRequestedTitle: 'Go-live requested',
+    goLiveBannerRequestedDescription:
+      'Landr will review your staging environment and promote it to production.',
+    goLiveDialogTitle: 'Request go-live?',
+    goLiveDialogDescription:
+      'Landr staff will review staging and promote it to production. You can add a note for the reviewer.',
+    goLiveNotesLabel: 'Notes for the reviewer (optional)',
+    goLiveNotesPlaceholder: 'e.g. tested checkout, calendar, and email flows',
+    goLiveConfirmAction: 'Send request',
+    goLiveAlreadyPending: 'A go-live request is already awaiting staff review.',
+    goLiveSuccessToast: 'Go-live requested — Landr will review and ship it.',
   },
   // landr-s1mr — Copy for the shared <EmptyState> cards across surfaces.
   // Each surface gets a friendly title + sub-copy + CTA so the empty
