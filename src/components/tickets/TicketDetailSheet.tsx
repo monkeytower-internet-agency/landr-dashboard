@@ -2,17 +2,27 @@
 // landr-wwhn.14 — Send-to-development gateway UI (landr-staff only).
 // landr-wwhn.22 — Assignee section: picker for staff, read-only for operators.
 // landr-wwhn.24 — @mention parsing + user-search autocomplete in comment composer.
+// landr-wwhn.32 — Rework: header who-to-contact, Comments first, read-only
+//                 Details, staff actions extracted to TicketTriageCard.
 //
 // Opens from the kanban board when an operator or staff clicks a ticket card.
 // Architecture follows BookingDetailSheet.tsx: a Sheet shell delegates to a
 // body component that is keyed by ticket id, ensuring a clean remount on each
 // new ticket open and avoiding stale state.
 //
-// Tabs: Details | Comments | Timeline | Attachments.
+// Tabs (in order): Comments | Details | Timeline | Attachments.
+//   Comments is primary — the conversation comes first.
+//   Details is VIEW-ONLY — no inline edits.
+//
+// Header shows:
+//   - ticket title
+//   - operator org name (fetched from `operators` table via operator_id)
+//   - reporter email (fetched from `users` table via reporter_id)
+//   - Watch toggle
 //
 // Staff (is_landr_staff) see additional fields:
 //   * Details tab: severity, linked_bd_id, sync_status (read via tickets_staff view).
-//   * Details tab: GatewayPanel — engineering prompt + "Send to development" action.
+//   * Details tab: TicketTriageCard — assignee picker + GatewayPanel.
 //   * Comments tab: internal notes (is_internal=true) + can post internal comments.
 //   * Timeline: internal events (is_internal=true comment_added events).
 //
@@ -74,13 +84,13 @@ import {
   fetchTicketComments,
   fetchTicketCommentsStaff,
   fetchTicketEvents,
+  fetchTicketOperator,
+  fetchTicketReporter,
   fetchTicketStaff,
   fetchTicketWatcher,
   getAttachmentSignedUrl,
   notifyMentions,
   parseMentionHandles,
-  patchTicketAssignee,
-  promoteTicket,
   resolveMentionHandles,
   searchMentionUsers,
   unwatchTicket,
@@ -99,9 +109,11 @@ import {
   type TicketRowStaff,
 } from '@/lib/tickets'
 
+import { TicketTriageCard } from './TicketTriageCard'
+
 // ---- Types ------------------------------------------------------------------
 
-type Tab = 'details' | 'comments' | 'timeline' | 'attachments'
+type Tab = 'comments' | 'details' | 'timeline' | 'attachments'
 
 // ---- Public component -------------------------------------------------------
 
@@ -137,7 +149,8 @@ type BodyProps = {
 function TicketDetailBody({ ticket, onClose }: BodyProps) {
   const { user: authUser } = useAuth()
   const qc = useQueryClient()
-  const [activeTab, setActiveTab] = useState<Tab>('details')
+  // Comments is the primary tab — open first.
+  const [activeTab, setActiveTab] = useState<Tab>('comments')
 
   // Fetch current public user row to gate is_landr_staff features.
   const { data: publicUser } = useQuery({
@@ -156,6 +169,22 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
     enabled: isStaff,
   })
   const staffDetail: TicketRowStaff | null = staffDetailQuery.data ?? null
+
+  // Operator name for the header.
+  const { data: ticketOperator } = useQuery({
+    queryKey: ['ticket-operator', ticket.operator_id],
+    queryFn: () => fetchTicketOperator(ticket.operator_id),
+    staleTime: 10 * 60 * 1000,
+  })
+
+  // Reporter email for the header.
+  const { data: ticketReporter } = useQuery({
+    queryKey: ['ticket-reporter', ticket.reporter_id ?? 'none'],
+    queryFn: () =>
+      ticket.reporter_id ? fetchTicketReporter(ticket.reporter_id) : null,
+    enabled: !!ticket.reporter_id,
+    staleTime: 10 * 60 * 1000,
+  })
 
   // Realtime: subscribe to comments + events + attachments for this ticket.
   useEffect(() => {
@@ -217,10 +246,49 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
             <SheetTitle className="line-clamp-2 text-base leading-snug">
               {ticket.title}
             </SheetTitle>
-            <SheetDescription className="mt-0.5">
-              {t.ticketDetail.sheetDescription(ticket.id)}
-              {' · '}
-              {TYPE_LABEL[ticket.type]}
+            {/* Who-to-contact meta: org name + reporter */}
+            <SheetDescription className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span data-testid="ticket-header-ticket-id">
+                {t.ticketDetail.sheetDescription(ticket.id)}
+                {' · '}
+                {TYPE_LABEL[ticket.type]}
+              </span>
+              <span
+                className="text-muted-foreground/60"
+                aria-hidden
+              >
+                ·
+              </span>
+              <span
+                className="flex items-center gap-1"
+                data-testid="ticket-header-operator"
+              >
+                <span className="font-medium text-foreground/70">
+                  {t.ticketDetail.headerOperatorLabel}:
+                </span>
+                <span>
+                  {ticketOperator?.name ?? t.ticketDetail.headerOperatorUnknown}
+                </span>
+              </span>
+              {ticket.reporter_id && (
+                <>
+                  <span className="text-muted-foreground/60" aria-hidden>
+                    ·
+                  </span>
+                  <span
+                    className="flex items-center gap-1"
+                    data-testid="ticket-header-reporter"
+                  >
+                    <span className="font-medium text-foreground/70">
+                      {t.ticketDetail.headerReporterLabel}:
+                    </span>
+                    <span>
+                      {ticketReporter?.email ??
+                        t.ticketDetail.headerReporterUnknown}
+                    </span>
+                  </span>
+                </>
+              )}
             </SheetDescription>
           </div>
           <WatchToggle
@@ -230,7 +298,7 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
         </div>
       </SheetHeader>
 
-      {/* Tab strip */}
+      {/* Tab strip — Comments first */}
       <Tabs
         value={activeTab}
         onValueChange={(v) => setActiveTab(v as Tab)}
@@ -239,17 +307,17 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
         <TabsList variant="pill" aria-label={t.ticketDetail.sheetTitle}>
           <TabsTrigger
             variant="pill"
-            value="details"
-            data-testid="ticket-detail-tab-details"
-          >
-            {t.ticketDetail.tabDetails}
-          </TabsTrigger>
-          <TabsTrigger
-            variant="pill"
             value="comments"
             data-testid="ticket-detail-tab-comments"
           >
             {t.ticketDetail.tabComments}
+          </TabsTrigger>
+          <TabsTrigger
+            variant="pill"
+            value="details"
+            data-testid="ticket-detail-tab-details"
+          >
+            {t.ticketDetail.tabDetails}
           </TabsTrigger>
           <TabsTrigger
             variant="pill"
@@ -269,7 +337,18 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
       </Tabs>
 
       {/* Tab panels */}
-      {activeTab === 'details' ? (
+      {activeTab === 'comments' ? (
+        <div
+          role="tabpanel"
+          aria-label={t.ticketDetail.tabComments}
+          className="flex flex-1 flex-col overflow-hidden"
+        >
+          <CommentsPanel
+            ticketId={ticket.id}
+            isStaff={isStaff}
+          />
+        </div>
+      ) : activeTab === 'details' ? (
         <div
           role="tabpanel"
           aria-label={t.ticketDetail.tabDetails}
@@ -288,17 +367,6 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
               void qc.invalidateQueries({ queryKey: ['tickets', ticket.operator_id] })
               void qc.invalidateQueries({ queryKey: ['ticket-events', ticket.id] })
             }}
-          />
-        </div>
-      ) : activeTab === 'comments' ? (
-        <div
-          role="tabpanel"
-          aria-label={t.ticketDetail.tabComments}
-          className="flex flex-1 flex-col overflow-hidden"
-        >
-          <CommentsPanel
-            ticketId={ticket.id}
-            isStaff={isStaff}
           />
         </div>
       ) : activeTab === 'timeline' ? (
@@ -411,6 +479,9 @@ function WatchToggle({ ticketId, publicUserId }: WatchToggleProps) {
 }
 
 // ---- DetailsPanel -----------------------------------------------------------
+//
+// VIEW-ONLY: displays ticket fields. No inline editing.
+// Staff additionally see: internal fields card + TicketTriageCard (actions).
 
 const SEVERITY_LABEL: Record<string, string> = {
   blocker: 'Blocker',
@@ -450,15 +521,36 @@ type DetailsPanelProps = {
   onAssigneeChange: () => void
 }
 
-function DetailsPanel({ ticket, staffDetail, isStaff, publicUserId, onPromoteSuccess, onAssigneeChange }: DetailsPanelProps) {
+function DetailsPanel({
+  ticket,
+  staffDetail,
+  isStaff,
+  publicUserId,
+  onPromoteSuccess,
+  onAssigneeChange,
+}: DetailsPanelProps) {
   const dateFormatter = new Intl.DateTimeFormat('en-IE', {
     dateStyle: 'medium',
     timeStyle: 'short',
   })
 
+  // Fetch assignable users for the read-only assignee display (operators).
+  // For staff the full picker is in TicketTriageCard; we still need the
+  // resolved name here for the read-only operator view.
+  const assignableQuery = useQuery({
+    queryKey: ['assignable-users'],
+    queryFn: fetchAssignableUsers,
+    staleTime: 5 * 60 * 1000,
+  })
+  const assignableUsers: AssignableUser[] = assignableQuery.data ?? []
+  const currentAssignee: AssignableUser | null =
+    ticket.assignee_id
+      ? (assignableUsers.find((u) => u.id === ticket.assignee_id) ?? null)
+      : null
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Core fields */}
+      {/* Status card */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium">
@@ -479,6 +571,7 @@ function DetailsPanel({ ticket, staffDetail, isStaff, publicUserId, onPromoteSuc
         </CardContent>
       </Card>
 
+      {/* Core fields — view-only */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium">Details</CardTitle>
@@ -527,14 +620,30 @@ function DetailsPanel({ ticket, staffDetail, isStaff, publicUserId, onPromoteSuc
         </CardContent>
       </Card>
 
-      {/* Assignee (landr-wwhn.22) */}
-      <AssigneeSection
-        ticket={ticket}
-        isStaff={isStaff}
-        onAssigneeChange={onAssigneeChange}
-      />
+      {/* Assignee — read-only display for operators. Staff see the picker in TicketTriageCard. */}
+      {!isStaff && (
+        <Card data-testid="assignee-section">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">
+              {t.ticketDetail.assigneeSectionTitle}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {ticket.assignee_id && currentAssignee ? (
+              <AssigneeDisplay assignee={currentAssignee} />
+            ) : (
+              <span
+                className="text-muted-foreground text-sm italic"
+                data-testid="assignee-unassigned"
+              >
+                {t.ticketDetail.assigneeUnassigned}
+              </span>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Description */}
+      {/* Description — view-only */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium">
@@ -623,11 +732,12 @@ function DetailsPanel({ ticket, staffDetail, isStaff, publicUserId, onPromoteSuc
         />
       )}
 
-      {/* Send-to-development gateway (landr-wwhn.14) — staff only */}
+      {/* Staff triage/actions card (landr-wwhn.32) — assignee picker + gateway */}
       {isStaff && (
-        <GatewayPanel
-          ticketId={ticket.id}
-          linkedBdId={staffDetail?.linked_bd_id ?? null}
+        <TicketTriageCard
+          ticket={ticket}
+          staffDetail={staffDetail}
+          onAssigneeChange={onAssigneeChange}
           onPromoteSuccess={onPromoteSuccess}
         />
       )}
@@ -635,122 +745,10 @@ function DetailsPanel({ ticket, staffDetail, isStaff, publicUserId, onPromoteSuc
   )
 }
 
-// ---- AssigneeSection (landr-wwhn.22) ----------------------------------------
-//
-// Staff see a <select> picker backed by the assignable_users view.
-// Operators see a read-only display (assignee email or "Unassigned").
-//
-// Assignee kinds:
-//   is_claude_agent=true  → "Agent" badge + robot icon
-//   is_landr_staff=true   → "Staff" badge + email
-//
-// When a staff user changes the assignee, patchTicketAssignee() is called
-// directly (plain REST UPDATE; assignee_id is in the UPDATE grant). The bridge
-// worker interprets agent assignment as a bd-claim signal when linked_bd_id is
-// set — that wiring lives in ticket_bridge.py, not here.
-
-type AssigneeSectionProps = {
-  ticket: TicketRow
-  isStaff: boolean
-  onAssigneeChange: () => void
-}
-
-function AssigneeSection({ ticket, isStaff, onAssigneeChange }: AssigneeSectionProps) {
-  const qc = useQueryClient()
-
-  // Fetch assignable users (staff + agents). Returns [] for non-staff due to
-  // the SECURITY DEFINER view gate — that's fine: operators see a read-only
-  // display using the already-loaded ticket.assignee_id, resolved from the
-  // same cache the board uses (assignable-users key).
-  const assignableQuery = useQuery({
-    queryKey: ['assignable-users'],
-    queryFn: fetchAssignableUsers,
-    staleTime: 5 * 60 * 1000,
-  })
-  const assignableUsers: AssignableUser[] = assignableQuery.data ?? []
-
-  // Resolve the current assignee from the cached list (avoids a second fetch).
-  const currentAssignee: AssignableUser | null =
-    ticket.assignee_id
-      ? (assignableUsers.find((u) => u.id === ticket.assignee_id) ?? null)
-      : null
-
-  const mutation = useMutation({
-    mutationFn: (assigneeId: string | null) =>
-      patchTicketAssignee(ticket.id, assigneeId),
-    onSuccess: (_data, assigneeId) => {
-      const name = assigneeId
-        ? (assignableUsers.find((u) => u.id === assigneeId)?.email ?? assigneeId)
-        : null
-      toast.success(
-        name
-          ? t.ticketDetail.assigneeToastSet(name)
-          : t.ticketDetail.assigneeToastCleared,
-      )
-      onAssigneeChange()
-      void qc.invalidateQueries({ queryKey: ['assignable-users'] })
-    },
-    onError: () => {
-      toast.error(t.ticketDetail.assigneeToastError)
-    },
-  })
-
-  const labelId = `assignee-label-${ticket.id}`
-
-  return (
-    <Card data-testid="assignee-section">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium" id={labelId}>
-          {t.ticketDetail.assigneeSectionTitle}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isStaff ? (
-          <div className="flex flex-col gap-2">
-            <select
-              aria-labelledby={labelId}
-              value={ticket.assignee_id ?? ''}
-              onChange={(e) => {
-                const val = e.target.value
-                mutation.mutate(val === '' ? null : val)
-              }}
-              disabled={mutation.isPending || assignableQuery.isPending}
-              className="border-input bg-background rounded-md border px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
-              data-testid="assignee-picker"
-            >
-              <option value="">{t.ticketDetail.assigneePickerPlaceholder}</option>
-              {assignableUsers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.is_claude_agent
-                    ? `🤖 ${u.email ?? 'Agent'}`
-                    : (u.email ?? u.id)}
-                </option>
-              ))}
-            </select>
-            {/* Display badge for the currently resolved assignee */}
-            {currentAssignee && (
-              <AssigneeDisplay assignee={currentAssignee} />
-            )}
-          </div>
-        ) : (
-          // Operator read-only view
-          ticket.assignee_id && currentAssignee ? (
-            <AssigneeDisplay assignee={currentAssignee} />
-          ) : (
-            <span
-              className="text-muted-foreground text-sm italic"
-              data-testid="assignee-unassigned"
-            >
-              {t.ticketDetail.assigneeUnassigned}
-            </span>
-          )
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
 // ---- AssigneeDisplay --------------------------------------------------------
+//
+// Read-only display of the current assignee. Used by DetailsPanel for
+// the operator view (staff see the picker inside TicketTriageCard).
 
 type AssigneeDisplayProps = {
   assignee: AssignableUser
@@ -789,97 +787,6 @@ function AssigneeDisplay({ assignee }: AssigneeDisplayProps) {
         </span>
       </div>
     </div>
-  )
-}
-
-// ---- GatewayPanel (landr-wwhn.14) -------------------------------------------
-
-type GatewayPanelProps = {
-  ticketId: string
-  /** Non-null when the ticket has already been promoted (linked_bd_id set). */
-  linkedBdId: string | null
-  onPromoteSuccess: () => void
-}
-
-function GatewayPanel({ ticketId, linkedBdId, onPromoteSuccess }: GatewayPanelProps) {
-  const [prompt, setPrompt] = useState('')
-
-  const mutation = useMutation({
-    mutationFn: () => promoteTicket(ticketId, prompt.trim()),
-    onSuccess: (result) => {
-      setPrompt('')
-      toast.success(t.ticketDetail.gatewayToastSuccess(result.linked_bd_id))
-      onPromoteSuccess()
-    },
-    onError: (err: Error) => {
-      toast.error(`${t.ticketDetail.gatewayToastError} (${err.message})`)
-    },
-  })
-
-  const isAlreadyPromoted = linkedBdId !== null
-  const canSubmit =
-    !isAlreadyPromoted && prompt.trim().length > 0 && !mutation.isPending
-
-  return (
-    <Card
-      className="border-indigo-300 dark:border-indigo-700"
-      data-testid="gateway-panel"
-    >
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium">
-          {t.ticketDetail.gatewaySectionTitle}
-          <span className="inline-flex items-center rounded-full border border-amber-500 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
-            Staff only
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {isAlreadyPromoted ? (
-          <p
-            className="text-sm text-indigo-700 dark:text-indigo-300"
-            data-testid="gateway-already-promoted"
-          >
-            {t.ticketDetail.gatewayAlreadyPromoted(linkedBdId)}
-          </p>
-        ) : (
-          <>
-            <label
-              className="text-muted-foreground text-xs font-medium"
-              htmlFor={`gateway-prompt-${ticketId}`}
-            >
-              {t.ticketDetail.gatewayPromptLabel}
-            </label>
-            <Textarea
-              id={`gateway-prompt-${ticketId}`}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder={t.ticketDetail.gatewayPromptPlaceholder}
-              className="min-h-[96px] resize-none"
-              disabled={mutation.isPending}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && canSubmit) {
-                  e.preventDefault()
-                  mutation.mutate()
-                }
-              }}
-              data-testid="gateway-prompt-input"
-            />
-            <Button
-              type="button"
-              onClick={() => mutation.mutate()}
-              disabled={!canSubmit}
-              className="self-start gap-1.5"
-              data-testid="gateway-submit-btn"
-            >
-              <Send className="size-3.5" aria-hidden />
-              {mutation.isPending
-                ? t.ticketDetail.gatewaySubmitting
-                : t.ticketDetail.gatewaySubmitLabel}
-            </Button>
-          </>
-        )}
-      </CardContent>
-    </Card>
   )
 }
 
