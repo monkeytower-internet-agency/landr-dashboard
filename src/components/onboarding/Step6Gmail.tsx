@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
+import { useRef } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,19 +17,29 @@ type Props = {
 }
 
 export function Step6Gmail({ operatorId, onAdvance, onBack }: Props) {
+  const popupRef = useRef<Window | null>(null)
+
   const { data, isLoading } = useQuery<GmailStatus>({
     queryKey: ['operator-gmail-status', operatorId],
     queryFn: () => fetchGmailStatus(operatorId),
     enabled: !!operatorId,
+    refetchOnWindowFocus: true,
   })
 
   const connectMutation = useMutation({
     mutationFn: () => fetchGmailInstallUrl(operatorId),
     onSuccess: ({ install_url }) => {
-      window.location.href = install_url
+      if (popupRef.current) {
+        popupRef.current.location.href = install_url
+      } else {
+        window.location.href = install_url
+      }
     },
-    onError: (err: Error) =>
-      toast.error(t.onboarding.step6.connectError, { description: err.message }),
+    onError: (err: Error) => {
+      popupRef.current?.close()
+      popupRef.current = null
+      toast.error(t.onboarding.step6.connectError, { description: err.message })
+    },
   })
 
   const connected = !!data?.connected
@@ -52,7 +63,10 @@ export function Step6Gmail({ operatorId, onAdvance, onBack }: Props) {
             type="button"
             size="sm"
             variant="outline"
-            onClick={() => connectMutation.mutate()}
+            onClick={() => {
+              popupRef.current = window.open('about:blank', '_blank', 'noopener,noreferrer')
+              connectMutation.mutate()
+            }}
             disabled={connectMutation.isPending || isLoading}
           >
             {connectMutation.isPending
