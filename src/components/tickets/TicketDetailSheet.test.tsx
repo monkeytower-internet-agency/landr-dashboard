@@ -557,6 +557,88 @@ describe('TicketDetailSheet — Watch toggle', () => {
       expect(screen.getByTestId('ticket-watch-toggle')).toBeInTheDocument()
     })
   })
+
+  it('shows "Watch" label when user is not watching (no watcher row)', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    mock.state.watcherRow = null
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      // Button should show "Watch" (not "Watching") when not subscribed
+      const btn = screen.getByTestId('ticket-watch-toggle')
+      expect(btn).toHaveTextContent('Watch')
+    })
+  })
+
+  it('shows "Watching" label when user already has a watcher row', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    mock.state.watcherRow = {
+      ticket_id: 'ticket-test-1234',
+      user_id: 'user-pub-1',
+      created_at: '2026-05-24T10:00:00Z',
+    }
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      const btn = screen.getByTestId('ticket-watch-toggle')
+      expect(btn).toHaveTextContent('Watching')
+    })
+  })
+
+  it('calls watchTicket and shows success toast when user watches a ticket', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    mock.state.watcherRow = null
+    mock.state.error = null
+
+    const user = userEvent.setup()
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ticket-watch-toggle')).toBeInTheDocument()
+    })
+
+    // Wait until the toggle is no longer pending (watchQuery resolved)
+    await waitFor(() => {
+      expect(screen.getByTestId('ticket-watch-toggle')).not.toBeDisabled()
+    })
+
+    await user.click(screen.getByTestId('ticket-watch-toggle'))
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith('Watching this ticket')
+    })
+  })
+
+  it('calls unwatchTicket and shows success toast when user unwatches a ticket', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    mock.state.watcherRow = {
+      ticket_id: 'ticket-test-1234',
+      user_id: 'user-pub-1',
+      created_at: '2026-05-24T10:00:00Z',
+    }
+    mock.state.error = null
+
+    const user = userEvent.setup()
+    render(
+      <TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ticket-watch-toggle')).not.toBeDisabled()
+    })
+
+    await user.click(screen.getByTestId('ticket-watch-toggle'))
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith('Stopped watching')
+    })
+  })
 })
 
 // ---- Notify override panel (landr-wwhn.16) ----------------------------------
