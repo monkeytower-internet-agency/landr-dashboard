@@ -1,4 +1,5 @@
 // landr-a99u.6 — release promotion console data layer (STAFF-ONLY).
+// landr-a99u.12 — operator-facing go-live eligibility + request endpoints.
 //
 // Reads/writes the FastAPI staff promotion endpoints
 //   GET  /api/landr-staff/promotions/status
@@ -10,6 +11,10 @@
 //   POST /api/landr-staff/promotions/{id}/reject
 //   POST /api/landr-staff/promotions/{id}/cancel
 // (landr-api app/routers/landr_staff_promotions.py — built in a sibling PR).
+//
+// Operator-facing endpoints (landr-a99u.12):
+//   GET  /api/operator/release/eligibility
+//   POST /api/operator/release/request-golive
 //
 // A promotion "run" merges one branch into the next (dev → staging, then
 // staging → main) across the deployable repos and pushes — the push triggers
@@ -72,6 +77,32 @@ export type PromotionRun = {
   /** Free-text approve/reject notes. */
   decision_notes?: string | null
   repos: PromotionRunRepo[]
+  /**
+   * landr-a99u.12 — who signed off: 'staff' (a staff member proposed via the
+   * /release console) or 'customer' (an operator signer clicked "Request
+   * go-live" from their dashboard). Absent on old/dev_to_staging runs.
+   */
+  signoff_source?: 'staff' | 'customer' | null
+  /**
+   * Human-readable label for the signoff origin (e.g. the operator name or
+   * "Para42"). Only meaningful when signoff_source === 'customer'.
+   */
+  signoff_by_label?: string | null
+}
+
+// --- operator-facing types (landr-a99u.12) ----------------------------------
+
+/**
+ * Response of GET /api/operator/release/eligibility.
+ * True only on staging, only for signer users.
+ */
+export type GoLiveEligibility = {
+  can_request_golive: boolean
+}
+
+/** Response of POST /api/operator/release/request-golive. */
+export type GoLiveRequestResult = {
+  status: 'requested' | 'already_pending'
 }
 
 /** One repo row in the environment matrix. */
@@ -194,6 +225,32 @@ export async function cancelRun(id: string): Promise<PromotionRun> {
   return api<PromotionRun>(
     'POST',
     `/api/landr-staff/promotions/${encodeURIComponent(id)}/cancel`,
+  )
+}
+
+// --- operator-facing reads/writes (landr-a99u.12) --------------------------
+
+/**
+ * Check whether the current operator user is eligible to request go-live.
+ * The backend only returns true on staging, for signer users — so the UI can
+ * render purely on this flag without separate env detection.
+ */
+export async function fetchGoLiveEligibility(): Promise<GoLiveEligibility> {
+  return api<GoLiveEligibility>('GET', '/api/operator/release/eligibility')
+}
+
+/**
+ * Request go-live (staging → main) on behalf of the operator.
+ * Returns 'requested' on first call, 'already_pending' if a request is
+ * already waiting for staff review.
+ */
+export async function requestGoLive(
+  notes?: string,
+): Promise<GoLiveRequestResult> {
+  return api<GoLiveRequestResult>(
+    'POST',
+    '/api/operator/release/request-golive',
+    notes ? { notes } : {},
   )
 }
 
