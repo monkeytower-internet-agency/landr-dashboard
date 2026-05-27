@@ -456,6 +456,55 @@ export async function patchTicketAssignee(
   if (error) throw new Error(error.message)
 }
 
+// ---- operator name (for ticket detail header) --------------------------------
+
+export type TicketOperatorRef = {
+  id: string
+  name: string | null
+  slug: string | null
+}
+
+/**
+ * Fetch the operator name for the ticket detail header.
+ * Uses the public `operators` table (RLS: own-operator for operators; all for staff).
+ * Returns null if not found.
+ */
+export async function fetchTicketOperator(
+  operatorId: string,
+): Promise<TicketOperatorRef | null> {
+  const { data, error } = await supabase
+    .from('operators')
+    .select('id, name, slug')
+    .eq('id', operatorId)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data as TicketOperatorRef | null
+}
+
+// ---- reporter user (for ticket detail header) --------------------------------
+
+export type TicketReporterRef = {
+  id: string
+  email: string | null
+}
+
+/**
+ * Fetch the reporter's public.users row (email) for the ticket detail header.
+ * RLS: operators see own-operator users; staff see all.
+ * Returns null if reporter_id is null or the user row is missing.
+ */
+export async function fetchTicketReporter(
+  reporterId: string,
+): Promise<TicketReporterRef | null> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, email')
+    .eq('id', reporterId)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data as TicketReporterRef | null
+}
+
 // ---- current public user ----------------------------------------------------
 
 export type PublicUser = {

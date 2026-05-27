@@ -544,6 +544,11 @@ export const t = {
     tabComments: 'Comments',
     tabTimeline: 'Timeline',
     tabAttachments: 'Attachments',
+    // landr-wwhn.32 — header who-to-contact
+    headerOperatorLabel: 'Org',
+    headerReporterLabel: 'Reporter',
+    headerOperatorUnknown: 'Unknown org',
+    headerReporterUnknown: 'Unknown reporter',
     // Fields
     sectionStatus: 'Status',
     sectionType: 'Type',
