@@ -1,5 +1,6 @@
 // landr-wwhn.11 — /tickets kanban board route.
 // landr-wwhn.22 — assignee chips on cards; fetches assignable_users once.
+// landr-wwhn.31 — staff-only operator filter chip.
 //
 // Five columns: backlog → ready → in_progress → in_review → done.
 //
@@ -22,6 +23,9 @@
 //     The query is still operator-scoped for staff (they pick an org from
 //     the dropdown) UNLESS currentOperatorId is null (super-admin triage
 //     flow, not yet surfaced in the UI — returns empty for now).
+//   * landr-wwhn.31: staff can override the scoped operator via a filter chip
+//     on the board. The chip persists as local state (session-only; for
+//     persistent cross-operator views use the saved-views ticket board).
 //
 // landr-wwhn.15 — click-through from the notification bell: navigate to
 // /tickets?open=<ticketId> to auto-open the detail sheet for that ticket.
@@ -45,6 +49,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { PageTitle } from '@/lib/page-title'
 import { useOperator } from '@/lib/operator'
+import { useEntitlements } from '@/lib/entitlements'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -63,20 +68,34 @@ import { TicketDetailSheet } from '@/components/tickets/TicketDetailSheet'
 // ---- component --------------------------------------------------------------
 
 export function TicketBoard() {
-  const { currentOperatorId } = useOperator()
+  const { currentOperatorId, staffOperators } = useOperator()
+  const { effectiveIsStaff } = useEntitlements()
   const [searchParams, setSearchParams] = useSearchParams()
+
+  // landr-wwhn.31 — staff-only operator filter (local, session state).
+  // null = use currentOperatorId (default). Set to a specific operator ID to
+  // scope the board to that operator's tickets. This state is cleared when the
+  // component unmounts; for persistent cross-operator views use saved views.
+  const [filterOperatorId, setFilterOperatorId] = useState<string | null>(null)
+
+  // Resolve the effective operator ID: staff can override via the picker;
+  // everyone else (and staff with no override) uses currentOperatorId.
+  const effectiveQueryOperatorId =
+    effectiveIsStaff && filterOperatorId !== null
+      ? filterOperatorId
+      : currentOperatorId
 
   // landr-wwhn.13 — detail sheet state
   const [openTicket, setOpenTicket] = useState<TicketRow | null>(null)
 
   const query = useRealtimeQuery<TicketRow[]>({
-    queryKey: ['tickets', currentOperatorId ?? 'none'],
-    queryFn: () => fetchTickets(currentOperatorId as string),
-    enabled: !!currentOperatorId,
-    realtime: currentOperatorId
+    queryKey: ['tickets', effectiveQueryOperatorId ?? 'none'],
+    queryFn: () => fetchTickets(effectiveQueryOperatorId as string),
+    enabled: !!effectiveQueryOperatorId,
+    realtime: effectiveQueryOperatorId
       ? {
           table: 'tickets',
-          filter: `operator_id=eq.${currentOperatorId}`,
+          filter: `operator_id=eq.${effectiveQueryOperatorId}`,
         }
       : null,
   })
@@ -226,8 +245,52 @@ export function TicketBoard() {
         }
       />
 
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">Tickets</h1>
+      <header className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-xl font-semibold">Tickets</h1>
+        </div>
+        {/* Operator filter chips — staff-only (landr-wwhn.31) */}
+        {effectiveIsStaff && staffOperators.length > 0 ? (
+          <div
+            className="flex flex-wrap items-center gap-2"
+            data-testid="ticket-board-operator-filter"
+            aria-label="Filter by operator"
+          >
+            <span className="text-muted-foreground text-xs">Operator:</span>
+            {staffOperators.map((op) => {
+              const active = filterOperatorId === op.id
+              return (
+                <button
+                  key={op.id}
+                  type="button"
+                  onClick={() =>
+                    setFilterOperatorId(active ? null : op.id)
+                  }
+                  data-testid={`ticket-operator-filter-${op.id}`}
+                  data-active={active || undefined}
+                  aria-pressed={active}
+                  className={
+                    active
+                      ? 'border-primary bg-primary text-primary-foreground rounded-full border px-2.5 py-0.5 text-xs font-medium'
+                      : 'border-input text-muted-foreground hover:border-foreground/40 rounded-full border bg-transparent px-2.5 py-0.5 text-xs font-medium transition-colors'
+                  }
+                >
+                  {op.name ?? op.slug}
+                </button>
+              )
+            })}
+            {filterOperatorId !== null ? (
+              <button
+                type="button"
+                onClick={() => setFilterOperatorId(null)}
+                data-testid="ticket-operator-filter-clear"
+                className="text-muted-foreground text-xs underline underline-offset-2 hover:text-foreground"
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </header>
 
       <DndContext

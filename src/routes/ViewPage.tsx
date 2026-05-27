@@ -75,6 +75,7 @@ import {
 import { TicketBoardLayout } from '@/components/views/layouts/TicketBoardLayout'
 import {
   applyTicketViewFilters,
+  readTicketConfigOperatorId,
   useViewTickets,
 } from '@/lib/tickets-views-data'
 
@@ -760,6 +761,13 @@ function BoardLayoutBranch({ view }: { view: SavedViewWithState }) {
 // areas for client-side area filtering), applies ticketConfig.labelAreas if
 // set, and hands the filtered list to TicketBoardLayout. The branch owns the
 // fetch/filter so the layout component stays pure (props in, render out).
+//
+// landr-wwhn.31 — operator filter. When the view config carries
+// ticketConfig.operatorId, the fetch is scoped to that operator's tickets
+// instead of the session's currentOperatorId. This allows staff to pin a
+// per-operator ticket view and have it load the right tickets automatically.
+// The client-side applyTicketViewFilters also applies the operator filter so
+// the column counts stay consistent while the refetch is in flight.
 function TicketBoardLayoutBranch({
   view,
   setConfig,
@@ -768,7 +776,11 @@ function TicketBoardLayoutBranch({
   setConfig: (config: Record<string, unknown>) => void
 }) {
   const { currentOperatorId } = useOperator()
-  const tickets = useViewTickets(currentOperatorId)
+  // Use the view-config operator when set (staff filtered view), otherwise
+  // fall back to the session's currentOperatorId.
+  const configOperatorId = readTicketConfigOperatorId(view.config)
+  const effectiveOperatorId = configOperatorId ?? currentOperatorId
+  const tickets = useViewTickets(effectiveOperatorId)
   const items = useMemo(
     () =>
       applyTicketViewFilters(tickets.data ?? [], view.config),

@@ -6,6 +6,7 @@
 // Filtering is intentionally minimal for v1 — the ticket board only needs:
 //   - status   (for column assignment — not a filter chip, but used internally)
 //   - area / label  (chip: label_area = 'dashboard' | 'booking-widget' | 'app' | 'api')
+//   - operator_id   (chip: landr-wwhn.31 — staff-only; persisted in view config)
 //
 // More complex ticket filters (priority, type, perceived_impact, date range)
 // are forward-compatible: the unknown-field pass-through means unrecognised
@@ -78,11 +79,37 @@ export function readTicketConfigStatuses(
   )
 }
 
+// ---- Operator filter (landr-wwhn.31) ----------------------------------------
+//
+// Staff-only filter: narrows the board to tickets from a single operator.
+// ticketConfig.operatorId: string | null
+//   null / absent = no operator filter = show tickets from all operators.
+//
+// The filter is client-side: the fetch in ViewPage's TicketBoardLayoutBranch
+// already uses either the view's operatorId (if set) or the session's
+// currentOperatorId to scope the query. This reader/applier pair is the
+// symmetric counterpart to readTicketConfigLabelAreas and is consumed by
+// TicketBoardLayout for the picker UI and by applyTicketViewFilters below.
+
+export function readTicketConfigOperatorId(
+  config: Record<string, unknown>,
+): string | null {
+  const tc = (config as { ticketConfig?: unknown }).ticketConfig
+  if (!tc || typeof tc !== 'object') return null
+  const raw = (tc as { operatorId?: unknown }).operatorId
+  if (typeof raw !== 'string' || raw.length === 0) return null
+  return raw
+}
+
 // ---- Filter application ----------------------------------------------------
 
 /**
- * Apply view-level filters to a list of ticket rows. In v1 only the
- * ticketConfig.labelAreas filter is supported (client-side area filter).
+ * Apply view-level filters to a list of ticket rows.
+ *
+ * Filters applied (in order):
+ *   1. ticketConfig.operatorId — operator filter (client-side; staff-only UI).
+ *   2. ticketConfig.labelAreas — area filter (client-side label match).
+ *
  * Unknown filter keys pass through without dropping tickets (forward compat).
  *
  * NOTE: Because ticket_labels is a join table we cannot do true server-side
@@ -97,17 +124,25 @@ export function applyTicketViewFilters(
   tickets: TicketRow[],
   config: Record<string, unknown>,
 ): TicketRow[] {
+  // 1. Operator filter (landr-wwhn.31)
+  const operatorId = readTicketConfigOperatorId(config)
+  let filtered = operatorId
+    ? tickets.filter((t) => t.operator_id === operatorId)
+    : tickets
+
+  // 2. Area filter
   const areas = readTicketConfigLabelAreas(config)
-  if (areas.length === 0) return tickets
+  if (areas.length === 0) return filtered
   // Area filter: keep tickets whose label areas overlap with the selected set.
   // We approximate this client-side by checking a `labels` field embedded
   // on the row (added in useViewTickets below). Tickets without any labels
   // are hidden when a filter is active.
-  return tickets.filter((t) => {
+  filtered = filtered.filter((t) => {
     const embedded = (t as TicketRow & { labels?: { area: string }[] }).labels
     if (!embedded || embedded.length === 0) return false
     return embedded.some((l) => (areas as string[]).includes(l.area))
   })
+  return filtered
 }
 
 // ---- React Query hook ------------------------------------------------------
@@ -119,6 +154,11 @@ export function applyTicketViewFilters(
  *
  * Cache key is shared with the standalone board so a view-to-board switch
  * doesn't refetch.
+ *
+ * landr-wwhn.31 — `effectiveOperatorId` can differ from the session's
+ * currentOperatorId when a staff user has set ticketConfig.operatorId in
+ * the view config. ViewPage's TicketBoardLayoutBranch resolves and passes
+ * it; the query re-scopes to that operator's tickets automatically.
  */
 export function useViewTickets(
   operatorId: string | null | undefined,
