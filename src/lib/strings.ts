@@ -798,6 +798,13 @@ export const t = {
     // @mentions (landr-wwhn.24)
     mentionNoResults: 'No matching users.',
     mentionSearching: 'Searching…',
+    // Reply-with-CC (landr-7dya.9) — notify extra staff on this reply
+    ccLabel: 'CC',
+    ccAddLabel: 'CC staff',
+    ccPickerPlaceholder: 'Add staff to notify…',
+    ccNoStaff: 'No staff available.',
+    ccRemove: (email: string): string => `Remove ${email} from CC`,
+    ccHint: 'CC’d staff get a bell, push and email for this reply.',
     // Timeline
     noEvents: 'No activity yet.',
     eventCreated: 'Ticket opened',
