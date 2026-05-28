@@ -41,6 +41,7 @@ import {
 } from '@/lib/tickets'
 import { useOperator } from '@/lib/operator'
 import { useAuth } from '@/lib/auth'
+import { useReportFab } from '@/lib/report-fab-context'
 import { t } from '@/lib/strings'
 
 // ---- constants ---------------------------------------------------------------
@@ -51,7 +52,10 @@ const APP_VERSION = __APP_VERSION__
 
 export function ReportFab() {
   const { currentOperatorId } = useOperator()
-  const [open, setOpen] = useState(false)
+  // landr-40x0: open state lives in ReportFabContext so notifyError() can
+  // trigger the dialog pre-filled from outside React (via the toast "Report"
+  // action). The local trigger button delegates to the same context state.
+  const { open, setOpen } = useReportFab()
 
   // Hide until an operator is selected — same guard as QuickCaptureFab.
   if (!currentOperatorId) return null
@@ -133,10 +137,14 @@ function ReportBody({ operatorId, onClose }: BodyProps) {
   const { user } = useAuth()
   const qc = useQueryClient()
   const location = useLocation()
+  // landr-40x0: consume pre-filled body text from the error-capture flow.
+  // consumePrefill() returns the text and clears it in one shot, preventing
+  // it from re-seeding if the user closes and re-opens the dialog.
+  const { consumePrefill } = useReportFab()
 
   const [impact, setImpact] = useState<TicketCreate['perceived_impact']>('annoying')
   const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
+  const [body, setBody] = useState(() => consumePrefill() ?? '')
   const [linkUrl, setLinkUrl] = useState('')
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
   const [linkInvalid, setLinkInvalid] = useState(false)

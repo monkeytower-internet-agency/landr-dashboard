@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
+import { useEffect } from 'react'
 import { LogOutIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,6 +20,7 @@ import { AppSidebar } from '@/components/AppSidebar'
 import { AppModeSwitcher } from '@/components/AppModeSwitcher'
 import { CommandPalette } from '@/components/CommandPalette'
 import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp'
+import { ErrorHistoryBell } from '@/components/ErrorHistoryBell'
 import { NotificationsBell } from '@/components/NotificationsBell'
 import { OnboardingBanner } from '@/components/OnboardingBanner'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
@@ -32,9 +34,11 @@ import { useAuth } from '@/lib/auth'
 import { CommandPaletteProvider } from '@/lib/command-palette-context'
 import { KeyboardShortcutsHelpProvider } from '@/lib/keyboard-shortcuts-help-context'
 import { PageTitleProvider } from '@/lib/page-title'
+import { ReportFabProvider } from '@/lib/report-fab-context'
 import { SidebarModeProvider } from '@/lib/sidebar-mode-context'
 import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
 import { openFor } from '@/lib/sidebar-mode'
+import { notifyError } from '@/lib/notify'
 import { t } from '@/lib/strings'
 
 function UserMenu({ onSignOut }: { onSignOut: () => void }) {
@@ -89,6 +93,40 @@ function UserMenu({ onSignOut }: { onSignOut: () => void }) {
 // AppSidebar itself attaches pointer handlers to the underlying Sidebar
 // DOM element (so the hit area matches the actual visible rail) and
 // toggles the shared `hovered` flag via the context's setHovered.
+// landr-40x0 — install global error + unhandledrejection listeners once at
+// the shell level. Both feed into the error-log store via notifyError().
+// Using a component-level effect (rather than module-level) so StrictMode
+// double-invoke is handled correctly (cleanup removes the listeners).
+function GlobalErrorCapture() {
+  useEffect(() => {
+    function onError(event: ErrorEvent) {
+      const message = event.message || 'Uncaught error'
+      const detail = event.error instanceof Error
+        ? event.error.stack ?? event.error.message
+        : String(event.error ?? '')
+      notifyError(message, { detail: detail || undefined })
+    }
+
+    function onUnhandledRejection(event: PromiseRejectionEvent) {
+      const reason = event.reason
+      const message =
+        reason instanceof Error ? reason.message : String(reason ?? 'Unhandled promise rejection')
+      const detail =
+        reason instanceof Error ? (reason.stack ?? reason.message) : String(reason ?? '')
+      notifyError(message, { detail: detail || undefined })
+    }
+
+    window.addEventListener('error', onError)
+    window.addEventListener('unhandledrejection', onUnhandledRejection)
+    return () => {
+      window.removeEventListener('error', onError)
+      window.removeEventListener('unhandledrejection', onUnhandledRejection)
+    }
+  }, [])
+
+  return null
+}
+
 function AppShellInner({
   children,
   onSignOut,
@@ -131,9 +169,14 @@ function AppShellInner({
                 the topbar right-cluster so it's reachable from every
                 protected route without eating FAB real estate. */}
             <ReportFab />
+            {/* landr-40x0 — recent-errors history. Badge shows capture count;
+                dropdown lists errors with Copy + Report per row. Sits between
+                the feedback button and the notifications bell so error-capture
+                reads as part of the feedback-and-comms cluster. */}
+            <ErrorHistoryBell />
             {/* landr-8whx — bell sits next to the theme toggle so the
                 topbar reads left→right as: scope (operator) · title ·
-                quick-actions (feedback · notifications · theme · account). */}
+                quick-actions (feedback · errors · notifications · theme · account). */}
             <NotificationsBell />
             <ThemeToggle />
             <UserMenu onSignOut={onSignOut} />
@@ -164,6 +207,8 @@ function AppShellInner({
           AppModeSwitcher. Non-staff: picker is a no-op (staffOperators empty,
           can_view_as_operator false). */}
       <ViewAsOperatorPicker />
+      {/* landr-40x0 — global window error/unhandledrejection capture. */}
+      <GlobalErrorCapture />
     </SidebarProvider>
   )
 }
@@ -178,14 +223,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <SidebarModeProvider>
-      <PageTitleProvider>
-        <CommandPaletteProvider>
-          <KeyboardShortcutsHelpProvider>
-            <AppShellInner onSignOut={onSignOut}>{children}</AppShellInner>
-          </KeyboardShortcutsHelpProvider>
-        </CommandPaletteProvider>
-      </PageTitleProvider>
-    </SidebarModeProvider>
+    <ReportFabProvider>
+      <SidebarModeProvider>
+        <PageTitleProvider>
+          <CommandPaletteProvider>
+            <KeyboardShortcutsHelpProvider>
+              <AppShellInner onSignOut={onSignOut}>{children}</AppShellInner>
+            </KeyboardShortcutsHelpProvider>
+          </CommandPaletteProvider>
+        </PageTitleProvider>
+      </SidebarModeProvider>
+    </ReportFabProvider>
   )
 }

@@ -3605,4 +3605,17 @@ export const t = {
       'payment.received': 'Payment received',
     },
   },
+  // landr-40x0 — client-side error capture history (ErrorHistoryBell + notify).
+  errorHistory: {
+    openLabel: 'Open error history',
+    badgeLabel: (n: number): string =>
+      `${n} captured error${n === 1 ? '' : 's'}`,
+    heading: 'Recent errors',
+    empty: 'No errors captured this session.',
+    clearAll: 'Clear all',
+    copyLabel: 'Copy error details',
+    reportLabel: 'Report this error',
+    copiedToast: 'Error details copied.',
+    copyFailedToast: 'Could not copy to clipboard.',
+  },
 } as const
