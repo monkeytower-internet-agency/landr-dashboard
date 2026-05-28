@@ -2,6 +2,7 @@
 // landr-wwhn.22 — compact assignee chip (initials for humans, robot icon for agents).
 // landr-7dya.2  — origin-tier chip (PROD vs STAGING).
 // landr-7dya.3  — Trello-style card status icons.
+// landr-7dya.5  — Tilt-on-drag animation (Trello-style DragOverlay).
 //
 // Draggable when its column is in DRAGGABLE_STATUSES (backlog, ready).
 // Read-only (no drag) in bd-authoritative columns (in_progress/in_review/done).
@@ -9,6 +10,11 @@
 // Compact rendering: title, type chip, origin chip, status icons (attachment,
 // watch, assignee, priority, comments, moscow, blocked). Click opens the detail.
 // `blocked` is shown in the status-icons row, NOT as a separate standalone badge.
+//
+// landr-7dya.5 — When rendered inside a DragOverlay (isDragOverlay=true) the
+// card gets a Trello-style tilt transform (rotate + scale + lifted shadow) for
+// tactile drag feedback.  The tilt is suppressed when the user's OS has
+// "reduce motion" enabled (prefers-reduced-motion: reduce).
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -23,6 +29,7 @@ import {
 } from '@/lib/tickets'
 import { OriginChip, CardStatusIcons } from './CardVisuals'
 import type { OriginTier } from './CardVisuals'
+import { useReducedMotion } from '@/lib/use-reduced-motion'
 
 type Props = {
   ticket: TicketRow
@@ -48,6 +55,12 @@ type Props = {
   commentCount?: number
   /** landr-7dya.3 — Whether the current user is watching this ticket. */
   isWatching?: boolean
+  /**
+   * landr-7dya.5 — True when this card is being rendered inside the DragOverlay
+   * (the floating clone that follows the cursor). Applies the tilt/scale/shadow
+   * transform. Not set when rendering in-column (the ghost slot).
+   */
+  isDragOverlay?: boolean
 }
 
 const TYPE_TONE: Record<string, string> = {
@@ -69,8 +82,10 @@ export function TicketCard({
   attachmentCount = 0,
   commentCount = 0,
   isWatching = false,
+  isDragOverlay = false,
 }: Props) {
   const isDraggableColumn = DRAGGABLE_STATUSES.has(ticket.status)
+  const reducedMotion = useReducedMotion()
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({
@@ -80,9 +95,22 @@ export function TicketCard({
       disabled: !isDraggableColumn,
     })
 
+  // landr-7dya.5 — When a DragOverlay takes over the visual representation,
+  // make the ghost slot invisible (opacity-0) rather than just dim (opacity-60)
+  // so the user sees exactly one "card" moving. The overlay itself handles the
+  // tilt/scale/shadow styles via isDragOverlay below.
   const style: CSSProperties = {
     transform: CSS.Translate.toString(transform),
     transition,
+    // Apply tilt only in the DragOverlay; skip when user prefers reduced motion.
+    ...(isDragOverlay && !reducedMotion
+      ? {
+          transform: 'rotate(3deg) scale(1.03)',
+          boxShadow:
+            '0 10px 30px -4px rgba(0,0,0,0.25), 0 4px 12px -2px rgba(0,0,0,0.15)',
+          cursor: 'grabbing',
+        }
+      : {}),
   }
 
   const createdDate = new Intl.DateTimeFormat('en-IE', {
@@ -104,12 +132,15 @@ export function TicketCard({
         'border-input bg-card text-card-foreground flex w-full flex-col gap-2 rounded-md border p-3 text-left text-xs shadow-sm transition-shadow',
         'hover:border-foreground/30 hover:shadow-md',
         'focus-visible:outline-2 focus-visible:outline-ring',
-        isDragging && 'opacity-60 shadow-lg',
-        isDraggableColumn && 'cursor-grab active:cursor-grabbing',
-        !isDraggableColumn && 'cursor-pointer',
+        // Ghost: invisible while DragOverlay takes over; a plain dim otherwise
+        // (e.g. when DragOverlay is not used, no tilt preference).
+        isDragging && !isDragOverlay && 'opacity-0',
+        isDragOverlay && 'opacity-100',
+        isDraggableColumn && !isDragOverlay && 'cursor-grab active:cursor-grabbing',
+        !isDraggableColumn && !isDragOverlay && 'cursor-pointer',
       )}
       {...attributes}
-      {...(isDraggableColumn ? listeners : {})}
+      {...(isDraggableColumn && !isDragOverlay ? listeners : {})}
     >
       {/* Title */}
       <span className="text-sm font-medium leading-tight line-clamp-2">
