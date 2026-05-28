@@ -49,7 +49,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BellIcon, BellOffIcon, BotIcon, DownloadIcon, Eye, EyeOff, FileIcon, ImageIcon, MailIcon, Paperclip, Send, SmartphoneIcon, XIcon, ZoomInIcon } from 'lucide-react'
+import { BellIcon, BellOffIcon, BotIcon, DownloadIcon, Eye, EyeOff, FileIcon, ImageIcon, MailIcon, Paperclip, Send, SmartphoneIcon, UserPlusIcon, XIcon, ZoomInIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuth } from '@/lib/auth'
@@ -75,6 +75,14 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 import {
   createComment,
@@ -93,6 +101,7 @@ import {
   parseMentionHandles,
   resolveMentionHandles,
   searchMentionUsers,
+  splitMentionSegments,
   unwatchTicket,
   uploadTicketAttachment,
   watchTicket,
@@ -1150,6 +1159,33 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
   const [isInternal, setIsInternal] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // landr-7dya.9 — reply-with-CC: explicitly notify additional staff on this
+  // reply. CC == an explicit notify target, dispatched through the SAME
+  // notify-mentions fan-out (bell override-quiet + push/email echo). Selected
+  // staff are merged with any parsed @mentions on submit.
+  const [ccUserIds, setCcUserIds] = useState<Set<string>>(new Set())
+  const ccStaffQuery = useQuery({
+    queryKey: ['assignable-users'],
+    queryFn: fetchAssignableUsers,
+    staleTime: 5 * 60 * 1000,
+  })
+  // CC targets are human staff — a Claude agent isn't a meaningful "reply CC".
+  const ccCandidates: AssignableUser[] = (ccStaffQuery.data ?? []).filter(
+    (u) => u.is_landr_staff && !u.is_claude_agent,
+  )
+  const ccSelected: AssignableUser[] = ccCandidates.filter((u) =>
+    ccUserIds.has(u.id),
+  )
+
+  function toggleCc(userId: string) {
+    setCcUserIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
+      return next
+    })
+  }
+
   // @mention autocomplete state
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionSuggestions, setMentionSuggestions] = useState<MentionUser[]>([])
@@ -1195,7 +1231,9 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
     } finally {
       if (!ac.signal.aborted) setMentionLoading(false)
     }
-  }, [])
+    // setState dispatchers are stable; listed so React Compiler's
+    // preserve-manual-memoization inference matches the manual dep array.
+  }, [setMentionLoading, setMentionSuggestions, setMentionSelectedIdx])
 
   useEffect(() => {
     // Debounce: schedule fetch after 200 ms idle. When mentionQuery is null,
@@ -1266,23 +1304,33 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
       }),
     onSuccess: (comment) => {
       const postedBody = body.trim()
+      // Snapshot the CC selection before clearing the composer state.
+      const ccIds = Array.from(ccUserIds)
       setBody('')
       setIsInternal(false)
       setMentionQuery(null)
+      setCcUserIds(new Set())
       void qc.invalidateQueries({ queryKey: ['ticket-comments', ticketId] })
       void qc.invalidateQueries({ queryKey: ['ticket-comments-staff', ticketId] })
-      // @mention dispatch: fire-and-forget; errors are non-fatal (bell is best-effort).
+      // Notify dispatch: @mentions (landr-7dya.12) + reply CC (landr-7dya.9) go
+      // through the SAME override-quiet fan-out. Fire-and-forget; errors are
+      // non-fatal (the comment is already posted — bell is best-effort). The
+      // backend de-dupes and excludes the actor, so merging is safe.
       void (async () => {
         try {
           const handles = parseMentionHandles(postedBody)
-          if (handles.size === 0) return
-          const resolved = await resolveMentionHandles(handles)
-          const userIds = Array.from(resolved.values()).map((u) => u.id)
+          const mentionIds = handles.size
+            ? Array.from((await resolveMentionHandles(handles)).values()).map(
+                (u) => u.id,
+              )
+            : []
+          // Merge mentions + CC, de-duplicated.
+          const userIds = Array.from(new Set([...mentionIds, ...ccIds]))
           if (userIds.length > 0) {
             await notifyMentions(ticketId, comment.id, userIds, postedBody)
           }
         } catch {
-          // Mention dispatch failure is non-fatal — the comment is already posted.
+          // Notify dispatch failure is non-fatal — the comment is already posted.
         }
       })()
     },
@@ -1355,6 +1403,85 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
             >
               {t.ticketDetail.commentInternalToggle}
             </label>
+          </div>
+        )}
+
+        {/* Reply-with-CC picker (landr-7dya.9) — staff only. Lets the author
+            notify additional staff on this reply via the mention dispatch. */}
+        {isStaff && (
+          <div
+            className="mb-2 flex flex-wrap items-center gap-1.5"
+            data-testid="cc-picker"
+          >
+            <span className="text-muted-foreground inline-flex items-center text-xs font-medium">
+              {t.ticketDetail.ccLabel}:
+            </span>
+            {ccSelected.map((u) => (
+              <span
+                key={u.id}
+                className="inline-flex items-center gap-1 rounded-full bg-blue-100 py-0.5 pl-2 pr-1 text-[11px] font-medium text-blue-800 dark:bg-blue-950/50 dark:text-blue-300"
+                data-testid={`cc-chip-${u.id}`}
+              >
+                {u.email?.split('@')[0] ?? u.id}
+                <button
+                  type="button"
+                  className="inline-flex size-3.5 items-center justify-center rounded-full hover:bg-blue-200 dark:hover:bg-blue-900"
+                  onClick={() => toggleCc(u.id)}
+                  aria-label={t.ticketDetail.ccRemove(u.email ?? u.id)}
+                  data-testid={`cc-chip-remove-${u.id}`}
+                >
+                  <XIcon className="size-2.5" aria-hidden />
+                </button>
+              </span>
+            ))}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-2 text-xs text-muted-foreground"
+                  data-testid="cc-add-btn"
+                >
+                  <UserPlusIcon className="size-3" aria-hidden />
+                  {t.ticketDetail.ccAddLabel}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="max-h-60 w-56 overflow-y-auto"
+                data-testid="cc-menu"
+              >
+                <DropdownMenuLabel className="text-xs">
+                  {t.ticketDetail.ccPickerPlaceholder}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {ccCandidates.length === 0 ? (
+                  <div className="text-muted-foreground px-2 py-1.5 text-xs">
+                    {t.ticketDetail.ccNoStaff}
+                  </div>
+                ) : (
+                  ccCandidates.map((u) => (
+                    <DropdownMenuCheckboxItem
+                      key={u.id}
+                      checked={ccUserIds.has(u.id)}
+                      // Keep the menu open across multiple selections.
+                      onSelect={(e) => e.preventDefault()}
+                      onCheckedChange={() => toggleCc(u.id)}
+                      className="text-xs"
+                      data-testid={`cc-option-${u.id}`}
+                    >
+                      {u.email ?? u.id}
+                    </DropdownMenuCheckboxItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {ccSelected.length > 0 && (
+              <span className="text-muted-foreground/70 w-full text-[10px]">
+                {t.ticketDetail.ccHint}
+              </span>
+            )}
           </div>
         )}
 
@@ -1532,7 +1659,22 @@ function CommentBubble({ comment }: CommentBubbleProps) {
           </span>
         )}
       </div>
-      <p className="whitespace-pre-wrap">{comment.body}</p>
+      <p className="whitespace-pre-wrap" data-testid={`comment-body-${comment.id}`}>
+        {/* landr-7dya.12 — highlight @mentions in the displayed body. */}
+        {splitMentionSegments(comment.body).map((seg, i) =>
+          seg.type === 'mention' ? (
+            <span
+              key={i}
+              className="rounded bg-blue-100 px-0.5 font-medium text-blue-800 dark:bg-blue-950/50 dark:text-blue-300"
+              data-testid="comment-mention"
+            >
+              {seg.value}
+            </span>
+          ) : (
+            <span key={i}>{seg.value}</span>
+          ),
+        )}
+      </p>
     </div>
   )
 }

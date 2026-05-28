@@ -856,6 +856,55 @@ export function parseMentionHandles(body: string): Set<string> {
   return handles
 }
 
+// ---- mention rendering (landr-7dya.12) --------------------------------------
+//
+// To highlight @mentions in DISPLAYED comment bodies we split the body into an
+// ordered list of plain-text and mention segments. The renderer (CommentBubble)
+// maps each segment to a <span>, applying a highlight style to mention segments.
+// Kept here (pure, no React) so it is unit-testable without mounting the sheet.
+
+export type MentionSegment =
+  | { type: 'text'; value: string }
+  | { type: 'mention'; value: string; handle: string }
+
+/**
+ * Split a comment body into ordered text + mention segments.
+ *
+ * A mention segment is the literal matched token INCLUDING the leading '@'
+ * (e.g. `@alice`); `handle` is the lower-cased local-part (e.g. `alice`) so the
+ * renderer can key/title it. The same `@([^\s@]+)` grammar as
+ * parseMentionHandles is used, so what is highlighted exactly matches what is
+ * notified.
+ *
+ * Returns a single text segment (possibly empty) when there are no mentions.
+ */
+export function splitMentionSegments(body: string): MentionSegment[] {
+  const segments: MentionSegment[] = []
+  const re = /@([^\s@]+)/g
+  let lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(body)) !== null) {
+    if (m.index > lastIndex) {
+      segments.push({ type: 'text', value: body.slice(lastIndex, m.index) })
+    }
+    segments.push({
+      type: 'mention',
+      value: m[0],
+      handle: m[1].toLowerCase(),
+    })
+    lastIndex = m.index + m[0].length
+  }
+  if (lastIndex < body.length) {
+    segments.push({ type: 'text', value: body.slice(lastIndex) })
+  }
+  // Always return at least one (empty) text segment for an empty body so the
+  // renderer has something to map over.
+  if (segments.length === 0) {
+    segments.push({ type: 'text', value: body })
+  }
+  return segments
+}
+
 /**
  * Search users by email prefix for @mention autocomplete.
  *
