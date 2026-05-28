@@ -48,6 +48,48 @@ export const t = {
     surfaceBoard: 'Board',
     surfacePlanning: 'Planning',
   },
+  // landr-7dya.11 — shell-level combinable ticket filter bar (spans Inbox +
+  // Board). Quick chips + a full filter popover, all deep-linkable in the URL.
+  ticketFilters: {
+    barLabel: 'Ticket filters',
+    // Quick chips
+    chipAssignedToMe: 'Assigned to me',
+    chipUnread: 'Unread',
+    chipMentionedMe: 'Mentioned me',
+    chipUnassigned: 'Unassigned',
+    chipWatching: 'Watching',
+    chipBlocked: 'Blocked',
+    // More-filters popover
+    moreFilters: 'More filters',
+    moreFiltersWithCount: (n: number): string => `Filters · ${n}`,
+    sectionType: 'Type & urgency',
+    sectionScope: 'Scope',
+    sectionTime: 'Time',
+    // Selects (used as the empty-option label + aria-label)
+    operatorLabel: 'Operator',
+    operatorAll: 'All operators',
+    statusLabel: 'Status',
+    statusAll: 'Any status',
+    typeLabel: 'Type',
+    typeAll: 'Any type',
+    severityLabel: 'Severity',
+    severityAll: 'Any severity',
+    priorityLabel: 'Priority',
+    priorityAll: 'Any priority',
+    moscowLabel: 'MoSCoW',
+    moscowAll: 'Any MoSCoW',
+    impactLabel: 'Impact',
+    impactAll: 'Any impact',
+    tierLabel: 'Origin tier',
+    tierAll: 'All tiers',
+    timeRangeLabel: 'Time range',
+    timeRangeAll: 'Any time',
+    timeFieldLabel: 'Date field',
+    timeFieldCreated: 'Created',
+    timeFieldUpdated: 'Updated',
+    clearAll: 'Clear all',
+    activeBadge: (n: number): string => `${n} active`,
+  },
   // landr-wmsc — Cmd/Ctrl+K command palette.
   commandPalette: {
     triggerLabel: 'Open command palette',

@@ -41,6 +41,8 @@ import { Button } from '@/components/ui/button'
 import { NotificationsBell } from '@/components/NotificationsBell'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { AppModeSwitcher } from '@/components/AppModeSwitcher'
+import { TicketFilterBar } from '@/components/tickets/TicketFilterBar'
+import { TicketFilterProvider } from '@/lib/ticket-filter-context'
 import { useAppMode } from '@/lib/app-mode-context'
 import {
   TICKET_SURFACES,
@@ -111,6 +113,7 @@ export function TicketSystemShell(): ReactNode {
   }
 
   return (
+    <TicketFilterProvider>
     <div
       className="bg-background flex h-dvh min-h-0 w-full flex-col"
       data-testid="ticket-system-shell"
@@ -158,12 +161,11 @@ export function TicketSystemShell(): ReactNode {
         <SurfaceTabs />
       </div>
 
-      {/*
-        landr-7dya.11 — EXTENSION POINT: a shared filter bar (operator / time /
-        type+urgency / assigned-to-me / new / watching / mentioned / unassigned)
-        belongs here, spanning every surface below. Left out per scope — wire it
-        in .11 between this comment and the <main>.
-      */}
+      {/* landr-7dya.11 — shared filter bar: spans every surface below via the
+          TicketFilterProvider above. State is URL-persisted (deep-linkable). */}
+      <div className="flex shrink-0 items-center border-b px-3 py-1.5 sm:px-4">
+        <TicketFilterBar />
+      </div>
 
       {/* Surface host — the active ticket surface streams in here. Each
           surface manages its OWN scroll/padding: the inbox is a full-height
@@ -177,6 +179,7 @@ export function TicketSystemShell(): ReactNode {
         <Outlet />
       </main>
     </div>
+    </TicketFilterProvider>
   )
 }
 
