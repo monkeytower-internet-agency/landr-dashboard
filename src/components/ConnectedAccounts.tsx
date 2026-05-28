@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import type { UserIdentity } from '@supabase/supabase-js'
+import { notifyError } from '@/lib/notify'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -136,8 +137,9 @@ function ProviderRow({
       if (error) throw error
     },
     onError: (err: Error) => {
-      toast.error(t.connectedAccounts.toastLinkError(provider.label), {
-        description: err.message,
+      // landr-40x0: route through notifyError for capture + sticky toast.
+      notifyError(t.connectedAccounts.toastLinkError(provider.label), {
+        detail: err.message,
       })
     },
     // Success path: Supabase redirects the browser away. On return,
@@ -157,8 +159,9 @@ function ProviderRow({
       onChanged()
     },
     onError: (err: Error) => {
-      toast.error(t.connectedAccounts.toastUnlinkError(provider.label), {
-        description: err.message,
+      // landr-40x0: route through notifyError for capture + sticky toast.
+      notifyError(t.connectedAccounts.toastUnlinkError(provider.label), {
+        detail: err.message,
       })
     },
   })
