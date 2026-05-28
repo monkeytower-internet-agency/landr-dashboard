@@ -1,6 +1,7 @@
 // landr-wwhn.11 — /tickets kanban board route.
 // landr-wwhn.22 — assignee chips on cards; fetches assignable_users once.
 // landr-wwhn.31 — staff-only operator filter chip.
+// landr-7dya.5  — Trello-style tilt-on-drag via DragOverlay.
 //
 // Five columns: backlog → ready → in_progress → in_review → done.
 //
@@ -37,12 +38,14 @@ import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   PointerSensor,
   closestCorners,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useQuery } from '@tanstack/react-query'
@@ -63,6 +66,8 @@ import {
   type TicketStatus,
 } from '@/lib/tickets'
 import { TicketBoardColumn } from '@/components/tickets/TicketBoardColumn'
+import { TicketCard } from '@/components/tickets/TicketCard'
+import type { OriginTier } from '@/components/tickets/CardVisuals'
 import { TicketDetailSheet } from '@/components/tickets/TicketDetailSheet'
 import { useTicketFilter } from '@/lib/ticket-filter-context'
 
@@ -94,6 +99,11 @@ export function TicketBoard() {
 
   // landr-wwhn.13 — detail sheet state
   const [openTicket, setOpenTicket] = useState<TicketRow | null>(null)
+
+  // landr-7dya.5 — track the active (dragged) ticket so the DragOverlay can
+  // render a tilted clone.  Cleared in handleDragEnd (covers both drop and
+  // cancel paths since dnd-kit always fires dragEnd).
+  const [activeTicket, setActiveTicket] = useState<TicketRow | null>(null)
 
   const query = useRealtimeQuery<TicketRow[]>({
     queryKey: ['tickets', effectiveQueryOperatorId ?? 'none'],
@@ -185,7 +195,16 @@ export function TicketBoard() {
     }),
   )
 
+  // landr-7dya.5 — set activeTicket so the DragOverlay knows what to render.
+  function handleDragStart(event: DragStartEvent) {
+    const ticket = localTickets.find((t) => t.id === String(event.active.id))
+    setActiveTicket(ticket ?? null)
+  }
+
   function handleDragEnd(event: DragEndEvent) {
+    // landr-7dya.5 — clear overlay regardless of whether the drop was valid.
+    setActiveTicket(null)
+
     const drop = resolveTicketDrop({
       activeId: String(event.active.id),
       overId: event.over ? String(event.over.id) : null,
@@ -312,6 +331,7 @@ export function TicketBoard() {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
         <div
@@ -354,6 +374,30 @@ export function TicketBoard() {
             ))
           )}
         </div>
+
+        {/* landr-7dya.5 — DragOverlay renders a floating tilted clone of the
+            dragged card. The tilt/scale/shadow are applied inside TicketCard
+            when isDragOverlay=true (and suppressed by useReducedMotion). */}
+        <DragOverlay>
+          {activeTicket ? (
+            <TicketCard
+              ticket={activeTicket}
+              onOpen={() => {
+                /* overlay clone is non-interactive */
+              }}
+              assignee={
+                activeTicket.assignee_id
+                  ? (assigneeMap.get(activeTicket.assignee_id) ?? null)
+                  : null
+              }
+              originTier={
+                activeTicket.origin_tier as OriginTier | undefined
+              }
+              originOperatorLabel={activeTicket.origin_operator_label}
+              isDragOverlay
+            />
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
       {/* landr-wwhn.13 — detail sheet, opened on card click */}
