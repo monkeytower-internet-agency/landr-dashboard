@@ -47,6 +47,34 @@ function buildCopyText(
 
 // ---- public API -------------------------------------------------------------
 
+function resolveContext(opts?: NotifyErrorOptions): string {
+  return (
+    opts?.context ??
+    (typeof window !== 'undefined' ? window.location.pathname : '(unknown)')
+  )
+}
+
+/**
+ * Capture an error into the error-log store *without* showing a toast.
+ *
+ * landr-q9ph: api-client uses this (not notifyError) so that errors thrown by
+ * api() are still recorded in the history bell + copy/report surface, but the
+ * user-visible toast stays the caller's responsibility. Most api() callers
+ * already show a contextual toast in their react-query onError (e.g. the
+ * booking inline-edit / drag-reschedule hooks: "Could not update dates" with
+ * the server detail). Toasting again from api-client produced a *duplicate*
+ * error toast (a real UX bug, surfaced as the failing "called once" assertions
+ * in inline-edit-booking / calendar-reschedule). Capture-only keeps exactly one
+ * toast on screen while preserving the error-capture feature.
+ *
+ * For errors that have NO component-level handler (ConnectedAccounts'
+ * Supabase-direct flows, the global window error/unhandledrejection listeners),
+ * keep using notifyError() so they still get the sticky/copyable toast.
+ */
+export function captureError(message: string, opts?: NotifyErrorOptions): void {
+  addError({ message, detail: opts?.detail, context: resolveContext(opts) })
+}
+
 /**
  * Capture an error: store it, show a sticky sonner toast with Copy + Report
  * actions. Safe to call from anywhere (no React dependency).
@@ -55,8 +83,7 @@ export function notifyError(
   message: string,
   opts?: NotifyErrorOptions,
 ): void {
-  const context =
-    opts?.context ?? (typeof window !== 'undefined' ? window.location.pathname : '(unknown)')
+  const context = resolveContext(opts)
   const { detail } = opts ?? {}
 
   const entry = addError({ message, detail, context })

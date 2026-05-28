@@ -22,7 +22,7 @@
  */
 
 import { supabase } from '@/lib/supabase'
-import { notifyError } from '@/lib/notify'
+import { captureError } from '@/lib/notify'
 
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
@@ -141,9 +141,11 @@ export async function api<T = unknown>(
     // caller can display it inline (no auto-redirect, otherwise we'd kick the
     // user out for routine permission errors).
     // landr-40x0: capture into the error log so operators can copy/report.
+    // landr-q9ph: capture-only (no toast) — the caller's onError shows the
+    // single, contextual error toast; toasting here too duplicated it.
     {
       const msg = errorMessageFromDetail(detail, `HTTP ${res.status}`)
-      notifyError(msg, { detail: `${method} ${path} → 401` })
+      captureError(msg, { detail: `${method} ${path} → 401` })
       throw new Error(msg)
     }
   }
@@ -154,8 +156,10 @@ export async function api<T = unknown>(
       .then((d: unknown) => (d as { detail?: unknown }).detail)
       .catch(() => undefined)
     // landr-40x0: capture into the error log so operators can copy/report.
+    // landr-q9ph: capture-only (no toast) — the caller's onError shows the
+    // single, contextual error toast; toasting here too duplicated it.
     const msg = errorMessageFromDetail(detail, `HTTP ${res.status}`)
-    notifyError(msg, { detail: `${method} ${path} → ${res.status}` })
+    captureError(msg, { detail: `${method} ${path} → ${res.status}` })
     throw new Error(msg)
   }
 
