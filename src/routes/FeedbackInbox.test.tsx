@@ -283,6 +283,8 @@ describe('FeedbackInbox', () => {
         assignee_id: null,
         blocked: false,
         moscow: null,
+        origin_tier: 'prod',
+        origin_operator_label: null,
         created_at: '2026-05-28T10:00:00Z',
         updated_at: '2026-05-28T10:00:00Z',
       })
