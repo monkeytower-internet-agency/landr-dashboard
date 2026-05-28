@@ -100,6 +100,7 @@ vi.mock('sonner', () => ({
 
 import { toast } from 'sonner'
 import { ReportFab } from './ReportFab'
+import { ReportFabProvider } from '@/lib/report-fab-context'
 
 const OP_ID = 'op-test-1'
 const TICKET_ID = 'ticket-uuid-0001'
@@ -147,10 +148,16 @@ function render(ui: ReactElement) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+  // landr-q9ph: cd1ebac moved ReportFab's open state into ReportFabContext
+  // (the provider wraps AppShell in production). ReportFab now calls
+  // useReportFab(), which throws outside a provider — so wrap the render here,
+  // mirroring how AppShell mounts <ReportFabProvider>.
   return rtlRender(ui, {
     wrapper: ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={['/dashboard/overview']}>{children}</MemoryRouter>
+        <MemoryRouter initialEntries={['/dashboard/overview']}>
+          <ReportFabProvider>{children}</ReportFabProvider>
+        </MemoryRouter>
       </QueryClientProvider>
     ),
   })
