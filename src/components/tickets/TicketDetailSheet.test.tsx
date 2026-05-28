@@ -1085,3 +1085,154 @@ describe('TicketDetailSheet — Triage card (staff actions)', () => {
     })
   })
 })
+
+// ---- landr-7dya.4: Attachment preview + lightbox ----------------------------
+//
+// Covers:
+//   - Image attachment shows a thumbnail once the signed URL resolves
+//   - Clicking the thumbnail opens the lightbox (backdrop + image)
+//   - Lightbox closes when the Esc key is pressed
+//   - Lightbox closes when the close button is clicked
+//   - Non-image attachment renders a file icon (no thumbnail)
+//   - Download button is present for both image and non-image attachments
+
+describe('TicketDetailSheet — Attachment preview (landr-7dya.4)', () => {
+  function makeAttachment(overrides: Partial<{
+    id: string
+    ticket_id: string
+    uploader_id: string | null
+    storage_path: string
+    filename: string
+    content_type: string
+    size_bytes: number
+    created_at: string
+  }> = {}) {
+    return {
+      id: 'att-1',
+      ticket_id: 'ticket-test-1234',
+      uploader_id: null,
+      storage_path: 'ticket-attachments/ticket-test-1234/att-1/photo.png',
+      filename: 'photo.png',
+      content_type: 'image/png',
+      size_bytes: 102400,
+      created_at: '2026-05-28T10:00:00Z',
+      ...overrides,
+    }
+  }
+
+  async function openAttachmentTab(user: ReturnType<typeof userEvent.setup>) {
+    await waitFor(() => {
+      expect(screen.getByTestId('ticket-detail-tab-attachments')).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId('ticket-detail-tab-attachments'))
+  }
+
+  it('shows a thumbnail for an image attachment once signed URL resolves', async () => {
+    mock.state.attachmentRows = [makeAttachment()]
+    const user = userEvent.setup()
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await openAttachmentTab(user)
+
+    // Thumbnail should appear once the signed URL resolves
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('attachment-thumbnail-att-1'),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('clicking the image thumbnail opens the lightbox', async () => {
+    mock.state.attachmentRows = [makeAttachment()]
+    const user = userEvent.setup()
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await openAttachmentTab(user)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('attachment-thumbnail-att-1')).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId('attachment-thumbnail-att-1'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('attachment-lightbox-backdrop')).toBeInTheDocument()
+      expect(screen.getByTestId('lightbox-image')).toBeInTheDocument()
+    })
+  })
+
+  it('lightbox closes when the close button is clicked', async () => {
+    mock.state.attachmentRows = [makeAttachment()]
+    const user = userEvent.setup()
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await openAttachmentTab(user)
+    await waitFor(() => {
+      expect(screen.getByTestId('attachment-thumbnail-att-1')).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId('attachment-thumbnail-att-1'))
+    await waitFor(() => {
+      expect(screen.getByTestId('lightbox-close')).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId('lightbox-close'))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('attachment-lightbox-backdrop')).not.toBeInTheDocument()
+    })
+  })
+
+  it('lightbox closes on Escape key', async () => {
+    mock.state.attachmentRows = [makeAttachment()]
+    const user = userEvent.setup()
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await openAttachmentTab(user)
+    await waitFor(() => {
+      expect(screen.getByTestId('attachment-thumbnail-att-1')).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId('attachment-thumbnail-att-1'))
+    await waitFor(() => {
+      expect(screen.getByTestId('attachment-lightbox-backdrop')).toBeInTheDocument()
+    })
+    await user.keyboard('{Escape}')
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('attachment-lightbox-backdrop')).not.toBeInTheDocument()
+    })
+  })
+
+  it('non-image attachment has no thumbnail and keeps download button', async () => {
+    mock.state.attachmentRows = [
+      makeAttachment({
+        id: 'att-pdf',
+        filename: 'report.pdf',
+        content_type: 'application/pdf',
+        storage_path: 'ticket-attachments/ticket-test-1234/att-pdf/report.pdf',
+      }),
+    ]
+    const user = userEvent.setup()
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await openAttachmentTab(user)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('attachment-row-att-pdf')).toBeInTheDocument()
+    })
+
+    // No thumbnail for non-image
+    expect(screen.queryByTestId('attachment-thumbnail-att-pdf')).not.toBeInTheDocument()
+    // Download button still present
+    expect(screen.getByTestId('attachment-download-att-pdf')).toBeInTheDocument()
+  })
+
+  it('download button present on image attachment', async () => {
+    mock.state.attachmentRows = [makeAttachment()]
+    const user = userEvent.setup()
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await openAttachmentTab(user)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('attachment-download-att-1')).toBeInTheDocument()
+    })
+  })
+})

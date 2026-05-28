@@ -55,15 +55,19 @@ import {
 } from '@/lib/feedback-inbox'
 import {
   fetchAssignableUsers,
+  fetchTicket,
   PERCEIVED_IMPACT_LABEL,
   TICKET_STATUSES,
+  type TicketRow,
   type TicketStatus,
   type TicketPerceivedImpact,
   type AssignableUser,
 } from '@/lib/tickets'
+import { TICKET_SYSTEM_PATH } from '@/lib/app-mode'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 import { useTicketFilter } from '@/lib/ticket-filter-context'
+import { TicketDetailSheet } from '@/components/tickets/TicketDetailSheet'
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -707,12 +711,16 @@ function FeedbackInboxInner() {
     [threads, filter, unreadTicketIds, awaitingReplyTicketIds, shellMatches],
   )
 
-  // Bell deep-link: ?open=<ticketId> clears param and keeps current selection
-  // if the ticket is already in view, otherwise defers to user to pick rail.
+  // landr-7dya.6 — bell deep-link: ?open=<ticketId> fetches the ticket and
+  // opens TicketDetailSheet directly (refresh-safe). Clears the param after
+  // opening so the URL stays clean. The sheet is owned here so the inbox
+  // stays mounted behind it (state preserved when the sheet is closed).
+  const [deepLinkTicket, setDeepLinkTicket] = useState<TicketRow | null>(null)
   const openTicketId = searchParams.get('open')
 
   useEffect(() => {
     if (!openTicketId) return
+    // Strip the param immediately so a refresh doesn't re-trigger.
     setSearchParams(
       (p) => {
         const next = new URLSearchParams(p)
@@ -721,7 +729,17 @@ function FeedbackInboxInner() {
       },
       { replace: true },
     )
-  }, [openTicketId, setSearchParams])
+    // Fetch the ticket row and open the detail sheet.
+    fetchTicket(openTicketId)
+      .then((row) => {
+        if (row) setDeepLinkTicket(row)
+      })
+      .catch(() => {
+        // Fetch failure is non-fatal — the bell click just lands on the
+        // inbox without opening the sheet.
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openTicketId])
 
   // Auto-select first operator once summaries load
   if (selectedOperatorId === null && summaries.length > 0) {
@@ -729,16 +747,24 @@ function FeedbackInboxInner() {
     if (first) setSelectedOperatorId(first.operator_id)
   }
 
+  // landr-7dya.6 — "View on board" now targets the app-view board
+  // (/staff/tickets/board?open=<id>) so the full TicketDetailSheet opens there.
   function handleViewOnBoard(ticketId: string) {
     void queryClient.invalidateQueries({
       queryKey: ['feedback-inbox-summary'],
     })
-    navigate(`/tickets?open=${encodeURIComponent(ticketId)}`)
+    navigate(`${TICKET_SYSTEM_PATH}/board?open=${encodeURIComponent(ticketId)}`)
   }
 
   return (
     <>
       <PageTitle title={t.feedbackInbox.title} />
+
+      {/* landr-7dya.6 — Deep-link sheet: opens when ?open=<id> is resolved. */}
+      <TicketDetailSheet
+        ticket={deepLinkTicket}
+        onOpenChange={(open) => { if (!open) setDeepLinkTicket(null) }}
+      />
 
       <div className="flex h-full min-h-0 overflow-hidden">
         {/* ---- Left rail --------------------------------------------------- */}

@@ -52,6 +52,7 @@ import {
   type NotificationRow,
 } from '@/lib/notifications'
 import { fetchCurrentPublicUser } from '@/lib/tickets'
+import { TICKET_SYSTEM_PATH } from '@/lib/app-mode'
 import { t } from '@/lib/strings'
 
 // ---- helpers ----------------------------------------------------------------
@@ -149,9 +150,9 @@ export function NotificationsBell() {
 
   // ---- item click (mark read + navigate if ticket) ----------------------------
   //
-  // landr-wwhn.28: staff are deep-linked into the feedback inbox
-  // (/feedback-inbox?open=<ticketId>) so the triage surface opens. Operators
-  // land on the board (/tickets?open=<ticketId>) as before.
+  // landr-7dya.6: staff are deep-linked into the app-view inbox
+  // (/staff/tickets?open=<ticketId>) which opens TicketDetailSheet directly.
+  // Operators land on the operator board (/tickets?open=<ticketId>) as before.
 
   const handleItemClick = useCallback(
     (notification: NotificationRow) => {
@@ -162,7 +163,7 @@ export function NotificationsBell() {
         setOpen(false)
         if (effectiveIsStaff) {
           navigate(
-            `/feedback-inbox?open=${encodeURIComponent(notification.ticket_id)}`,
+            `${TICKET_SYSTEM_PATH}?open=${encodeURIComponent(notification.ticket_id)}`,
           )
         } else {
           navigate(
