@@ -28,6 +28,7 @@ import { ViewAsBanner } from '@/components/ViewAsBanner'
 import { ViewAsOperatorPicker } from '@/components/ViewAsOperatorPicker'
 import { QuickCaptureFab } from '@/components/QuickCaptureFab'
 import { ReportFab } from '@/components/ReportFab'
+import { TierBadge } from '@/components/TierBadge'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { PageTitleDisplay } from '@/components/topbar/PageTitleDisplay'
 import { useAuth } from '@/lib/auth'
@@ -165,6 +166,10 @@ function AppShellInner({
             <PageTitleDisplay />
           </div>
           <div className="flex items-center gap-0.5 sm:gap-1">
+            {/* landr-7dya.19 — deploy tier badge (DEV/STAGING pill; nothing
+                on prod or when VITE_DEPLOY_TIER is unset). Mounted once at
+                the shell level so every route sees it. */}
+            <TierBadge />
             {/* landr-wwhn.12 — persistent report/suggest button. Lives in
                 the topbar right-cluster so it's reachable from every
                 protected route without eating FAB real estate. */}
