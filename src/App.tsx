@@ -109,6 +109,7 @@ import { AppShell } from '@/components/AppShell'
 import { TicketSystemGate } from '@/components/TicketSystemGate'
 import { OnboardingGuard } from '@/components/OnboardingGuard'
 import { RouteFallback } from '@/components/RouteFallback'
+import { RouteErrorBoundary } from '@/components/RouteErrorBoundary'
 import { Toaster } from '@/components/ui/sonner'
 
 // landr-sydf — preserve /products/:productId deep links by forwarding the
@@ -221,13 +222,20 @@ function App() {
                 <ProtectedRoute>
                   <OnboardingGuard>
                     <AppShell>
-                      {/* landr-mhhq — Suspense boundary catches all
-                          lazy-loaded route chunks (Analytics +
-                          /views family today) so the AppShell chrome
-                          stays mounted while the chunk streams in. */}
-                      <Suspense fallback={<RouteFallback />}>
-                        <Outlet />
-                      </Suspense>
+                      {/* landr-a99u — RouteErrorBoundary wraps the Suspense
+                          so a single route's render crash turns into a
+                          "Something went wrong" card (with the error captured
+                          in ErrorHistoryBell) rather than blacking out the
+                          whole dashboard. Resets on navigation via key=pathname. */}
+                      <RouteErrorBoundary>
+                        {/* landr-mhhq — Suspense boundary catches all
+                            lazy-loaded route chunks (Analytics +
+                            /views family today) so the AppShell chrome
+                            stays mounted while the chunk streams in. */}
+                        <Suspense fallback={<RouteFallback />}>
+                          <Outlet />
+                        </Suspense>
+                      </RouteErrorBoundary>
                     </AppShell>
                   </OnboardingGuard>
                 </ProtectedRoute>
