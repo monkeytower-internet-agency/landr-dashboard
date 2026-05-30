@@ -691,6 +691,53 @@ export const t = {
     // landr-a99u.12 — staff view: customer signoff badge on pending proposals
     signoffByCustomer: (label: string) => `Requested by ${label}`,
     signoffByStaff: 'Proposed by staff',
+    // landr-7dya.21 — tier-aware /release. The console re-shapes per deploy
+    // tier + viewer role so a wrong-tier action is impossible to surface:
+    // dev → only "Promote to staging"; staging → customer (Martin) sees
+    // "Request go-live", staff approver sees pending requests + "Approve &
+    // promote"; prod → no actions at all. NEVER dev→main, anywhere.
+    tierAware: {
+      // Tier badge shown next to the page title so the user knows which env
+      // they're acting on (the page CONTENT also gates on it, but the badge
+      // is a constant visual cue and matches the .19 topbar badge).
+      tierBadgeDev: 'dev',
+      tierBadgeStaging: 'staging',
+      tierBadgeProd: 'prod',
+      // Unknown-tier fallback — the build was deployed without
+      // VITE_DEPLOY_TIER and the server didn't report viewer.tier either.
+      // Render a read-only card; no action is safe in this state.
+      unknownTierTitle: 'Deploy tier unknown',
+      unknownTierDescription:
+        'This build did not report its deploy tier. Promotions are disabled until VITE_DEPLOY_TIER is set or the API reports `viewer.tier`. Reload after the next deploy to retry.',
+      // Prod-tier message — promotions don't originate from production.
+      prodNoActionsTitle: 'No further promotions from production',
+      prodNoActionsDescription:
+        'Production is the end of the pipeline. Promotions are initiated from dev (staff) or staging (customer signer + staff approver), never from prod.',
+      // Customer "Request go-live" card (staging + is_release_signer).
+      requestGoLiveTitle: 'Request go-live',
+      requestGoLiveDescription:
+        "You're on the staging build. Once you've validated the release here, file a request — a landr staff approver will give the final go and ship it to production.",
+      requestGoLiveNotesLabel: 'Notes (optional)',
+      requestGoLiveNotesPlaceholder:
+        'e.g. checkout + calendar reschedule pass on staging',
+      requestGoLiveButton: 'Request go-live',
+      requestGoLiveSubmitting: 'Sending…',
+      requestSentToast: 'Sent — landr staff will approve and promote.',
+      requestAlreadyPendingToast:
+        'A go-live request is already pending — staff will get to it shortly.',
+      requestErrorTitle: 'Could not send go-live request',
+      // State shown to the customer when a prior request is already pending.
+      customerRequestPendingLabel:
+        'Your go-live request is pending staff approval.',
+      // State shown to the customer when they are NOT a signer (defence in
+      // depth — eligibility=false already hides the form, but if the user
+      // navigates directly this gives a clear message).
+      notASignerTitle: 'Go-live requests are gated to release signers',
+      notASignerDescription:
+        'Only designated customer release signers can request a go-live. Talk to landr staff if you need this access.',
+      // Eligibility loading placeholder.
+      eligibilityLoading: 'Checking your go-live permissions…',
+    },
   },
   theme: {
     switchToDark: 'Switch to dark theme',

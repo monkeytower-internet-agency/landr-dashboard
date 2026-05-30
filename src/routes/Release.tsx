@@ -1,5 +1,6 @@
 // landr-a99u.6 — /release: dashboard-driven release promotion console
-// (STAFF-ONLY). Implements docs/adr/0004-release-promotion-console.md.
+// (STAFF-ONLY originally; landr-7dya.21 widens to is_release_signer customers).
+// Implements docs/adr/0004-release-promotion-console.md.
 //
 // landr-a99u.11 — graceful no-token state: when GET /status fails with HTTP
 // 503 (detail === 'promotion_not_configured'), render a friendly disabled card
@@ -10,6 +11,22 @@
 // signoff badge when signoff_source === 'customer', so the approver knows it
 // came from a customer UAT request (e.g. "Requested by Para42").
 //
+// landr-7dya.21 — TIER-AWARE re-shape. The page now switches on BOTH the
+// deploy tier (VITE_DEPLOY_TIER or server-reported viewer.tier) AND the
+// viewer's role to render exactly the sections that make sense for the
+// current env:
+//
+//   tier=dev     + staff promoter/approver  → ONLY "Promote to staging"
+//   tier=staging + staff approver           → pending Martin requests +
+//                                             "Approve & promote" + propose
+//   tier=staging + staff promoter (no app.) → propose + pending visibility
+//   tier=staging + customer signer (Martin) → "Request go-live" card
+//   tier=prod    + anyone                   → "No further promotions" card
+//
+// The INVARIANT: a dev → main promotion path is NEVER rendered, period.
+// The dev tier only exposes dev→staging; the staging tier only exposes
+// staging→main; prod exposes nothing actionable. Tests assert this directly.
+//
 // A "promotion" merges one branch into the next (dev → staging, then
 // staging → main) across the deployable repos and pushes; the push triggers
 // each repo's deploy. dev → staging is a one-click promoter action; staging →
@@ -17,11 +34,19 @@
 //
 // STAFF GATING (mirrors Revenue.tsx, landr-sbhz.8): this is Landr owner
 // tooling, NOT a tenant-entitlement module — it is left OUT of the feature
-// registry. Access is gated to is_landr_staff in two places: the route
-// self-redirects non-staff to home, and the FastAPI endpoints return 403 for
-// any non-staff bearer (the real enforcement). The individual ACTIONS are then
-// gated on the server-computed `viewer` capability block from …/status — NOT
-// raw roles — so the rules stay in one place (the backend).
+// registry. STAFF access is gated to is_landr_staff in two places: the route
+// self-redirects non-staff to home (unless they're a signer, see below), and
+// the FastAPI endpoints return 403 for any non-staff bearer (the real
+// enforcement). The individual ACTIONS are then gated on the server-computed
+// `viewer` capability block from …/status — NOT raw roles — so the rules
+// stay in one place (the backend).
+//
+// CUSTOMER (landr-7dya.21): non-staff customers with the is_release_signer
+// flag (Martin) are permitted onto /release in staging-tier builds to file
+// a "Request go-live" relay request. The eligibility endpoint
+// (/api/operator/release/eligibility) gates both on the tier (staging-side
+// relay only) and on the signer flag, so the route guard treats
+// can_request_golive as the customer access lever.
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Navigate } from 'react-router-dom'
@@ -53,13 +78,16 @@ import { PageTitle } from '@/lib/page-title'
 import {
   approveRun,
   cancelRun,
+  fetchGoLiveEligibility,
   kindLabel,
   promoteToStaging,
   proposeToProd,
   rejectRun,
   fetchRuns,
   fetchStatus,
+  requestGoLive,
   shortSha,
+  type GoLiveEligibility,
   type MergeStatus,
   type PromotionRun,
   type PromotionRunRepo,
@@ -67,11 +95,13 @@ import {
   type PromotionStatusResponse,
   type RepoStatus,
 } from '@/lib/release-promotion'
+import { resolveTier, type DeployTier } from '@/lib/tier'
 import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
 
 const STATUS_QUERY_KEY = ['release', 'status'] as const
 const RUNS_QUERY_KEY = ['release', 'runs'] as const
+const ELIGIBILITY_QUERY_KEY = ['release', 'eligibility'] as const
 
 /**
  * landr-a99u.11 — detect the 503 "not configured" state. The FastAPI backend
@@ -83,22 +113,54 @@ function isPromotionNotConfigured(err: Error | null): boolean {
   return !!err && err.message === 'promotion_not_configured'
 }
 
+/**
+ * landr-7dya.21 — outer guard. Staff get the full console; non-staff with the
+ * is_release_signer flag (and on the staging relay side) get the customer
+ * Request-go-live console; everyone else redirects to home.
+ *
+ * We fetch eligibility unconditionally because we need the flag to make the
+ * routing decision. The endpoint is cheap (1 row + an env check) and returns
+ * {can_request_golive: false} for staff too, so it doesn't double-gate the
+ * staff path — it just gives us the signer signal for the customer branch.
+ */
 export function Release() {
   const { effectiveIsStaff, isLoading: entLoading } = useEntitlements()
 
-  // Staff route guard. While the staff flag is still resolving, render a
-  // placeholder rather than flashing the page or a wrong redirect (matches
-  // Revenue.tsx). Gate on EFFECTIVE staff so a deep link while viewing-as
-  // redirects home.
-  if (entLoading) {
-    return <p className="text-muted-foreground p-6 text-sm">{t.release.loading}</p>
-  }
-  if (!effectiveIsStaff) return <Navigate to="/" replace />
+  // Always query eligibility — the answer drives the routing decision below.
+  // Server returns false for staff/non-signer/wrong-tier; that's the same
+  // signal we use to deny the customer branch.
+  const eligibilityQuery = useQuery<GoLiveEligibility, Error>({
+    queryKey: ELIGIBILITY_QUERY_KEY,
+    queryFn: () => fetchGoLiveEligibility(),
+    // The endpoint is idempotent and cheap; refetch on focus to pick up role
+    // changes within the session.
+    staleTime: 1000 * 30,
+  })
 
-  return <ReleaseInner />
+  if (entLoading || eligibilityQuery.isPending) {
+    return (
+      <p className="text-muted-foreground p-6 text-sm">{t.release.loading}</p>
+    )
+  }
+
+  if (effectiveIsStaff) {
+    return <StaffReleaseConsole />
+  }
+
+  // Non-staff: customer signer on the staging relay side may request go-live.
+  if (eligibilityQuery.data?.can_request_golive) {
+    return <CustomerReleaseConsole />
+  }
+
+  // Neither staff nor a customer signer → not this page.
+  return <Navigate to="/" replace />
 }
 
-function ReleaseInner() {
+// ===========================================================================
+//   STAFF CONSOLE — switches on tier to render only the relevant section
+// ===========================================================================
+
+function StaffReleaseConsole() {
   const queryClient = useQueryClient()
 
   const statusQuery = useQuery<PromotionStatusResponse, Error>({
@@ -120,22 +182,31 @@ function ReleaseInner() {
   const status = statusQuery.data
   const viewer = status?.viewer
   const repos = status?.repos ?? []
-  // Memoise so the empty-array fallback keeps a stable identity across renders
-  // (otherwise the pendingProposals useMemo below re-fires every render).
   const runsData = runsQuery.data
   const runs = useMemo(() => runsData ?? [], [runsData])
 
+  // Memoise so the empty-array fallback keeps a stable identity across renders
+  // (otherwise the pendingProposals useMemo below re-fires every render).
   const pendingProposals = useMemo(
     () => runs.filter((r) => r.status === 'proposed'),
     [runs],
   )
+
+  // Prefer the server-reported tier (it knows the actual API ENVIRONMENT) and
+  // fall back to the build-time VITE_DEPLOY_TIER. Either may be null — in that
+  // case the tier-aware switch renders a read-only "tier unknown" card and no
+  // action button is exposed (the only safe default).
+  const tier = resolveTier(viewer?.tier)
 
   return (
     <div className="flex flex-col gap-6">
       <PageTitle title={t.release.title} subtitle={t.release.subtitle} />
       <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold">{t.release.title}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold">{t.release.title}</h1>
+            {tier ? <TierBadge tier={tier} /> : null}
+          </div>
           <p className="text-muted-foreground max-w-3xl text-sm">
             {t.release.subtitle}
           </p>
@@ -187,18 +258,14 @@ function ReleaseInner() {
         <p className="text-muted-foreground text-sm">{t.release.loading}</p>
       ) : (
         <>
+          {/* The env matrix is read-only context and useful on every tier
+              — show it everywhere (dev/staging/prod). */}
           <EnvironmentMatrix repos={repos} />
 
-          <PromoteToStagingSection
+          <TierAwareSections
+            tier={tier}
             repos={repos}
-            canPromote={!!viewer?.can_promote_staging}
-            onDone={invalidateAll}
-          />
-
-          <ProductionSection
-            repos={repos}
-            canPropose={!!viewer?.can_propose_prod}
-            canApprove={!!viewer?.can_approve_prod}
+            viewer={viewer}
             proposals={pendingProposals}
             onDone={invalidateAll}
           />
@@ -212,6 +279,225 @@ function ReleaseInner() {
       )}
     </div>
   )
+}
+
+/**
+ * landr-7dya.21 — central tier+role switch. THIS is the function that enforces
+ * the "never dev→main" invariant: the dev branch never renders ProductionSection,
+ * and the staging branch never renders PromoteToStagingSection. There is no
+ * branch that renders both staging-to-main controls outside of staging tier.
+ */
+function TierAwareSections({
+  tier,
+  repos,
+  viewer,
+  proposals,
+  onDone,
+}: {
+  tier: DeployTier | null
+  repos: RepoStatus[]
+  viewer: PromotionStatusResponse['viewer'] | undefined
+  proposals: PromotionRun[]
+  onDone: () => void
+}) {
+  if (tier === null) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            {t.release.tierAware.unknownTierTitle}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-sm">
+            {t.release.tierAware.unknownTierDescription}
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (tier === 'prod') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            {t.release.tierAware.prodNoActionsTitle}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-sm">
+            {t.release.tierAware.prodNoActionsDescription}
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (tier === 'dev') {
+    // dev-tier console: ONLY the dev→staging promote section. Never propose
+    // to production from here — that's a staging-tier action.
+    return (
+      <PromoteToStagingSection
+        repos={repos}
+        canPromote={!!viewer?.can_promote_staging}
+        onDone={onDone}
+      />
+    )
+  }
+
+  // tier === 'staging': production promotion section only. Promoter sees the
+  // "Propose" button + the pending list; approver additionally sees Approve/
+  // Reject controls. NO dev→staging button here — that's a dev-tier action.
+  return (
+    <ProductionSection
+      repos={repos}
+      canPropose={!!viewer?.can_propose_prod}
+      canApprove={!!viewer?.can_approve_prod}
+      proposals={proposals}
+      onDone={onDone}
+    />
+  )
+}
+
+// ===========================================================================
+//   CUSTOMER CONSOLE — Martin's "Request go-live" surface (staging only)
+// ===========================================================================
+
+/**
+ * landr-7dya.21 — the customer signer console. Reached only when the route
+ * guard sees a non-staff user with can_request_golive=true. The eligibility
+ * endpoint already gates on tier (staging-side relay only) and the
+ * is_release_signer flag — so by the time we render here, the only question
+ * left is: is there already a pending request? `requestGoLive` returns
+ * `already_pending` instead of erroring in that case, and we toast + flip
+ * the card into a "pending" state so the customer knows their previous
+ * request is still in flight.
+ */
+function CustomerReleaseConsole() {
+  const [pending, setPending] = useState(false)
+  const [notes, setNotes] = useState('')
+
+  const mutation = useMutation({
+    mutationFn: () => requestGoLive(notes.trim() || undefined),
+    onSuccess: (result) => {
+      if (result.status === 'already_pending') {
+        toast.info(t.release.tierAware.requestAlreadyPendingToast)
+      } else {
+        toast.success(t.release.tierAware.requestSentToast)
+      }
+      setPending(true)
+      setNotes('')
+    },
+    onError: (err: Error) => {
+      toast.error(t.release.tierAware.requestErrorTitle, {
+        description: err.message,
+      })
+    },
+  })
+
+  return (
+    <div className="flex flex-col gap-6">
+      <PageTitle
+        title={t.release.title}
+        subtitle={t.release.tierAware.requestGoLiveDescription}
+      />
+      <header className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-semibold">{t.release.title}</h1>
+          <TierBadge tier="staging" />
+        </div>
+      </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            {t.release.tierAware.requestGoLiveTitle}
+          </CardTitle>
+          <p className="text-muted-foreground text-sm">
+            {t.release.tierAware.requestGoLiveDescription}
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {pending ? (
+            <p
+              className="text-muted-foreground text-sm"
+              data-testid="customer-request-pending"
+            >
+              {t.release.tierAware.customerRequestPendingLabel}
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="customer-request-notes">
+                  {t.release.tierAware.requestGoLiveNotesLabel}
+                </Label>
+                <Textarea
+                  id="customer-request-notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder={
+                    t.release.tierAware.requestGoLiveNotesPlaceholder
+                  }
+                  disabled={mutation.isPending}
+                />
+              </div>
+              <div>
+                <Button
+                  onClick={() => mutation.mutate()}
+                  disabled={mutation.isPending}
+                >
+                  <RocketIcon className="size-4" />
+                  {mutation.isPending
+                    ? t.release.tierAware.requestGoLiveSubmitting
+                    : t.release.tierAware.requestGoLiveButton}
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// --- tier badge ------------------------------------------------------------
+
+/**
+ * landr-7dya.21 — tier badge shown next to the page title. Same visual
+ * vocabulary the .19 worker uses for the topbar badge so the two surfaces
+ * stay coherent.
+ */
+function TierBadge({ tier }: { tier: DeployTier }) {
+  const cfg = TIER_BADGE[tier]
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wide',
+        cfg.className,
+      )}
+      data-testid={`tier-badge-${tier}`}
+    >
+      {cfg.label}
+    </span>
+  )
+}
+
+const TIER_BADGE: Record<DeployTier, { label: string; className: string }> = {
+  dev: {
+    label: t.release.tierAware.tierBadgeDev,
+    className:
+      'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
+  },
+  staging: {
+    label: t.release.tierAware.tierBadgeStaging,
+    className: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300',
+  },
+  prod: {
+    label: t.release.tierAware.tierBadgeProd,
+    className:
+      'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+  },
 }
 
 // --- environment matrix ----------------------------------------------------
