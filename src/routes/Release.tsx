@@ -1145,9 +1145,13 @@ function RepoChecklist({
   )
 }
 
-/** Per-repo merge result list shown on proposal + history cards. */
-function RunRepoList({ repos }: { repos: PromotionRunRepo[] }) {
-  if (repos.length === 0) return null
+/** Per-repo merge result list shown on proposal + history cards.
+ *  Tolerates undefined (the list-runs API doesn't hydrate per-run repos —
+ *  they come from the singular fetchRun({id}); passing `run.repos` directly
+ *  from a list item used to crash with "Cannot read properties of undefined
+ *  (reading 'length')"). */
+function RunRepoList({ repos }: { repos: PromotionRunRepo[] | undefined }) {
+  if (!repos || repos.length === 0) return null
   return (
     <ul className="flex flex-col gap-1">
       {repos.map((r) => (
