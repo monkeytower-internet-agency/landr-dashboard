@@ -64,7 +64,12 @@ export function Step6Gmail({ operatorId, onAdvance, onBack }: Props) {
             size="sm"
             variant="outline"
             onClick={() => {
-              popupRef.current = window.open('about:blank', '_blank', 'noopener,noreferrer')
+              // Open the OAuth popup synchronously (before the async install_url
+              // fetch) so it isn't blocked. Do NOT pass 'noopener' — that makes
+              // window.open return null, which fell through to a full-tab redirect
+              // (the dashboard tab got eaten + a blank tab opened). We need the
+              // handle to navigate the popup in onSuccess.
+              popupRef.current = window.open('about:blank', 'landr-gmail-oauth', 'popup,width=520,height=680')
               connectMutation.mutate()
             }}
             disabled={connectMutation.isPending || isLoading}
