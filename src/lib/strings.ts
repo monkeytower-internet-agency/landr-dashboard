@@ -697,12 +697,6 @@ export const t = {
     // "Request go-live", staff approver sees pending requests + "Approve &
     // promote"; prod → no actions at all. NEVER dev→main, anywhere.
     tierAware: {
-      // Tier badge shown next to the page title so the user knows which env
-      // they're acting on (the page CONTENT also gates on it, but the badge
-      // is a constant visual cue and matches the .19 topbar badge).
-      tierBadgeDev: 'dev',
-      tierBadgeStaging: 'staging',
-      tierBadgeProd: 'prod',
       // Unknown-tier fallback — the build was deployed without
       // VITE_DEPLOY_TIER and the server didn't report viewer.tier either.
       // Render a read-only card; no action is safe in this state.
