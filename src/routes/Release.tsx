@@ -51,7 +51,13 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Navigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { CheckIcon, RefreshCwIcon, RocketIcon, XIcon } from 'lucide-react'
+import {
+  CheckIcon,
+  ExternalLinkIcon,
+  RefreshCwIcon,
+  RocketIcon,
+  XIcon,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -96,13 +102,62 @@ import {
   type PromotionStatusResponse,
   type RepoStatus,
 } from '@/lib/release-promotion'
-import { resolveTier, type DeployTier } from '@/lib/tier'
+import {
+  otherTiers,
+  resolveTier,
+  urlForTier,
+  type DeployTier,
+} from '@/lib/tier'
 import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
 
 const STATUS_QUERY_KEY = ['release', 'status'] as const
 const RUNS_QUERY_KEY = ['release', 'runs'] as const
 const ELIGIBILITY_QUERY_KEY = ['release', 'eligibility'] as const
+
+/** Per-tier label for the jump-link buttons. Source of truth for the icon row. */
+const JUMP_LABEL: Record<DeployTier, string> = {
+  dev: t.release.tierAware.jumpToTierDev,
+  staging: t.release.tierAware.jumpToTierStaging,
+  prod: t.release.tierAware.jumpToTierProd,
+}
+
+/**
+ * Cross-tier jump links in the /release header. Renders one button per OTHER
+ * tier (dev / staging / main) so a staff promoter can hop between the three
+ * consoles with one click instead of editing the hostname. Opens each link
+ * in a new tab so the current session stays anchored on the tier the user
+ * is acting from. Renders nothing when the current tier is unknown.
+ *
+ * The destination dashboards apply their own /release route guard; jumping
+ * to a tier the viewer can't reach simply bounces them home on arrival —
+ * we don't try to gate visibility here.
+ */
+function TierJumpLinks({ currentTier }: { currentTier: DeployTier | null }) {
+  const targets = otherTiers(currentTier)
+  if (targets.length === 0) return null
+  return (
+    <div
+      className="flex flex-wrap items-center gap-1"
+      data-testid="tier-jump-links"
+    >
+      {targets.map((target) => (
+        <Button key={target} asChild variant="outline" size="sm">
+          <a
+            href={urlForTier(target, '/release')}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={t.release.tierAware.jumpToTierAria(JUMP_LABEL[target])}
+            data-testid={`tier-jump-${target}`}
+          >
+            <ExternalLinkIcon className="size-3.5" aria-hidden />
+            <span>{JUMP_LABEL[target]}</span>
+          </a>
+        </Button>
+      ))}
+    </div>
+  )
+}
 
 /**
  * landr-a99u.11 — detect the 503 "not configured" state. The FastAPI backend
@@ -212,20 +267,28 @@ function StaffReleaseConsole() {
             {t.release.subtitle}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={invalidateAll}
-          disabled={statusQuery.isFetching || runsQuery.isFetching}
-        >
-          <RefreshCwIcon
-            className={cn(
-              'size-4',
-              (statusQuery.isFetching || runsQuery.isFetching) && 'animate-spin',
-            )}
-          />
-          {t.release.refresh}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Cross-tier jump links so staff can bounce between dev / staging
+              / main consoles with one click. Renders ALL other tiers (up to
+              two), so the user always has a one-click hop in either
+              direction. */}
+          <TierJumpLinks currentTier={tier} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={invalidateAll}
+            disabled={statusQuery.isFetching || runsQuery.isFetching}
+          >
+            <RefreshCwIcon
+              className={cn(
+                'size-4',
+                (statusQuery.isFetching || runsQuery.isFetching) &&
+                  'animate-spin',
+              )}
+            />
+            {t.release.refresh}
+          </Button>
+        </div>
       </header>
 
       {statusQuery.isError ? (
