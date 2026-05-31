@@ -73,6 +73,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { TierBadge } from '@/components/TierBadge'
 import { useEntitlements } from '@/lib/entitlements'
 import { PageTitle } from '@/lib/page-title'
 import {
@@ -205,7 +206,7 @@ function StaffReleaseConsole() {
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold">{t.release.title}</h1>
-            {tier ? <TierBadge tier={tier} /> : null}
+            {tier ? <TierBadge tier={tier} showProd /> : null}
           </div>
           <p className="text-muted-foreground max-w-3xl text-sm">
             {t.release.subtitle}
@@ -459,45 +460,6 @@ function CustomerReleaseConsole() {
       </Card>
     </div>
   )
-}
-
-// --- tier badge ------------------------------------------------------------
-
-/**
- * landr-7dya.21 — tier badge shown next to the page title. Same visual
- * vocabulary the .19 worker uses for the topbar badge so the two surfaces
- * stay coherent.
- */
-function TierBadge({ tier }: { tier: DeployTier }) {
-  const cfg = TIER_BADGE[tier]
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wide',
-        cfg.className,
-      )}
-      data-testid={`tier-badge-${tier}`}
-    >
-      {cfg.label}
-    </span>
-  )
-}
-
-const TIER_BADGE: Record<DeployTier, { label: string; className: string }> = {
-  dev: {
-    label: t.release.tierAware.tierBadgeDev,
-    className:
-      'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
-  },
-  staging: {
-    label: t.release.tierAware.tierBadgeStaging,
-    className: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300',
-  },
-  prod: {
-    label: t.release.tierAware.tierBadgeProd,
-    className:
-      'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
-  },
 }
 
 // --- environment matrix ----------------------------------------------------
@@ -1145,9 +1107,13 @@ function RepoChecklist({
   )
 }
 
-/** Per-repo merge result list shown on proposal + history cards. */
-function RunRepoList({ repos }: { repos: PromotionRunRepo[] }) {
-  if (repos.length === 0) return null
+/** Per-repo merge result list shown on proposal + history cards.
+ *  Tolerates undefined (the list-runs API doesn't hydrate per-run repos —
+ *  they come from the singular fetchRun({id}); passing `run.repos` directly
+ *  from a list item used to crash with "Cannot read properties of undefined
+ *  (reading 'length')"). */
+function RunRepoList({ repos }: { repos: PromotionRunRepo[] | undefined }) {
+  if (!repos || repos.length === 0) return null
   return (
     <ul className="flex flex-col gap-1">
       {repos.map((r) => (

@@ -141,7 +141,11 @@ function AppShellInner({
   return (
     <SidebarProvider open={open} onOpenChange={() => { /* mode-driven */ }}>
       <AppSidebar />
-      <SidebarInset>
+      {/* min-w-0 lets this flex item shrink to its parent's width so wide
+          content inside (Tables, Cards, etc.) doesn't push the whole page
+          past the viewport — without it, table/cell intrinsic widths win
+          and the document gains a horizontal scrollbar on smaller screens. */}
+      <SidebarInset className="min-w-0">
         {/* landr-fx2i — topbar layout: OperatorSwitcher (collapses to a
             static label when the user only has 1 operator), then the
             current page title or breadcrumb (declared by each route via
@@ -192,7 +196,10 @@ function AppShellInner({
             every page while view-as is active. Renders null otherwise. */}
         <ViewAsBanner />
         <OnboardingBanner />
-        <main className="flex-1 px-4 py-6 sm:px-6">{children}</main>
+        {/* min-w-0 mirrors the inset constraint so route content respects
+            the available width; per-table overflow-x-auto (shadcn Table) then
+            handles its own horizontal scroll inside the card. */}
+        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6">{children}</main>
       </SidebarInset>
       {/* landr-f18d — Quick capture FAB. Bottom-right, mounted at the
           shell level so it's reachable from every protected route (the
