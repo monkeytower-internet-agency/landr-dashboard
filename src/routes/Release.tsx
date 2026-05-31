@@ -944,6 +944,7 @@ function ProposalCard({
             {run.notes}
           </p>
         ) : null}
+        <RunMigrationsSection run={run} />
         <RunRepoList repos={run.repos} />
       </div>
 
@@ -1128,6 +1129,9 @@ function HistoryRow({ run }: { run: PromotionRun }) {
         </p>
       ) : null}
       <div className="mt-2">
+        <RunMigrationsSection run={run} />
+      </div>
+      <div className="mt-2">
         <RunRepoList repos={run.repos} />
       </div>
     </div>
@@ -1257,6 +1261,124 @@ function RepoChecklist({
         </li>
       ))}
     </ul>
+  )
+}
+
+/**
+ * landr-a99u.14.7 — Migration stage block shown on a run's detail surface,
+ * ABOVE the per-repo merge list. Renders one of four states:
+ *
+ *   pending  → spinner + "Applying migrations…"
+ *   applied  → green check + "Applied N migration(s)" + collapsed file list
+ *              + a "View log" toggle showing migration_log
+ *   failed   → red x + "Migrations failed" + applied-before-failure list +
+ *              full log visible by default (no toggle — operators need it
+ *              immediately while triaging)
+ *   skipped  → muted "—" (legacy runs predating 14.1, or no-op runs that
+ *              proceeded without a configured target DB URL but had nothing
+ *              pending anyway)
+ *
+ * No action buttons (no inline retry — operator creates a fresh run, same
+ * pattern as today's code-merge-failure path).
+ */
+function RunMigrationsSection({ run }: { run: PromotionRun }) {
+  const status = run.migration_status ?? 'skipped'
+  const applied = run.migrations_applied ?? []
+  const log = run.migration_log ?? ''
+
+  if (status === 'skipped') {
+    // Legacy runs / silent no-op. Render a faint dash so the column lines up
+    // with the per-repo list but doesn't shout for attention.
+    return (
+      <div
+        className="text-muted-foreground text-xs"
+        data-testid="run-migrations-skipped"
+      >
+        —
+      </div>
+    )
+  }
+
+  if (status === 'pending') {
+    return (
+      <div
+        className="text-muted-foreground flex items-center gap-2 text-sm"
+        data-testid="run-migrations-pending"
+      >
+        <span
+          className="inline-block size-3 animate-spin rounded-full border-2 border-current border-r-transparent"
+          aria-hidden
+        />
+        Applying migrations…
+      </div>
+    )
+  }
+
+  if (status === 'applied') {
+    return (
+      <details
+        className="bg-muted/30 rounded-md border p-2 text-sm"
+        data-testid="run-migrations-applied"
+      >
+        <summary className="cursor-pointer font-medium">
+          <CheckIcon
+            className="mr-1 inline size-4 text-emerald-600"
+            aria-hidden
+          />
+          Applied {applied.length} migration{applied.length === 1 ? '' : 's'}
+        </summary>
+        {applied.length > 0 ? (
+          <ul className="mt-2 list-none space-y-0.5 font-mono text-xs">
+            {applied.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        ) : null}
+        {log ? (
+          <details className="mt-2 text-xs">
+            <summary className="text-muted-foreground cursor-pointer">
+              View log
+            </summary>
+            <pre className="bg-background mt-1 overflow-x-auto rounded p-2 font-mono text-[11px] leading-snug">
+              {log}
+            </pre>
+          </details>
+        ) : null}
+      </details>
+    )
+  }
+
+  // status === 'failed' — log visible by default. No collapse: operators need
+  // this immediately while triaging.
+  return (
+    <div
+      className="border-destructive/40 bg-destructive/5 rounded-md border p-2 text-sm"
+      data-testid="run-migrations-failed"
+    >
+      <div className="text-destructive flex items-center gap-1 font-medium">
+        <XIcon className="size-4" aria-hidden />
+        Migrations failed
+      </div>
+      {applied.length > 0 ? (
+        <p className="text-muted-foreground mt-1 text-xs">
+          Applied {applied.length} before the failure:
+        </p>
+      ) : null}
+      {applied.length > 0 ? (
+        <ul className="mt-1 list-none space-y-0.5 font-mono text-xs">
+          {applied.map((f) => (
+            <li key={f}>{f}</li>
+          ))}
+        </ul>
+      ) : null}
+      {log ? (
+        <pre className="bg-background mt-2 overflow-x-auto rounded p-2 font-mono text-[11px] leading-snug">
+          {log}
+        </pre>
+      ) : (
+        <p className="text-muted-foreground mt-1 text-xs">No log captured.</p>
+      )}
+    </div>
   )
 }
 
