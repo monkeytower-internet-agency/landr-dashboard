@@ -16,6 +16,7 @@ import {
   type CommissionSchemeRef,
   type RecipientKind,
 } from '@/lib/commissions'
+import { useEntitlements } from '@/lib/entitlements'
 import { useOperator } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
@@ -42,10 +43,25 @@ type InnerProps = {
   operatorId: string
 }
 
-const RECIPIENT_KIND_OPTIONS: RecipientKind[] = ['platform', 'agent', 'provider']
+// recipient_kind 'platform' = the Landr platform commission (the cut Landr
+// takes from each booking). This is fixed by contract — operators must NOT
+// create/edit platform schemes from the operator-facing UI. Only Landr staff
+// (effectiveIsStaff) see the platform option in the create dropdown, and
+// platform-kind rows render as read-only chips for non-staff (no editor open).
+const STAFF_RECIPIENT_KIND_OPTIONS: RecipientKind[] = [
+  'platform',
+  'agent',
+  'provider',
+]
+const OPERATOR_RECIPIENT_KIND_OPTIONS: RecipientKind[] = ['agent', 'provider']
 
 function CommissionsSettingsInner({ operatorId }: InnerProps) {
   const qc = useQueryClient()
+  const { effectiveIsStaff } = useEntitlements()
+
+  const recipientKindOptions = effectiveIsStaff
+    ? STAFF_RECIPIENT_KIND_OPTIONS
+    : OPERATOR_RECIPIENT_KIND_OPTIONS
 
   const schemesQuery = useQuery<CommissionSchemeRef[]>({
     queryKey: ['commission-schemes', operatorId],
@@ -129,7 +145,7 @@ function CommissionsSettingsInner({ operatorId }: InnerProps) {
                   value={newRecipientKind}
                   onChange={(e) => setNewRecipientKind(e.target.value as RecipientKind)}
                 >
-                  {RECIPIENT_KIND_OPTIONS.map((k) => (
+                  {recipientKindOptions.map((k) => (
                     <option key={k} value={k}>
                       {RECIPIENT_KIND_LABELS[k]}
                     </option>
@@ -185,14 +201,17 @@ function CommissionsSettingsInner({ operatorId }: InnerProps) {
           </p>
         ) : (
           <ul className="space-y-2">
-            {schemes.map((scheme) => (
-              <li key={scheme.id}>
-                <button
-                  type="button"
-                  className="group w-full rounded-md border p-3 text-left transition-colors hover:bg-muted/50"
-                  onClick={() => setEditingSchemeId(scheme.id)}
-                >
-                  <div className="flex items-center gap-2">
+            {schemes.map((scheme) => {
+              // Operators can't open the editor on a platform-kind scheme (it
+              // would let them change the Landr cut). Staff still can —
+              // useful for setting up a contract or correcting a rate. The
+              // server-side RLS on commission_schemes is the real gate; the
+              // client just hides the affordance to avoid an inviting click.
+              const isPlatformLocked =
+                !effectiveIsStaff && scheme.recipient_kind === 'platform'
+              const body = (
+                <>
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm">{scheme.name}</span>
                     <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs">
                       {scheme.currency}
@@ -200,6 +219,14 @@ function CommissionsSettingsInner({ operatorId }: InnerProps) {
                     <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs">
                       {RECIPIENT_KIND_LABELS[scheme.recipient_kind]}
                     </span>
+                    {isPlatformLocked && (
+                      <span
+                        className="inline-flex items-center rounded-full border border-amber-500/40 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400"
+                        title="Set by your Landr contract — contact Landr to change."
+                      >
+                        Managed by Landr
+                      </span>
+                    )}
                     {!scheme.active && (
                       <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
                         Inactive
@@ -211,9 +238,35 @@ function CommissionsSettingsInner({ operatorId }: InnerProps) {
                       {scheme.notes}
                     </p>
                   )}
-                </button>
-              </li>
-            ))}
+                  {isPlatformLocked && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      This commission is set by your Landr contract. Contact
+                      Landr to change it.
+                    </p>
+                  )}
+                </>
+              )
+              return (
+                <li key={scheme.id}>
+                  {isPlatformLocked ? (
+                    <div
+                      className="w-full rounded-md border bg-muted/20 p-3 text-left"
+                      data-testid="commission-scheme-platform-locked"
+                    >
+                      {body}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="group w-full rounded-md border p-3 text-left transition-colors hover:bg-muted/50"
+                      onClick={() => setEditingSchemeId(scheme.id)}
+                    >
+                      {body}
+                    </button>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>
