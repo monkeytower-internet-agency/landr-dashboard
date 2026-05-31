@@ -44,6 +44,14 @@ const { mock } = vi.hoisted(() => {
     approveCalls: [] as unknown[],
     requestGoLiveCalls: [] as unknown[],
     requestGoLiveResult: { status: 'requested' as 'requested' | 'already_pending' },
+    // landr-a99u.14.6 — preview migrations stub. Default is the quiet
+    // "nothing pending" case; tests override per-scenario.
+    previewMigrationsResult: {
+      pending_count: 0 as number,
+      files: [] as string[],
+    },
+    previewMigrationsError: null as Error | null,
+    previewMigrationsCalls: [] as unknown[],
   }
   return { mock: { state } }
 })
@@ -104,6 +112,13 @@ vi.mock('@/lib/release-promotion', async () => {
       mock.state.requestGoLiveCalls.push({ notes })
       return mock.state.requestGoLiveResult
     }),
+    fetchPreviewMigrations: vi.fn(async (kind: unknown) => {
+      mock.state.previewMigrationsCalls.push(kind)
+      if (mock.state.previewMigrationsError) {
+        throw mock.state.previewMigrationsError
+      }
+      return mock.state.previewMigrationsResult
+    }),
   }
 })
 
@@ -150,6 +165,9 @@ function resetState() {
   mock.state.approveCalls = []
   mock.state.requestGoLiveCalls = []
   mock.state.requestGoLiveResult = { status: 'requested' }
+  mock.state.previewMigrationsResult = { pending_count: 0, files: [] }
+  mock.state.previewMigrationsError = null
+  mock.state.previewMigrationsCalls = []
 }
 
 beforeEach(() => {
@@ -460,6 +478,128 @@ describe('Release route — Martin customer signer', () => {
     expect(
       screen.queryByText(/environment matrix/i),
     ).not.toBeInTheDocument()
+    assertNeverDevToMain()
+  })
+})
+
+// ── landr-a99u.14.6 — preview migrations in propose + promote dialogs ───────
+//
+// Always-on (no checkbox), informational only: the preview NEVER disables
+// the submit button. Per the parent contract on landr-a99u.14, the executor
+// (landr-a99u.14.4) is the actual gate.
+
+describe('Release route — preview migrations in propose dialog (staging tier)', () => {
+  beforeEach(() => {
+    mock.state.effectiveIsStaff = true
+    mock.state.canProposeProd = true
+    vi.stubEnv('VITE_DEPLOY_TIER', 'staging')
+  })
+
+  it('shows "will apply 2 migrations" when the endpoint returns 2 files', async () => {
+    mock.state.previewMigrationsResult = {
+      pending_count: 2,
+      files: [
+        '20260530120000_add_signoff.sql',
+        '20260531100000_add_migrations_audit.sql',
+      ],
+    }
+    renderRoute()
+    const open = await screen.findByRole('button', {
+      name: /propose to production/i,
+    })
+    const user = userEvent.setup()
+    await user.click(open)
+
+    await screen.findByText(/will apply 2 migrations/i)
+    expect(
+      screen.getByText('20260530120000_add_signoff.sql'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('20260531100000_add_migrations_audit.sql'),
+    ).toBeInTheDocument()
+
+    // The dialog's submit button is just labelled "Propose"; type notes
+    // (required field is the only natural gate) then assert the preview
+    // didn't introduce a NEW disabled state.
+    const notes = screen.getByLabelText(/proposal notes/i)
+    await user.type(notes, 'Schema additive — safe to ship')
+    const dialogSubmit = screen.getByRole('button', { name: /^propose$/i })
+    expect(dialogSubmit).not.toBeDisabled()
+    assertNeverDevToMain()
+  })
+
+  it('shows the amber warning when the API returns 503 migration_target_not_configured', async () => {
+    mock.state.previewMigrationsError = new Error(
+      'migration_target_not_configured',
+    )
+    renderRoute()
+    const open = await screen.findByRole('button', {
+      name: /propose to production/i,
+    })
+    const user = userEvent.setup()
+    await user.click(open)
+
+    const warning = await screen.findByTestId(
+      'migrations-preview-not-configured',
+    )
+    expect(warning).toHaveTextContent(/not configured for this tier/i)
+
+    // Submit button (dialog inner "Propose") is still enabled once notes
+    // are filled — preview is informational only, never gates the submit.
+    const notes = screen.getByLabelText(/proposal notes/i)
+    await user.type(notes, 'OK to ship')
+    const dialogSubmit = screen.getByRole('button', { name: /^propose$/i })
+    expect(dialogSubmit).not.toBeDisabled()
+    assertNeverDevToMain()
+  })
+})
+
+describe('Release route — preview migrations in promote-to-staging dialog (dev tier)', () => {
+  beforeEach(() => {
+    mock.state.effectiveIsStaff = true
+    mock.state.canPromoteStaging = true
+    vi.stubEnv('VITE_DEPLOY_TIER', 'dev')
+  })
+
+  it('shows "No pending migrations." when the endpoint returns 0 files', async () => {
+    mock.state.previewMigrationsResult = { pending_count: 0, files: [] }
+    renderRoute()
+    const open = await screen.findByRole('button', {
+      name: /promote dev → staging/i,
+    })
+    const user = userEvent.setup()
+    await user.click(open)
+
+    await screen.findByTestId('migrations-preview-empty')
+    expect(
+      screen.getByText(/no pending migrations\./i),
+    ).toBeInTheDocument()
+
+    // The dialog's submit button is labelled just "Promote" — confirm it
+    // is enabled (the preview is informational only).
+    const dialogSubmit = screen.getByRole('button', { name: /^promote$/i })
+    expect(dialogSubmit).not.toBeDisabled()
+    assertNeverDevToMain()
+  })
+
+  it('keeps the submit enabled even when the preview surfaces a 502 unreachable error', async () => {
+    mock.state.previewMigrationsError = new Error(
+      'migration_target_unreachable: connection refused',
+    )
+    renderRoute()
+    const open = await screen.findByRole('button', {
+      name: /promote dev → staging/i,
+    })
+    const user = userEvent.setup()
+    await user.click(open)
+
+    const err = await screen.findByTestId('migrations-preview-error')
+    expect(err).toHaveTextContent(/could not load pending migrations/i)
+    expect(err).toHaveTextContent(/connection refused/i)
+
+    // Submit button stays enabled — never gated by the preview.
+    const dialogSubmit = screen.getByRole('button', { name: /^promote$/i })
+    expect(dialogSubmit).not.toBeDisabled()
     assertNeverDevToMain()
   })
 })
