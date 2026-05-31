@@ -48,7 +48,6 @@ describe('featureForSection', () => {
     expect(featureForSection('/settings/campaigns')).toBe('campaigns')
     expect(featureForSection('/settings/tags')).toBe('tags')
     expect(featureForSection('/settings/webhooks')).toBe('webhooks')
-    expect(featureForSection('/settings/integrations/gmail')).toBe('gmail')
     expect(featureForSection('/settings/integrations/calendar')).toBe(
       'calendar_feed',
     )
@@ -71,6 +70,9 @@ describe('featureForSection', () => {
     // landr-1nwu.2 — Payments & invoicing is ungated: operators always need
     // to enter their own Stripe/Holded keys (like connected-accounts).
     expect(featureForSection('/settings/integrations/payments')).toBeNull()
+    // landr-ubqo — Gmail (sending mailbox) is ungated for the same reason:
+    // operators always need to connect their own Gmail to send booking emails.
+    expect(featureForSection('/settings/integrations/gmail')).toBeNull()
     expect(featureForSection('/settings/offers')).toBeNull()
     expect(featureForSection('/settings/service-roles')).toBeNull()
     expect(featureForSection('/settings/operations')).toBeNull()
@@ -90,7 +92,8 @@ describe('FEATURE_ROUTES / FEATURE_SECTIONS — Para42 OFF-set coverage', () => 
     'campaigns',
     'tags',
     'webhooks',
-    'gmail',
+    // 'gmail' is intentionally NOT here — it was ungated (landr-ubqo); see the
+    // "returns null for ungated/personal sections" test above.
     'calendar_feed',
     'plan',
   ]
