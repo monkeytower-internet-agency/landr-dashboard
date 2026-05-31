@@ -49,7 +49,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BellIcon, BellOffIcon, BotIcon, Eye, EyeOff, MailIcon, Paperclip, Send, SmartphoneIcon } from 'lucide-react'
+import { BellIcon, BellOffIcon, BotIcon, DownloadIcon, Eye, EyeOff, FileIcon, ImageIcon, MailIcon, Paperclip, Send, SmartphoneIcon, UserPlusIcon, XIcon, ZoomInIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuth } from '@/lib/auth'
@@ -75,6 +75,14 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 import {
   createComment,
@@ -93,6 +101,7 @@ import {
   parseMentionHandles,
   resolveMentionHandles,
   searchMentionUsers,
+  splitMentionSegments,
   unwatchTicket,
   uploadTicketAttachment,
   watchTicket,
@@ -110,6 +119,7 @@ import {
 } from '@/lib/tickets'
 
 import { TicketTriageCard } from './TicketTriageCard'
+import { OriginChip } from './CardVisuals'
 
 // ---- Types ------------------------------------------------------------------
 
@@ -243,9 +253,25 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
       <SheetHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <SheetTitle className="line-clamp-2 text-base leading-snug">
-              {ticket.title}
-            </SheetTitle>
+            <div className="flex items-start gap-2 flex-wrap">
+              <SheetTitle className="line-clamp-2 text-base leading-snug">
+                {ticket.title}
+              </SheetTitle>
+              {/* landr-7dya.2 — origin chip. For staff: from tickets_staff (has
+                  staging relay context). For operators: from the public ticket
+                  row (operators also see the chip on their own staging tickets). */}
+              {(staffDetail?.origin_tier ?? ticket.origin_tier) && (
+                <OriginChip
+                  tier={staffDetail?.origin_tier ?? ticket.origin_tier}
+                  operatorLabel={
+                    staffDetail?.origin_operator_label ??
+                    ticket.origin_operator_label
+                  }
+                  className="mt-0.5 shrink-0"
+                  data-testid="ticket-detail-origin-chip"
+                />
+              )}
+            </div>
             {/* Who-to-contact meta: org name + reporter */}
             <SheetDescription className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span data-testid="ticket-header-ticket-id">
@@ -1133,6 +1159,33 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
   const [isInternal, setIsInternal] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // landr-7dya.9 — reply-with-CC: explicitly notify additional staff on this
+  // reply. CC == an explicit notify target, dispatched through the SAME
+  // notify-mentions fan-out (bell override-quiet + push/email echo). Selected
+  // staff are merged with any parsed @mentions on submit.
+  const [ccUserIds, setCcUserIds] = useState<Set<string>>(new Set())
+  const ccStaffQuery = useQuery({
+    queryKey: ['assignable-users'],
+    queryFn: fetchAssignableUsers,
+    staleTime: 5 * 60 * 1000,
+  })
+  // CC targets are human staff — a Claude agent isn't a meaningful "reply CC".
+  const ccCandidates: AssignableUser[] = (ccStaffQuery.data ?? []).filter(
+    (u) => u.is_landr_staff && !u.is_claude_agent,
+  )
+  const ccSelected: AssignableUser[] = ccCandidates.filter((u) =>
+    ccUserIds.has(u.id),
+  )
+
+  function toggleCc(userId: string) {
+    setCcUserIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
+      return next
+    })
+  }
+
   // @mention autocomplete state
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionSuggestions, setMentionSuggestions] = useState<MentionUser[]>([])
@@ -1178,7 +1231,9 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
     } finally {
       if (!ac.signal.aborted) setMentionLoading(false)
     }
-  }, [])
+    // setState dispatchers are stable; listed so React Compiler's
+    // preserve-manual-memoization inference matches the manual dep array.
+  }, [setMentionLoading, setMentionSuggestions, setMentionSelectedIdx])
 
   useEffect(() => {
     // Debounce: schedule fetch after 200 ms idle. When mentionQuery is null,
@@ -1249,23 +1304,33 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
       }),
     onSuccess: (comment) => {
       const postedBody = body.trim()
+      // Snapshot the CC selection before clearing the composer state.
+      const ccIds = Array.from(ccUserIds)
       setBody('')
       setIsInternal(false)
       setMentionQuery(null)
+      setCcUserIds(new Set())
       void qc.invalidateQueries({ queryKey: ['ticket-comments', ticketId] })
       void qc.invalidateQueries({ queryKey: ['ticket-comments-staff', ticketId] })
-      // @mention dispatch: fire-and-forget; errors are non-fatal (bell is best-effort).
+      // Notify dispatch: @mentions (landr-7dya.12) + reply CC (landr-7dya.9) go
+      // through the SAME override-quiet fan-out. Fire-and-forget; errors are
+      // non-fatal (the comment is already posted — bell is best-effort). The
+      // backend de-dupes and excludes the actor, so merging is safe.
       void (async () => {
         try {
           const handles = parseMentionHandles(postedBody)
-          if (handles.size === 0) return
-          const resolved = await resolveMentionHandles(handles)
-          const userIds = Array.from(resolved.values()).map((u) => u.id)
+          const mentionIds = handles.size
+            ? Array.from((await resolveMentionHandles(handles)).values()).map(
+                (u) => u.id,
+              )
+            : []
+          // Merge mentions + CC, de-duplicated.
+          const userIds = Array.from(new Set([...mentionIds, ...ccIds]))
           if (userIds.length > 0) {
             await notifyMentions(ticketId, comment.id, userIds, postedBody)
           }
         } catch {
-          // Mention dispatch failure is non-fatal — the comment is already posted.
+          // Notify dispatch failure is non-fatal — the comment is already posted.
         }
       })()
     },
@@ -1338,6 +1403,85 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
             >
               {t.ticketDetail.commentInternalToggle}
             </label>
+          </div>
+        )}
+
+        {/* Reply-with-CC picker (landr-7dya.9) — staff only. Lets the author
+            notify additional staff on this reply via the mention dispatch. */}
+        {isStaff && (
+          <div
+            className="mb-2 flex flex-wrap items-center gap-1.5"
+            data-testid="cc-picker"
+          >
+            <span className="text-muted-foreground inline-flex items-center text-xs font-medium">
+              {t.ticketDetail.ccLabel}:
+            </span>
+            {ccSelected.map((u) => (
+              <span
+                key={u.id}
+                className="inline-flex items-center gap-1 rounded-full bg-blue-100 py-0.5 pl-2 pr-1 text-[11px] font-medium text-blue-800 dark:bg-blue-950/50 dark:text-blue-300"
+                data-testid={`cc-chip-${u.id}`}
+              >
+                {u.email?.split('@')[0] ?? u.id}
+                <button
+                  type="button"
+                  className="inline-flex size-3.5 items-center justify-center rounded-full hover:bg-blue-200 dark:hover:bg-blue-900"
+                  onClick={() => toggleCc(u.id)}
+                  aria-label={t.ticketDetail.ccRemove(u.email ?? u.id)}
+                  data-testid={`cc-chip-remove-${u.id}`}
+                >
+                  <XIcon className="size-2.5" aria-hidden />
+                </button>
+              </span>
+            ))}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-2 text-xs text-muted-foreground"
+                  data-testid="cc-add-btn"
+                >
+                  <UserPlusIcon className="size-3" aria-hidden />
+                  {t.ticketDetail.ccAddLabel}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="max-h-60 w-56 overflow-y-auto"
+                data-testid="cc-menu"
+              >
+                <DropdownMenuLabel className="text-xs">
+                  {t.ticketDetail.ccPickerPlaceholder}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {ccCandidates.length === 0 ? (
+                  <div className="text-muted-foreground px-2 py-1.5 text-xs">
+                    {t.ticketDetail.ccNoStaff}
+                  </div>
+                ) : (
+                  ccCandidates.map((u) => (
+                    <DropdownMenuCheckboxItem
+                      key={u.id}
+                      checked={ccUserIds.has(u.id)}
+                      // Keep the menu open across multiple selections.
+                      onSelect={(e) => e.preventDefault()}
+                      onCheckedChange={() => toggleCc(u.id)}
+                      className="text-xs"
+                      data-testid={`cc-option-${u.id}`}
+                    >
+                      {u.email ?? u.id}
+                    </DropdownMenuCheckboxItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {ccSelected.length > 0 && (
+              <span className="text-muted-foreground/70 w-full text-[10px]">
+                {t.ticketDetail.ccHint}
+              </span>
+            )}
           </div>
         )}
 
@@ -1515,7 +1659,22 @@ function CommentBubble({ comment }: CommentBubbleProps) {
           </span>
         )}
       </div>
-      <p className="whitespace-pre-wrap">{comment.body}</p>
+      <p className="whitespace-pre-wrap" data-testid={`comment-body-${comment.id}`}>
+        {/* landr-7dya.12 — highlight @mentions in the displayed body. */}
+        {splitMentionSegments(comment.body).map((seg, i) =>
+          seg.type === 'mention' ? (
+            <span
+              key={i}
+              className="rounded bg-blue-100 px-0.5 font-medium text-blue-800 dark:bg-blue-950/50 dark:text-blue-300"
+              data-testid="comment-mention"
+            >
+              {seg.value}
+            </span>
+          ) : (
+            <span key={i}>{seg.value}</span>
+          ),
+        )}
+      </p>
     </div>
   )
 }
@@ -1739,17 +1898,184 @@ function AttachmentsPanel({ ticketId, publicUserId }: AttachmentsPanelProps) {
   )
 }
 
+// ---- AttachmentLightbox --------------------------------------------------------
+//
+// landr-7dya.4 — Full-screen zoomable lightbox for image attachments.
+// Pan: click-and-drag. Zoom: scroll wheel / pinch. Keyboard: Esc to close.
+// The lightbox renders into a portal so it floats above the Sheet z-stack.
+
+type LightboxProps = {
+  src: string
+  alt: string
+  onClose: () => void
+}
+
+function AttachmentLightbox({ src, alt, onClose }: LightboxProps) {
+  const [scale, setScale] = useState(1)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const dragRef = useRef<{ startX: number; startY: number; ox: number; oy: number } | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Close on Escape.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  // Prevent body scroll while open.
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [])
+
+  function handleWheel(e: React.WheelEvent) {
+    e.preventDefault()
+    const delta = e.deltaY > 0 ? -0.15 : 0.15
+    setScale((s) => Math.max(0.5, Math.min(10, s + delta)))
+  }
+
+  function handleMouseDown(e: React.MouseEvent) {
+    if (e.button !== 0) return
+    e.preventDefault()
+    dragRef.current = { startX: e.clientX, startY: e.clientY, ox: offset.x, oy: offset.y }
+    setIsDragging(true)
+    function onMove(ev: MouseEvent) {
+      if (!dragRef.current) return
+      setOffset({
+        x: dragRef.current.ox + (ev.clientX - dragRef.current.startX),
+        y: dragRef.current.oy + (ev.clientY - dragRef.current.startY),
+      })
+    }
+    function onUp() {
+      dragRef.current = null
+      setIsDragging(false)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
+  function handleBackdropClick(e: React.MouseEvent) {
+    // Close only when clicking the backdrop itself, not the image.
+    if (e.target === containerRef.current) onClose()
+  }
+
+  function resetZoom() {
+    setScale(1)
+    setOffset({ x: 0, y: 0 })
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80"
+      onClick={handleBackdropClick}
+      data-testid="attachment-lightbox-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Image preview: ${alt}`}
+    >
+      {/* Controls row */}
+      <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
+        <button
+          type="button"
+          className="rounded-md bg-white/10 px-2 py-1 text-xs text-white/80 hover:bg-white/20 transition-colors"
+          onClick={resetZoom}
+          data-testid="lightbox-reset-zoom"
+        >
+          Reset
+        </button>
+        <button
+          type="button"
+          aria-label="Close preview"
+          className="rounded-md bg-white/10 p-1.5 text-white/80 hover:bg-white/20 transition-colors"
+          onClick={onClose}
+          data-testid="lightbox-close"
+        >
+          <XIcon className="size-4" aria-hidden />
+        </button>
+      </div>
+
+      {/* Zoom hint */}
+      <p className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[10px] text-white/40 select-none pointer-events-none">
+        Scroll to zoom · Drag to pan · Esc to close
+      </p>
+
+      {/* Image */}
+      <div
+        style={{
+          transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+          transformOrigin: 'center center',
+          cursor: isDragging ? 'grabbing' : 'grab',
+          userSelect: 'none',
+        }}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        data-testid="lightbox-image-wrapper"
+      >
+        <img
+          src={src}
+          alt={alt}
+          className="max-h-[85vh] max-w-[85vw] rounded shadow-2xl"
+          draggable={false}
+          data-testid="lightbox-image"
+        />
+      </div>
+    </div>
+  )
+}
+
+// ---- AttachmentRow ----------------------------------------------------------
+//
+// landr-7dya.4 — images show a thumbnail preview; clicking opens the lightbox.
+// Non-images show a file icon. All attachments keep a download affordance.
+
 type AttachmentRowProps = {
   attachment: TicketAttachment
 }
 
 function AttachmentRow({ attachment }: AttachmentRowProps) {
+  const isImage = attachment.content_type.startsWith('image/')
+
   const [signingUrl, setSigningUrl] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  // Start as `true` for images so the skeleton renders immediately without
+  // a synchronous setState in the effect body.
+  const [fetchingPreview, setFetchingPreview] = useState(isImage)
+  const sizeKB = Math.ceil(attachment.size_bytes / 1024)
+
+  // Lazy-load a signed URL for the image thumbnail on mount (images only).
+  // fetchingPreview is initialised to `true` for images so the skeleton
+  // renders on first paint; the effect only flips it to false after the fetch
+  // resolves (success or failure), avoiding a synchronous setState-in-effect
+  // that the React Compiler flags.
+  useEffect(() => {
+    if (!isImage) return
+    let cancelled = false
+    getAttachmentSignedUrl(attachment.storage_path)
+      .then((url) => {
+        if (!cancelled) {
+          setPreviewUrl(url)
+          setFetchingPreview(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setFetchingPreview(false)
+      })
+    return () => { cancelled = true }
+  }, [isImage, attachment.storage_path])
 
   async function handleDownload() {
     setSigningUrl(true)
     try {
-      const url = await getAttachmentSignedUrl(attachment.storage_path)
+      const url = previewUrl ?? await getAttachmentSignedUrl(attachment.storage_path)
       const a = document.createElement('a')
       a.href = url
       a.download = attachment.filename
@@ -1766,32 +2092,95 @@ function AttachmentRow({ attachment }: AttachmentRowProps) {
     }
   }
 
-  const sizeKB = Math.ceil(attachment.size_bytes / 1024)
-  const isImage = attachment.content_type.startsWith('image/')
-
   return (
-    <div
-      className="bg-card border-input flex items-center gap-3 rounded-md border px-3 py-2 text-sm"
-      data-testid={`attachment-row-${attachment.id}`}
-    >
-      <Paperclip className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium">{attachment.filename}</span>
-        <span className="text-muted-foreground text-xs">
-          {isImage ? 'Image' : attachment.content_type} · {sizeKB} KB
-        </span>
-      </span>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="shrink-0 text-xs"
-        onClick={handleDownload}
-        disabled={signingUrl}
-        data-testid={`attachment-download-${attachment.id}`}
+    <>
+      <div
+        className="bg-card border-input flex items-start gap-3 rounded-md border px-3 py-2 text-sm"
+        data-testid={`attachment-row-${attachment.id}`}
       >
-        {signingUrl ? '…' : t.ticketDetail.attachmentDownload}
-      </Button>
-    </div>
+        {/* Thumbnail (images) or icon (non-images) */}
+        <div className="shrink-0 mt-0.5">
+          {isImage ? (
+            fetchingPreview ? (
+              <div
+                className="size-10 rounded bg-muted animate-pulse"
+                aria-hidden
+              />
+            ) : previewUrl ? (
+              <button
+                type="button"
+                className="relative size-10 overflow-hidden rounded border border-border focus-visible:outline-2 focus-visible:outline-ring group"
+                onClick={() => setLightboxOpen(true)}
+                aria-label={`Preview ${attachment.filename}`}
+                data-testid={`attachment-thumbnail-${attachment.id}`}
+              >
+                <img
+                  src={previewUrl}
+                  alt={attachment.filename}
+                  className="size-full object-cover"
+                />
+                <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
+                  <ZoomInIcon className="size-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden />
+                </span>
+              </button>
+            ) : (
+              <ImageIcon className="size-5 text-muted-foreground" aria-hidden />
+            )
+          ) : (
+            <FileIcon className="size-5 text-muted-foreground" aria-hidden />
+          )}
+        </div>
+
+        {/* Metadata */}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">{attachment.filename}</span>
+          <span className="text-muted-foreground text-xs">
+            {isImage ? 'Image' : attachment.content_type} · {sizeKB} KB
+          </span>
+        </span>
+
+        {/* Actions */}
+        <div className="flex shrink-0 items-center gap-1">
+          {isImage && previewUrl && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setLightboxOpen(true)}
+              aria-label={`Full-screen preview of ${attachment.filename}`}
+              data-testid={`attachment-preview-btn-${attachment.id}`}
+            >
+              <ZoomInIcon className="size-3.5" aria-hidden />
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={handleDownload}
+            disabled={signingUrl}
+            aria-label={`Download ${attachment.filename}`}
+            data-testid={`attachment-download-${attachment.id}`}
+          >
+            {signingUrl ? (
+              <span className="text-xs">…</span>
+            ) : (
+              <DownloadIcon className="size-3.5" aria-hidden />
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* Lightbox (images only) */}
+      {lightboxOpen && previewUrl ? (
+        <AttachmentLightbox
+          src={previewUrl}
+          alt={attachment.filename}
+          onClose={() => setLightboxOpen(false)}
+        />
+      ) : null}
+    </>
   )
 }

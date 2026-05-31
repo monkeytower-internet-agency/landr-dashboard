@@ -116,7 +116,8 @@ export async function fetchInboxThreads(
       `id, context, type, title, body, status, priority, perceived_impact,
        reporter_id, operator_id, assignee_id, blocked, moscow,
        severity, linked_bd_id, promotion_prompt, promotion_requested_at,
-       sync_status, last_synced_at, created_at, updated_at`,
+       sync_status, last_synced_at, origin_tier, origin_operator_label,
+       created_at, updated_at`,
     )
     .eq('operator_id', operatorId)
     .order('updated_at', { ascending: false })

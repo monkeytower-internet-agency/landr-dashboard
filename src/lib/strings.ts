@@ -24,6 +24,72 @@ export const t = {
     // landr-v0xg — Views section label (sidebar primary nav).
     views: 'Views',
   },
+  // landr-7dya.10 — top-level app-mode switch (single-operator · view-as ·
+  // ticket-system). Staff-only; non-staff never see the switcher.
+  appMode: {
+    // Trigger label / aria for the topbar mode switch.
+    switcherLabel: 'Workspace mode',
+    triggerLabel: 'Switch workspace',
+    menuLabel: 'Workspace',
+    // Mode entries.
+    operator: 'Operator dashboard',
+    operatorHint: 'Your normal operator-scoped workspace',
+    viewAs: 'View as operator',
+    viewAsHint: 'Preview what a SaaS customer sees',
+    tickets: 'Ticket system',
+    ticketsHint: 'Full-screen support & feedback workspace',
+    // Ticket-system shell chrome.
+    ticketSystemTitle: 'Ticket system',
+    ticketSystemSubtitle: 'Staff support & feedback workspace',
+    exitToOperator: 'Exit to dashboard',
+    exitToOperatorAria: 'Exit the ticket system and return to the operator dashboard',
+    // Ticket-system sub-surface tabs.
+    surfaceInbox: 'Inbox',
+    surfaceBoard: 'Board',
+    surfacePlanning: 'Planning',
+  },
+  // landr-7dya.11 — shell-level combinable ticket filter bar (spans Inbox +
+  // Board). Quick chips + a full filter popover, all deep-linkable in the URL.
+  ticketFilters: {
+    barLabel: 'Ticket filters',
+    // Quick chips
+    chipAssignedToMe: 'Assigned to me',
+    chipUnread: 'Unread',
+    chipMentionedMe: 'Mentioned me',
+    chipUnassigned: 'Unassigned',
+    chipWatching: 'Watching',
+    chipBlocked: 'Blocked',
+    // More-filters popover
+    moreFilters: 'More filters',
+    moreFiltersWithCount: (n: number): string => `Filters · ${n}`,
+    sectionType: 'Type & urgency',
+    sectionScope: 'Scope',
+    sectionTime: 'Time',
+    // Selects (used as the empty-option label + aria-label)
+    operatorLabel: 'Operator',
+    operatorAll: 'All operators',
+    statusLabel: 'Status',
+    statusAll: 'Any status',
+    typeLabel: 'Type',
+    typeAll: 'Any type',
+    severityLabel: 'Severity',
+    severityAll: 'Any severity',
+    priorityLabel: 'Priority',
+    priorityAll: 'Any priority',
+    moscowLabel: 'MoSCoW',
+    moscowAll: 'Any MoSCoW',
+    impactLabel: 'Impact',
+    impactAll: 'Any impact',
+    tierLabel: 'Origin tier',
+    tierAll: 'All tiers',
+    timeRangeLabel: 'Time range',
+    timeRangeAll: 'Any time',
+    timeFieldLabel: 'Date field',
+    timeFieldCreated: 'Created',
+    timeFieldUpdated: 'Updated',
+    clearAll: 'Clear all',
+    activeBadge: (n: number): string => `${n} active`,
+  },
   // landr-wmsc — Cmd/Ctrl+K command palette.
   commandPalette: {
     triggerLabel: 'Open command palette',
@@ -127,7 +193,7 @@ export const t = {
     noOperators: 'No operators available for this account.',
     switchTo: 'Switch operator',
     loading: 'Loading operators…',
-    // landr-2soj — staff "View as operator" mode.
+    // landr-2soj / landr-7dya.13 — staff "View as operator" mode.
     viewAs: {
       // Picker section header inside the operator switcher (staff-only).
       sectionLabel: 'View as operator (staff)',
@@ -141,6 +207,14 @@ export const t = {
       // the banner itself mounting as a role="status" region).
       exitedAnnouncement: 'Exited view-as mode; restored full staff view.',
       bannerRegionLabel: 'Staff view-as status',
+      // landr-7dya.13 — operator picker dialog (command dialog).
+      pickerTitle: 'View as operator',
+      pickerDescription: 'Pick an operator to preview their dashboard exactly as they see it.',
+      pickerPlaceholder: 'Search operators…',
+      pickerGroupLabel: 'Operators',
+      pickerLoading: 'Loading operators…',
+      pickerEmpty: 'No operators found.',
+      pickerActive: 'viewing',
     },
   },
   nav: {
@@ -617,6 +691,53 @@ export const t = {
     // landr-a99u.12 — staff view: customer signoff badge on pending proposals
     signoffByCustomer: (label: string) => `Requested by ${label}`,
     signoffByStaff: 'Proposed by staff',
+    // landr-7dya.21 — tier-aware /release. The console re-shapes per deploy
+    // tier + viewer role so a wrong-tier action is impossible to surface:
+    // dev → only "Promote to staging"; staging → customer (Martin) sees
+    // "Request go-live", staff approver sees pending requests + "Approve &
+    // promote"; prod → no actions at all. NEVER dev→main, anywhere.
+    tierAware: {
+      // Tier badge shown next to the page title so the user knows which env
+      // they're acting on (the page CONTENT also gates on it, but the badge
+      // is a constant visual cue and matches the .19 topbar badge).
+      tierBadgeDev: 'dev',
+      tierBadgeStaging: 'staging',
+      tierBadgeProd: 'prod',
+      // Unknown-tier fallback — the build was deployed without
+      // VITE_DEPLOY_TIER and the server didn't report viewer.tier either.
+      // Render a read-only card; no action is safe in this state.
+      unknownTierTitle: 'Deploy tier unknown',
+      unknownTierDescription:
+        'This build did not report its deploy tier. Promotions are disabled until VITE_DEPLOY_TIER is set or the API reports `viewer.tier`. Reload after the next deploy to retry.',
+      // Prod-tier message — promotions don't originate from production.
+      prodNoActionsTitle: 'No further promotions from production',
+      prodNoActionsDescription:
+        'Production is the end of the pipeline. Promotions are initiated from dev (staff) or staging (customer signer + staff approver), never from prod.',
+      // Customer "Request go-live" card (staging + is_release_signer).
+      requestGoLiveTitle: 'Request go-live',
+      requestGoLiveDescription:
+        "You're on the staging build. Once you've validated the release here, file a request — a landr staff approver will give the final go and ship it to production.",
+      requestGoLiveNotesLabel: 'Notes (optional)',
+      requestGoLiveNotesPlaceholder:
+        'e.g. checkout + calendar reschedule pass on staging',
+      requestGoLiveButton: 'Request go-live',
+      requestGoLiveSubmitting: 'Sending…',
+      requestSentToast: 'Sent — landr staff will approve and promote.',
+      requestAlreadyPendingToast:
+        'A go-live request is already pending — staff will get to it shortly.',
+      requestErrorTitle: 'Could not send go-live request',
+      // State shown to the customer when a prior request is already pending.
+      customerRequestPendingLabel:
+        'Your go-live request is pending staff approval.',
+      // State shown to the customer when they are NOT a signer (defence in
+      // depth — eligibility=false already hides the form, but if the user
+      // navigates directly this gives a clear message).
+      notASignerTitle: 'Go-live requests are gated to release signers',
+      notASignerDescription:
+        'Only designated customer release signers can request a go-live. Talk to landr staff if you need this access.',
+      // Eligibility loading placeholder.
+      eligibilityLoading: 'Checking your go-live permissions…',
+    },
   },
   theme: {
     switchToDark: 'Switch to dark theme',
@@ -724,6 +845,13 @@ export const t = {
     // @mentions (landr-wwhn.24)
     mentionNoResults: 'No matching users.',
     mentionSearching: 'Searching…',
+    // Reply-with-CC (landr-7dya.9) — notify extra staff on this reply
+    ccLabel: 'CC',
+    ccAddLabel: 'CC staff',
+    ccPickerPlaceholder: 'Add staff to notify…',
+    ccNoStaff: 'No staff available.',
+    ccRemove: (email: string): string => `Remove ${email} from CC`,
+    ccHint: 'CC’d staff get a bell, push and email for this reply.',
     // Timeline
     noEvents: 'No activity yet.',
     eventCreated: 'Ticket opened',
@@ -3530,5 +3658,18 @@ export const t = {
       'booking.completed': 'Booking completed',
       'payment.received': 'Payment received',
     },
+  },
+  // landr-40x0 — client-side error capture history (ErrorHistoryBell + notify).
+  errorHistory: {
+    openLabel: 'Open error history',
+    badgeLabel: (n: number): string =>
+      `${n} captured error${n === 1 ? '' : 's'}`,
+    heading: 'Recent errors',
+    empty: 'No errors captured this session.',
+    clearAll: 'Clear all',
+    copyLabel: 'Copy error details',
+    reportLabel: 'Report this error',
+    copiedToast: 'Error details copied.',
+    copyFailedToast: 'Could not copy to clipboard.',
   },
 } as const

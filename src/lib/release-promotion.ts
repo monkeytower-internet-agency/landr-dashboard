@@ -112,19 +112,27 @@ export type RepoStatus = {
   staging_sha: string
   main_sha: string
   /** Commits dev is ahead of staging. */
-  dev_to_staging_ahead: number
+  dev_to_staging_ahead_by: number
   /** Commits staging is ahead of main. */
-  staging_to_main_ahead: number
+  staging_to_main_ahead_by: number
 }
 
 /**
  * Server-computed capability block. The dashboard gates buttons on THESE,
  * not on raw roles, so the rules stay in one place (the backend).
+ *
+ * landr-7dya.21 — the API enforcement worker may extend `viewer` with an
+ * optional `tier` field reporting the deploy tier the API itself is serving.
+ * When present, the dashboard prefers it over the static-build VITE_DEPLOY_TIER
+ * (via `resolveTier()` in @/lib/tier). Absent on older API revisions; the
+ * dashboard falls back to the build env then to null in that case.
  */
 export type PromotionViewer = {
   can_promote_staging: boolean
   can_propose_prod: boolean
   can_approve_prod: boolean
+  /** Optional server-reported deploy tier (landr-7dya.21). */
+  tier?: 'dev' | 'staging' | 'prod' | null
 }
 
 /** Response of GET …/status — env matrix + the viewer's capabilities. */
@@ -159,9 +167,23 @@ export async function fetchStatus(): Promise<PromotionStatusResponse> {
   return api<PromotionStatusResponse>('GET', '/api/landr-staff/promotions/status')
 }
 
-/** Fetch the recent promotion runs (history, newest first). */
+/** Fetch the recent promotion runs (history, newest first).
+ *
+ * The backend wraps the list in `{"runs": [...]}` (landr_staff_promotions.list_runs
+ * returns a dict, not a bare array). Unwrap here so callers receive the array
+ * the type promises — otherwise `runs.filter(...)` in Release.tsx throws
+ * "runs.filter is not a function" and /release blank-pages (was silently black
+ * before landr-7dya.18's RouteErrorBoundary made it visible). Tolerates either
+ * shape (bare array OR `{runs}`) + null/missing for future-proofing.
+ */
 export async function fetchRuns(): Promise<PromotionRun[]> {
-  return api<PromotionRun[]>('GET', '/api/landr-staff/promotions')
+  const res = await api<{ runs: PromotionRun[] } | PromotionRun[] | null>(
+    'GET',
+    '/api/landr-staff/promotions',
+  )
+  if (Array.isArray(res)) return res
+  if (res && Array.isArray(res.runs)) return res.runs
+  return []
 }
 
 /** Fetch a single run with its per-repo slices. */

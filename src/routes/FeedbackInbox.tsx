@@ -35,6 +35,7 @@ import {
   ArrowUpRightIcon,
   UserIcon,
 } from 'lucide-react'
+import { OriginChip, CardStatusIcons } from '@/components/tickets/CardVisuals'
 
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
@@ -54,14 +55,19 @@ import {
 } from '@/lib/feedback-inbox'
 import {
   fetchAssignableUsers,
+  fetchTicket,
   PERCEIVED_IMPACT_LABEL,
   TICKET_STATUSES,
+  type TicketRow,
   type TicketStatus,
   type TicketPerceivedImpact,
   type AssignableUser,
 } from '@/lib/tickets'
+import { TICKET_SYSTEM_PATH } from '@/lib/app-mode'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
+import { useTicketFilter } from '@/lib/ticket-filter-context'
+import { TicketDetailSheet } from '@/components/tickets/TicketDetailSheet'
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -311,6 +317,14 @@ function ThreadCard({
   const displayedEvents = expanded ? timeline : timeline.slice(-2)
   const hiddenCount = timeline.length - 2
 
+  // Derive comment count from timeline (comment events only)
+  const commentCount = timeline.filter((e) => e.kind === 'comment').length
+
+  // Resolved assignee for the status-icon avatar
+  const resolvedAssignee = ticket.assignee_id
+    ? (assigneeMap.get(ticket.assignee_id) ?? null)
+    : null
+
   return (
     <div
       className={cn(
@@ -324,6 +338,12 @@ function ThreadCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-sm truncate">{ticket.title}</span>
+            {/* landr-7dya.2 — origin chip */}
+            <OriginChip
+              tier={ticket.origin_tier ?? null}
+              operatorLabel={ticket.origin_operator_label ?? null}
+              data-testid={`inbox-thread-origin-${ticket.id}`}
+            />
             {hasUnread && (
               <span
                 className="inline-flex size-2 shrink-0 rounded-full bg-primary"
@@ -344,16 +364,19 @@ function ThreadCard({
             <span>{PERCEIVED_IMPACT_LABEL[ticket.perceived_impact]}</span>
             <span>·</span>
             <span>{ticket.status.replace('_', ' ')}</span>
-            {ticket.assignee_id && (
-              <>
-                <span>·</span>
-                <span>
-                  {assigneeMap.get(ticket.assignee_id)?.email ??
-                    ticket.assignee_id.slice(0, 8)}
-                </span>
-              </>
-            )}
           </div>
+          {/* landr-7dya.3 — Trello-style status icons */}
+          <CardStatusIcons
+            attachmentCount={0}
+            isWatching={false}
+            assignee={resolvedAssignee}
+            priority={ticket.priority}
+            commentCount={commentCount}
+            moscow={ticket.moscow ?? null}
+            blocked={ticket.blocked}
+            className="mt-1.5"
+            data-testid={`inbox-thread-status-icons-${ticket.id}`}
+          />
         </div>
         <Button
           variant="ghost"
@@ -594,6 +617,13 @@ function FeedbackInboxInner() {
   )
   const [filter, setFilter] = useState<InboxFilter>(INBOX_FILTER_DEFAULTS)
 
+  // landr-7dya.11 — the shell-level shared filter (operator/type/urgency/time/
+  // assigned-to-me/unread/watching/mentioned/unassigned/status/blocked/tier).
+  // Layered ON TOP of this surface's own status/impact/assignee/unread chips
+  // (AND). When the inbox is rendered standalone (/feedback-inbox, no shell)
+  // useTicketFilter() returns a fallback whose `matches` passes everything.
+  const { matches: shellMatches } = useTicketFilter()
+
   // Left-rail summary
   const summaryQuery = useQuery({
     queryKey: ['feedback-inbox-summary'],
@@ -666,26 +696,31 @@ function FeedbackInboxInner() {
     return ids
   }, [threads, selectedSummary, staffUserIds])
 
-  // Apply filters
+  // Apply filters — the inbox's own chips AND the shell-level shared filter.
   const filteredThreads = useMemo(
     () =>
-      threads.filter((th) =>
-        threadMatchesFilter(
-          th,
-          filter,
-          unreadTicketIds,
-          awaitingReplyTicketIds,
-        ),
+      threads.filter(
+        (th) =>
+          threadMatchesFilter(
+            th,
+            filter,
+            unreadTicketIds,
+            awaitingReplyTicketIds,
+          ) && shellMatches(th.ticket),
       ),
-    [threads, filter, unreadTicketIds, awaitingReplyTicketIds],
+    [threads, filter, unreadTicketIds, awaitingReplyTicketIds, shellMatches],
   )
 
-  // Bell deep-link: ?open=<ticketId> clears param and keeps current selection
-  // if the ticket is already in view, otherwise defers to user to pick rail.
+  // landr-7dya.6 — bell deep-link: ?open=<ticketId> fetches the ticket and
+  // opens TicketDetailSheet directly (refresh-safe). Clears the param after
+  // opening so the URL stays clean. The sheet is owned here so the inbox
+  // stays mounted behind it (state preserved when the sheet is closed).
+  const [deepLinkTicket, setDeepLinkTicket] = useState<TicketRow | null>(null)
   const openTicketId = searchParams.get('open')
 
   useEffect(() => {
     if (!openTicketId) return
+    // Strip the param immediately so a refresh doesn't re-trigger.
     setSearchParams(
       (p) => {
         const next = new URLSearchParams(p)
@@ -694,7 +729,17 @@ function FeedbackInboxInner() {
       },
       { replace: true },
     )
-  }, [openTicketId, setSearchParams])
+    // Fetch the ticket row and open the detail sheet.
+    fetchTicket(openTicketId)
+      .then((row) => {
+        if (row) setDeepLinkTicket(row)
+      })
+      .catch(() => {
+        // Fetch failure is non-fatal — the bell click just lands on the
+        // inbox without opening the sheet.
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openTicketId])
 
   // Auto-select first operator once summaries load
   if (selectedOperatorId === null && summaries.length > 0) {
@@ -702,16 +747,24 @@ function FeedbackInboxInner() {
     if (first) setSelectedOperatorId(first.operator_id)
   }
 
+  // landr-7dya.6 — "View on board" now targets the app-view board
+  // (/staff/tickets/board?open=<id>) so the full TicketDetailSheet opens there.
   function handleViewOnBoard(ticketId: string) {
     void queryClient.invalidateQueries({
       queryKey: ['feedback-inbox-summary'],
     })
-    navigate(`/tickets?open=${encodeURIComponent(ticketId)}`)
+    navigate(`${TICKET_SYSTEM_PATH}/board?open=${encodeURIComponent(ticketId)}`)
   }
 
   return (
     <>
       <PageTitle title={t.feedbackInbox.title} />
+
+      {/* landr-7dya.6 — Deep-link sheet: opens when ?open=<id> is resolved. */}
+      <TicketDetailSheet
+        ticket={deepLinkTicket}
+        onOpenChange={(open) => { if (!open) setDeepLinkTicket(null) }}
+      />
 
       <div className="flex h-full min-h-0 overflow-hidden">
         {/* ---- Left rail --------------------------------------------------- */}

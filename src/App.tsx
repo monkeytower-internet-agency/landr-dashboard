@@ -49,6 +49,9 @@ const FeedbackInbox = lazy(() => import('@/routes/FeedbackInbox'))
 // landr-a99u.6 — release promotion console (staff-only, staff-rare). Lazy so
 // it stays off the operator-facing initial bundle.
 const Release = lazy(() => import('@/routes/Release'))
+// landr-7dya.10 — full-screen ticket-system app-view shell. Staff-only,
+// off the operator initial bundle (operators never reach it).
+const TicketSystemShell = lazy(() => import('@/components/TicketSystemShell'))
 import { AuthCallback } from '@/routes/AuthCallback'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
@@ -100,9 +103,13 @@ import { EntitlementsProvider, useEntitlements } from '@/lib/entitlements'
 import { featureForRoute, featureForSection } from '@/lib/entitlements-map'
 import { ProtectedRoute } from '@/lib/ProtectedRoute'
 import { ThemeProvider } from '@/lib/theme'
+import { AppModeProvider } from '@/lib/app-mode-context'
+import { TICKET_SYSTEM_PATH } from '@/lib/app-mode'
 import { AppShell } from '@/components/AppShell'
+import { TicketSystemGate } from '@/components/TicketSystemGate'
 import { OnboardingGuard } from '@/components/OnboardingGuard'
 import { RouteFallback } from '@/components/RouteFallback'
+import { RouteErrorBoundary } from '@/components/RouteErrorBoundary'
 import { Toaster } from '@/components/ui/sonner'
 
 // landr-sydf — preserve /products/:productId deep links by forwarding the
@@ -145,6 +152,17 @@ function AccountIndexRedirect() {
   return <Navigate to={landingPathFor('account')} replace />
 }
 
+// landr-7dya.10 — padded, scrollable pane for the ticket-system BOARD/PLANNING
+// surfaces. The inbox surface is a full-height split-pane and is rendered
+// full-bleed (no wrapper); the board + planning are ordinary scrolling content
+// (flex-col gap-6) so they get a padded scroll container here. Keeps the
+// TicketSystemShell host a bare sized box (one place owns the scroll model).
+function TicketSurfacePane({ children }: { children: ReactNode }) {
+  return (
+    <div className="h-full overflow-y-auto px-4 py-4 sm:px-6">{children}</div>
+  )
+}
+
 // landr-sbhz.6 — guard a route by its effective-entitlement feature. When the
 // feature is DISABLED for the current operator (and the user isn't Landr
 // staff), the route is unreachable: we redirect to the dashboard home rather
@@ -183,6 +201,11 @@ function App() {
       <AuthProvider>
         <OperatorProvider>
           <EntitlementsProvider>
+          {/* landr-7dya.10 — top-level app-mode context (single-operator ·
+              view-as · ticket-system). Lives above the chrome split so both
+              the operator AppShell and the full-screen ticket-system shell
+              read the same mode + staff capability state. */}
+          <AppModeProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
@@ -199,13 +222,20 @@ function App() {
                 <ProtectedRoute>
                   <OnboardingGuard>
                     <AppShell>
-                      {/* landr-mhhq — Suspense boundary catches all
-                          lazy-loaded route chunks (Analytics +
-                          /views family today) so the AppShell chrome
-                          stays mounted while the chunk streams in. */}
-                      <Suspense fallback={<RouteFallback />}>
-                        <Outlet />
-                      </Suspense>
+                      {/* landr-a99u — RouteErrorBoundary wraps the Suspense
+                          so a single route's render crash turns into a
+                          "Something went wrong" card (with the error captured
+                          in ErrorHistoryBell) rather than blacking out the
+                          whole dashboard. Resets on navigation via key=pathname. */}
+                      <RouteErrorBoundary>
+                        {/* landr-mhhq — Suspense boundary catches all
+                            lazy-loaded route chunks (Analytics +
+                            /views family today) so the AppShell chrome
+                            stays mounted while the chunk streams in. */}
+                        <Suspense fallback={<RouteFallback />}>
+                          <Outlet />
+                        </Suspense>
+                      </RouteErrorBoundary>
                     </AppShell>
                   </OnboardingGuard>
                 </ProtectedRoute>
@@ -372,9 +402,64 @@ function App() {
                   ScheduleRedirect carries the search string through. */}
               <Route path="/schedule" element={<ScheduleRedirect />} />
             </Route>
+
+            {/* landr-7dya.10 — full-screen TICKET-SYSTEM app-view. A SIBLING of
+                the operator AppShell group above: it owns its OWN chrome
+                (TicketSystemShell) and REPLACES the operator sidebar/topbar
+                rather than nesting inside it. STAFF-ONLY (ProtectedRoute auth +
+                TicketSystemGate staff/capability gate; the hosted surfaces keep
+                their own server-side enforcement). Coexists with the
+                operator-chrome /tickets board + /tickets/planning + the
+                /feedback-inbox sidebar destinations, all of which stay working.
+                The hosted surfaces are the EXISTING route components — this
+                unifies them under one workspace, it does not duplicate them. */}
+            <Route
+              path={TICKET_SYSTEM_PATH}
+              element={
+                <ProtectedRoute>
+                  <TicketSystemGate>
+                    <Suspense fallback={<RouteFallback />}>
+                      <TicketSystemShell />
+                    </Suspense>
+                  </TicketSystemGate>
+                </ProtectedRoute>
+              }
+            >
+              {/* Inbox is the default surface (ADR 0005 primary workspace). */}
+              <Route
+                index
+                element={
+                  <Suspense fallback={<RouteFallback />}>
+                    <FeedbackInbox />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="board"
+                element={
+                  <Suspense fallback={<RouteFallback />}>
+                    <TicketSurfacePane>
+                      <TicketBoard />
+                    </TicketSurfacePane>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="planning"
+                element={
+                  <Suspense fallback={<RouteFallback />}>
+                    <TicketSurfacePane>
+                      <TicketPlanning />
+                    </TicketSurfacePane>
+                  </Suspense>
+                }
+              />
+            </Route>
+
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Toaster />
+          </AppModeProvider>
           </EntitlementsProvider>
         </OperatorProvider>
       </AuthProvider>

@@ -49,18 +49,21 @@ jobs:
             echo "production_branch=main"                                                  >> "$GITHUB_OUTPUT"
             echo "supabase_url=${{ secrets.VITE_SUPABASE_URL_PROD }}"                     >> "$GITHUB_OUTPUT"
             echo "supabase_pub_key=${{ secrets.VITE_SUPABASE_PUB_KEY }}"                  >> "$GITHUB_OUTPUT"
+            echo "deploy_tier=prod"                                                        >> "$GITHUB_OUTPUT"
           elif [ "${{ github.ref }}" = "refs/heads/staging" ]; then
             echo "project=landr-dashboard-staging"                                         >> "$GITHUB_OUTPUT"
             echo "api_base=https://landr-api-staging-693721943357.europe-west3.run.app"   >> "$GITHUB_OUTPUT"
             echo "production_branch=staging"                                               >> "$GITHUB_OUTPUT"
             echo "supabase_url=${{ secrets.VITE_SUPABASE_URL_STAGING }}"                  >> "$GITHUB_OUTPUT"
             echo "supabase_pub_key=${{ secrets.VITE_SUPABASE_PUB_KEY_STAGING }}"          >> "$GITHUB_OUTPUT"
+            echo "deploy_tier=staging"                                                     >> "$GITHUB_OUTPUT"
           else
             echo "project=landr-dashboard-dev"                                             >> "$GITHUB_OUTPUT"
             echo "api_base=https://api.dev.landr.de"                                      >> "$GITHUB_OUTPUT"
             echo "production_branch=dev"                                                   >> "$GITHUB_OUTPUT"
             echo "supabase_url=https://kong.dev.landr.de"                                 >> "$GITHUB_OUTPUT"
             echo "supabase_pub_key=${{ secrets.VITE_SUPABASE_PUB_KEY_DEV }}"              >> "$GITHUB_OUTPUT"
+            echo "deploy_tier=dev"                                                         >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build
@@ -68,7 +71,19 @@ jobs:
           VITE_SUPABASE_URL: ${{ steps.env.outputs.supabase_url }}
           VITE_SUPABASE_PUB_KEY: ${{ steps.env.outputs.supabase_pub_key }}
           VITE_API_BASE_URL: ${{ steps.env.outputs.api_base }}
-        run: npm run build
+          # landr-7dya.19 — tier badge: 'dev' | 'staging' | 'prod'
+          VITE_DEPLOY_TIER: ${{ steps.env.outputs.deploy_tier }}
+        # Write a .env so Vite picks the values up via its dotenv loader.
+        # Setting process.env alone is unreliable in CI (Vite client-side
+        # import.meta.env is populated from .env files at build time).
+        run: |
+          cat > .env <<EOF
+          VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+          VITE_SUPABASE_PUB_KEY=${VITE_SUPABASE_PUB_KEY}
+          VITE_API_BASE_URL=${VITE_API_BASE_URL}
+          VITE_DEPLOY_TIER=${VITE_DEPLOY_TIER}
+          EOF
+          npm run build
 
       - name: Ensure Cloudflare Pages project exists (idempotent)
         env:

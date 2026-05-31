@@ -51,6 +51,7 @@ import {
   parseMentionHandles,
   resolveMentionHandles,
   searchMentionUsers,
+  splitMentionSegments,
 } from './tickets'
 
 // ---- helpers ----------------------------------------------------------------
@@ -112,6 +113,65 @@ describe('parseMentionHandles', () => {
     const handles = parseMentionHandles('email me @ your convenience')
     // "your" follows "@ " but there's a space after @, so it shouldn't match.
     expect(handles.size).toBe(0)
+  })
+})
+
+// ---- splitMentionSegments (pure, landr-7dya.12) -----------------------------
+
+describe('splitMentionSegments', () => {
+  it('returns a single text segment when there are no mentions', () => {
+    const segs = splitMentionSegments('plain text only')
+    expect(segs).toEqual([{ type: 'text', value: 'plain text only' }])
+  })
+
+  it('returns one empty text segment for an empty body', () => {
+    const segs = splitMentionSegments('')
+    expect(segs).toEqual([{ type: 'text', value: '' }])
+  })
+
+  it('splits a single mention into text + mention + text', () => {
+    const segs = splitMentionSegments('hi @alice please look')
+    expect(segs).toEqual([
+      { type: 'text', value: 'hi ' },
+      { type: 'mention', value: '@alice', handle: 'alice' },
+      { type: 'text', value: ' please look' },
+    ])
+  })
+
+  it('handles a mention at the very start', () => {
+    const segs = splitMentionSegments('@bob leads')
+    expect(segs[0]).toEqual({ type: 'mention', value: '@bob', handle: 'bob' })
+    expect(segs[1]).toEqual({ type: 'text', value: ' leads' })
+  })
+
+  it('handles a mention at the very end (no trailing text segment)', () => {
+    const segs = splitMentionSegments('cc @carol')
+    expect(segs).toEqual([
+      { type: 'text', value: 'cc ' },
+      { type: 'mention', value: '@carol', handle: 'carol' },
+    ])
+  })
+
+  it('handles multiple mentions', () => {
+    const segs = splitMentionSegments('@bob and @carol')
+    const mentions = segs.filter((s) => s.type === 'mention')
+    expect(mentions.map((m) => m.value)).toEqual(['@bob', '@carol'])
+  })
+
+  it('lower-cases the handle but preserves the original token text', () => {
+    const segs = splitMentionSegments('ping @Alice')
+    const mention = segs.find((s) => s.type === 'mention')
+    expect(mention).toEqual({
+      type: 'mention',
+      value: '@Alice',
+      handle: 'alice',
+    })
+  })
+
+  it('reassembling all segment values reproduces the original body', () => {
+    const body = 'a @b c @d e'
+    const segs = splitMentionSegments(body)
+    expect(segs.map((s) => s.value).join('')).toBe(body)
   })
 })
 
