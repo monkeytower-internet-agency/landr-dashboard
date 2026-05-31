@@ -697,6 +697,15 @@ export const t = {
     // "Request go-live", staff approver sees pending requests + "Approve &
     // promote"; prod → no actions at all. NEVER dev→main, anywhere.
     tierAware: {
+      // Cross-tier jump links (TierJumpLinks in Release.tsx). Render up to two
+      // anchor buttons in the /release header — one per OTHER tier — so a
+      // staff promoter can hop between dev / staging / main consoles with one
+      // click. Opens in a new tab so the current session stays anchored on
+      // the tier the user is acting from.
+      jumpToTierAria: (label: string) => `Open ${label} dashboard /release in a new tab`,
+      jumpToTierDev: 'Open in DEV',
+      jumpToTierStaging: 'Open in STAGING',
+      jumpToTierProd: 'Open in PROD',
       // Unknown-tier fallback — the build was deployed without
       // VITE_DEPLOY_TIER and the server didn't report viewer.tier either.
       // Render a read-only card; no action is safe in this state.

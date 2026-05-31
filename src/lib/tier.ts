@@ -49,3 +49,44 @@ export function resolveTier(
   }
   return getTier()
 }
+
+/**
+ * Public origin (scheme + host) of each tier's dashboard. Used by the
+ * /release page's tier-jump links so promoters can hop between dev / staging
+ * / main consoles with one click — without the user having to manually edit
+ * the hostname. The list of tiers is deterministic per the deploy pipeline:
+ * see .github/workflows/deploy.yml ("Pick project + API base per branch").
+ *
+ * Keep these in sync with the CF Pages projects (landr-dashboard-dev /
+ * landr-dashboard-staging / landr-dashboard) — if the dashboard ever moves to
+ * a different hostname, fix it here.
+ */
+export const TIER_DASHBOARD_ORIGIN: Record<DeployTier, string> = {
+  dev: 'https://dashboard.dev.landr.de',
+  staging: 'https://dashboard-staging.landr.de',
+  prod: 'https://dashboard.landr.de',
+}
+
+/**
+ * Build a same-app URL on a different tier's dashboard. `path` must start
+ * with '/' (e.g. '/release'). Used to render cross-tier jump links; the
+ * destination route enforces its own access guard, so an unreachable tier
+ * just bounces the user home on arrival rather than silently rendering a
+ * disabled state here.
+ */
+export function urlForTier(tier: DeployTier, path: string): string {
+  return TIER_DASHBOARD_ORIGIN[tier] + path
+}
+
+/**
+ * The two other tiers, in canonical pipeline order (dev → staging → prod),
+ * for rendering "open in {OTHER_TIER}" jump links from a console that knows
+ * its own tier. Returns [] when `currentTier` is null (unknown — don't render
+ * a tier-related affordance with no anchor).
+ */
+const ORDERED_TIERS: readonly DeployTier[] = ['dev', 'staging', 'prod'] as const
+
+export function otherTiers(currentTier: DeployTier | null): DeployTier[] {
+  if (currentTier === null) return []
+  return ORDERED_TIERS.filter((t) => t !== currentTier)
+}
