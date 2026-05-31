@@ -38,10 +38,16 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeftIcon, InboxIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { ErrorHistoryBell } from '@/components/ErrorHistoryBell'
+import { GlobalErrorCapture } from '@/components/GlobalErrorCapture'
 import { NotificationsBell } from '@/components/NotificationsBell'
+import { ReportFab } from '@/components/ReportFab'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { TierBadge } from '@/components/TierBadge'
+import { UserMenu } from '@/components/UserMenu'
 import { AppModeSwitcher } from '@/components/AppModeSwitcher'
 import { TicketFilterBar } from '@/components/tickets/TicketFilterBar'
+import { ReportFabProvider } from '@/lib/report-fab-context'
 import { TicketFilterProvider } from '@/lib/ticket-filter-context'
 import { useAppMode } from '@/lib/app-mode-context'
 import {
@@ -113,12 +119,24 @@ export function TicketSystemShell(): ReactNode {
   }
 
   return (
+    // ReportFabProvider + GlobalErrorCapture: this shell is a SIBLING route to
+    // AppShell (see App.tsx — both are top-level), so the providers/listeners
+    // AppShell mounts are NOT in scope here. Mount our own copies so ReportFab,
+    // ErrorHistoryBell, and runtime-error logging keep working when staff are
+    // in the ticket-system mode.
+    <ReportFabProvider>
     <TicketFilterProvider>
     <div
       className="bg-background flex h-dvh min-h-0 w-full flex-col"
       data-testid="ticket-system-shell"
     >
-      {/* Dedicated header — REPLACES the operator topbar/sidebar. */}
+      {/* Dedicated header — REPLACES the operator topbar/sidebar. The right
+          cluster mirrors AppShell's so staff don't lose access to feedback,
+          notifications, deploy-tier, error history, or sign-out while
+          triaging tickets. Order matches AppShell: TierBadge · ReportFab ·
+          ErrorHistoryBell · NotificationsBell · ThemeToggle · UserMenu. The
+          mode switch sits in front of it because exiting / switching modes is
+          the action most adjacent to the workspace title itself. */}
       <header className="bg-background sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-3 sm:gap-3 sm:px-4">
         <Button
           type="button"
@@ -151,8 +169,12 @@ export function TicketSystemShell(): ReactNode {
           {/* The top-level mode switch stays reachable so staff can hop back to
               operator / view-as without first exiting. */}
           <AppModeSwitcher />
+          <TierBadge />
+          <ReportFab />
+          <ErrorHistoryBell />
           <NotificationsBell />
           <ThemeToggle />
+          <UserMenu />
         </div>
       </header>
 
@@ -178,8 +200,10 @@ export function TicketSystemShell(): ReactNode {
       >
         <Outlet />
       </main>
+      <GlobalErrorCapture />
     </div>
     </TicketFilterProvider>
+    </ReportFabProvider>
   )
 }
 

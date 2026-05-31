@@ -23,8 +23,10 @@ vi.mock('@/lib/app-mode-context', () => ({
   }),
 }))
 
-// The switcher + bell + theme toggle pull a lot of providers; stub them to keep
-// this test focused on the SHELL chrome (tabs, exit, surface host).
+// The right-cluster chrome items pull a lot of providers (auth, operator,
+// realtime, error-log, …); stub them to keep this test focused on the SHELL
+// chrome (tabs, exit, surface host). Each chrome item has its own dedicated
+// test elsewhere.
 vi.mock('@/components/AppModeSwitcher', () => ({
   AppModeSwitcher: () => <div data-testid="mode-switcher-stub" />,
 }))
@@ -33,6 +35,28 @@ vi.mock('@/components/NotificationsBell', () => ({
 }))
 vi.mock('@/components/ThemeToggle', () => ({
   ThemeToggle: () => <div data-testid="theme-stub" />,
+}))
+vi.mock('@/components/TierBadge', () => ({
+  TierBadge: () => <div data-testid="tier-badge-stub" />,
+}))
+vi.mock('@/components/ReportFab', () => ({
+  ReportFab: () => <div data-testid="report-fab-stub" />,
+}))
+vi.mock('@/components/ErrorHistoryBell', () => ({
+  ErrorHistoryBell: () => <div data-testid="error-history-stub" />,
+}))
+vi.mock('@/components/UserMenu', () => ({
+  UserMenu: () => <div data-testid="user-menu-stub" />,
+}))
+// GlobalErrorCapture installs window listeners on mount; stub it so the test
+// JSDOM env doesn't grow stray listeners across rerenders.
+vi.mock('@/components/GlobalErrorCapture', () => ({
+  GlobalErrorCapture: () => null,
+}))
+// ReportFabProvider is a real context — the test doesn't exercise the FAB so
+// a passthrough keeps the tree light.
+vi.mock('@/lib/report-fab-context', () => ({
+  ReportFabProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }))
 // landr-7dya.11 — the shared filter bar + its provider pull auth + query
 // providers; stub them so this test stays a pure SHELL-chrome test (the filter
