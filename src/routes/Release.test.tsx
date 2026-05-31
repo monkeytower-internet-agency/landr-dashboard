@@ -72,8 +72,8 @@ vi.mock('@/lib/release-promotion', async () => {
             dev_sha: 'aaaaaaa1111111',
             staging_sha: 'bbbbbbb2222222',
             main_sha: 'ccccccc3333333',
-            dev_to_staging_ahead: 3,
-            staging_to_main_ahead: 5,
+            dev_to_staging_ahead_by: 3,
+            staging_to_main_ahead_by: 5,
           },
         ],
         viewer: {

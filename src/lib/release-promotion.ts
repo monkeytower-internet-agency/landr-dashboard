@@ -112,9 +112,9 @@ export type RepoStatus = {
   staging_sha: string
   main_sha: string
   /** Commits dev is ahead of staging. */
-  dev_to_staging_ahead: number
+  dev_to_staging_ahead_by: number
   /** Commits staging is ahead of main. */
-  staging_to_main_ahead: number
+  staging_to_main_ahead_by: number
 }
 
 /**
