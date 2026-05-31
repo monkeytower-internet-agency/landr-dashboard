@@ -39,6 +39,10 @@ const { mock } = vi.hoisted(() => {
     eligibility: { can_request_golive: false },
     runs: [] as Array<Record<string, unknown>>,
     statusError: null as Error | null,
+    // Optional env-matrix commit-metadata decoration merged onto the single
+    // status repo. Default {} ⇒ older-backend shape (no decoration); a test
+    // sets this to assert the head-commit + GitHub-link rendering.
+    statusReposExtra: {} as Record<string, unknown>,
     promoteCalls: [] as unknown[],
     proposeCalls: [] as unknown[],
     approveCalls: [] as unknown[],
@@ -82,6 +86,7 @@ vi.mock('@/lib/release-promotion', async () => {
             main_sha: 'ccccccc3333333',
             dev_to_staging_ahead_by: 3,
             staging_to_main_ahead_by: 5,
+            ...mock.state.statusReposExtra,
           },
         ],
         viewer: {
@@ -160,6 +165,7 @@ function resetState() {
   mock.state.eligibility = { can_request_golive: false }
   mock.state.runs = []
   mock.state.statusError = null
+  mock.state.statusReposExtra = {}
   mock.state.promoteCalls = []
   mock.state.proposeCalls = []
   mock.state.approveCalls = []
@@ -225,6 +231,72 @@ describe('Release route — guard', () => {
     vi.stubEnv('VITE_DEPLOY_TIER', 'dev')
     renderRoute()
     await screen.findByText(/environment matrix/i)
+  })
+})
+
+describe('Release route — env-matrix commit decoration', () => {
+  beforeEach(() => {
+    mock.state.effectiveIsStaff = true
+    vi.stubEnv('VITE_DEPLOY_TIER', 'dev')
+  })
+
+  it('renders head commit, compare link and history link when decorated', async () => {
+    mock.state.statusReposExtra = {
+      dev_head_message: 'fix the booking widget date bug',
+      dev_head_author: 'Ada Lovelace',
+      dev_head_date: new Date(Date.now() - 3 * 3600_000).toISOString(),
+      dev_head_url: 'https://github.com/o/landr-api/commit/aaaaaaa1111111',
+      staging_head_message: 'bump deps',
+      staging_head_author: 'Grace Hopper',
+      staging_head_date: new Date(Date.now() - 2 * 86400_000).toISOString(),
+      staging_head_url: 'https://github.com/o/landr-api/commit/bbbbbbb2222222',
+      dev_to_staging_compare_url:
+        'https://github.com/o/landr-api/compare/staging...dev',
+      staging_to_main_compare_url:
+        'https://github.com/o/landr-api/compare/main...staging',
+      dev_history_url: 'https://github.com/o/landr-api/commits/dev',
+      staging_history_url: 'https://github.com/o/landr-api/commits/staging',
+    }
+    renderRoute()
+    await screen.findByText(/environment matrix/i)
+
+    // Head commit message + author rendered.
+    await screen.findByText(/fix the booking widget date bug/i)
+    expect(screen.getByText(/ada lovelace/i)).toBeInTheDocument()
+    expect(screen.getByText(/grace hopper/i)).toBeInTheDocument()
+
+    // The ahead-count is now a compare link, opening a safe new tab.
+    const compareLink = screen
+      .getAllByRole('link')
+      .find(
+        (a) =>
+          a.getAttribute('href') ===
+          'https://github.com/o/landr-api/compare/staging...dev',
+      )
+    expect(compareLink).toBeDefined()
+    expect(compareLink).toHaveAttribute('target', '_blank')
+    expect(compareLink).toHaveAttribute('rel', 'noopener noreferrer')
+
+    // History links present for both source branches.
+    const historyLinks = screen
+      .getAllByRole('link', { name: /history/i })
+      .map((a) => a.getAttribute('href'))
+    expect(historyLinks).toContain('https://github.com/o/landr-api/commits/dev')
+    expect(historyLinks).toContain(
+      'https://github.com/o/landr-api/commits/staging',
+    )
+  })
+
+  it('degrades to a plain ahead-count when the backend omits decoration', async () => {
+    // statusReposExtra defaults to {} ⇒ no optional fields.
+    renderRoute()
+    await screen.findByText(/environment matrix/i)
+    // Ahead counts still render…
+    expect(screen.getByText(/3 commits/i)).toBeInTheDocument()
+    // …but there is no compare/history link in the matrix.
+    expect(
+      screen.queryByRole('link', { name: /history/i }),
+    ).not.toBeInTheDocument()
   })
 })
 

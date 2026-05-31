@@ -599,13 +599,17 @@ export const t = {
     refresh: 'Refresh',
     // Environment matrix
     matrixTitle: 'Environment matrix',
-    matrixSubtitle: 'Commits each branch is ahead of the next, per repo.',
+    matrixSubtitle:
+      'Commits each branch is ahead of the next, per repo — with the source branch’s head commit and links to GitHub.',
     columnRepo: 'Repo',
     columnDevToStaging: 'dev → staging',
     columnStagingToMain: 'staging → main',
     upToDate: 'up to date',
     commitsAhead: (n: number) => `${n} commit${n === 1 ? '' : 's'}`,
     matrixEmpty: 'No deployable repos reported.',
+    // Optional commit-metadata decoration (head commit + GitHub links)
+    compareTitle: 'View the ahead range on GitHub',
+    historyLink: 'history',
     // Promote to staging
     stagingTitle: 'Promote to staging',
     stagingSubtitle:
