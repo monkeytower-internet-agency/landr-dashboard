@@ -93,6 +93,7 @@ import {
   rejectRun,
   fetchRuns,
   fetchStatus,
+  relativeTime,
   requestGoLive,
   shortSha,
   type GoLiveEligibility,
@@ -530,16 +531,120 @@ function CustomerReleaseConsole() {
 
 // --- environment matrix ----------------------------------------------------
 
-function AheadCell({ ahead }: { ahead: number }) {
+/** Shared props for an outbound GitHub link — always opens a safe new tab. */
+const EXTERNAL_LINK_PROPS = {
+  target: '_blank',
+  rel: 'noopener noreferrer',
+} as const
+
+/**
+ * The ahead-count for one hop. When the backend supplied a compare URL it
+ * becomes a link to the GitHub compare view for the ahead range; otherwise it
+ * is plain text (older backend). "up to date" when nothing is ahead.
+ */
+function AheadCount({
+  ahead,
+  compareUrl,
+}: {
+  ahead: number
+  compareUrl?: string | null
+}) {
   if (ahead <= 0) {
     return (
       <span className="text-muted-foreground text-sm">{t.release.upToDate}</span>
     )
   }
+  const label = t.release.commitsAhead(ahead)
+  if (compareUrl) {
+    return (
+      <a
+        href={compareUrl}
+        {...EXTERNAL_LINK_PROPS}
+        className="text-sm font-medium tabular-nums underline-offset-2 hover:underline"
+        title={t.release.compareTitle}
+      >
+        {label}
+      </a>
+    )
+  }
   return (
-    <span className="text-sm font-medium tabular-nums">
-      {t.release.commitsAhead(ahead)}
-    </span>
+    <span className="text-sm font-medium tabular-nums">{label}</span>
+  )
+}
+
+/**
+ * One hop's cell: the ahead-count (linking to the compare view when available)
+ * plus the source branch's head commit — first-line message (truncated), short
+ * SHA, author and relative date — and a small "history" link. All commit
+ * detail and links are OPTIONAL: when the backend omits them the cell falls
+ * back to just the ahead-count, matching the pre-decoration behaviour.
+ */
+function HopCell({
+  ahead,
+  compareUrl,
+  headMessage,
+  headSha,
+  headAuthor,
+  headDate,
+  headUrl,
+  historyUrl,
+}: {
+  ahead: number
+  compareUrl?: string | null
+  headMessage?: string | null
+  headSha?: string | null
+  headAuthor?: string | null
+  headDate?: string | null
+  headUrl?: string | null
+  historyUrl?: string | null
+}) {
+  const rel = relativeTime(headDate)
+  const hasHead = Boolean(headMessage || headSha)
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        <AheadCount ahead={ahead} compareUrl={compareUrl} />
+        {historyUrl ? (
+          <a
+            href={historyUrl}
+            {...EXTERNAL_LINK_PROPS}
+            className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
+          >
+            {t.release.historyLink}
+          </a>
+        ) : null}
+      </div>
+      {hasHead ? (
+        <div className="text-muted-foreground flex flex-col gap-0.5 text-xs">
+          {headMessage ? (
+            headUrl ? (
+              <a
+                href={headUrl}
+                {...EXTERNAL_LINK_PROPS}
+                className="hover:text-foreground line-clamp-1 max-w-[20rem] underline-offset-2 hover:underline"
+                title={headMessage}
+              >
+                {headMessage}
+              </a>
+            ) : (
+              <span
+                className="line-clamp-1 max-w-[20rem]"
+                title={headMessage ?? undefined}
+              >
+                {headMessage}
+              </span>
+            )
+          ) : null}
+          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+            {headSha ? (
+              <span className="font-mono">{shortSha(headSha)}</span>
+            ) : null}
+            {headAuthor ? <span>· {headAuthor}</span> : null}
+            {rel ? <span>· {rel}</span> : null}
+          </span>
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -567,15 +672,37 @@ function EnvironmentMatrix({ repos }: { repos: RepoStatus[] }) {
               </TableHeader>
               <TableBody>
                 {repos.map((r) => (
-                  <TableRow key={r.repo} data-testid="release-matrix-row">
+                  <TableRow
+                    key={r.repo}
+                    data-testid="release-matrix-row"
+                    className="align-top"
+                  >
                     <TableCell className="font-medium">
                       <span className="font-mono text-sm">{r.repo}</span>
                     </TableCell>
                     <TableCell>
-                      <AheadCell ahead={r.dev_to_staging_ahead_by} />
+                      <HopCell
+                        ahead={r.dev_to_staging_ahead_by}
+                        compareUrl={r.dev_to_staging_compare_url}
+                        headMessage={r.dev_head_message}
+                        headSha={r.dev_sha}
+                        headAuthor={r.dev_head_author}
+                        headDate={r.dev_head_date}
+                        headUrl={r.dev_head_url}
+                        historyUrl={r.dev_history_url}
+                      />
                     </TableCell>
                     <TableCell>
-                      <AheadCell ahead={r.staging_to_main_ahead_by} />
+                      <HopCell
+                        ahead={r.staging_to_main_ahead_by}
+                        compareUrl={r.staging_to_main_compare_url}
+                        headMessage={r.staging_head_message}
+                        headSha={r.staging_sha}
+                        headAuthor={r.staging_head_author}
+                        headDate={r.staging_head_date}
+                        headUrl={r.staging_head_url}
+                        historyUrl={r.staging_history_url}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

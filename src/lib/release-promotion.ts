@@ -130,6 +130,37 @@ export type RepoStatus = {
   dev_to_staging_ahead_by: number
   /** Commits staging is ahead of main. */
   staging_to_main_ahead_by: number
+
+  // --- OPTIONAL decoration (landr — release matrix commit metadata) ---------
+  // All fields below are added by a sibling landr-api PR. They are OPTIONAL so
+  // an older/not-yet-deployed backend (which omits them) degrades gracefully:
+  // the matrix still renders the ahead counts, just without the commit detail
+  // or links.
+
+  /** Head commit of `dev` (source branch of the dev→staging hop). */
+  dev_head_message?: string | null
+  dev_head_author?: string | null
+  /** ISO-8601 author date of dev's head commit. */
+  dev_head_date?: string | null
+  /** github.com html_url of dev's head commit. */
+  dev_head_url?: string | null
+
+  /** Head commit of `staging` (source branch of the staging→main hop). */
+  staging_head_message?: string | null
+  staging_head_author?: string | null
+  /** ISO-8601 author date of staging's head commit. */
+  staging_head_date?: string | null
+  /** github.com html_url of staging's head commit. */
+  staging_head_url?: string | null
+
+  /** GitHub compare view for the dev→staging ahead range (staging...dev). */
+  dev_to_staging_compare_url?: string | null
+  /** GitHub compare view for the staging→main ahead range (main...staging). */
+  staging_to_main_compare_url?: string | null
+  /** GitHub full commit-history view for the `dev` branch. */
+  dev_history_url?: string | null
+  /** GitHub full commit-history view for the `staging` branch. */
+  staging_history_url?: string | null
 }
 
 /**
@@ -329,4 +360,30 @@ export function shortSha(sha: string | null | undefined): string {
 /** Human label for a kind. */
 export function kindLabel(kind: PromotionKind): string {
   return kind === 'dev_to_staging' ? 'dev → staging' : 'staging → main'
+}
+
+/**
+ * Compact relative time ("3h ago", "2d ago", "just now") for the env-matrix
+ * commit dates. Uses Intl.RelativeTimeFormat so it's locale-aware and needs no
+ * date library. Returns '' for null/invalid input so callers can skip it.
+ */
+export function relativeTime(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return ''
+  const diffMs = then - Date.now()
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['year', 365 * 24 * 3600_000],
+    ['month', 30 * 24 * 3600_000],
+    ['day', 24 * 3600_000],
+    ['hour', 3600_000],
+    ['minute', 60_000],
+  ]
+  for (const [unit, ms] of units) {
+    if (Math.abs(diffMs) >= ms) {
+      return rtf.format(Math.round(diffMs / ms), unit)
+    }
+  }
+  return rtf.format(0, 'second') // "now"
 }
