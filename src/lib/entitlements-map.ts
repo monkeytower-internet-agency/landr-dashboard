@@ -56,7 +56,13 @@ export const FEATURE_SECTIONS: Record<string, string[]> = {
   campaigns: ['/settings/campaigns'],
   tags: ['/settings/tags'],
   webhooks: ['/settings/webhooks'],
-  gmail: ['/settings/integrations/gmail'],
+  // landr-ubqo — Gmail (sending mailbox) is intentionally UNGATED: connecting
+  // your own Gmail to send branded booking emails is a prerequisite to
+  // operate, not a paid upsell. Same rationale as the ungated Payments &
+  // invoicing section (landr-1nwu.2). Must never be hidden by tier — a gated
+  // Gmail section left operators unable to send ANY booking email. So it is
+  // deliberately absent from this map (→ featureForSection returns null →
+  // always visible). Do NOT re-add a `gmail:` entry here.
   calendar_feed: ['/settings/integrations/calendar'],
   plan: ['/settings/plan'],
 }

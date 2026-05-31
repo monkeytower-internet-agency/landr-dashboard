@@ -47,6 +47,9 @@ export type PromotionStatus =
 /** Per-repo merge outcome inside an executed run. */
 export type MergeStatus = 'pending' | 'merged' | 'noop' | 'conflict' | 'error'
 
+/** landr-a99u.14: state of the migration stage on this run. */
+export type MigrationStatus = 'pending' | 'applied' | 'failed' | 'skipped'
+
 /** One repo's slice of a promotion run, with its pinned head SHA + result. */
 export type PromotionRunRepo = {
   repo: string
@@ -88,6 +91,18 @@ export type PromotionRun = {
    * "Para42"). Only meaningful when signoff_source === 'customer'.
    */
   signoff_by_label?: string | null
+  /**
+   * landr-a99u.14 — migration stage state. 'pending' on a run currently in
+   * flight; 'applied' on success (or no-op); 'failed' means code-merges were
+   * SKIPPED — there is nothing for RunRepoList to render. 'skipped' applies
+   * to legacy runs predating the migration stage or to runs that proceeded
+   * without a configured target DB URL but had nothing pending anyway.
+   */
+  migration_status?: MigrationStatus | null
+  /** landr-a99u.14 — combined stdout+stderr of the migration stage. */
+  migration_log?: string | null
+  /** landr-a99u.14 — filenames applied this run, in order. */
+  migrations_applied?: string[] | null
 }
 
 // --- operator-facing types (landr-a99u.12) ----------------------------------
@@ -191,6 +206,33 @@ export async function fetchRun(id: string): Promise<PromotionRun> {
   return api<PromotionRun>(
     'GET',
     `/api/landr-staff/promotions/${encodeURIComponent(id)}`,
+  )
+}
+
+/**
+ * Response of GET …/promotions/preview-migrations?kind=…
+ * (landr-a99u.14.3 — shipped on landr-api dev).
+ */
+export type PreviewMigrationsResponse = {
+  pending_count: number
+  files: string[]
+}
+
+/**
+ * landr-a99u.14.6 — preview of pending migrations for a promotion kind.
+ * Reads the staff-only endpoint that the executor (landr-a99u.14.4) will
+ * apply BEFORE the code-merge stage. Used by the propose/promote dialogs
+ * to render "this run will apply N migrations" without committing to a
+ * run. 503 / 502 from the server surface as Error("migration_target_…") —
+ * callers should treat those as informational (do NOT block the submit),
+ * per the always-on contract on landr-a99u.14.
+ */
+export async function fetchPreviewMigrations(
+  kind: PromotionKind,
+): Promise<PreviewMigrationsResponse> {
+  return api<PreviewMigrationsResponse>(
+    'GET',
+    `/api/landr-staff/promotions/preview-migrations?kind=${encodeURIComponent(kind)}`,
   )
 }
 

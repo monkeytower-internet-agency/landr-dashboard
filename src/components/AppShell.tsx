@@ -1,16 +1,4 @@
-import { useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { useEffect } from 'react'
-import { LogOutIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   SidebarInset,
   SidebarProvider,
@@ -19,11 +7,13 @@ import {
 import { AppSidebar } from '@/components/AppSidebar'
 import { AppModeSwitcher } from '@/components/AppModeSwitcher'
 import { CommandPalette } from '@/components/CommandPalette'
+import { GlobalErrorCapture } from '@/components/GlobalErrorCapture'
 import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp'
 import { ErrorHistoryBell } from '@/components/ErrorHistoryBell'
 import { NotificationsBell } from '@/components/NotificationsBell'
 import { OnboardingBanner } from '@/components/OnboardingBanner'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
+import { UserMenu } from '@/components/UserMenu'
 import { ViewAsBanner } from '@/components/ViewAsBanner'
 import { ViewAsOperatorPicker } from '@/components/ViewAsOperatorPicker'
 import { QuickCaptureFab } from '@/components/QuickCaptureFab'
@@ -31,7 +21,6 @@ import { ReportFab } from '@/components/ReportFab'
 import { TierBadge } from '@/components/TierBadge'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { PageTitleDisplay } from '@/components/topbar/PageTitleDisplay'
-import { useAuth } from '@/lib/auth'
 import { CommandPaletteProvider } from '@/lib/command-palette-context'
 import { KeyboardShortcutsHelpProvider } from '@/lib/keyboard-shortcuts-help-context'
 import { PageTitleProvider } from '@/lib/page-title'
@@ -39,54 +28,6 @@ import { ReportFabProvider } from '@/lib/report-fab-context'
 import { SidebarModeProvider } from '@/lib/sidebar-mode-context'
 import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
 import { openFor } from '@/lib/sidebar-mode'
-import { notifyError } from '@/lib/notify'
-import { t } from '@/lib/strings'
-
-function UserMenu({ onSignOut }: { onSignOut: () => void }) {
-  const { user } = useAuth()
-  const email = user?.email ?? ''
-  const initial = (email[0] ?? '?').toUpperCase()
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={t.userMenu.label}
-          className="rounded-full"
-        >
-          <span
-            aria-hidden
-            className="bg-muted text-muted-foreground flex size-7 items-center justify-center rounded-full text-xs font-medium"
-          >
-            {initial}
-          </span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[14rem]">
-        {email ? (
-          <DropdownMenuLabel className="truncate text-xs font-normal">
-            <span
-              className="text-muted-foreground"
-              aria-label="signed-in-user"
-            >
-              {email}
-            </span>
-          </DropdownMenuLabel>
-        ) : (
-          <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-            {t.userMenu.label}
-          </DropdownMenuLabel>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={onSignOut}>
-          <LogOutIcon className="size-4" />
-          <span>{t.auth.signOut}</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
 
 // landr-fzcg — inner shell that bridges the mode state into the shadcn
 // SidebarProvider's controlled `open` prop. Lives inside SidebarModeProvider
@@ -94,47 +35,8 @@ function UserMenu({ onSignOut }: { onSignOut: () => void }) {
 // AppSidebar itself attaches pointer handlers to the underlying Sidebar
 // DOM element (so the hit area matches the actual visible rail) and
 // toggles the shared `hovered` flag via the context's setHovered.
-// landr-40x0 — install global error + unhandledrejection listeners once at
-// the shell level. Both feed into the error-log store via notifyError().
-// Using a component-level effect (rather than module-level) so StrictMode
-// double-invoke is handled correctly (cleanup removes the listeners).
-function GlobalErrorCapture() {
-  useEffect(() => {
-    function onError(event: ErrorEvent) {
-      const message = event.message || 'Uncaught error'
-      const detail = event.error instanceof Error
-        ? event.error.stack ?? event.error.message
-        : String(event.error ?? '')
-      notifyError(message, { detail: detail || undefined })
-    }
 
-    function onUnhandledRejection(event: PromiseRejectionEvent) {
-      const reason = event.reason
-      const message =
-        reason instanceof Error ? reason.message : String(reason ?? 'Unhandled promise rejection')
-      const detail =
-        reason instanceof Error ? (reason.stack ?? reason.message) : String(reason ?? '')
-      notifyError(message, { detail: detail || undefined })
-    }
-
-    window.addEventListener('error', onError)
-    window.addEventListener('unhandledrejection', onUnhandledRejection)
-    return () => {
-      window.removeEventListener('error', onError)
-      window.removeEventListener('unhandledrejection', onUnhandledRejection)
-    }
-  }, [])
-
-  return null
-}
-
-function AppShellInner({
-  children,
-  onSignOut,
-}: {
-  children: ReactNode
-  onSignOut: () => void
-}) {
+function AppShellInner({ children }: { children: ReactNode }) {
   const { mode, hovered } = useSidebarModeContext()
   const open = openFor(mode, hovered)
 
@@ -188,7 +90,7 @@ function AppShellInner({
                 quick-actions (feedback · errors · notifications · theme · account). */}
             <NotificationsBell />
             <ThemeToggle />
-            <UserMenu onSignOut={onSignOut} />
+            <UserMenu />
           </div>
         </header>
         {/* landr-2soj — staff view-as banner. Sits directly under the topbar,
@@ -226,21 +128,13 @@ function AppShellInner({
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { signOut } = useAuth()
-  const navigate = useNavigate()
-
-  async function onSignOut() {
-    await signOut()
-    navigate('/login', { replace: true })
-  }
-
   return (
     <ReportFabProvider>
       <SidebarModeProvider>
         <PageTitleProvider>
           <CommandPaletteProvider>
             <KeyboardShortcutsHelpProvider>
-              <AppShellInner onSignOut={onSignOut}>{children}</AppShellInner>
+              <AppShellInner>{children}</AppShellInner>
             </KeyboardShortcutsHelpProvider>
           </CommandPaletteProvider>
         </PageTitleProvider>

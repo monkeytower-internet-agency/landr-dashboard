@@ -51,7 +51,13 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Navigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { CheckIcon, RefreshCwIcon, RocketIcon, XIcon } from 'lucide-react'
+import {
+  CheckIcon,
+  ExternalLinkIcon,
+  RefreshCwIcon,
+  RocketIcon,
+  XIcon,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -80,6 +86,7 @@ import {
   approveRun,
   cancelRun,
   fetchGoLiveEligibility,
+  fetchPreviewMigrations,
   kindLabel,
   promoteToStaging,
   proposeToProd,
@@ -90,19 +97,70 @@ import {
   shortSha,
   type GoLiveEligibility,
   type MergeStatus,
+  type PreviewMigrationsResponse,
+  type PromotionKind,
   type PromotionRun,
   type PromotionRunRepo,
   type PromotionStatus,
   type PromotionStatusResponse,
   type RepoStatus,
 } from '@/lib/release-promotion'
-import { resolveTier, type DeployTier } from '@/lib/tier'
+import {
+  otherTiers,
+  resolveTier,
+  urlForTier,
+  type DeployTier,
+} from '@/lib/tier'
 import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
 
 const STATUS_QUERY_KEY = ['release', 'status'] as const
 const RUNS_QUERY_KEY = ['release', 'runs'] as const
 const ELIGIBILITY_QUERY_KEY = ['release', 'eligibility'] as const
+
+/** Per-tier label for the jump-link buttons. Source of truth for the icon row. */
+const JUMP_LABEL: Record<DeployTier, string> = {
+  dev: t.release.tierAware.jumpToTierDev,
+  staging: t.release.tierAware.jumpToTierStaging,
+  prod: t.release.tierAware.jumpToTierProd,
+}
+
+/**
+ * Cross-tier jump links in the /release header. Renders one button per OTHER
+ * tier (dev / staging / main) so a staff promoter can hop between the three
+ * consoles with one click instead of editing the hostname. Opens each link
+ * in a new tab so the current session stays anchored on the tier the user
+ * is acting from. Renders nothing when the current tier is unknown.
+ *
+ * The destination dashboards apply their own /release route guard; jumping
+ * to a tier the viewer can't reach simply bounces them home on arrival —
+ * we don't try to gate visibility here.
+ */
+function TierJumpLinks({ currentTier }: { currentTier: DeployTier | null }) {
+  const targets = otherTiers(currentTier)
+  if (targets.length === 0) return null
+  return (
+    <div
+      className="flex flex-wrap items-center gap-1"
+      data-testid="tier-jump-links"
+    >
+      {targets.map((target) => (
+        <Button key={target} asChild variant="outline" size="sm">
+          <a
+            href={urlForTier(target, '/release')}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={t.release.tierAware.jumpToTierAria(JUMP_LABEL[target])}
+            data-testid={`tier-jump-${target}`}
+          >
+            <ExternalLinkIcon className="size-3.5" aria-hidden />
+            <span>{JUMP_LABEL[target]}</span>
+          </a>
+        </Button>
+      ))}
+    </div>
+  )
+}
 
 /**
  * landr-a99u.11 — detect the 503 "not configured" state. The FastAPI backend
@@ -212,20 +270,28 @@ function StaffReleaseConsole() {
             {t.release.subtitle}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={invalidateAll}
-          disabled={statusQuery.isFetching || runsQuery.isFetching}
-        >
-          <RefreshCwIcon
-            className={cn(
-              'size-4',
-              (statusQuery.isFetching || runsQuery.isFetching) && 'animate-spin',
-            )}
-          />
-          {t.release.refresh}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Cross-tier jump links so staff can bounce between dev / staging
+              / main consoles with one click. Renders ALL other tiers (up to
+              two), so the user always has a one-click hop in either
+              direction. */}
+          <TierJumpLinks currentTier={tier} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={invalidateAll}
+            disabled={statusQuery.isFetching || runsQuery.isFetching}
+          >
+            <RefreshCwIcon
+              className={cn(
+                'size-4',
+                (statusQuery.isFetching || runsQuery.isFetching) &&
+                  'animate-spin',
+              )}
+            />
+            {t.release.refresh}
+          </Button>
+        </div>
       </header>
 
       {statusQuery.isError ? (
@@ -604,6 +670,7 @@ function PromoteToStagingSection({
               {t.release.stagingConfirmDescription}
             </DialogDescription>
           </DialogHeader>
+          <MigrationsPreview kind="dev_to_staging" />
           <RepoChecklist
             items={changedRepos.map((r) => ({
               repo: r.repo,
@@ -752,6 +819,7 @@ function ProposeToProdControl({
               {t.release.proposeConfirmDescription}
             </DialogDescription>
           </DialogHeader>
+          <MigrationsPreview kind="staging_to_main" />
           <RepoChecklist
             items={changedRepos.map((r) => ({
               repo: r.repo,
@@ -876,6 +944,7 @@ function ProposalCard({
             {run.notes}
           </p>
         ) : null}
+        <RunMigrationsSection run={run} />
         <RunRepoList repos={run.repos} />
       </div>
 
@@ -1060,6 +1129,9 @@ function HistoryRow({ run }: { run: PromotionRun }) {
         </p>
       ) : null}
       <div className="mt-2">
+        <RunMigrationsSection run={run} />
+      </div>
+      <div className="mt-2">
         <RunRepoList repos={run.repos} />
       </div>
     </div>
@@ -1080,6 +1152,91 @@ function SignoffBadge({ label }: { label?: string }) {
         ? t.release.signoffByCustomer(label)
         : t.release.signoffByStaff}
     </span>
+  )
+}
+
+/**
+ * landr-a99u.14.6 — preview of pending Supabase migrations for the dialog
+ * the user just opened. Always-on per the parent contract (landr-a99u.14):
+ * informational only, NEVER blocks the submit button. The executor
+ * (landr-a99u.14.4) is the actual gate.
+ *
+ * Mounted INSIDE the <Dialog open> tree so the query only fires when the
+ * user actually opens the dialog (react-query enabled-by-mount), keeping
+ * the staff endpoint quiet otherwise.
+ *
+ * Error contract from the API (landr-a99u.14.3):
+ *   - 503 detail='migration_target_not_configured' → env not provisioned
+ *     yet → amber warning, doesn't block.
+ *   - 502 'migration_target_unreachable: …'        → connection failure →
+ *     destructive xs error, doesn't block.
+ *
+ * api() surfaces the FastAPI `detail` string as err.message.
+ */
+function MigrationsPreview({ kind }: { kind: PromotionKind }) {
+  const query = useQuery<PreviewMigrationsResponse, Error>({
+    queryKey: ['release', 'preview-migrations', kind],
+    queryFn: () => fetchPreviewMigrations(kind),
+    staleTime: 1000 * 30,
+    // 503/502 should surface immediately, not retry — they're informational.
+    retry: false,
+  })
+
+  if (query.isPending) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        Checking pending migrations…
+      </p>
+    )
+  }
+  if (query.isError) {
+    const msg = query.error.message
+    if (msg === 'migration_target_not_configured') {
+      return (
+        <div
+          className="rounded-md border border-amber-500/40 bg-amber-50/40 p-2 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-300"
+          data-testid="migrations-preview-not-configured"
+        >
+          Migrations check is not configured for this tier. The promotion will
+          still attempt to apply migrations if any are pending.
+        </div>
+      )
+    }
+    return (
+      <p
+        className="text-destructive text-xs"
+        data-testid="migrations-preview-error"
+      >
+        Could not load pending migrations: {msg}
+      </p>
+    )
+  }
+  const { pending_count, files } = query.data
+  if (pending_count === 0) {
+    return (
+      <p
+        className="text-muted-foreground text-sm"
+        data-testid="migrations-preview-empty"
+      >
+        No pending migrations.
+      </p>
+    )
+  }
+  return (
+    <details
+      className="bg-muted/30 rounded-md border p-2 text-sm"
+      data-testid="migrations-preview"
+    >
+      <summary className="cursor-pointer font-medium">
+        This run will apply {pending_count} migration
+        {pending_count === 1 ? '' : 's'}:
+      </summary>
+      <ul className="mt-2 list-none space-y-0.5 font-mono text-xs">
+        {files.map((f) => (
+          <li key={f}>{f}</li>
+        ))}
+      </ul>
+    </details>
   )
 }
 
@@ -1104,6 +1261,124 @@ function RepoChecklist({
         </li>
       ))}
     </ul>
+  )
+}
+
+/**
+ * landr-a99u.14.7 — Migration stage block shown on a run's detail surface,
+ * ABOVE the per-repo merge list. Renders one of four states:
+ *
+ *   pending  → spinner + "Applying migrations…"
+ *   applied  → green check + "Applied N migration(s)" + collapsed file list
+ *              + a "View log" toggle showing migration_log
+ *   failed   → red x + "Migrations failed" + applied-before-failure list +
+ *              full log visible by default (no toggle — operators need it
+ *              immediately while triaging)
+ *   skipped  → muted "—" (legacy runs predating 14.1, or no-op runs that
+ *              proceeded without a configured target DB URL but had nothing
+ *              pending anyway)
+ *
+ * No action buttons (no inline retry — operator creates a fresh run, same
+ * pattern as today's code-merge-failure path).
+ */
+function RunMigrationsSection({ run }: { run: PromotionRun }) {
+  const status = run.migration_status ?? 'skipped'
+  const applied = run.migrations_applied ?? []
+  const log = run.migration_log ?? ''
+
+  if (status === 'skipped') {
+    // Legacy runs / silent no-op. Render a faint dash so the column lines up
+    // with the per-repo list but doesn't shout for attention.
+    return (
+      <div
+        className="text-muted-foreground text-xs"
+        data-testid="run-migrations-skipped"
+      >
+        —
+      </div>
+    )
+  }
+
+  if (status === 'pending') {
+    return (
+      <div
+        className="text-muted-foreground flex items-center gap-2 text-sm"
+        data-testid="run-migrations-pending"
+      >
+        <span
+          className="inline-block size-3 animate-spin rounded-full border-2 border-current border-r-transparent"
+          aria-hidden
+        />
+        Applying migrations…
+      </div>
+    )
+  }
+
+  if (status === 'applied') {
+    return (
+      <details
+        className="bg-muted/30 rounded-md border p-2 text-sm"
+        data-testid="run-migrations-applied"
+      >
+        <summary className="cursor-pointer font-medium">
+          <CheckIcon
+            className="mr-1 inline size-4 text-emerald-600"
+            aria-hidden
+          />
+          Applied {applied.length} migration{applied.length === 1 ? '' : 's'}
+        </summary>
+        {applied.length > 0 ? (
+          <ul className="mt-2 list-none space-y-0.5 font-mono text-xs">
+            {applied.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        ) : null}
+        {log ? (
+          <details className="mt-2 text-xs">
+            <summary className="text-muted-foreground cursor-pointer">
+              View log
+            </summary>
+            <pre className="bg-background mt-1 overflow-x-auto rounded p-2 font-mono text-[11px] leading-snug">
+              {log}
+            </pre>
+          </details>
+        ) : null}
+      </details>
+    )
+  }
+
+  // status === 'failed' — log visible by default. No collapse: operators need
+  // this immediately while triaging.
+  return (
+    <div
+      className="border-destructive/40 bg-destructive/5 rounded-md border p-2 text-sm"
+      data-testid="run-migrations-failed"
+    >
+      <div className="text-destructive flex items-center gap-1 font-medium">
+        <XIcon className="size-4" aria-hidden />
+        Migrations failed
+      </div>
+      {applied.length > 0 ? (
+        <p className="text-muted-foreground mt-1 text-xs">
+          Applied {applied.length} before the failure:
+        </p>
+      ) : null}
+      {applied.length > 0 ? (
+        <ul className="mt-1 list-none space-y-0.5 font-mono text-xs">
+          {applied.map((f) => (
+            <li key={f}>{f}</li>
+          ))}
+        </ul>
+      ) : null}
+      {log ? (
+        <pre className="bg-background mt-2 overflow-x-auto rounded p-2 font-mono text-[11px] leading-snug">
+          {log}
+        </pre>
+      ) : (
+        <p className="text-muted-foreground mt-1 text-xs">No log captured.</p>
+      )}
+    </div>
   )
 }
 

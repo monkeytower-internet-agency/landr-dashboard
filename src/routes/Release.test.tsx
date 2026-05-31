@@ -44,6 +44,14 @@ const { mock } = vi.hoisted(() => {
     approveCalls: [] as unknown[],
     requestGoLiveCalls: [] as unknown[],
     requestGoLiveResult: { status: 'requested' as 'requested' | 'already_pending' },
+    // landr-a99u.14.6 — preview migrations stub. Default is the quiet
+    // "nothing pending" case; tests override per-scenario.
+    previewMigrationsResult: {
+      pending_count: 0 as number,
+      files: [] as string[],
+    },
+    previewMigrationsError: null as Error | null,
+    previewMigrationsCalls: [] as unknown[],
   }
   return { mock: { state } }
 })
@@ -104,6 +112,13 @@ vi.mock('@/lib/release-promotion', async () => {
       mock.state.requestGoLiveCalls.push({ notes })
       return mock.state.requestGoLiveResult
     }),
+    fetchPreviewMigrations: vi.fn(async (kind: unknown) => {
+      mock.state.previewMigrationsCalls.push(kind)
+      if (mock.state.previewMigrationsError) {
+        throw mock.state.previewMigrationsError
+      }
+      return mock.state.previewMigrationsResult
+    }),
   }
 })
 
@@ -150,6 +165,9 @@ function resetState() {
   mock.state.approveCalls = []
   mock.state.requestGoLiveCalls = []
   mock.state.requestGoLiveResult = { status: 'requested' }
+  mock.state.previewMigrationsResult = { pending_count: 0, files: [] }
+  mock.state.previewMigrationsError = null
+  mock.state.previewMigrationsCalls = []
 }
 
 beforeEach(() => {
@@ -460,6 +478,248 @@ describe('Release route — Martin customer signer', () => {
     expect(
       screen.queryByText(/environment matrix/i),
     ).not.toBeInTheDocument()
+    assertNeverDevToMain()
+  })
+})
+
+// ── landr-a99u.14.6 — preview migrations in propose + promote dialogs ───────
+//
+// Always-on (no checkbox), informational only: the preview NEVER disables
+// the submit button. Per the parent contract on landr-a99u.14, the executor
+// (landr-a99u.14.4) is the actual gate.
+
+describe('Release route — preview migrations in propose dialog (staging tier)', () => {
+  beforeEach(() => {
+    mock.state.effectiveIsStaff = true
+    mock.state.canProposeProd = true
+    vi.stubEnv('VITE_DEPLOY_TIER', 'staging')
+  })
+
+  it('shows "will apply 2 migrations" when the endpoint returns 2 files', async () => {
+    mock.state.previewMigrationsResult = {
+      pending_count: 2,
+      files: [
+        '20260530120000_add_signoff.sql',
+        '20260531100000_add_migrations_audit.sql',
+      ],
+    }
+    renderRoute()
+    const open = await screen.findByRole('button', {
+      name: /propose to production/i,
+    })
+    const user = userEvent.setup()
+    await user.click(open)
+
+    await screen.findByText(/will apply 2 migrations/i)
+    expect(
+      screen.getByText('20260530120000_add_signoff.sql'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('20260531100000_add_migrations_audit.sql'),
+    ).toBeInTheDocument()
+
+    // The dialog's submit button is just labelled "Propose"; type notes
+    // (required field is the only natural gate) then assert the preview
+    // didn't introduce a NEW disabled state.
+    const notes = screen.getByLabelText(/proposal notes/i)
+    await user.type(notes, 'Schema additive — safe to ship')
+    const dialogSubmit = screen.getByRole('button', { name: /^propose$/i })
+    expect(dialogSubmit).not.toBeDisabled()
+    assertNeverDevToMain()
+  })
+
+  it('shows the amber warning when the API returns 503 migration_target_not_configured', async () => {
+    mock.state.previewMigrationsError = new Error(
+      'migration_target_not_configured',
+    )
+    renderRoute()
+    const open = await screen.findByRole('button', {
+      name: /propose to production/i,
+    })
+    const user = userEvent.setup()
+    await user.click(open)
+
+    const warning = await screen.findByTestId(
+      'migrations-preview-not-configured',
+    )
+    expect(warning).toHaveTextContent(/not configured for this tier/i)
+
+    // Submit button (dialog inner "Propose") is still enabled once notes
+    // are filled — preview is informational only, never gates the submit.
+    const notes = screen.getByLabelText(/proposal notes/i)
+    await user.type(notes, 'OK to ship')
+    const dialogSubmit = screen.getByRole('button', { name: /^propose$/i })
+    expect(dialogSubmit).not.toBeDisabled()
+    assertNeverDevToMain()
+  })
+})
+
+describe('Release route — preview migrations in promote-to-staging dialog (dev tier)', () => {
+  beforeEach(() => {
+    mock.state.effectiveIsStaff = true
+    mock.state.canPromoteStaging = true
+    vi.stubEnv('VITE_DEPLOY_TIER', 'dev')
+  })
+
+  it('shows "No pending migrations." when the endpoint returns 0 files', async () => {
+    mock.state.previewMigrationsResult = { pending_count: 0, files: [] }
+    renderRoute()
+    const open = await screen.findByRole('button', {
+      name: /promote dev → staging/i,
+    })
+    const user = userEvent.setup()
+    await user.click(open)
+
+    await screen.findByTestId('migrations-preview-empty')
+    expect(
+      screen.getByText(/no pending migrations\./i),
+    ).toBeInTheDocument()
+
+    // The dialog's submit button is labelled just "Promote" — confirm it
+    // is enabled (the preview is informational only).
+    const dialogSubmit = screen.getByRole('button', { name: /^promote$/i })
+    expect(dialogSubmit).not.toBeDisabled()
+    assertNeverDevToMain()
+  })
+
+  it('keeps the submit enabled even when the preview surfaces a 502 unreachable error', async () => {
+    mock.state.previewMigrationsError = new Error(
+      'migration_target_unreachable: connection refused',
+    )
+    renderRoute()
+    const open = await screen.findByRole('button', {
+      name: /promote dev → staging/i,
+    })
+    const user = userEvent.setup()
+    await user.click(open)
+
+    const err = await screen.findByTestId('migrations-preview-error')
+    expect(err).toHaveTextContent(/could not load pending migrations/i)
+    expect(err).toHaveTextContent(/connection refused/i)
+
+    // Submit button stays enabled — never gated by the preview.
+    const dialogSubmit = screen.getByRole('button', { name: /^promote$/i })
+    expect(dialogSubmit).not.toBeDisabled()
+    assertNeverDevToMain()
+  })
+})
+
+// ── landr-a99u.14.7 — run-detail migration stage block ──────────────────────
+//
+// Surfaces the new promotion_runs.migration_status / migrations_applied /
+// migration_log columns on each run's detail card in the /release history.
+// Four states: pending / applied / failed / skipped (the last is also the
+// default for legacy runs that predate landr-a99u.14.1).
+
+describe('Release route — run detail migrations section', () => {
+  beforeEach(() => {
+    mock.state.effectiveIsStaff = true
+    mock.state.canProposeProd = true
+    vi.stubEnv('VITE_DEPLOY_TIER', 'staging')
+  })
+
+  it('renders the pending spinner when migration_status="pending"', async () => {
+    mock.state.runs = [
+      {
+        id: 'r-pending',
+        kind: 'staging_to_main',
+        status: 'executing',
+        requested_by: 'ok@monkeytower.net',
+        requested_at: new Date().toISOString(),
+        repos: [],
+        migration_status: 'pending',
+        migrations_applied: [],
+        migration_log: '',
+      },
+    ]
+    renderRoute()
+    const block = await screen.findByTestId('run-migrations-pending')
+    expect(block).toHaveTextContent(/applying migrations/i)
+    assertNeverDevToMain()
+  })
+
+  it('renders the applied summary + file list when migration_status="applied"', async () => {
+    mock.state.runs = [
+      {
+        id: 'r-applied',
+        kind: 'staging_to_main',
+        status: 'completed',
+        requested_by: 'ok@monkeytower.net',
+        requested_at: new Date().toISOString(),
+        repos: [],
+        migration_status: 'applied',
+        migrations_applied: [
+          '20260528100000_x.sql',
+          '20260528110000_y.sql',
+        ],
+        migration_log:
+          '--- apply 20260528100000_x.sql ---\nOK\n--- apply 20260528110000_y.sql ---\nOK\n',
+      },
+    ]
+    renderRoute()
+    const block = await screen.findByTestId('run-migrations-applied')
+    expect(block).toHaveTextContent(/applied 2 migrations/i)
+    expect(
+      screen.getByText('20260528100000_x.sql'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('20260528110000_y.sql'),
+    ).toBeInTheDocument()
+    // "View log" toggle exists; the log content is inside it.
+    expect(screen.getByText(/view log/i)).toBeInTheDocument()
+    assertNeverDevToMain()
+  })
+
+  it('renders the failed block with the log visible by default', async () => {
+    mock.state.runs = [
+      {
+        id: 'r-failed',
+        kind: 'staging_to_main',
+        status: 'failed',
+        requested_by: 'ok@monkeytower.net',
+        requested_at: new Date().toISOString(),
+        repos: [],
+        migration_status: 'failed',
+        migrations_applied: ['20260528100000_x.sql'],
+        migration_log:
+          '--- apply 20260528120000_z.sql ---\nERROR: syntax error at or near "FORM"\n',
+      },
+    ]
+    renderRoute()
+    const block = await screen.findByTestId('run-migrations-failed')
+    expect(block).toHaveTextContent(/migrations failed/i)
+    // The log MUST be visible without any toggle interaction.
+    expect(block).toHaveTextContent(/syntax error at or near "FORM"/i)
+    // Applied-before-failure list shows.
+    expect(block).toHaveTextContent(/applied 1 before the failure/i)
+    expect(
+      screen.getByText('20260528100000_x.sql'),
+    ).toBeInTheDocument()
+    // No "View log" toggle on the failed surface.
+    expect(screen.queryByText(/view log/i)).not.toBeInTheDocument()
+    assertNeverDevToMain()
+  })
+
+  it('renders the muted skipped marker when migration_status is absent (legacy run)', async () => {
+    mock.state.runs = [
+      {
+        id: 'r-legacy',
+        kind: 'staging_to_main',
+        status: 'completed',
+        requested_by: 'ok@monkeytower.net',
+        requested_at: new Date().toISOString(),
+        repos: [],
+        // migration_status, migrations_applied, migration_log all absent —
+        // this is what a pre-14.1 run looks like.
+      },
+    ]
+    renderRoute()
+    // findAllByTestId because the same run also renders inside any pending
+    // ProposalCard if status='proposed' — here status='completed' so the
+    // history row is the only mount, but be defensive.
+    const blocks = await screen.findAllByTestId('run-migrations-skipped')
+    expect(blocks.length).toBeGreaterThanOrEqual(1)
+    expect(blocks[0]).toHaveTextContent('—')
     assertNeverDevToMain()
   })
 })
