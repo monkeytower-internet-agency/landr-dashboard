@@ -194,6 +194,33 @@ export async function fetchRun(id: string): Promise<PromotionRun> {
   )
 }
 
+/**
+ * Response of GET …/promotions/preview-migrations?kind=…
+ * (landr-a99u.14.3 — shipped on landr-api dev).
+ */
+export type PreviewMigrationsResponse = {
+  pending_count: number
+  files: string[]
+}
+
+/**
+ * landr-a99u.14.6 — preview of pending migrations for a promotion kind.
+ * Reads the staff-only endpoint that the executor (landr-a99u.14.4) will
+ * apply BEFORE the code-merge stage. Used by the propose/promote dialogs
+ * to render "this run will apply N migrations" without committing to a
+ * run. 503 / 502 from the server surface as Error("migration_target_…") —
+ * callers should treat those as informational (do NOT block the submit),
+ * per the always-on contract on landr-a99u.14.
+ */
+export async function fetchPreviewMigrations(
+  kind: PromotionKind,
+): Promise<PreviewMigrationsResponse> {
+  return api<PreviewMigrationsResponse>(
+    'GET',
+    `/api/landr-staff/promotions/preview-migrations?kind=${encodeURIComponent(kind)}`,
+  )
+}
+
 // --- writes ----------------------------------------------------------------
 
 /** Promote dev → staging (creates a `queued` run; no approval gate). */

@@ -86,6 +86,7 @@ import {
   approveRun,
   cancelRun,
   fetchGoLiveEligibility,
+  fetchPreviewMigrations,
   kindLabel,
   promoteToStaging,
   proposeToProd,
@@ -96,6 +97,8 @@ import {
   shortSha,
   type GoLiveEligibility,
   type MergeStatus,
+  type PreviewMigrationsResponse,
+  type PromotionKind,
   type PromotionRun,
   type PromotionRunRepo,
   type PromotionStatus,
@@ -667,6 +670,7 @@ function PromoteToStagingSection({
               {t.release.stagingConfirmDescription}
             </DialogDescription>
           </DialogHeader>
+          <MigrationsPreview kind="dev_to_staging" />
           <RepoChecklist
             items={changedRepos.map((r) => ({
               repo: r.repo,
@@ -815,6 +819,7 @@ function ProposeToProdControl({
               {t.release.proposeConfirmDescription}
             </DialogDescription>
           </DialogHeader>
+          <MigrationsPreview kind="staging_to_main" />
           <RepoChecklist
             items={changedRepos.map((r) => ({
               repo: r.repo,
@@ -1143,6 +1148,91 @@ function SignoffBadge({ label }: { label?: string }) {
         ? t.release.signoffByCustomer(label)
         : t.release.signoffByStaff}
     </span>
+  )
+}
+
+/**
+ * landr-a99u.14.6 — preview of pending Supabase migrations for the dialog
+ * the user just opened. Always-on per the parent contract (landr-a99u.14):
+ * informational only, NEVER blocks the submit button. The executor
+ * (landr-a99u.14.4) is the actual gate.
+ *
+ * Mounted INSIDE the <Dialog open> tree so the query only fires when the
+ * user actually opens the dialog (react-query enabled-by-mount), keeping
+ * the staff endpoint quiet otherwise.
+ *
+ * Error contract from the API (landr-a99u.14.3):
+ *   - 503 detail='migration_target_not_configured' → env not provisioned
+ *     yet → amber warning, doesn't block.
+ *   - 502 'migration_target_unreachable: …'        → connection failure →
+ *     destructive xs error, doesn't block.
+ *
+ * api() surfaces the FastAPI `detail` string as err.message.
+ */
+function MigrationsPreview({ kind }: { kind: PromotionKind }) {
+  const query = useQuery<PreviewMigrationsResponse, Error>({
+    queryKey: ['release', 'preview-migrations', kind],
+    queryFn: () => fetchPreviewMigrations(kind),
+    staleTime: 1000 * 30,
+    // 503/502 should surface immediately, not retry — they're informational.
+    retry: false,
+  })
+
+  if (query.isPending) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        Checking pending migrations…
+      </p>
+    )
+  }
+  if (query.isError) {
+    const msg = query.error.message
+    if (msg === 'migration_target_not_configured') {
+      return (
+        <div
+          className="rounded-md border border-amber-500/40 bg-amber-50/40 p-2 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-300"
+          data-testid="migrations-preview-not-configured"
+        >
+          Migrations check is not configured for this tier. The promotion will
+          still attempt to apply migrations if any are pending.
+        </div>
+      )
+    }
+    return (
+      <p
+        className="text-destructive text-xs"
+        data-testid="migrations-preview-error"
+      >
+        Could not load pending migrations: {msg}
+      </p>
+    )
+  }
+  const { pending_count, files } = query.data
+  if (pending_count === 0) {
+    return (
+      <p
+        className="text-muted-foreground text-sm"
+        data-testid="migrations-preview-empty"
+      >
+        No pending migrations.
+      </p>
+    )
+  }
+  return (
+    <details
+      className="bg-muted/30 rounded-md border p-2 text-sm"
+      data-testid="migrations-preview"
+    >
+      <summary className="cursor-pointer font-medium">
+        This run will apply {pending_count} migration
+        {pending_count === 1 ? '' : 's'}:
+      </summary>
+      <ul className="mt-2 list-none space-y-0.5 font-mono text-xs">
+        {files.map((f) => (
+          <li key={f}>{f}</li>
+        ))}
+      </ul>
+    </details>
   )
 }
 
