@@ -22,7 +22,10 @@ import {
   UsersIcon,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import type { LucideIcon } from 'lucide-react'
+
+import { fetchGoLiveEligibility } from '@/lib/release-promotion'
 import {
   Sidebar,
   SidebarContent,
@@ -206,6 +209,19 @@ const staffItems: NavItem[] = [
     exact: false,
   },
 ]
+
+// landr-7dya.21 — non-staff customer signer (Martin) sidebar item. Surfaced
+// when fetchGoLiveEligibility returns can_request_golive=true: i.e. on the
+// staging build, for users with public.users.is_release_signer=true. Points at
+// the same /release route — the route guard renders the customer console
+// (Request go-live card) instead of the staff console for these users.
+// Hidden on dev/prod tiers and for non-signers (the endpoint returns false).
+const signerItem: NavItem = {
+  to: '/release',
+  label: t.nav.release,
+  icon: RocketIcon,
+  exact: false,
+}
 
 // Secondary nav — rarely-used admin items in the bottom footer cluster.
 // landr-fzcg — split Settings into Account + Settings:
@@ -393,12 +409,29 @@ export function AppSidebar() {
   const { mode, setHovered } = useSidebarModeContext()
   const { isEnabled, effectiveIsStaff } = useEntitlements()
 
+  // landr-7dya.21 — surface /release for non-staff customer signers (Martin).
+  // Endpoint gates server-side on tier (staging only) AND is_release_signer, so
+  // for staff / dev / prod / non-signers it returns false and the link stays
+  // hidden. retry:false + silent error so a missing endpoint (older API) just
+  // hides the link rather than surfacing a toast. The /release route guard
+  // itself does the second-line check; this query just drives sidebar
+  // visibility.
+  const eligibilityQuery = useQuery({
+    queryKey: ['operator', 'release', 'eligibility'] as const,
+    queryFn: fetchGoLiveEligibility,
+    staleTime: 1000 * 60 * 5,
+    retry: false,
+  })
+  const canRequestGoLive =
+    !effectiveIsStaff && eligibilityQuery.data?.can_request_golive === true
+
   // landr-sbhz.6 — hide primary nav items whose gating feature is DISABLED for
   // the current operator. Items without a gating feature (Dashboard, Views,
   // Approvals, Retrieve, Trash) have featureForRoute() === null and are always
   // shown. Staff bypass lives inside isEnabled (always true for staff).
   //
   // landr-sbhz.8 — staff-only items (Revenue) are appended only for staff.
+  // landr-7dya.21 — non-staff signers see only /release (no other staff items).
   // landr-2soj — gate on EFFECTIVE staff so they vanish in view-as mode: a
   // staff user viewing as a (non-staff) operator should not see Landr owner
   // tooling. (Audit lives in primaryItems and is gated by featureForRoute →
@@ -408,7 +441,7 @@ export function AppSidebar() {
       const feature = featureForRoute(item.to)
       return feature === null || isEnabled(feature)
     }),
-    ...(effectiveIsStaff ? staffItems : []),
+    ...(effectiveIsStaff ? staffItems : canRequestGoLive ? [signerItem] : []),
   ]
 
   // landr-fzcg — hover-expand: only attach pointer handlers when the user
