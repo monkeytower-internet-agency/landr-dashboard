@@ -47,6 +47,9 @@ export type PromotionStatus =
 /** Per-repo merge outcome inside an executed run. */
 export type MergeStatus = 'pending' | 'merged' | 'noop' | 'conflict' | 'error'
 
+/** landr-a99u.14: state of the migration stage on this run. */
+export type MigrationStatus = 'pending' | 'applied' | 'failed' | 'skipped'
+
 /** One repo's slice of a promotion run, with its pinned head SHA + result. */
 export type PromotionRunRepo = {
   repo: string
@@ -88,6 +91,18 @@ export type PromotionRun = {
    * "Para42"). Only meaningful when signoff_source === 'customer'.
    */
   signoff_by_label?: string | null
+  /**
+   * landr-a99u.14 — migration stage state. 'pending' on a run currently in
+   * flight; 'applied' on success (or no-op); 'failed' means code-merges were
+   * SKIPPED — there is nothing for RunRepoList to render. 'skipped' applies
+   * to legacy runs predating the migration stage or to runs that proceeded
+   * without a configured target DB URL but had nothing pending anyway.
+   */
+  migration_status?: MigrationStatus | null
+  /** landr-a99u.14 — combined stdout+stderr of the migration stage. */
+  migration_log?: string | null
+  /** landr-a99u.14 — filenames applied this run, in order. */
+  migrations_applied?: string[] | null
 }
 
 // --- operator-facing types (landr-a99u.12) ----------------------------------
