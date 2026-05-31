@@ -544,10 +544,10 @@ function EnvironmentMatrix({ repos }: { repos: RepoStatus[] }) {
                       <span className="font-mono text-sm">{r.repo}</span>
                     </TableCell>
                     <TableCell>
-                      <AheadCell ahead={r.dev_to_staging_ahead} />
+                      <AheadCell ahead={r.dev_to_staging_ahead_by} />
                     </TableCell>
                     <TableCell>
-                      <AheadCell ahead={r.staging_to_main_ahead} />
+                      <AheadCell ahead={r.staging_to_main_ahead_by} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -575,7 +575,7 @@ function PromoteToStagingSection({
   const [notes, setNotes] = useState('')
 
   const changedRepos = useMemo(
-    () => repos.filter((r) => r.dev_to_staging_ahead > 0),
+    () => repos.filter((r) => r.dev_to_staging_ahead_by > 0),
     [repos],
   )
   const hasChanges = changedRepos.length > 0
@@ -645,7 +645,7 @@ function PromoteToStagingSection({
           <RepoChecklist
             items={changedRepos.map((r) => ({
               repo: r.repo,
-              ahead: r.dev_to_staging_ahead,
+              ahead: r.dev_to_staging_ahead_by,
               head_sha: r.dev_sha,
             }))}
           />
@@ -740,7 +740,7 @@ function ProposeToProdControl({
   const [notes, setNotes] = useState('')
 
   const changedRepos = useMemo(
-    () => repos.filter((r) => r.staging_to_main_ahead > 0),
+    () => repos.filter((r) => r.staging_to_main_ahead_by > 0),
     [repos],
   )
   const hasChanges = changedRepos.length > 0
@@ -793,7 +793,7 @@ function ProposeToProdControl({
           <RepoChecklist
             items={changedRepos.map((r) => ({
               repo: r.repo,
-              ahead: r.staging_to_main_ahead,
+              ahead: r.staging_to_main_ahead_by,
               head_sha: r.staging_sha,
             }))}
           />
