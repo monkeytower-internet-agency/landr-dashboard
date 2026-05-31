@@ -167,9 +167,23 @@ export async function fetchStatus(): Promise<PromotionStatusResponse> {
   return api<PromotionStatusResponse>('GET', '/api/landr-staff/promotions/status')
 }
 
-/** Fetch the recent promotion runs (history, newest first). */
+/** Fetch the recent promotion runs (history, newest first).
+ *
+ * The backend wraps the list in `{"runs": [...]}` (landr_staff_promotions.list_runs
+ * returns a dict, not a bare array). Unwrap here so callers receive the array
+ * the type promises — otherwise `runs.filter(...)` in Release.tsx throws
+ * "runs.filter is not a function" and /release blank-pages (was silently black
+ * before landr-7dya.18's RouteErrorBoundary made it visible). Tolerates either
+ * shape (bare array OR `{runs}`) + null/missing for future-proofing.
+ */
 export async function fetchRuns(): Promise<PromotionRun[]> {
-  return api<PromotionRun[]>('GET', '/api/landr-staff/promotions')
+  const res = await api<{ runs: PromotionRun[] } | PromotionRun[] | null>(
+    'GET',
+    '/api/landr-staff/promotions',
+  )
+  if (Array.isArray(res)) return res
+  if (res && Array.isArray(res.runs)) return res.runs
+  return []
 }
 
 /** Fetch a single run with its per-repo slices. */
