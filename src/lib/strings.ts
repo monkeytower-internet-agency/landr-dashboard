@@ -679,6 +679,12 @@ export const t = {
         : `Started ${new Date(start).toLocaleString('de-DE')} · running…`,
     // landr-agiw — migration waterfall (boot-log style step list).
     migrationsApplyingTitle: 'Applying migrations…',
+    // landr-agiw — migration_status defaults to 'pending' the moment a run row is
+    // created, but the executor only applies migrations once a run is queued
+    // (post-approval for staging→main). So a proposed/approved/queued run has NOT
+    // applied anything — show this static line, never the "Applying…" spinner.
+    migrationsAwaiting:
+      'Migrations run when this promotion executes — nothing has been applied yet.',
     migrationsAppliedTitle: (n: number) =>
       `Applied ${n} migration${n === 1 ? '' : 's'}`,
     migrationsFailedTitle: 'Migrations failed',

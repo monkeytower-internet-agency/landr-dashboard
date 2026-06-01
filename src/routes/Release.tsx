@@ -1550,9 +1550,24 @@ function RunMigrationsSection({ run }: { run: PromotionRun }) {
   }
 
   if (status === 'pending') {
-    // Boot-log waterfall: any migrations reported applied so far show with a ✓
-    // (live-fills once the executor streams progress — landr-agiw.6 follow-up),
-    // then a spinner row for the stage still in flight.
+    // migration_status defaults to 'pending' the instant a run row is created,
+    // but the executor only runs the migration stage once a run is QUEUED
+    // (proposed→queued happens on approval for staging→main). So a run that
+    // isn't actually executing has applied NOTHING yet — show a static line, not
+    // a spinner, so the UI never implies work is happening pre-approval.
+    if (run.status !== 'executing') {
+      return (
+        <div
+          className="text-muted-foreground text-xs"
+          data-testid="run-migrations-awaiting"
+        >
+          {t.release.migrationsAwaiting}
+        </div>
+      )
+    }
+    // Executing → genuine in-flight boot-log waterfall: any migrations reported
+    // applied so far show with a ✓ (live-fills once the executor streams
+    // progress — landr-agiw.7 follow-up), then a spinner for the stage in flight.
     return (
       <div
         className="bg-muted/30 rounded-md border p-2 text-sm"

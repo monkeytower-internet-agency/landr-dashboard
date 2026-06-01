@@ -804,6 +804,37 @@ describe('Release route — run detail migrations section', () => {
 
   // ---- landr-agiw: waterfall + proposer name + start/end/elapsed ------------
 
+  it('a proposed run shows the awaiting line, NOT the applying spinner', async () => {
+    // migration_status defaults to 'pending' on every new row; a proposed run
+    // (awaiting approval) must NOT imply migrations are being applied.
+    mock.state.runs = [
+      {
+        id: 'r-proposed-pending',
+        kind: 'staging_to_main',
+        status: 'proposed',
+        requested_by: 'ok@monkeytower.net',
+        requested_at: new Date().toISOString(),
+        notes: 'test run to get staging to prod.',
+        repos: [],
+        migration_status: 'pending',
+        migrations_applied: [],
+        migration_log: '',
+      },
+    ]
+    renderRoute()
+    const awaiting = await screen.findAllByTestId('run-migrations-awaiting')
+    expect(awaiting.length).toBeGreaterThanOrEqual(1)
+    expect(awaiting[0]).toHaveTextContent(/nothing has been applied yet/i)
+    // The active "Applying migrations…" spinner must be absent on a proposed run.
+    expect(
+      screen.queryByTestId('run-migrations-pending'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/applying migrations/i),
+    ).not.toBeInTheDocument()
+    assertNeverDevToMain()
+  })
+
   it('pending migrations render already-applied steps as a waterfall', async () => {
     mock.state.runs = [
       {
