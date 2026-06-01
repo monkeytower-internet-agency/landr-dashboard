@@ -46,6 +46,9 @@ import { useOperatorCalendarPrefs } from '@/lib/operator'
 import {
   fetchOperatorInboxSummaries,
   fetchInboxThreads,
+  fetchSystemInboxThreads,
+  fetchSystemLaneSummary,
+  SYSTEM_LANE_ID,
   threadMatchesFilter,
   INBOX_FILTER_DEFAULTS,
   type OperatorInboxSummary,
@@ -631,10 +634,23 @@ function FeedbackInboxInner() {
     staleTime: 60 * 1000,
   })
 
-  // Thread list for selected operator
+  // landr-agiw.3 — System lane summary (null when no system tickets exist yet).
+  const systemSummaryQuery = useQuery({
+    queryKey: ['feedback-inbox-system-summary'],
+    queryFn: fetchSystemLaneSummary,
+    staleTime: 60 * 1000,
+  })
+
+  const isSystemLane = selectedOperatorId === SYSTEM_LANE_ID
+
+  // Thread list for the selected lane: the System lane lists system-filed tickets
+  // (operator_id NULL), every other lane is per-operator.
   const threadsQuery = useQuery({
     queryKey: ['feedback-inbox-threads', selectedOperatorId ?? 'none'],
-    queryFn: () => fetchInboxThreads(selectedOperatorId!),
+    queryFn: () =>
+      isSystemLane
+        ? fetchSystemInboxThreads()
+        : fetchInboxThreads(selectedOperatorId!),
     enabled: !!selectedOperatorId,
     staleTime: 30 * 1000,
   })
@@ -646,7 +662,13 @@ function FeedbackInboxInner() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const summaries = useMemo(() => summaryQuery.data ?? [], [summaryQuery.data])
+  // landr-agiw.3 — pin the System lane (if any system tickets exist) at the top
+  // of the rail, above the per-operator rows.
+  const summaries = useMemo<OperatorInboxSummary[]>(() => {
+    const operators = summaryQuery.data ?? []
+    const system = systemSummaryQuery.data
+    return system ? [system, ...operators] : operators
+  }, [summaryQuery.data, systemSummaryQuery.data])
   const threads = useMemo(() => threadsQuery.data ?? [], [threadsQuery.data])
 
   // Build a set of staff user IDs for author classification
