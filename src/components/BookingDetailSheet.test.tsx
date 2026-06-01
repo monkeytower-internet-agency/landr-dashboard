@@ -196,7 +196,22 @@ function makeRow(overrides: Partial<BookingRow> = {}): BookingRow {
   }
 }
 
+// Pin "today" to 2026-05-21 so date-relative UI (e.g. the Mark-as-no-show
+// eligibility, which gates on `item.date_range_start <= today`) is
+// deterministic regardless of the real wall clock. The default fixture's
+// date_range_start is 2026-06-01 (genuinely in the future relative to this
+// pin), so the no-show button stays hidden as the test expects.
+//
+// `canMarkAsNoShow` (and other helpers) read the current instant via a bare
+// `new Date()`, which a plain `vi.spyOn(Date, 'now')` would NOT control. Use
+// Date-only fake timers (`toFake: ['Date']`) so `new Date()` / `Date.now()`
+// are pinned while setTimeout / Promises stay real — userEvent, waitFor and
+// react-query's scheduler keep working untouched.
+const FIXED_NOW = new Date('2026-05-21T12:00:00.000Z')
+
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(FIXED_NOW)
   fetchSpy.mockReset()
   ;(mock.builder.update as ReturnType<typeof vi.fn>).mockClear()
   ;(mock.builder.eq as ReturnType<typeof vi.fn>).mockClear()
@@ -204,6 +219,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.clearAllMocks()
 })
 
