@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CheckCircleIcon, CircleIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -57,6 +58,51 @@ export function IntegrationsPaymentsSettings() {
 const QUERY_KEY = (operatorId: string) =>
   ['operator-integration-credentials', operatorId] as const
 
+// A Stripe mode counts as "configured" once ANY of its keys are on file. The
+// publishable key is non-secret and returned verbatim; the secret + webhook
+// keys are write-only, so we rely on the has_* booleans the API exposes.
+function stripeConfigured(c?: IntegrationCredential): boolean {
+  return (
+    !!c &&
+    (c.has_secret_key || c.has_webhook_secret || !!c.stripe_publishable_key)
+  )
+}
+
+function holdedConfigured(c?: IntegrationCredential): boolean {
+  return !!c?.has_holded_key
+}
+
+// At-a-glance per-mode status. "Configured" means credentials are STORED — not
+// that they have been live-verified against the provider (a separate feature).
+function ModeStatus({ configured }: { configured: boolean }) {
+  if (configured) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+        <CheckCircleIcon className="size-4" aria-hidden />
+        {t.settings.paymentsModeConfigured}
+      </span>
+    )
+  }
+  return (
+    <span className="text-muted-foreground inline-flex items-center gap-1.5 text-sm">
+      <CircleIcon className="size-4" aria-hidden />
+      {t.settings.paymentsModeNotConfigured}
+    </span>
+  )
+}
+
+// Small green check shown on a tab trigger when that mode is configured, so the
+// operator sees which modes are set up without clicking into each tab.
+function TabCheck({ configured }: { configured: boolean }) {
+  if (!configured) return null
+  return (
+    <CheckCircleIcon
+      className="size-3.5 text-emerald-600 dark:text-emerald-400"
+      aria-hidden
+    />
+  )
+}
+
 function PaymentsCredentials({ operatorId }: { operatorId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: QUERY_KEY(operatorId),
@@ -90,16 +136,25 @@ function PaymentsCredentials({ operatorId }: { operatorId: string }) {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="test">
-            <TabsList>
-              <TabsTrigger value="test">
+            <TabsList variant="pill">
+              <TabsTrigger variant="pill" value="test" className="gap-1.5">
                 {t.settings.paymentsModeTest}
+                <TabCheck
+                  configured={stripeConfigured(byKey.get('stripe:test'))}
+                />
               </TabsTrigger>
-              <TabsTrigger value="live">
+              <TabsTrigger variant="pill" value="live" className="gap-1.5">
                 {t.settings.paymentsModeLive}
+                <TabCheck
+                  configured={stripeConfigured(byKey.get('stripe:live'))}
+                />
               </TabsTrigger>
             </TabsList>
             {(['test', 'live'] as const).map((mode) => (
-              <TabsContent key={mode} value={mode} className="pt-4">
+              <TabsContent key={mode} value={mode} className="space-y-4 pt-4">
+                <ModeStatus
+                  configured={stripeConfigured(byKey.get(`stripe:${mode}`))}
+                />
                 <StripeModeForm
                   operatorId={operatorId}
                   mode={mode}
@@ -120,16 +175,25 @@ function PaymentsCredentials({ operatorId }: { operatorId: string }) {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="demo">
-            <TabsList>
-              <TabsTrigger value="demo">
+            <TabsList variant="pill">
+              <TabsTrigger variant="pill" value="demo" className="gap-1.5">
                 {t.settings.paymentsModeDemo}
+                <TabCheck
+                  configured={holdedConfigured(byKey.get('holded:demo'))}
+                />
               </TabsTrigger>
-              <TabsTrigger value="live">
+              <TabsTrigger variant="pill" value="live" className="gap-1.5">
                 {t.settings.paymentsModeLive}
+                <TabCheck
+                  configured={holdedConfigured(byKey.get('holded:live'))}
+                />
               </TabsTrigger>
             </TabsList>
             {(['demo', 'live'] as const).map((mode) => (
-              <TabsContent key={mode} value={mode} className="pt-4">
+              <TabsContent key={mode} value={mode} className="space-y-4 pt-4">
+                <ModeStatus
+                  configured={holdedConfigured(byKey.get(`holded:${mode}`))}
+                />
                 <HoldedModeForm
                   operatorId={operatorId}
                   mode={mode}
@@ -305,7 +369,11 @@ function StripeModeForm({
           id={`stripe-pub-${mode}`}
           value={publishable}
           autoComplete="off"
-          placeholder={t.settings.paymentsStripePublishablePlaceholder}
+          placeholder={
+            mode === 'live'
+              ? t.settings.paymentsStripePublishablePlaceholderLive
+              : t.settings.paymentsStripePublishablePlaceholderTest
+          }
           onChange={(e) => setPublishable(e.target.value)}
         />
       </div>

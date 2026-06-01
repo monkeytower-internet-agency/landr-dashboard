@@ -72,6 +72,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -1116,25 +1117,13 @@ function NotifyChannelRow({
           </span>
         )}
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={displayValue}
-        className={cn(
-          'inline-flex h-4 w-7 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50',
-          displayValue ? 'bg-primary' : 'bg-input',
-        )}
+      <Switch
+        size="sm"
+        checked={displayValue}
         onClick={handleClick}
         disabled={disabled}
         data-testid={testId}
-      >
-        <span
-          className={cn(
-            'block h-3 w-3 rounded-full bg-white shadow transition-transform',
-            displayValue ? 'translate-x-3.5' : 'translate-x-0.5',
-          )}
-        />
-      </button>
+      />
     </div>
   )
 }
@@ -1377,26 +1366,15 @@ function CommentsPanel({ ticketId, isStaff }: CommentsPanelProps) {
         {/* Staff internal toggle */}
         {isStaff && (
           <div className="mb-2 flex items-center gap-2">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isInternal}
-              className={cn(
-                'inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-ring',
-                isInternal
-                  ? 'bg-amber-500 dark:bg-amber-600'
-                  : 'bg-input',
-              )}
+            <Switch
+              checked={isInternal}
               onClick={() => setIsInternal((v) => !v)}
               data-testid="comment-internal-toggle"
-            >
-              <span
-                className={cn(
-                  'block h-4 w-4 rounded-full bg-white shadow transition-transform',
-                  isInternal ? 'translate-x-4.5' : 'translate-x-0.5',
-                )}
-              />
-            </button>
+              className={cn(
+                isInternal &&
+                  'bg-amber-500 border-amber-500 dark:bg-amber-600 dark:border-amber-600',
+              )}
+            />
             <label
               className="cursor-pointer select-none text-xs font-medium"
               onClick={() => setIsInternal((v) => !v)}
