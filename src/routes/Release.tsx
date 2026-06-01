@@ -47,7 +47,7 @@
 // (/api/operator/release/eligibility) gates both on the tier (staging-side
 // relay only) and on the signer flag, so the route guard treats
 // can_request_golive as the customer access lever.
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Navigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -112,12 +112,88 @@ import {
   urlForTier,
   type DeployTier,
 } from '@/lib/tier'
+import { fetchAssignableUsers } from '@/lib/tickets'
 import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
 
 const STATUS_QUERY_KEY = ['release', 'status'] as const
 const RUNS_QUERY_KEY = ['release', 'runs'] as const
 const ELIGIBILITY_QUERY_KEY = ['release', 'eligibility'] as const
+const USERS_QUERY_KEY = ['assignable-users'] as const
+
+// landr-agiw — while any run is mid-flight the console polls (below) so the UI
+// settles on its own instead of spinning until the user hits Refresh.
+const RUN_POLL_MS = 2500
+
+/** Non-terminal: still progressing toward completed/failed/rejected/cancelled. */
+function isRunInFlight(run: PromotionRun): boolean {
+  return (
+    run.status === 'approved' ||
+    run.status === 'queued' ||
+    run.status === 'executing' ||
+    run.migration_status === 'pending'
+  )
+}
+
+/** When execution began: the approval moment, or the request for auto-run kinds. */
+function runStartIso(run: PromotionRun): string {
+  return run.decided_at ?? run.requested_at
+}
+
+/** Terminal runs carry a meaningful end time (the last state change). */
+function runEndIso(run: PromotionRun): string | null {
+  const terminal =
+    run.status === 'completed' ||
+    run.status === 'failed' ||
+    run.status === 'rejected' ||
+    run.status === 'cancelled'
+  return terminal ? (run.updated_at ?? null) : null
+}
+
+/** Human-readable elapsed, e.g. "1m 12s" / "2.4s" / "1h 5m". */
+function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return '—'
+  const totalSec = ms / 1000
+  if (totalSec < 10) return `${totalSec.toFixed(1)}s`
+  const sec = Math.round(totalSec)
+  if (sec < 60) return `${sec}s`
+  const min = Math.floor(sec / 60)
+  const remSec = sec % 60
+  if (min < 60) return remSec ? `${min}m ${remSec}s` : `${min}m`
+  const hr = Math.floor(min / 60)
+  const remMin = min % 60
+  return remMin ? `${hr}h ${remMin}m` : `${hr}h`
+}
+
+function runElapsedLabel(run: PromotionRun): string | null {
+  const end = runEndIso(run)
+  if (!end) return null
+  const ms = new Date(end).getTime() - new Date(runStartIso(run)).getTime()
+  return formatDuration(ms)
+}
+
+/**
+ * landr-agiw — resolve a user UUID to a human label (email) for the promotion
+ * actors, instead of showing the raw id. Backed by the assignable_users view
+ * (staff + agents; this console is staff-only so proposers/approvers are in it).
+ * Falls back to a short id when unknown. react-query dedupes the shared key, so
+ * every card calling this triggers a single fetch.
+ */
+function useUserLabel(): (id: string | null | undefined) => string {
+  const { data } = useQuery({
+    queryKey: USERS_QUERY_KEY,
+    queryFn: fetchAssignableUsers,
+    staleTime: 5 * 60 * 1000,
+  })
+  return useCallback(
+    (id: string | null | undefined) => {
+      if (!id) return '—'
+      const u = data?.find((x) => x.id === id)
+      return u?.email ?? `${id.slice(0, 8)}…`
+    },
+    [data],
+  )
+}
 
 /** Per-tier label for the jump-link buttons. Source of truth for the icon row. */
 const JUMP_LABEL: Record<DeployTier, string> = {
@@ -223,15 +299,23 @@ export function Release() {
 function StaffReleaseConsole() {
   const queryClient = useQueryClient()
 
-  const statusQuery = useQuery<PromotionStatusResponse, Error>({
-    queryKey: STATUS_QUERY_KEY,
-    queryFn: () => fetchStatus(),
-    staleTime: 1000 * 15,
-  })
+  // landr-agiw — auto-refresh while a run is mid-flight. The runs query polls
+  // itself off its own data; the status query (env SHA matrix, which also moves
+  // when a run completes) polls off the runs' in-flight state. Both stop the
+  // moment everything settles, so an idle console makes no background requests.
   const runsQuery = useQuery<PromotionRun[], Error>({
     queryKey: RUNS_QUERY_KEY,
     queryFn: () => fetchRuns(),
     staleTime: 1000 * 15,
+    refetchInterval: (query) =>
+      (query.state.data ?? []).some(isRunInFlight) ? RUN_POLL_MS : false,
+  })
+  const anyRunInFlight = (runsQuery.data ?? []).some(isRunInFlight)
+  const statusQuery = useQuery<PromotionStatusResponse, Error>({
+    queryKey: STATUS_QUERY_KEY,
+    queryFn: () => fetchStatus(),
+    staleTime: 1000 * 15,
+    refetchInterval: anyRunInFlight ? RUN_POLL_MS : false,
   })
 
   const invalidateAll = () => {
@@ -1005,6 +1089,7 @@ function ProposalCard({
 }) {
   const [action, setAction] = useState<ProposalAction | null>(null)
   const [notes, setNotes] = useState('')
+  const userLabel = useUserLabel()
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -1061,7 +1146,7 @@ function ProposalCard({
           </div>
         </div>
         <p className="text-muted-foreground text-xs">
-          {t.release.proposedBy(run.requested_by, run.requested_at)}
+          {t.release.proposedBy(userLabel(run.requested_by), run.requested_at)}
         </p>
         {run.notes ? (
           <p className="text-sm">
@@ -1225,6 +1310,8 @@ function HistorySection({
 }
 
 function HistoryRow({ run }: { run: PromotionRun }) {
+  const userLabel = useUserLabel()
+  const end = runEndIso(run)
   return (
     <div className="rounded-md border p-4">
       <div className="flex items-center justify-between gap-2">
@@ -1234,13 +1321,18 @@ function HistoryRow({ run }: { run: PromotionRun }) {
         <StatusBadge status={run.status} />
       </div>
       <p className="text-muted-foreground mt-1 text-xs">
-        {t.release.proposedBy(run.requested_by, run.requested_at)}
+        {t.release.proposedBy(userLabel(run.requested_by), run.requested_at)}
       </p>
       {run.decided_by && run.decided_at ? (
         <p className="text-muted-foreground text-xs">
-          {t.release.decidedBy(run.decided_by, run.decided_at)}
+          {t.release.decidedBy(userLabel(run.decided_by), run.decided_at)}
         </p>
       ) : null}
+      {/* landr-agiw — execution window: start → end (elapsed). End/elapsed only
+          once the run reaches a terminal status; otherwise it reads "running…". */}
+      <p className="text-muted-foreground text-xs" data-testid="run-timing">
+        {t.release.runTiming(runStartIso(run), end, runElapsedLabel(run))}
+      </p>
       {run.notes ? (
         <p className="mt-1 text-sm">
           <span className="text-muted-foreground">{t.release.notesLabel}: </span>
@@ -1408,6 +1500,37 @@ function RepoChecklist({
  * No action buttons (no inline retry — operator creates a fresh run, same
  * pattern as today's code-merge-failure path).
  */
+/**
+ * landr-agiw — one row of the migration waterfall (boot-log style): a status
+ * glyph + the migration filename. `state` picks the glyph: done ✓, running ⟳,
+ * failed ✗.
+ */
+function MigrationStepRow({
+  file,
+  state,
+}: {
+  file: string
+  state: 'done' | 'running' | 'failed'
+}) {
+  return (
+    <li className="flex items-center gap-2 font-mono text-xs">
+      {state === 'done' ? (
+        <CheckIcon className="size-3.5 shrink-0 text-emerald-600" aria-hidden />
+      ) : state === 'failed' ? (
+        <XIcon className="text-destructive size-3.5 shrink-0" aria-hidden />
+      ) : (
+        <span
+          className="inline-block size-3 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent"
+          aria-hidden
+        />
+      )}
+      <span className={state === 'failed' ? 'text-destructive' : undefined}>
+        {file}
+      </span>
+    </li>
+  )
+}
+
 function RunMigrationsSection({ run }: { run: PromotionRun }) {
   const status = run.migration_status ?? 'skipped'
   const applied = run.migrations_applied ?? []
@@ -1427,51 +1550,61 @@ function RunMigrationsSection({ run }: { run: PromotionRun }) {
   }
 
   if (status === 'pending') {
+    // Boot-log waterfall: any migrations reported applied so far show with a ✓
+    // (live-fills once the executor streams progress — landr-agiw.6 follow-up),
+    // then a spinner row for the stage still in flight.
     return (
       <div
-        className="text-muted-foreground flex items-center gap-2 text-sm"
+        className="bg-muted/30 rounded-md border p-2 text-sm"
         data-testid="run-migrations-pending"
       >
-        <span
-          className="inline-block size-3 animate-spin rounded-full border-2 border-current border-r-transparent"
-          aria-hidden
-        />
-        Applying migrations…
+        <ul className="list-none space-y-0.5">
+          {applied.map((f) => (
+            <MigrationStepRow key={f} file={f} state="done" />
+          ))}
+          <li className="text-muted-foreground flex items-center gap-2 text-sm">
+            <span
+              className="inline-block size-3 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent"
+              aria-hidden
+            />
+            {t.release.migrationsApplyingTitle}
+          </li>
+        </ul>
       </div>
     )
   }
 
   if (status === 'applied') {
     return (
-      <details
+      <div
         className="bg-muted/30 rounded-md border p-2 text-sm"
         data-testid="run-migrations-applied"
       >
-        <summary className="cursor-pointer font-medium">
+        <div className="font-medium">
           <CheckIcon
             className="mr-1 inline size-4 text-emerald-600"
             aria-hidden
           />
-          Applied {applied.length} migration{applied.length === 1 ? '' : 's'}
-        </summary>
+          {t.release.migrationsAppliedTitle(applied.length)}
+        </div>
         {applied.length > 0 ? (
-          <ul className="mt-2 list-none space-y-0.5 font-mono text-xs">
+          <ul className="mt-2 list-none space-y-0.5">
             {applied.map((f) => (
-              <li key={f}>{f}</li>
+              <MigrationStepRow key={f} file={f} state="done" />
             ))}
           </ul>
         ) : null}
         {log ? (
           <details className="mt-2 text-xs">
             <summary className="text-muted-foreground cursor-pointer">
-              View log
+              {t.release.migrationsViewLog}
             </summary>
             <pre className="bg-background mt-1 overflow-x-auto rounded p-2 font-mono text-[11px] leading-snug">
               {log}
             </pre>
           </details>
         ) : null}
-      </details>
+      </div>
     )
   }
 
@@ -1484,17 +1617,17 @@ function RunMigrationsSection({ run }: { run: PromotionRun }) {
     >
       <div className="text-destructive flex items-center gap-1 font-medium">
         <XIcon className="size-4" aria-hidden />
-        Migrations failed
+        {t.release.migrationsFailedTitle}
       </div>
       {applied.length > 0 ? (
         <p className="text-muted-foreground mt-1 text-xs">
-          Applied {applied.length} before the failure:
+          {t.release.migrationsAppliedBeforeFailure(applied.length)}
         </p>
       ) : null}
       {applied.length > 0 ? (
-        <ul className="mt-1 list-none space-y-0.5 font-mono text-xs">
+        <ul className="mt-1 list-none space-y-0.5">
           {applied.map((f) => (
-            <li key={f}>{f}</li>
+            <MigrationStepRow key={f} file={f} state="done" />
           ))}
         </ul>
       ) : null}
@@ -1503,7 +1636,9 @@ function RunMigrationsSection({ run }: { run: PromotionRun }) {
           {log}
         </pre>
       ) : (
-        <p className="text-muted-foreground mt-1 text-xs">No log captured.</p>
+        <p className="text-muted-foreground mt-1 text-xs">
+          {t.release.migrationsNoLog}
+        </p>
       )}
     </div>
   )

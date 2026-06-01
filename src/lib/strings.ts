@@ -672,6 +672,20 @@ export const t = {
     decisionNotesLabel: 'Decision',
     decidedBy: (who: string, when: string) =>
       `Decided by ${who} · ${new Date(when).toLocaleString('de-DE')}`,
+    // landr-agiw — run timing line. `elapsed` is preformatted (e.g. "1m 12s").
+    runTiming: (start: string, end: string | null, elapsed: string | null) =>
+      end
+        ? `Started ${new Date(start).toLocaleString('de-DE')} · ended ${new Date(end).toLocaleString('de-DE')} (${elapsed})`
+        : `Started ${new Date(start).toLocaleString('de-DE')} · running…`,
+    // landr-agiw — migration waterfall (boot-log style step list).
+    migrationsApplyingTitle: 'Applying migrations…',
+    migrationsAppliedTitle: (n: number) =>
+      `Applied ${n} migration${n === 1 ? '' : 's'}`,
+    migrationsFailedTitle: 'Migrations failed',
+    migrationsAppliedBeforeFailure: (n: number) =>
+      `Applied ${n} before the failure:`,
+    migrationsViewLog: 'View log',
+    migrationsNoLog: 'No log captured.',
     keep: 'Keep',
     // Status badge labels
     statusProposed: 'Proposed',

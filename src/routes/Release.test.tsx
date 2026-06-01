@@ -22,6 +22,7 @@
 // across the entire rendered tree for every staff combo.
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { fetchAssignableUsers } from '@/lib/tickets'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -67,6 +68,12 @@ vi.mock('@/lib/entitlements', () => ({
     effectiveIsStaff: mock.state.effectiveIsStaff,
     isLoading: mock.state.entLoading,
   }),
+}))
+
+// landr-agiw — the run cards resolve proposer/decider ids to labels via
+// fetchAssignableUsers; mock it so the unit test stays hermetic (no supabase).
+vi.mock('@/lib/tickets', () => ({
+  fetchAssignableUsers: vi.fn(async () => []),
 }))
 
 vi.mock('@/lib/release-promotion', async () => {
@@ -792,6 +799,89 @@ describe('Release route — run detail migrations section', () => {
     const blocks = await screen.findAllByTestId('run-migrations-skipped')
     expect(blocks.length).toBeGreaterThanOrEqual(1)
     expect(blocks[0]).toHaveTextContent('—')
+    assertNeverDevToMain()
+  })
+
+  // ---- landr-agiw: waterfall + proposer name + start/end/elapsed ------------
+
+  it('pending migrations render already-applied steps as a waterfall', async () => {
+    mock.state.runs = [
+      {
+        id: 'r-pending-wf',
+        kind: 'staging_to_main',
+        status: 'executing',
+        requested_by: 'ok@monkeytower.net',
+        requested_at: new Date().toISOString(),
+        repos: [],
+        migration_status: 'pending',
+        migrations_applied: ['20260601000000_a.sql'],
+        migration_log: '',
+      },
+    ]
+    renderRoute()
+    const block = await screen.findByTestId('run-migrations-pending')
+    expect(block).toHaveTextContent(/applying migrations/i)
+    // The already-applied step shows in the waterfall (live-fills once the
+    // executor streams progress).
+    expect(screen.getByText('20260601000000_a.sql')).toBeInTheDocument()
+    assertNeverDevToMain()
+  })
+
+  it('shows start → end with elapsed for a completed run', async () => {
+    const start = '2026-06-01T11:00:00.000Z'
+    const end = '2026-06-01T11:01:30.000Z' // +90s
+    mock.state.runs = [
+      {
+        id: 'r-timing',
+        kind: 'staging_to_main',
+        status: 'completed',
+        requested_by: 'ok@monkeytower.net',
+        requested_at: start,
+        decided_at: start,
+        updated_at: end,
+        repos: [],
+        migration_status: 'applied',
+        migrations_applied: [],
+        migration_log: '',
+      },
+    ]
+    renderRoute()
+    const timing = await screen.findByTestId('run-timing')
+    expect(timing).toHaveTextContent(/started/i)
+    expect(timing).toHaveTextContent(/ended/i)
+    expect(timing).toHaveTextContent(/\(1m 30s\)/)
+    assertNeverDevToMain()
+  })
+
+  it('resolves the proposer id to the user email', async () => {
+    vi.mocked(fetchAssignableUsers).mockResolvedValueOnce([
+      {
+        id: 'user-uuid-1',
+        email: 'proposer@landr.de',
+        is_landr_staff: true,
+        is_claude_agent: false,
+      },
+    ])
+    mock.state.runs = [
+      {
+        id: 'r-proposer',
+        kind: 'staging_to_main',
+        status: 'completed',
+        requested_by: 'user-uuid-1',
+        requested_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        repos: [],
+        migration_status: 'applied',
+        migrations_applied: [],
+        migration_log: '',
+      },
+    ]
+    renderRoute()
+    await waitFor(() => {
+      expect(
+        screen.getByText(/proposed by proposer@landr\.de/i),
+      ).toBeInTheDocument()
+    })
     assertNeverDevToMain()
   })
 })
