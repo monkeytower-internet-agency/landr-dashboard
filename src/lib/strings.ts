@@ -2329,13 +2329,20 @@ export const t = {
     paymentsModeLive: 'Live',
     paymentsModeDemo: 'Demo',
     paymentsStripePublishableLabel: 'Publishable key',
-    paymentsStripePublishablePlaceholder: 'pk_test_…',
+    // Mode-aware: Stripe live keys are prefixed pk_live_, test keys pk_test_.
+    paymentsStripePublishablePlaceholderTest: 'pk_test_…',
+    paymentsStripePublishablePlaceholderLive: 'pk_live_…',
     paymentsStripeSecretLabel: 'Secret key',
     paymentsStripeWebhookLabel: 'Webhook signing secret',
     paymentsHoldedApiKeyLabel: 'API key',
     // Shown in place of a stored secret value (which is never returned).
     paymentsConfigured: 'Configured ••••••••',
     paymentsNotConfigured: 'Not configured',
+    // At-a-glance per-mode status so the operator never has to guess whether a
+    // mode's credentials are already on file. "Configured" means stored, NOT
+    // that the key has been live-verified against Stripe/Holded.
+    paymentsModeConfigured: 'Configured',
+    paymentsModeNotConfigured: 'Not set up yet',
     paymentsRotate: 'Rotate / replace',
     paymentsRotateCancel: 'Cancel',
     paymentsSecretRotatePlaceholder: 'Enter a new value to replace it',
