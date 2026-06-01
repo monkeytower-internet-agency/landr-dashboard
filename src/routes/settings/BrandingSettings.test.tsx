@@ -89,6 +89,9 @@ function makeOperator(overrides = {}) {
     logo_dark_url: null,
     primary_color: null,
     theme: null,
+    widget_headline: null,
+    widget_description: null,
+    widget_footer: null,
     subscription_package: null,
     ...overrides,
   }
@@ -271,7 +274,7 @@ describe('BrandingSettings — theme colours (landr-znzz.11)', () => {
     patchOperatorMock.mockResolvedValue(makeOperator())
     render(<BrandingSettings />)
 
-    const saveBtn = await screen.findByRole('button', { name: 'Save changes' })
+    const saveBtn = await screen.findByTestId('theme-save')
     await userEvent.click(saveBtn)
 
     await waitFor(() =>
@@ -348,7 +351,7 @@ describe('BrandingSettings — dark mode overrides collapsible (landr-znzz.11)',
     await user.type(darkBrandHexInput, '#aabbcc')
 
     // Save
-    const saveBtn = screen.getByRole('button', { name: 'Save changes' })
+    const saveBtn = screen.getByTestId('theme-save')
     await user.click(saveBtn)
 
     await waitFor(() =>
@@ -413,5 +416,70 @@ describe('BrandingSettings — live preview (landr-znzz.11)', () => {
 
     const ctaBtns = await screen.findAllByRole('button', { name: 'Continue' })
     expect(ctaBtns).toHaveLength(2)
+  })
+})
+
+describe('BrandingSettings — booking widget text (landr-nils)', () => {
+  it('seeds the headline / description / footer fields from the operator', async () => {
+    fetchOperatorMock.mockResolvedValue(
+      makeOperator({
+        widget_headline: 'Book with us',
+        widget_description: 'Subject to our terms.',
+        widget_footer: '© Para42',
+      }),
+    )
+    render(<BrandingSettings />)
+
+    expect(
+      await screen.findByDisplayValue('Book with us'),
+    ).toBeTruthy()
+    expect(screen.getByDisplayValue('Subject to our terms.')).toBeTruthy()
+    expect(screen.getByDisplayValue('© Para42')).toBeTruthy()
+  })
+
+  it('save is disabled until a field changes, then PATCHes the widget text', async () => {
+    const user = userEvent.setup()
+    patchOperatorMock.mockResolvedValue(makeOperator())
+    render(<BrandingSettings />)
+
+    const saveBtn = await screen.findByTestId('widget-text-save')
+    // Nothing changed yet → disabled.
+    expect(saveBtn).toBeDisabled()
+
+    const headline = screen.getByLabelText('Headline')
+    await user.type(headline, 'Book with us')
+    expect(saveBtn).toBeEnabled()
+    await user.click(saveBtn)
+
+    await waitFor(() =>
+      expect(patchOperatorMock).toHaveBeenCalledWith(
+        'op-1',
+        expect.objectContaining({
+          widget_headline: 'Book with us',
+          widget_description: null,
+          widget_footer: null,
+        }),
+      ),
+    )
+  })
+
+  it('clearing a stored field PATCHes null (intentional clear)', async () => {
+    const user = userEvent.setup()
+    fetchOperatorMock.mockResolvedValue(
+      makeOperator({ widget_headline: 'Book with us' }),
+    )
+    patchOperatorMock.mockResolvedValue(makeOperator())
+    render(<BrandingSettings />)
+
+    const headline = await screen.findByDisplayValue('Book with us')
+    await user.clear(headline)
+    await user.click(screen.getByTestId('widget-text-save'))
+
+    await waitFor(() =>
+      expect(patchOperatorMock).toHaveBeenCalledWith(
+        'op-1',
+        expect.objectContaining({ widget_headline: null }),
+      ),
+    )
   })
 })

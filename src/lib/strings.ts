@@ -2260,6 +2260,25 @@ export const t = {
     fieldDarkAccentColor: 'Dark accent colour',
     fieldDarkBackgroundColor: 'Dark background colour',
     themeToastSaved: 'Theme saved.',
+    // landr-nils — operator-configurable copy around the embedded booking widget.
+    widgetTextSectionTitle: 'Booking widget text',
+    widgetTextSectionDesc:
+      'Optional copy shown around the embedded booking widget. Leave any field blank to hide it. The widget shows your logo (if uploaded), then this headline and description, then the booking steps, then the footer.',
+    widgetHeadlineLabel: 'Headline',
+    widgetHeadlinePlaceholder: 'e.g. Book with us',
+    widgetHeadlineHint:
+      'Shown above the widget, with or instead of your logo. Empty by default.',
+    widgetDescriptionLabel: 'Description',
+    widgetDescriptionPlaceholder:
+      'e.g. Choose a date and we’ll confirm by email. All bookings are subject to our terms.',
+    widgetDescriptionHint:
+      'Shown under the headline, above the booking steps. A good place for a short intro or legal note. Line breaks are kept.',
+    widgetFooterLabel: 'Footer',
+    widgetFooterPlaceholder:
+      'e.g. © Your Company · VAT ID · Cancellation policy link',
+    widgetFooterHint:
+      'Shown below the booking widget. No headline. Line breaks are kept.',
+    widgetTextToastSaved: 'Booking widget text saved.',
     contrastWarningBrand: 'Brand on background contrast is below WCAG AA (4.5:1) — text may be hard to read.',
     contrastWarningAccent: 'Accent button text contrast is below WCAG AA (4.5:1) — button text may be hard to read.',
     brandingPreviewTitle: 'Preview',
