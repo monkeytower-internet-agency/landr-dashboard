@@ -206,14 +206,18 @@ afterEach(() => {
 })
 
 describe('EmailTemplates route', () => {
-  it('renders three kind cards with locale tabs', async () => {
+  it('renders kind selector tabs and locale selector tabs', async () => {
     render(<EmailTemplates />)
     await screen.findByText('Booking received')
     expect(screen.getByText('Hotel request')).toBeInTheDocument()
+    expect(screen.getByText('Hotel confirmation')).toBeInTheDocument()
     expect(screen.getByText('Booking confirmation')).toBeInTheDocument()
-    // Each card has two locale tab buttons
-    const deTabs = screen.getAllByRole('button', { name: /de/i })
-    expect(deTabs.length).toBeGreaterThanOrEqual(3)
+    // One DE, EN, and ES tab in the locale segmented control
+    expect(screen.getAllByRole('tab', { name: /de/i }).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByRole('tab', { name: /en/i }).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByRole('tab', { name: /es/i }).length).toBeGreaterThanOrEqual(1)
+    // The editor is immediately visible (first kind + first locale pre-selected)
+    await screen.findByLabelText(/email template editor/i)
   })
 
   it('shows "Custom" badge when a template row exists for that locale', async () => {
@@ -223,19 +227,20 @@ describe('EmailTemplates route', () => {
     expect(screen.getByText('Custom')).toBeInTheDocument()
   })
 
-  it('opens edit form when a locale tab is clicked', async () => {
+  it('opens edit form with the correct template when locale tab is clicked', async () => {
     mock.state.templates = [makeTemplate()]
     const user = userEvent.setup()
     render(<EmailTemplates />)
     await screen.findByText('Booking received')
 
-    // Click the 'de' tab in the first card
-    const deTabs = screen.getAllByRole('button', { name: /de/i })
+    // Form is visible immediately (first kind+locale pre-selected)
+    await screen.findByLabelText(/email template editor/i)
+
+    // Click the DE locale tab explicitly and confirm the template loads
+    const deTabs = screen.getAllByRole('tab', { name: /de/i })
     await user.click(deTabs[0])
 
-    // Form should be visible
-    await screen.findByLabelText(/email template editor/i)
-    expect(screen.getByDisplayValue('Buchung erhalten')).toBeInTheDocument()
+    await screen.findByDisplayValue('Buchung erhalten')
   })
 
   it('switches locale tab and shows the correct form', async () => {
@@ -253,12 +258,12 @@ describe('EmailTemplates route', () => {
     await screen.findByText('Booking received')
 
     // Click de tab first
-    const deTabs = screen.getAllByRole('button', { name: /de/i })
+    const deTabs = screen.getAllByRole('tab', { name: /de/i })
     await user.click(deTabs[0])
     await screen.findByDisplayValue('Buchung erhalten')
 
     // Switch to en
-    const enTabs = screen.getAllByRole('button', { name: /en/i })
+    const enTabs = screen.getAllByRole('tab', { name: /en/i })
     await user.click(enTabs[0])
     await screen.findByDisplayValue('Booking received')
   })
@@ -269,7 +274,7 @@ describe('EmailTemplates route', () => {
     render(<EmailTemplates />)
     await screen.findByText('Booking received')
 
-    const deTabs = screen.getAllByRole('button', { name: /de/i })
+    const deTabs = screen.getAllByRole('tab', { name: /de/i })
     await user.click(deTabs[0])
 
     const subjectInput = await screen.findByDisplayValue('Buchung erhalten')
@@ -296,7 +301,7 @@ describe('EmailTemplates route', () => {
     render(<EmailTemplates />)
     await screen.findByText('Booking received')
 
-    const deTabs = screen.getAllByRole('button', { name: /de/i })
+    const deTabs = screen.getAllByRole('tab', { name: /de/i })
     await user.click(deTabs[0])
 
     const form = await screen.findByLabelText(/email template editor/i)
@@ -327,7 +332,7 @@ describe('EmailTemplates route', () => {
     render(<EmailTemplates />)
     await screen.findByText('Booking received')
 
-    const deTabs = screen.getAllByRole('button', { name: /de/i })
+    const deTabs = screen.getAllByRole('tab', { name: /de/i })
     await user.click(deTabs[0])
 
     await screen.findByRole('button', { name: /reset to default/i })
@@ -355,7 +360,7 @@ describe('EmailTemplates route', () => {
     render(<EmailTemplates />)
     await screen.findByText('Booking received')
 
-    const deTabs = screen.getAllByRole('button', { name: /de/i })
+    const deTabs = screen.getAllByRole('tab', { name: /de/i })
     await user.click(deTabs[0])
 
     await screen.findByLabelText(/email template editor/i)
@@ -370,7 +375,7 @@ describe('EmailTemplates route', () => {
     render(<EmailTemplates />)
     await screen.findByText('Booking received')
 
-    const deTabs = screen.getAllByRole('button', { name: /de/i })
+    const deTabs = screen.getAllByRole('tab', { name: /de/i })
     await user.click(deTabs[0])
 
     await screen.findByLabelText(/email template editor/i)

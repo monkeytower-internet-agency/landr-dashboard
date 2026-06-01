@@ -40,8 +40,9 @@ export function EmailTemplatePreview({ operatorId, template }: Props) {
   const contextEntries = Object.entries(result.fixture?.context ?? {})
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-      <div className="flex min-w-0 flex-1 flex-col gap-3">
+    <div className="flex flex-col gap-4">
+      {/* Preview content — subject + iframe + optional error banner + plain text */}
+      <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
             {t.emailTemplates.previewSubject}
@@ -90,15 +91,17 @@ export function EmailTemplatePreview({ operatorId, template }: Props) {
           </div>
         )}
       </div>
+
+      {/* Variable catalog — full width below the preview */}
       <EmailVariableCatalog entries={contextEntries} />
     </div>
   )
 }
 
-// landr-7tyo: variable catalog sidebar. Hydrates from the same
-// fixture.context the preview endpoint renders against (landr-tq6j),
-// so the catalog is guaranteed to stay in sync with the renderer —
-// no second source of truth to drift.
+// landr-7tyo: variable catalog. Hydrates from the same fixture.context
+// the preview endpoint renders against (landr-tq6j), so the catalog is
+// guaranteed to stay in sync with the renderer — no second source of
+// truth to drift. Rendered full-width below the preview.
 function EmailVariableCatalog({
   entries,
 }: {
@@ -117,7 +120,7 @@ function EmailVariableCatalog({
   return (
     <aside
       aria-label={t.emailTemplates.variablesTitle}
-      className="flex w-full shrink-0 flex-col gap-2 rounded border bg-muted/40 p-3 lg:w-64"
+      className="flex w-full flex-col gap-2 rounded border bg-muted/40 p-3"
     >
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide">
@@ -132,14 +135,14 @@ function EmailVariableCatalog({
           {t.emailTemplates.variablesEmpty}
         </p>
       ) : (
-        <ul className="flex flex-col gap-1.5">
+        <ul className="flex flex-wrap gap-1.5">
           {entries.map(([key, value]) => (
             <li key={key}>
               <button
                 type="button"
                 onClick={() => copy(key)}
                 aria-label={t.emailTemplates.variablesCopyAria(key)}
-                className="group flex w-full flex-col items-start gap-0.5 rounded border bg-background px-2 py-1.5 text-left text-xs hover:border-primary/60 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="group flex flex-col items-start gap-0.5 rounded border bg-background px-2 py-1.5 text-left text-xs hover:border-primary/60 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <code className="font-mono text-[11px] text-primary group-hover:underline">
                   {`{{ ${key} }}`}

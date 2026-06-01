@@ -2260,6 +2260,25 @@ export const t = {
     fieldDarkAccentColor: 'Dark accent colour',
     fieldDarkBackgroundColor: 'Dark background colour',
     themeToastSaved: 'Theme saved.',
+    // landr-nils — operator-configurable copy around the embedded booking widget.
+    widgetTextSectionTitle: 'Booking widget text',
+    widgetTextSectionDesc:
+      'Optional copy shown around the embedded booking widget. Leave any field blank to hide it. The widget shows your logo (if uploaded), then this headline and description, then the booking steps, then the footer.',
+    widgetHeadlineLabel: 'Headline',
+    widgetHeadlinePlaceholder: 'e.g. Book with us',
+    widgetHeadlineHint:
+      'Shown above the widget, with or instead of your logo. Empty by default.',
+    widgetDescriptionLabel: 'Description',
+    widgetDescriptionPlaceholder:
+      'e.g. Choose a date and we’ll confirm by email. All bookings are subject to our terms.',
+    widgetDescriptionHint:
+      'Shown under the headline, above the booking steps. A good place for a short intro or legal note. Line breaks are kept.',
+    widgetFooterLabel: 'Footer',
+    widgetFooterPlaceholder:
+      'e.g. © Your Company · VAT ID · Cancellation policy link',
+    widgetFooterHint:
+      'Shown below the booking widget. No headline. Line breaks are kept.',
+    widgetTextToastSaved: 'Booking widget text saved.',
     contrastWarningBrand: 'Brand on background contrast is below WCAG AA (4.5:1) — text may be hard to read.',
     contrastWarningAccent: 'Accent button text contrast is below WCAG AA (4.5:1) — button text may be hard to read.',
     brandingPreviewTitle: 'Preview',
@@ -2349,13 +2368,20 @@ export const t = {
     paymentsModeLive: 'Live',
     paymentsModeDemo: 'Demo',
     paymentsStripePublishableLabel: 'Publishable key',
-    paymentsStripePublishablePlaceholder: 'pk_test_…',
+    // Mode-aware: Stripe live keys are prefixed pk_live_, test keys pk_test_.
+    paymentsStripePublishablePlaceholderTest: 'pk_test_…',
+    paymentsStripePublishablePlaceholderLive: 'pk_live_…',
     paymentsStripeSecretLabel: 'Secret key',
     paymentsStripeWebhookLabel: 'Webhook signing secret',
     paymentsHoldedApiKeyLabel: 'API key',
     // Shown in place of a stored secret value (which is never returned).
     paymentsConfigured: 'Configured ••••••••',
     paymentsNotConfigured: 'Not configured',
+    // At-a-glance per-mode status so the operator never has to guess whether a
+    // mode's credentials are already on file. "Configured" means stored, NOT
+    // that the key has been live-verified against Stripe/Holded.
+    paymentsModeConfigured: 'Configured',
+    paymentsModeNotConfigured: 'Not set up yet',
     paymentsRotate: 'Rotate / replace',
     paymentsRotateCancel: 'Cancel',
     paymentsSecretRotatePlaceholder: 'Enter a new value to replace it',
@@ -3120,16 +3146,20 @@ export const t = {
     selectHint: 'Select a template kind and locale on the left to edit.',
     statusCustom: 'Custom',
     statusDefault: 'Default',
+    selectorKindLabel: 'Template',
+    selectorLocaleLabel: 'Language',
 
     kindLabels: {
       booking_received: 'Booking received',
       hotel_request: 'Hotel request',
+      hotel_confirmation: 'Hotel confirmation',
       booking_confirmation: 'Booking confirmation',
     } as Record<string, string>,
 
     localeLabels: {
       de: 'German (de)',
       en: 'English (en)',
+      es: 'Spanish (es)',
     } as Record<string, string>,
 
     fieldSubject: 'Subject',
