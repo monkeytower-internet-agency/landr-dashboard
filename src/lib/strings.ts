@@ -3120,6 +3120,8 @@ export const t = {
     selectHint: 'Select a template kind and locale on the left to edit.',
     statusCustom: 'Custom',
     statusDefault: 'Default',
+    selectorKindLabel: 'Template',
+    selectorLocaleLabel: 'Language',
 
     kindLabels: {
       booking_received: 'Booking received',
