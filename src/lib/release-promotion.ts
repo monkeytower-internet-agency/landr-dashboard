@@ -103,6 +103,13 @@ export type PromotionRun = {
   migration_log?: string | null
   /** landr-a99u.14 — filenames applied this run, in order. */
   migrations_applied?: string[] | null
+  /**
+   * landr-agiw — row last-modified time (handle_updated_at trigger). For a run
+   * in a terminal status (completed/failed/rejected/cancelled) this is when it
+   * finished; the console shows it as the run's end time + elapsed. Already
+   * returned by the API (`select *`); declared here so the UI can read it.
+   */
+  updated_at?: string | null
 }
 
 // --- operator-facing types (landr-a99u.12) ----------------------------------
