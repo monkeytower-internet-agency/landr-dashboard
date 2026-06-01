@@ -111,18 +111,25 @@ function makeAvailability(
 }
 
 // Pin "today" so the FullCalendar dayGridMonth view always lands in
-// May 2026 and the test fixtures fall inside the visible grid.
+// May 2026 and the test fixtures (2026-05-15) fall inside the visible grid.
+//
+// FullCalendar picks the visible month — and the component's default
+// availability window (BookingsCalendar.tsx, `const today = new Date()`) —
+// via a bare `new Date()`, which a plain `vi.spyOn(Date, 'now')` does NOT
+// control. Use Date-only fake timers (`toFake: ['Date']`) so `new Date()` /
+// `Date.now()` are pinned while setTimeout / Promises stay real, keeping
+// userEvent + waitFor + react-query's scheduler working.
 const FIXED_NOW = new Date('2026-05-21T12:00:00.000Z')
-let dateNowSpy: ReturnType<typeof vi.spyOn> | null = null
 
 beforeEach(() => {
   mock.rows = []
   mock.fetchCalls = []
-  dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(FIXED_NOW.getTime())
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(FIXED_NOW)
 })
 
 afterEach(() => {
-  dateNowSpy?.mockRestore()
+  vi.useRealTimers()
   vi.clearAllMocks()
 })
 

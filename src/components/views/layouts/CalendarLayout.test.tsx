@@ -26,11 +26,16 @@ import type { ReactElement } from 'react'
 import type { BookingRow } from '@/lib/bookings'
 import type { SavedViewWithState } from '@/lib/saved-views'
 
-// Pin "today" — see vitest-react-query-fake-timers-deadlock memory.
-// FullCalendar reads `Date.now()` (via `new Date()`) when picking the
-// initially visible month; pinning it keeps the events inside the grid.
+// Pin "today" so the FullCalendar dayGridMonth view lands in May 2026 and
+// the test fixtures (2026-05-1x) fall inside the visible grid.
+//
+// FullCalendar picks the initially-visible month via a bare `new Date()`,
+// which a plain `vi.spyOn(Date, 'now')` does NOT control (V8's `new Date()`
+// reads the system clock directly, not `Date.now()`). Use Date-only fake
+// timers — `toFake: ['Date']` overrides `new Date()` / `Date.now()` while
+// leaving setTimeout / queueMicrotask / Promises real, so userEvent and
+// waitFor keep working.
 const FIXED_NOW = new Date('2026-05-21T12:00:00.000Z')
-let dateNowSpy: ReturnType<typeof vi.spyOn> | null = null
 
 // Mock BookingDetailSheet so the click test can assert that the layout
 // opens the sheet, without dragging the sheet's own supabase/network deps
@@ -132,11 +137,12 @@ function render(ui: ReactElement) {
 
 beforeEach(() => {
   sheetMock.calls.length = 0
-  dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(FIXED_NOW.getTime())
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(FIXED_NOW)
 })
 
 afterEach(() => {
-  dateNowSpy?.mockRestore()
+  vi.useRealTimers()
   vi.clearAllMocks()
 })
 

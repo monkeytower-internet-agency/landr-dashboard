@@ -26,7 +26,11 @@ type Selection = { kind: TemplateKind; locale: OperatorLocale }
 export function EmailTemplates() {
   const { currentOperatorId } = useOperator()
   const qc = useQueryClient()
-  const [selection, setSelection] = useState<Selection | null>(null)
+  // Default to first kind + first locale so the editor shows immediately
+  const [selection, setSelection] = useState<Selection>({
+    kind: TEMPLATE_KINDS[0],
+    locale: OPERATOR_LOCALES[0],
+  })
 
   const query = useQuery({
     queryKey: ['email-templates', currentOperatorId ?? 'none'],
@@ -37,17 +41,18 @@ export function EmailTemplates() {
   const templates = query.data ?? []
 
   function findTemplate(kind: string, locale: string): EmailTemplate | null {
-    return templates.find(
-      (tpl) => tpl.template_kind === kind && tpl.locale === locale,
-    ) ?? null
+    return (
+      templates.find(
+        (tpl) => tpl.template_kind === kind && tpl.locale === locale,
+      ) ?? null
+    )
   }
 
-  const selectedTemplate =
-    selection ? findTemplate(selection.kind, selection.locale) : null
+  const selectedTemplate = findTemplate(selection.kind, selection.locale)
 
   const saveMutation = useMutation({
     mutationFn: async (values: TemplateFormValues) => {
-      if (!currentOperatorId || !selection) throw new Error('No operator or selection')
+      if (!currentOperatorId) throw new Error('No operator or selection')
       const existing = findTemplate(selection.kind, selection.locale)
       if (existing) {
         return updateTemplate(currentOperatorId, existing.id, {
@@ -103,6 +108,8 @@ export function EmailTemplates() {
     )
   }
 
+  const isCustom = !!selectedTemplate
+
   return (
     <div className="flex flex-col gap-6">
       <PageTitle
@@ -120,97 +127,139 @@ export function EmailTemplates() {
       {query.isPending && currentOperatorId ? (
         <p className="text-muted-foreground text-sm">{t.emailTemplates.loading}</p>
       ) : (
-        <div className="flex gap-6">
-          {/* Left: kind cards */}
-          <div className="flex w-72 shrink-0 flex-col gap-3">
-            {TEMPLATE_KINDS.map((kind) => (
-              <Card key={kind} className="overflow-hidden">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">
-                    {t.emailTemplates.kindLabels[kind]}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="flex border-t">
-                    {OPERATOR_LOCALES.map((locale) => {
-                      const has = !!findTemplate(kind, locale)
-                      const isSelected =
-                        selection?.kind === kind && selection.locale === locale
+        <div className="flex flex-col gap-6">
+          {/* Top selector bar: kind tabs + locale tabs */}
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
+                {/* Kind segmented control */}
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                    {t.emailTemplates.selectorKindLabel}
+                  </p>
+                  <div
+                    role="tablist"
+                    aria-label={t.emailTemplates.selectorKindLabel}
+                    className="flex rounded-md border bg-muted/40 p-0.5 gap-0.5"
+                  >
+                    {TEMPLATE_KINDS.map((kind) => {
+                      const isSelected = selection.kind === kind
                       return (
                         <button
-                          key={locale}
+                          key={kind}
                           type="button"
-                          onClick={() => setSelection({ kind, locale })}
+                          role="tab"
+                          aria-selected={isSelected}
+                          onClick={() => setSelection((s) => ({ ...s, kind }))}
                           className={cn(
-                            'flex-1 cursor-pointer border-r px-3 py-2 text-sm last:border-r-0 transition-colors',
+                            'rounded px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                             isSelected
-                              ? 'bg-primary text-primary-foreground'
-                              : 'hover:bg-accent hover:text-accent-foreground',
+                              ? 'bg-background text-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground hover:bg-background/60',
                           )}
-                          aria-pressed={isSelected}
                         >
-                          <span className="block font-medium uppercase">{locale}</span>
-                          <span
-                            className={cn(
-                              'block text-xs',
-                              isSelected
-                                ? 'text-primary-foreground/70'
-                                : 'text-muted-foreground',
-                            )}
-                          >
-                            {has
-                              ? t.emailTemplates.statusCustom
-                              : t.emailTemplates.statusDefault}
-                          </span>
+                          {t.emailTemplates.kindLabels[kind]}
                         </button>
                       )
                     })}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                </div>
 
-          {/* Right: edit + preview */}
-          <div className="flex min-w-0 flex-1 flex-col gap-6">
-            {!selection ? (
-              <p className="text-muted-foreground text-sm">{t.emailTemplates.selectHint}</p>
-            ) : (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">
-                      {t.emailTemplates.kindLabels[selection.kind]} —{' '}
-                      {t.emailTemplates.localeLabels[selection.locale]}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <EmailTemplateForm
-                      template={selectedTemplate}
-                      saving={saveMutation.isPending}
-                      onSave={(values) => saveMutation.mutate(values)}
-                      onResetToDefault={() => deleteMutation.mutate()}
-                      resetting={deleteMutation.isPending}
-                    />
-                  </CardContent>
-                </Card>
+                {/* Locale segmented control */}
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                    {t.emailTemplates.selectorLocaleLabel}
+                  </p>
+                  <div
+                    role="tablist"
+                    aria-label={t.emailTemplates.selectorLocaleLabel}
+                    className="flex rounded-md border bg-muted/40 p-0.5 gap-0.5"
+                  >
+                    {OPERATOR_LOCALES.map((locale) => {
+                      const isSelected = selection.locale === locale
+                      const hasCustom = !!findTemplate(selection.kind, locale)
+                      return (
+                        <button
+                          key={locale}
+                          type="button"
+                          role="tab"
+                          aria-selected={isSelected}
+                          onClick={() => setSelection((s) => ({ ...s, locale }))}
+                          className={cn(
+                            'relative flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                            isSelected
+                              ? 'bg-background text-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground hover:bg-background/60',
+                          )}
+                        >
+                          <span className="uppercase">{locale}</span>
+                          {hasCustom && (
+                            <span
+                              aria-hidden="true"
+                              className={cn(
+                                'h-1.5 w-1.5 rounded-full',
+                                isSelected ? 'bg-primary' : 'bg-muted-foreground/60',
+                              )}
+                            />
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
 
-                {selectedTemplate && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">{t.emailTemplates.previewTitle}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <EmailTemplatePreview
-                        operatorId={currentOperatorId as string}
-                        template={selectedTemplate}
-                      />
-                    </CardContent>
-                  </Card>
-                )}
-              </>
-            )}
-          </div>
+                {/* Status badge for selected kind+locale */}
+                <div className="flex items-end sm:ml-auto">
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+                      isCustom
+                        ? 'border-primary/30 bg-primary/10 text-primary'
+                        : 'border-border bg-muted text-muted-foreground',
+                    )}
+                  >
+                    {isCustom
+                      ? t.emailTemplates.statusCustom
+                      : t.emailTemplates.statusDefault}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Full-width editor */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">
+                {t.emailTemplates.kindLabels[selection.kind]} —{' '}
+                {t.emailTemplates.localeLabels[selection.locale]}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EmailTemplateForm
+                template={selectedTemplate}
+                saving={saveMutation.isPending}
+                onSave={(values) => saveMutation.mutate(values)}
+                onResetToDefault={() => deleteMutation.mutate()}
+                resetting={deleteMutation.isPending}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Full-width preview (only when a custom template exists) */}
+          {selectedTemplate && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">{t.emailTemplates.previewTitle}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <EmailTemplatePreview
+                  operatorId={currentOperatorId as string}
+                  template={selectedTemplate}
+                />
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
     </div>
