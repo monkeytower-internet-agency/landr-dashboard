@@ -55,6 +55,14 @@ export const OperatorSettingsSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour like #FF8800.')
     .nullable()
     .optional(),
+  // landr-nils — operator-configurable copy rendered around the embedded
+  // booking widget. widget_headline + widget_description sit above the widget
+  // (the operator may put legal info in the description); widget_footer sits
+  // below it (no headline). All optional/nullable; max lengths mirror the API
+  // (OperatorPatch) + DB CHECK constraints (operators_widget_*_len_chk).
+  widget_headline: z.string().max(200).nullable().optional(),
+  widget_description: z.string().max(2000).nullable().optional(),
+  widget_footer: z.string().max(2000).nullable().optional(),
   // landr-znzz.7 — opt-in weather forecast hint for the conditions verdict
   // pre-fill. OFF by default; operator enables in Settings → Weather.
   // weather_provider is the provider slug (currently only 'open_meteo').

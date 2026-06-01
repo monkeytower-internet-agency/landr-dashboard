@@ -5,6 +5,8 @@ import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Card,
   CardContent,
@@ -71,6 +73,9 @@ export function BrandingSettings() {
               lc: operator.logo_url,
               ld: operator.logo_dark_url,
               th: operator.theme,
+              wh: operator.widget_headline,
+              wd: operator.widget_description,
+              wf: operator.widget_footer,
             })}
             operator={operator}
             operatorId={operatorId}
@@ -298,6 +303,17 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
     Object.keys(persistedDark).length > 0,
   )
 
+  // ── widget embed text state (landr-nils) ───────────────────────────────────
+  const [headline, setHeadline] = useState(operator.widget_headline ?? '')
+  const [description, setDescription] = useState(
+    operator.widget_description ?? '',
+  )
+  const [footer, setFooter] = useState(operator.widget_footer ?? '')
+  const widgetTextDirty =
+    headline.trim() !== (operator.widget_headline ?? '') ||
+    description.trim() !== (operator.widget_description ?? '') ||
+    footer.trim() !== (operator.widget_footer ?? '')
+
   // ── upload state ─────────────────────────────────────────────────────────
   const [isUploadingLight, setIsUploadingLight] = useState(false)
   const [isUploadingDark, setIsUploadingDark] = useState(false)
@@ -402,6 +418,25 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
 
     patchMutation.mutate({ theme })
     toast.success(t.settings.themeToastSaved)
+  }
+
+  // ── widget embed text save (landr-nils) ────────────────────────────────────
+
+  function handleWidgetTextSave() {
+    // Empty string clears the field (sends null) — an intentional clear the
+    // API preserves via exclude_unset.
+    const trimOrNull = (s: string) => {
+      const v = s.trim()
+      return v.length > 0 ? v : null
+    }
+    patchMutation.mutate(
+      {
+        widget_headline: trimOrNull(headline),
+        widget_description: trimOrNull(description),
+        widget_footer: trimOrNull(footer),
+      },
+      { onSuccess: () => toast.success(t.settings.widgetTextToastSaved) },
+    )
   }
 
   // ── contrast checks ───────────────────────────────────────────────────────
@@ -581,6 +616,77 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
               type="button"
               onClick={handleThemeSave}
               disabled={patchMutation.isPending}
+              data-testid="theme-save"
+            >
+              {patchMutation.isPending ? t.settings.saving : t.settings.save}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Booking widget text (landr-nils) ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.settings.widgetTextSectionTitle}</CardTitle>
+          <CardDescription>{t.settings.widgetTextSectionDesc}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="widget-headline">
+              {t.settings.widgetHeadlineLabel}
+            </Label>
+            <Input
+              id="widget-headline"
+              value={headline}
+              maxLength={200}
+              placeholder={t.settings.widgetHeadlinePlaceholder}
+              onChange={(e) => setHeadline(e.target.value)}
+            />
+            <p className="text-muted-foreground text-xs">
+              {t.settings.widgetHeadlineHint}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="widget-description">
+              {t.settings.widgetDescriptionLabel}
+            </Label>
+            <Textarea
+              id="widget-description"
+              value={description}
+              maxLength={2000}
+              rows={3}
+              placeholder={t.settings.widgetDescriptionPlaceholder}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+            <p className="text-muted-foreground text-xs">
+              {t.settings.widgetDescriptionHint}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="widget-footer">
+              {t.settings.widgetFooterLabel}
+            </Label>
+            <Textarea
+              id="widget-footer"
+              value={footer}
+              maxLength={2000}
+              rows={3}
+              placeholder={t.settings.widgetFooterPlaceholder}
+              onChange={(e) => setFooter(e.target.value)}
+            />
+            <p className="text-muted-foreground text-xs">
+              {t.settings.widgetFooterHint}
+            </p>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="button"
+              onClick={handleWidgetTextSave}
+              disabled={!widgetTextDirty || patchMutation.isPending}
+              data-testid="widget-text-save"
             >
               {patchMutation.isPending ? t.settings.saving : t.settings.save}
             </Button>
