@@ -4,10 +4,11 @@ import { api } from '@/lib/api-client'
 export const TEMPLATE_KINDS = [
   'booking_received',
   'hotel_request',
+  'hotel_confirmation',
   'booking_confirmation',
 ] as const
 
-export const OPERATOR_LOCALES = ['de', 'en'] as const
+export const OPERATOR_LOCALES = ['de', 'en', 'es'] as const
 
 export type TemplateKind = (typeof TEMPLATE_KINDS)[number]
 export type OperatorLocale = (typeof OPERATOR_LOCALES)[number]

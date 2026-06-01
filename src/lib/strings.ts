@@ -3133,12 +3133,14 @@ export const t = {
     kindLabels: {
       booking_received: 'Booking received',
       hotel_request: 'Hotel request',
+      hotel_confirmation: 'Hotel confirmation',
       booking_confirmation: 'Booking confirmation',
     } as Record<string, string>,
 
     localeLabels: {
       de: 'German (de)',
       en: 'English (en)',
+      es: 'Spanish (es)',
     } as Record<string, string>,
 
     fieldSubject: 'Subject',

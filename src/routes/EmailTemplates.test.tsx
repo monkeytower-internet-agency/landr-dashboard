@@ -210,10 +210,12 @@ describe('EmailTemplates route', () => {
     render(<EmailTemplates />)
     await screen.findByText('Booking received')
     expect(screen.getByText('Hotel request')).toBeInTheDocument()
+    expect(screen.getByText('Hotel confirmation')).toBeInTheDocument()
     expect(screen.getByText('Booking confirmation')).toBeInTheDocument()
-    // One DE and one EN tab in the locale segmented control
+    // One DE, EN, and ES tab in the locale segmented control
     expect(screen.getAllByRole('tab', { name: /de/i }).length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByRole('tab', { name: /en/i }).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByRole('tab', { name: /es/i }).length).toBeGreaterThanOrEqual(1)
     // The editor is immediately visible (first kind + first locale pre-selected)
     await screen.findByLabelText(/email template editor/i)
   })
