@@ -32,6 +32,12 @@ export type NotificationRow = {
   event_type: string
   title: string
   body: string | null
+  /**
+   * landr-agiw.1: optional in-app deep-link path (e.g. '/release') for
+   * non-ticket notifications. The bell navigates here when ticket_id is null;
+   * ticket_id wins when both are set. NULL = no destination (mark-read only).
+   */
+  link: string | null
   /** NULL = unread. */
   read_at: string | null
   created_at: string
@@ -46,6 +52,7 @@ const NOTIFICATION_SELECT = `
   event_type,
   title,
   body,
+  link,
   read_at,
   created_at
 `

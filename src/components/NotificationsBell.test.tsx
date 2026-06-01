@@ -118,6 +118,7 @@ function makeNotification(overrides: Partial<NotificationRow> = {}): Notificatio
     event_type: 'ticket.commented',
     title: 'New comment on your ticket',
     body: null,
+    link: null,
     read_at: null,
     created_at: new Date().toISOString(),
     ...overrides,
@@ -468,5 +469,59 @@ describe('NotificationsBell (landr-wwhn.15)', () => {
     await waitFor(() => {
       expect(getPath()).toBe(`/tickets?open=${ticketId}`)
     })
+  })
+
+  // ---- landr-agiw.1: generic link deep-link (non-ticket notifications) ---------
+
+  it('clicking a no-ticket notification with a link navigates to that link', async () => {
+    const n = makeNotification({
+      id: 'n-promo',
+      ticket_id: null,
+      link: '/release?run=run-42',
+      event_type: 'promotion.completed',
+      read_at: null,
+    })
+    fetchNotificationsMock.mockResolvedValue([n])
+
+    const { getPath } = renderBell({ isStaff: true })
+
+    const user = userEvent.setup()
+    const trigger = await screen.findByTestId('notifications-bell-trigger')
+    await user.click(trigger)
+    await waitFor(() => {
+      expect(screen.getByTestId(`notification-item-${n.id}`)).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId(`notification-item-${n.id}`))
+
+    await waitFor(() => {
+      expect(getPath()).toBe('/release?run=run-42')
+    })
+  })
+
+  it('does not navigate on a notification with neither ticket_id nor link', async () => {
+    const n = makeNotification({
+      id: 'n-bare',
+      ticket_id: null,
+      link: null,
+      read_at: null,
+    })
+    fetchNotificationsMock.mockResolvedValue([n])
+
+    const { getPath } = renderBell({ isStaff: true })
+    const startPath = getPath()
+
+    const user = userEvent.setup()
+    const trigger = await screen.findByTestId('notifications-bell-trigger')
+    await user.click(trigger)
+    await waitFor(() => {
+      expect(screen.getByTestId(`notification-item-${n.id}`)).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId(`notification-item-${n.id}`))
+
+    // Marked read, but no navigation away from the starting route.
+    await waitFor(() => {
+      expect(markNotificationReadMock).toHaveBeenCalled()
+    })
+    expect(getPath()).toBe(startPath)
   })
 })
