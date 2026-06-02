@@ -194,6 +194,40 @@ export type PromotionStatusResponse = {
   viewer: PromotionViewer
 }
 
+// --- local working-tree status (DEV/Trillian only) --------------------------
+
+/**
+ * One repo's LOCAL working-tree status, read off the Trillian checkout.
+ * Counts come from `git status --porcelain` (excluding `.claude/`); ahead/behind
+ * are vs `origin/<branch>` from LOCAL refs (no fetch — hence possibly stale).
+ */
+export type LocalRepoStatus = {
+  repo: string
+  branch: string | null
+  /** modified + staged + untracked (excl. `.claude/`). */
+  uncommitted_count: number
+  untracked_count: number
+  /** Commits HEAD is ahead of origin/<branch> (unpushed). */
+  ahead: number
+  /** Commits origin/<branch> is ahead of HEAD. */
+  behind: number
+  dirty: boolean
+  /** Per-repo read failure (e.g. `not_a_checkout`, `git_error`, `timeout`). */
+  error?: string | null
+}
+
+/**
+ * Response of GET …/promotions/local-worktree. `enabled` is false on every
+ * deployment without the dev flag (i.e. every Cloud Run / staging / prod
+ * service) — the dashboard hides the whole section in that case. `stale` warns
+ * that ahead/behind were read from local refs without a fetch.
+ */
+export type LocalWorktreeResponse = {
+  enabled: boolean
+  stale?: boolean
+  repos: LocalRepoStatus[]
+}
+
 /** Request bodies. */
 export type PromoteToStagingBody = {
   /** Optional repo allow-list; omitted ⇒ all repos with changes. */
@@ -218,6 +252,22 @@ export type RejectBody = {
 /** Fetch the environment matrix + the viewer's promotion capabilities. */
 export async function fetchStatus(): Promise<PromotionStatusResponse> {
   return api<PromotionStatusResponse>('GET', '/api/landr-staff/promotions/status')
+}
+
+/**
+ * Fetch the LOCAL working-tree status of the deployable repos (DEV/Trillian
+ * only). On staging/prod the backend returns `{enabled:false, repos:[]}` (it
+ * has no checkout and never sets the dev flag), so this resolves cleanly there
+ * too — the UI hides the section when `enabled` is false. Tolerates a missing
+ * `repos` array defensively.
+ */
+export async function fetchLocalWorktree(): Promise<LocalWorktreeResponse> {
+  const res = await api<LocalWorktreeResponse | null>(
+    'GET',
+    '/api/landr-staff/promotions/local-worktree',
+  )
+  if (res && Array.isArray(res.repos)) return res
+  return { enabled: false, repos: [] }
 }
 
 /** Fetch the recent promotion runs (history, newest first).
@@ -370,16 +420,19 @@ export function kindLabel(kind: PromotionKind): string {
 }
 
 /**
- * Compact relative time ("3h ago", "2d ago", "just now") for the env-matrix
- * commit dates. Uses Intl.RelativeTimeFormat so it's locale-aware and needs no
- * date library. Returns '' for null/invalid input so callers can skip it.
+ * Compact relative time ("3 hours ago", "2 days ago", "now") for the env-matrix
+ * commit dates. Uses Intl.RelativeTimeFormat for the wording, but PINNED to
+ * 'en-US' — the rest of the dashboard is English, so we must NOT defer to the
+ * browser locale (navigator.language = de-DE on the dev machine would otherwise
+ * render "vor 22 Stunden"). Returns '' for null/invalid input so callers can
+ * skip it.
  */
 export function relativeTime(iso: string | null | undefined): string {
   if (!iso) return ''
   const then = new Date(iso).getTime()
   if (Number.isNaN(then)) return ''
   const diffMs = then - Date.now()
-  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+  const rtf = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' })
   const units: [Intl.RelativeTimeFormatUnit, number][] = [
     ['year', 365 * 24 * 3600_000],
     ['month', 30 * 24 * 3600_000],
