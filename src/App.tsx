@@ -53,6 +53,8 @@ const Release = lazy(() => import('@/routes/Release'))
 // off the operator initial bundle (operators never reach it).
 const TicketSystemShell = lazy(() => import('@/components/TicketSystemShell'))
 import { AuthCallback } from '@/routes/AuthCallback'
+import { ForgotPassword } from '@/routes/ForgotPassword'
+import { ResetPassword } from '@/routes/ResetPassword'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
 import { Contacts } from '@/routes/Contacts'
@@ -78,6 +80,7 @@ import { IntegrationsCalendarSettings } from '@/routes/settings/IntegrationsCale
 import { IntegrationsGmailSettings } from '@/routes/settings/IntegrationsGmailSettings'
 import { IntegrationsPaymentsSettings } from '@/routes/settings/IntegrationsPaymentsSettings'
 import { ConnectedAccountsSettings } from '@/routes/settings/ConnectedAccountsSettings'
+import { SecuritySettings } from '@/routes/settings/SecuritySettings'
 import { EmailLog } from '@/routes/settings/EmailLog'
 import { PlanSettings } from '@/routes/settings/PlanSettings'
 import { CampaignsSettings } from '@/routes/settings/CampaignsSettings'
@@ -208,6 +211,11 @@ function App() {
           <AppModeProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
+            {/* landr — public forgot/reset-password pages. Reachable while
+                logged out; /reset-password carries the Supabase recovery
+                session established from the emailed link. */}
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route
               path="/onboarding/start"
@@ -341,6 +349,10 @@ function App() {
                     gate. */}
                 <Route path="integrations/payments" element={<IntegrationsPaymentsSettings />} />
                 <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
+                {/* landr — Settings → Security: change password (logged-in).
+                    Personal scope; ungated (every operator can manage their
+                    own password). */}
+                <Route path="security" element={<SecuritySettings />} />
                 <Route path="pricing" element={gatedSection('/settings/pricing', <PricingSettings />)} />
                 {/* landr-9n0l — Settings → Commissions: scheme/rule/tier
                     editor + read-only agent-earnings report. */}

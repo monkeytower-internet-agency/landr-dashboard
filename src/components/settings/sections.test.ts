@@ -53,16 +53,25 @@ describe('ACCOUNT_SECTIONS (landr-fzcg)', () => {
   // landr-1nwu.2 — Payments & invoicing joined ACCOUNT between Calendar feed
   // and Plan (per-operator Stripe + Holded credentials; another personal
   // third-party integration the operator wires up once).
-  it('contains exactly company/connected/gmail/calendar/payments/plan/notifications in that order', () => {
+  // landr — Security (change password) added after Connected accounts; both
+  // manage how the operator authenticates into the dashboard.
+  it('contains exactly company/connected/security/gmail/calendar/payments/plan/notifications in that order', () => {
     expect(ACCOUNT_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/company',
       '/settings/connected-accounts',
+      '/settings/security',
       '/settings/integrations/gmail',
       '/settings/integrations/calendar',
       '/settings/integrations/payments',
       '/settings/plan',
       '/settings/notifications',
     ])
+  })
+
+  it('includes a Security entry at /settings/security', () => {
+    const entry = ACCOUNT_SECTIONS.find((s) => s.to === '/settings/security')
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Security')
   })
 
   // landr-1nwu.2 — pin the Payments & invoicing entry shape.

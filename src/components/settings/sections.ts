@@ -11,6 +11,7 @@ import {
   CreditCardIcon,
   FolderTreeIcon,
   IdCardIcon,
+  KeyRoundIcon,
   LinkIcon,
   MailIcon,
   MailOpenIcon,
@@ -59,6 +60,13 @@ export const ACCOUNT_SECTIONS: SettingsSubSection[] = [
     to: '/settings/connected-accounts',
     label: t.settingsHub.sections.connectedAccounts,
     icon: LinkIcon,
+  },
+  // landr — change-password surface. Sits next to Connected accounts because
+  // both manage how the operator authenticates into the dashboard.
+  {
+    to: '/settings/security',
+    label: t.settingsHub.sections.security,
+    icon: KeyRoundIcon,
   },
   {
     to: '/settings/integrations/gmail',

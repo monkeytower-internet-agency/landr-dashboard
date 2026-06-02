@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import {
+  Link,
   Navigate,
   useLocation,
   useNavigate,
@@ -21,6 +22,7 @@ import { ContinueWithProvider } from '@/components/ContinueWithProvider'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { t } from '@/lib/strings'
+import { AuthShell } from '@/routes/AuthShell'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -74,26 +76,7 @@ export function Login() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center gap-0 overflow-hidden bg-background p-6 pb-[24vh]">
-      {/*
-        Soft radial gradient — mirrors the mobile onboarding background
-        (app/(auth)/onboarding.tsx WelcomePage): RadialGradient at 80%/20%
-        with rx/ry 65%, accent color stops 0.16 → 0.08 → 0.
-        Mobile uses iOS blue for accent; in the dashboard theme --accent
-        resolves to --bg-light (a near-surface tone), so a colored glow
-        is hardcoded to the Landr brand purple. Low opacity (16%/8%) reads
-        well on both the light (oklch 0.94) and dark (oklch 0.14) page
-        backgrounds.
-      */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_65%_65%_at_80%_20%,_rgba(134,59,255,0.16)_0%,_rgba(134,59,255,0.08)_55%,_transparent_100%)]"
-      />
-      <img
-        src="/logos/landr-logo-hi.webp"
-        alt={t.app.name}
-        className="relative z-10 w-full max-w-xs h-auto"
-      />
+    <AuthShell>
       <Card className="relative z-10 w-full max-w-sm">
         <CardHeader>
           <CardTitle>
@@ -168,7 +151,15 @@ export function Login() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">{t.auth.passwordLabel}</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">{t.auth.passwordLabel}</Label>
+                <Link
+                  to="/forgot-password"
+                  className="text-muted-foreground hover:text-foreground text-xs"
+                >
+                  {t.auth.forgotLink}
+                </Link>
+              </div>
               <div className="relative">
                 <Input
                   id="password"
@@ -219,6 +210,6 @@ export function Login() {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </AuthShell>
   )
 }
