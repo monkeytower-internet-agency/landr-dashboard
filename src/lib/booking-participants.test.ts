@@ -168,6 +168,10 @@ describe('participantDisplayName', () => {
         do_not_contact: false,
       },
       service_role: null,
+      // landr-wv0m: guiding participant defaults — display-name tests don't
+      // exercise the companion split, so the simplest valid shape suffices.
+      is_guiding: true,
+      companion_kind: null,
       ...overrides,
     }
   }
@@ -201,13 +205,17 @@ describe('participantDisplayName', () => {
 describe('participantRoleLabel', () => {
   function row(
     sr: BookingParticipantRow['service_role'],
+    extra: Partial<BookingParticipantRow> = {},
   ): BookingParticipantRow {
     return {
       id: 'p',
       booking_id: 'bk',
       notes: null,
       contact: null,
+      is_guiding: true,
+      companion_kind: null,
       service_role: sr,
+      ...extra,
     }
   }
 
@@ -225,5 +233,31 @@ describe('participantRoleLabel', () => {
 
   it('returns em-dash when the embed is missing', () => {
     expect(participantRoleLabel(row(null))).toBe('—')
+  })
+
+  // landr-wv0m: companion (is_guiding=false) role labels derived from
+  // companion_kind, not service_role (companions have no service_role row).
+  it('returns "Guest" for a non-participating companion (companion_kind=guest)', () => {
+    expect(
+      participantRoleLabel(
+        row(null, { is_guiding: false, companion_kind: 'guest' }),
+      ),
+    ).toBe('Guest')
+  })
+
+  it('returns "Guest" when companion_kind is null (legacy/default)', () => {
+    expect(
+      participantRoleLabel(
+        row(null, { is_guiding: false, companion_kind: null }),
+      ),
+    ).toBe('Guest')
+  })
+
+  it('returns "Joining (separate guiding)" for a self-paying activity companion', () => {
+    expect(
+      participantRoleLabel(
+        row(null, { is_guiding: false, companion_kind: 'separate_guiding' }),
+      ),
+    ).toBe('Joining (separate guiding)')
   })
 })

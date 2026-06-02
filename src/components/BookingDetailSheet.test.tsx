@@ -144,6 +144,29 @@ vi.mock('@/lib/entitlements', () => ({
 const fetchSpy = vi.fn()
 vi.stubGlobal('fetch', fetchSpy)
 
+// landr-6629 — mock the confirmation-status / resend functions so the
+// useQuery that fires on every render does NOT go through raw fetch (which
+// would break existing tests' toHaveBeenCalledOnce assertions). Individual
+// tests that specifically test the resend flow call resendConfirmationSpy
+// directly or override the mock.
+const confirmationStatusSpy = vi.fn().mockResolvedValue({
+  last_sent_at: null,
+  has_material_changes: false,
+})
+const resendConfirmationSpy = vi.fn().mockResolvedValue({
+  changes_detected: false,
+  changes: [],
+})
+
+vi.mock('@/lib/bookings', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/bookings')>()
+  return {
+    ...actual,
+    getConfirmationStatus: (...args: unknown[]) => confirmationStatusSpy(...args),
+    resendConfirmation: (...args: unknown[]) => resendConfirmationSpy(...args),
+  }
+})
+
 import { BookingDetailSheet } from './BookingDetailSheet'
 import type { BookingRow } from '@/lib/bookings'
 
@@ -231,6 +254,9 @@ beforeEach(() => {
   mock.state.contactUpdate = null
   // landr-xfcy: reset feature-gate spy to permissive (all features enabled)
   isEnabledSpy.mockImplementation((_key: string) => true)
+  // landr-6629: reset confirmation-status + resend spies to their defaults.
+  confirmationStatusSpy.mockResolvedValue({ last_sent_at: null, has_material_changes: false })
+  resendConfirmationSpy.mockResolvedValue({ changes_detected: false, changes: [] })
 })
 
 afterEach(() => {
@@ -485,6 +511,9 @@ describe('BookingDetailSheet', () => {
           do_not_contact: false,
         },
         service_role: { id: 'sr-1', code: 'pilot', label: 'Pilot' },
+        // landr-wv0m: guiding participant — is_guiding=true, no companion_kind.
+        is_guiding: true,
+        companion_kind: null,
       },
     ])
 
@@ -1003,5 +1032,201 @@ describe('BookingDetailSheet', () => {
     // Default spy already returns true for all keys.
     render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
     expect(screen.getByTestId('booking-print-btn')).toBeInTheDocument()
+  })
+
+  // -----------------------------------------------------------------------
+  // landr-6629 — Resend confirmation email with old→new diff.
+  // -----------------------------------------------------------------------
+
+  it('renders the Resend confirmation button in the footer when operator is selected', () => {
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(screen.getByTestId('booking-resend-confirmation-btn')).toBeInTheDocument()
+  })
+
+  it('Resend confirmation calls resendConfirmation() with the operator + booking ID', async () => {
+    const user = userEvent.setup()
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    await user.click(screen.getByTestId('booking-resend-confirmation-btn'))
+
+    await waitFor(() => {
+      expect(resendConfirmationSpy).toHaveBeenCalledWith(
+        'op-test',
+        'b-12345678-aaaa-bbbb-cccc-dddddddddddd',
+      )
+    })
+  })
+
+  it('shows the dot badge when confirmation-status has_material_changes=true', async () => {
+    confirmationStatusSpy.mockResolvedValue({
+      last_sent_at: '2026-06-01T10:00:00Z',
+      has_material_changes: true,
+    })
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('booking-resend-confirmation-dot')).toBeInTheDocument()
+    })
+  })
+
+  it('hides the dot badge when confirmation-status has_material_changes=false', async () => {
+    // Default spy returns false — no override needed.
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    // Wait for the query to resolve before asserting absence.
+    await waitFor(() => {
+      expect(confirmationStatusSpy).toHaveBeenCalled()
+    })
+    expect(screen.queryByTestId('booking-resend-confirmation-dot')).not.toBeInTheDocument()
+  })
+
+  it('shows success toast with change count when resend returns changes', async () => {
+    const user = userEvent.setup()
+    const { toast: sonnerToast } = await import('sonner')
+    resendConfirmationSpy.mockResolvedValue({
+      changes_detected: true,
+      changes: [
+        { label: 'Booking date (start)', old: '2026-07-01', new: '2026-08-01' },
+      ],
+    })
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    await user.click(screen.getByTestId('booking-resend-confirmation-btn'))
+
+    await waitFor(() => {
+      expect(sonnerToast.success).toHaveBeenCalledWith(
+        expect.stringContaining('1 change'),
+      )
+    })
+  })
+
+  // -----------------------------------------------------------------------
+  // landr-hgd4 — General approve / reject from the booking detail sheet.
+  // -----------------------------------------------------------------------
+
+  it('hides Approve/Reject buttons when stage is not awaiting_general_approval', () => {
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(
+      screen.queryByTestId('booking-general-approve-btn'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('booking-general-reject-btn'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows Approve and Reject buttons when stage is awaiting_general_approval', () => {
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_general_approval' },
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+    expect(screen.getByTestId('booking-general-approve-btn')).toBeInTheDocument()
+    expect(screen.getByTestId('booking-general-reject-btn')).toBeInTheDocument()
+  })
+
+  it('Approve opens a dialog and POSTs branch=general decision=approve on confirm', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ booking_id: 'b' }), { status: 200 }),
+    )
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_general_approval' },
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+
+    await user.click(screen.getByTestId('booking-general-approve-btn'))
+
+    const dialog = await screen.findByRole('alertdialog')
+    const confirmBtn = within(dialog).getByTestId('general-approve-confirm')
+    await user.click(confirmBtn)
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/staff/bookings/')
+    expect(url).toContain('/approval')
+    const body = JSON.parse(opts.body as string)
+    expect(body).toMatchObject({ branch: 'general', decision: 'approve' })
+  })
+
+  it('Approve sends optional note when the operator types one', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ booking_id: 'b' }), { status: 200 }),
+    )
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_general_approval' },
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+
+    await user.click(screen.getByTestId('booking-general-approve-btn'))
+    const dialog = await screen.findByRole('alertdialog')
+
+    const noteInput = within(dialog).getByTestId('general-approve-note')
+    await user.type(noteInput, 'Looks good')
+
+    await user.click(within(dialog).getByTestId('general-approve-confirm'))
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(opts.body as string)).toMatchObject({
+      branch: 'general',
+      decision: 'approve',
+      notes: 'Looks good',
+    })
+  })
+
+  it('Reject opens a dialog and POSTs branch=general decision=reject on confirm', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ booking_id: 'b' }), { status: 200 }),
+    )
+    const onOpenChange = vi.fn()
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_general_approval' },
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={onOpenChange} />)
+
+    await user.click(screen.getByTestId('booking-general-reject-btn'))
+
+    const dialog = await screen.findByRole('alertdialog')
+    const confirmBtn = within(dialog).getByTestId('general-reject-confirm')
+    await user.click(confirmBtn)
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/staff/bookings/')
+    expect(url).toContain('/approval')
+    const body = JSON.parse(opts.body as string)
+    expect(body).toMatchObject({ branch: 'general', decision: 'reject' })
+    // Reject closes the sheet on success.
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+  })
+
+  it('General approve invalidates [bookings] and [views-bookings] on success', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ booking_id: 'b' }), { status: 200 }),
+    )
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_general_approval' },
+    })
+    const { invalidateSpy } = renderWithInvalidationSpy(
+      <BookingDetailSheet row={row} onOpenChange={() => {}} />,
+    )
+
+    await user.click(screen.getByTestId('booking-general-approve-btn'))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByTestId('general-approve-confirm'))
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const invalidatedKeys = invalidateSpy.mock.calls.map(
+      (call) => (call[0] as { queryKey: unknown[] }).queryKey,
+    )
+    expect(invalidatedKeys).toContainEqual(['bookings'])
+    expect(invalidatedKeys).toContainEqual(['views-bookings'])
   })
 })

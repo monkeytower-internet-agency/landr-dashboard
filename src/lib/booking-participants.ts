@@ -42,15 +42,26 @@ export type BookingParticipantRow = {
   notes: string | null
   contact: BookingParticipantContact | null
   service_role: BookingParticipantServiceRole | null
+  // landr-wv0m: distinguish guiding participants from non-guiding companions.
+  // is_guiding=true (or null for legacy rows) → guiding participant.
+  // is_guiding=false → companion row; companion_kind holds the sub-type.
+  is_guiding: boolean | null
+  // 'guest' = not doing the activity; 'separate_guiding' = doing the activity
+  // but paying for their own guiding separately. NULL for guiding participants.
+  companion_kind: 'guest' | 'separate_guiding' | null
 }
 
 // The Supabase select shape — flattened by `fetchBookingParticipants` into
 // the BookingParticipantRow type above. PostgREST returns the embedded FK
 // rows under their relation alias (`contact:contacts!contact_id ( … )`).
+// landr-wv0m: is_guiding + companion_kind added to distinguish self-paying
+// activity participants (separate_guiding) from non-participating guests.
 const SELECT = `
   id,
   booking_id,
   notes,
+  is_guiding,
+  companion_kind,
   contact:contacts!contact_id ( id, first_name, last_name, email, phone, do_not_contact ),
   service_role:service_roles!service_role_id ( id, code, label )
 `
@@ -59,6 +70,8 @@ type RawRow = {
   id: string
   booking_id: string
   notes: string | null
+  is_guiding: boolean | null
+  companion_kind: 'guest' | 'separate_guiding' | null
   contact: BookingParticipantContact | null
   service_role: BookingParticipantServiceRole | null
 }
@@ -77,6 +90,9 @@ export async function fetchBookingParticipants(
     id: r.id,
     booking_id: r.booking_id,
     notes: r.notes,
+    // landr-wv0m: default true for legacy rows that pre-date the column.
+    is_guiding: r.is_guiding ?? true,
+    companion_kind: r.companion_kind ?? null,
     contact: r.contact ?? null,
     service_role: r.service_role ?? null,
   }))
@@ -95,10 +111,25 @@ export function participantDisplayName(row: BookingParticipantRow): string {
   return '—'
 }
 
-/** Display label for the service role; uses the human label, falling back
- *  to the code, then em-dash for participants whose role row was deleted
- *  (FK is ON DELETE RESTRICT today, so this is defence-in-depth). */
+/** Display label for the service role or companion kind.
+ *
+ * landr-wv0m: non-guiding companions (is_guiding=false) have no
+ * service_role. For them we derive a human-readable label from companion_kind:
+ *   - 'separate_guiding' → "Joining (separate guiding)" — clearly a
+ *     self-paying activity participant, distinct from a plain guest.
+ *   - 'guest' (or null/default) → "Guest"
+ *
+ * Guiding participants continue to use their service_role label → code
+ * chain as before (defence-in-depth em-dash for missing roles).
+ */
 export function participantRoleLabel(row: BookingParticipantRow): string {
+  // landr-wv0m: companions have no service_role — label from companion_kind.
+  if (row.is_guiding === false) {
+    if (row.companion_kind === 'separate_guiding') {
+      return 'Joining (separate guiding)'
+    }
+    return 'Guest'
+  }
   const r = row.service_role
   if (!r) return '—'
   if (r.label && r.label.trim()) return r.label
