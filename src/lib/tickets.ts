@@ -347,11 +347,34 @@ export async function fetchTicketsStaff(): Promise<TicketRowStaff[]> {
  * Update a ticket's status (operator → Supabase REST for the public, human-
  * owned columns per write-routing-convention). Only allowed for statuses in
  * DRAGGABLE_STATUSES (backlog, ready); callers MUST gate before calling.
+ *
+ * landr-yqqz — Actor exclusion: when `actorId` (public.users.id) is provided
+ * the call is routed through the `patch_ticket_status_as_actor` RPC, which
+ * wraps `set_config('app.current_user_id', actorId, true)` + the UPDATE in one
+ * transaction. The `z_trg_tickets_notify_status_change` trigger then reads that
+ * session var and excludes the actor from the watcher bell fan-out, matching
+ * the FastAPI middleware convention (Decision #67). Without `actorId` (legacy
+ * or test callers) the plain REST UPDATE is used and the trigger falls through
+ * to v_actor = NULL — the actor still receives a bell only if they happen to be
+ * watching the ticket they dragged, an acceptable, rare edge.
  */
 export async function patchTicketStatus(
   ticketId: string,
   status: TicketStatus,
+  actorId?: string | null,
 ): Promise<void> {
+  if (actorId) {
+    // RPC path: sets app.current_user_id so the trigger can exclude the actor.
+    const { error } = await supabase.rpc('patch_ticket_status_as_actor', {
+      p_ticket_id: ticketId,
+      p_status: status,
+      p_actor_id: actorId,
+    })
+    if (error) throw new Error(error.message)
+    return
+  }
+
+  // Plain REST path (no actor context — trigger uses v_actor = NULL).
   const { error } = await supabase
     .from('tickets')
     .update({ status })

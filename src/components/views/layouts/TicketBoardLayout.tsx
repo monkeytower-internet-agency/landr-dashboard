@@ -26,6 +26,7 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import {
   TICKET_COLUMNS,
+  fetchCurrentPublicUser,
   patchTicketStatus,
   resolveTicketDrop,
   type TicketRow,
@@ -41,6 +42,8 @@ import {
 import type { SavedViewWithState } from '@/lib/saved-views'
 import { useEntitlements } from '@/lib/entitlements'
 import { useOperator } from '@/lib/operator'
+import { useAuth } from '@/lib/auth'
+import { useQuery } from '@tanstack/react-query'
 
 type Props = {
   view: SavedViewWithState
@@ -49,6 +52,20 @@ type Props = {
 }
 
 export function TicketBoardLayout({ view, items, onConfigChange }: Props) {
+  // landr-yqqz — resolve the current user's public.users.id so the drag handler
+  // can pass it to patchTicketStatus for actor exclusion in the notification
+  // trigger. Uses the same ['current-public-user', authUid] cache key as
+  // useEntitlements so no extra round-trip is incurred.
+  const { session } = useAuth()
+  const authUid = session?.user?.id ?? null
+  const publicUserQuery = useQuery({
+    queryKey: ['current-public-user', authUid],
+    queryFn: () => fetchCurrentPublicUser(authUid as string),
+    enabled: !!authUid,
+    staleTime: 1000 * 60 * 5,
+  })
+  const actorId = publicUserQuery.data?.id ?? null
+
   // Optimistic override map: ticketId → patched TicketStatus.
   const [overrides, setOverrides] = useState<Record<string, TicketStatus>>({})
 
@@ -97,7 +114,10 @@ export function TicketBoardLayout({ view, items, onConfigChange }: Props) {
 
     setOverrides((prev) => ({ ...prev, [ticketId]: newStatus }))
 
-    void patchTicketStatus(ticketId, newStatus).catch((err: Error) => {
+    // landr-yqqz: pass actorId so the RPC sets app.current_user_id and the
+    // z_trg_tickets_notify_status_change trigger excludes the dragger from
+    // the watcher bell fan-out.
+    void patchTicketStatus(ticketId, newStatus, actorId).catch((err: Error) => {
       setOverrides((prev) => {
         const next = { ...prev }
         delete next[ticketId]
