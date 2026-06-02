@@ -38,9 +38,13 @@ const { mock } = vi.hoisted(() => {
     return b
   }
 
+  // rpc's resolved shape mirrors patchTicketStatus's destructure ({ error }).
+  // Typed so `error` is `{ message: string } | null` — otherwise TS infers the
+  // literal `{ error: null }` and rejects the error-path mockResolvedValueOnce.
+  type RpcResult = { error: { message: string } | null }
   const supabase = {
     from: vi.fn(() => fromBuilder()),
-    rpc: vi.fn(async () => ({ error: null })),
+    rpc: vi.fn(async (): Promise<RpcResult> => ({ error: null })),
     channel: vi.fn(() => ({ on: vi.fn().mockReturnThis(), subscribe: vi.fn() })),
     removeChannel: vi.fn(),
     auth: {
