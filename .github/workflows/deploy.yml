@@ -59,7 +59,7 @@ jobs:
             echo "deploy_tier=staging"                                                     >> "$GITHUB_OUTPUT"
           else
             echo "project=landr-dashboard-dev"                                             >> "$GITHUB_OUTPUT"
-            echo "api_base=https://api.dev.landr.de"                                      >> "$GITHUB_OUTPUT"
+            echo "api_base=https://api-dev.landr.de"                                      >> "$GITHUB_OUTPUT"
             echo "production_branch=dev"                                                   >> "$GITHUB_OUTPUT"
             echo "supabase_url=https://kong.dev.landr.de"                                 >> "$GITHUB_OUTPUT"
             echo "supabase_pub_key=${{ secrets.VITE_SUPABASE_PUB_KEY_DEV }}"              >> "$GITHUB_OUTPUT"

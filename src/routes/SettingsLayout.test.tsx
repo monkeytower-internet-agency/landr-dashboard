@@ -252,15 +252,17 @@ describe('SettingsLayout', () => {
   it('renders the Account sub-sidebar when on an account URL (landr-fzcg)', () => {
     renderSettingsTree('/settings/company')
     // /settings/company belongs to the Account group, so the sub-sidebar
-    // renders ACCOUNT_SECTIONS (Company, Connected accounts, Gmail,
+    // renders ACCOUNT_SECTIONS (Company, Connected accounts, Security, Gmail,
     // Calendar feed, Payments & invoicing, Plan, Notifications).
     // landr-6ybs added Calendar feed; landr-wwhn.16 added Notifications;
-    // landr-1nwu.2 added Payments & invoicing.
+    // landr-1nwu.2 added Payments & invoicing; landr added Security
+    // (change password).
     const nav = screen.getByRole('navigation', { name: /account sections/i })
     const links = nav.querySelectorAll('a')
-    expect(links).toHaveLength(7)
+    expect(links).toHaveLength(8)
     expect(nav).toHaveTextContent(/company/i)
     expect(nav).toHaveTextContent(/connected accounts/i)
+    expect(nav).toHaveTextContent(/security/i)
     expect(nav).toHaveTextContent(/gmail/i)
     expect(nav).toHaveTextContent(/calendar feed/i)
     expect(nav).toHaveTextContent(/payments & invoicing/i)

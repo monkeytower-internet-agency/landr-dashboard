@@ -162,6 +162,59 @@ export const t = {
       'Sign in with your password, then connect Google from Settings → Connected accounts.',
     oauthUnknownError:
       'Sign-in did not complete. Please try again or use your password.',
+    // landr — Forgot / reset password flow.
+    forgotLink: 'Forgot password?',
+    forgotHeading: 'Reset your password',
+    forgotDescription:
+      "Enter your email and we'll send you a link to choose a new password.",
+    forgotSubmit: 'Send reset link',
+    forgotSubmitting: 'Sending…',
+    // Neutral, account-enumeration-safe confirmation (shown regardless of
+    // whether the address has an account).
+    forgotSentTitle: 'Check your email',
+    forgotSentBody: (email: string) =>
+      `If an account exists for ${email}, we've sent a link to reset your password. The link expires in one hour.`,
+    forgotBackToLogin: 'Back to sign in',
+    resetHeading: 'Choose a new password',
+    resetDescription: 'Enter a new password for your account.',
+    resetNewPasswordLabel: 'New password',
+    resetConfirmLabel: 'Confirm new password',
+    resetSubmit: 'Update password',
+    resetSubmitting: 'Updating…',
+    resetSuccess: 'Password updated — you are signed in.',
+    resetMismatch: 'Passwords do not match.',
+    resetTooShort: 'Password must be at least 8 characters.',
+    resetVerifying: 'Verifying your reset link…',
+    resetLinkInvalidTitle: 'This reset link is invalid or has expired',
+    resetLinkInvalidBody:
+      'Reset links expire after one hour and can only be used once. Request a new one to continue.',
+    resetRequestNew: 'Request a new link',
+    resetGenericError: 'Could not update your password. Please try again.',
+  },
+  // landr — logged-in change-password (Settings → Security). Re-enters the
+  // current password (verified via signInWithPassword) before updateUser.
+  security: {
+    title: 'Security',
+    description: 'Manage your account password.',
+    changePasswordHeading: 'Change password',
+    changePasswordDescription:
+      'Choose a strong password you do not use anywhere else.',
+    currentPasswordLabel: 'Current password',
+    newPasswordLabel: 'New password',
+    confirmPasswordLabel: 'Confirm new password',
+    submit: 'Update password',
+    submitting: 'Updating…',
+    success: 'Password updated.',
+    currentRequired: 'Enter your current password.',
+    currentIncorrect: 'Current password is incorrect.',
+    mismatch: 'New passwords do not match.',
+    tooShort: 'Password must be at least 8 characters.',
+    sameAsCurrent: 'New password must be different from your current one.',
+    genericError: 'Could not update your password. Please try again.',
+    // Operators who signed in via Google have no email/password identity yet.
+    noPasswordIdentityTitle: 'No password set',
+    noPasswordIdentityBody:
+      'You sign in with a connected provider (e.g. Google). To set a password, use “Forgot password?” on the sign-in screen to create one.',
   },
   connectedAccounts: {
     title: 'Connected accounts',
@@ -374,6 +427,7 @@ export const t = {
       // landr-1nwu.2 — per-operator Stripe + Holded credentials.
       integrationsPayments: 'Payments & invoicing',
       connectedAccounts: 'Connected accounts',
+      security: 'Security',
       plan: 'Plan',
       pricing: 'Pricing',
       // landr-9n0l — commission schemes (platform/agent/provider) + the
@@ -442,6 +496,7 @@ export const t = {
         'Enter your own Stripe (test + live) and Holded (demo + live) API keys. Secrets are encrypted and never shown again.',
       connectedAccounts:
         'Identity links (Google, Apple, GitHub) for this operator.',
+      security: 'Change your account password.',
       plan: 'Your current subscription plan.',
       pricing: 'Discounts, surcharges, and pricing modifiers.',
       // landr-9n0l — commission scheme editor + agent-earnings report.

@@ -249,11 +249,12 @@ export function BookingsTable({
         // is scheduled). Multi-item bookings with mixed dates use the MIN
         // — matches calendar/reporting semantics (earliestScheduledItem
         // in lib/bookings.ts and bookingsToCalendarEvents).
-        // landr-n2j2 — clicking the cell opens a native date input that
-        // PATCHes the EARLIEST scheduled item's date_range_start (and
-        // collapses date_range_end onto it for single-day bookings). This
-        // mirrors the calendar drag pattern. Bookings with NO scheduled
-        // item render as read-only "—" — there's no line to PATCH.
+        // The service date is a RANGE (start–end, possibly multi-day), so a
+        // single-date inline editor here is misleading. The cell is now a
+        // plain read-only display: clicking it bubbles to the row click
+        // (onRowClick → BookingDetailSheet), matching the booked-on (Created)
+        // and Product cells, where the operator edits the dates properly via
+        // the slide-in detail panel.
         id: 'service_date',
         accessorFn: (row) => earliestServiceDate(row),
         sortUndefined: 'last',
@@ -265,54 +266,13 @@ export function BookingsTable({
           }
           const start = item.date_range_start
           const end = matchingServiceEnd(row.original, start)
-          const display = (
-            <span className="whitespace-nowrap">
+          return (
+            <span
+              className="whitespace-nowrap"
+              data-testid={`bookings-cell-service-date-${row.original.id}`}
+            >
               {formatServiceDateRange(start, end, { hour12 })}
             </span>
-          )
-          return (
-            <InlineEditCell
-              kind="date"
-              value={start}
-              ariaLabel={t.bookings.inlineEdit.startDateAria}
-              display={display}
-              testId={`bookings-cell-service-date-${row.original.id}`}
-              onCommit={(next) => {
-                if (!next) return
-                // Keep date_range_end pinned to start when it was a single-
-                // day booking; preserve the relative end when it was a
-                // range (shift by the same delta).
-                let nextEnd: string | null = end
-                if (end && end !== start) {
-                  // Multi-day range — shift the end by the same number of
-                  // calendar days the start moved.
-                  const startMs = Date.parse(`${start}T00:00:00Z`)
-                  const endMs = Date.parse(`${end}T00:00:00Z`)
-                  const nextStartMs = Date.parse(`${next}T00:00:00Z`)
-                  if (
-                    Number.isFinite(startMs) &&
-                    Number.isFinite(endMs) &&
-                    Number.isFinite(nextStartMs)
-                  ) {
-                    const deltaMs = endMs - startMs
-                    const nextEndDate = new Date(nextStartMs + deltaMs)
-                    nextEnd = nextEndDate.toISOString().slice(0, 10)
-                  }
-                } else {
-                  // Single-day — keep end pinned to the new start (most
-                  // bookings in fixtures have end === start).
-                  nextEnd = next
-                }
-                inlineEdit.rescheduleEarliestItem({
-                  bookingId: row.original.id,
-                  itemId: item.id,
-                  previousStart: start,
-                  previousEnd: end,
-                  newStart: next,
-                  newEnd: nextEnd,
-                })
-              }}
-            />
           )
         },
       },
