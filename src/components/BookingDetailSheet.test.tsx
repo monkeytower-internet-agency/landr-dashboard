@@ -128,6 +128,19 @@ vi.mock('@/lib/tags', () => ({
   fetchContactTagIds: vi.fn().mockResolvedValue([]),
 }))
 
+// landr-xfcy — feature gating for invoice download + print buttons.
+// Default: all features enabled (permissive), individual tests override
+// isEnabledSpy.mockImplementation to simulate disabled features.
+const isEnabledSpy = vi.fn((_key: string) => true)
+vi.mock('@/lib/entitlements', () => ({
+  useEntitlements: () => ({
+    isEnabled: isEnabledSpy,
+    isLandrStaff: false,
+    effectiveIsStaff: false,
+    isLoading: false,
+  }),
+}))
+
 const fetchSpy = vi.fn()
 vi.stubGlobal('fetch', fetchSpy)
 
@@ -216,6 +229,8 @@ beforeEach(() => {
   ;(mock.builder.update as ReturnType<typeof vi.fn>).mockClear()
   ;(mock.builder.eq as ReturnType<typeof vi.fn>).mockClear()
   mock.state.contactUpdate = null
+  // landr-xfcy: reset feature-gate spy to permissive (all features enabled)
+  isEnabledSpy.mockImplementation((_key: string) => true)
 })
 
 afterEach(() => {
@@ -956,5 +971,37 @@ describe('BookingDetailSheet', () => {
     )
     expect(invalidatedKeys).toContainEqual(['bookings'])
     expect(invalidatedKeys).toContainEqual(['views-bookings'])
+  })
+
+  // -----------------------------------------------------------------------
+  // landr-xfcy — feature gating for invoice download + print buttons.
+  // -----------------------------------------------------------------------
+
+  it('hides invoice button when booking_invoice_download feature is disabled', () => {
+    isEnabledSpy.mockImplementation((key: string) => key !== 'booking_invoice_download')
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(
+      screen.queryByTestId('booking-invoice-btn'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows invoice button when booking_invoice_download feature is enabled', () => {
+    // Default spy already returns true for all keys.
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(screen.getByTestId('booking-invoice-btn')).toBeInTheDocument()
+  })
+
+  it('hides print button when booking_print feature is disabled', () => {
+    isEnabledSpy.mockImplementation((key: string) => key !== 'booking_print')
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(
+      screen.queryByTestId('booking-print-btn'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows print button when booking_print feature is enabled', () => {
+    // Default spy already returns true for all keys.
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(screen.getByTestId('booking-print-btn')).toBeInTheDocument()
   })
 })
