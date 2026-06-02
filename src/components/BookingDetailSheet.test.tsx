@@ -1007,4 +1007,134 @@ describe('BookingDetailSheet', () => {
     render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
     expect(screen.getByTestId('booking-print-btn')).toBeInTheDocument()
   })
+
+  // -----------------------------------------------------------------------
+  // landr-hgd4 — General approve / reject from the booking detail sheet.
+  // -----------------------------------------------------------------------
+
+  it('hides Approve/Reject buttons when stage is not awaiting_general_approval', () => {
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(
+      screen.queryByTestId('booking-general-approve-btn'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('booking-general-reject-btn'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows Approve and Reject buttons when stage is awaiting_general_approval', () => {
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_general_approval' },
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+    expect(screen.getByTestId('booking-general-approve-btn')).toBeInTheDocument()
+    expect(screen.getByTestId('booking-general-reject-btn')).toBeInTheDocument()
+  })
+
+  it('Approve opens a dialog and POSTs branch=general decision=approve on confirm', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ booking_id: 'b' }), { status: 200 }),
+    )
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_general_approval' },
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+
+    await user.click(screen.getByTestId('booking-general-approve-btn'))
+
+    const dialog = await screen.findByRole('alertdialog')
+    const confirmBtn = within(dialog).getByTestId('general-approve-confirm')
+    await user.click(confirmBtn)
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/staff/bookings/')
+    expect(url).toContain('/approval')
+    const body = JSON.parse(opts.body as string)
+    expect(body).toMatchObject({ branch: 'general', decision: 'approve' })
+  })
+
+  it('Approve sends optional note when the operator types one', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ booking_id: 'b' }), { status: 200 }),
+    )
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_general_approval' },
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+
+    await user.click(screen.getByTestId('booking-general-approve-btn'))
+    const dialog = await screen.findByRole('alertdialog')
+
+    const noteInput = within(dialog).getByTestId('general-approve-note')
+    await user.type(noteInput, 'Looks good')
+
+    await user.click(within(dialog).getByTestId('general-approve-confirm'))
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(opts.body as string)).toMatchObject({
+      branch: 'general',
+      decision: 'approve',
+      notes: 'Looks good',
+    })
+  })
+
+  it('Reject opens a dialog and POSTs branch=general decision=reject on confirm', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ booking_id: 'b' }), { status: 200 }),
+    )
+    const onOpenChange = vi.fn()
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_general_approval' },
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={onOpenChange} />)
+
+    await user.click(screen.getByTestId('booking-general-reject-btn'))
+
+    const dialog = await screen.findByRole('alertdialog')
+    const confirmBtn = within(dialog).getByTestId('general-reject-confirm')
+    await user.click(confirmBtn)
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/staff/bookings/')
+    expect(url).toContain('/approval')
+    const body = JSON.parse(opts.body as string)
+    expect(body).toMatchObject({ branch: 'general', decision: 'reject' })
+    // Reject closes the sheet on success.
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+  })
+
+  it('General approve invalidates [bookings] and [views-bookings] on success', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ booking_id: 'b' }), { status: 200 }),
+    )
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_general_approval' },
+    })
+    const { invalidateSpy } = renderWithInvalidationSpy(
+      <BookingDetailSheet row={row} onOpenChange={() => {}} />,
+    )
+
+    await user.click(screen.getByTestId('booking-general-approve-btn'))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByTestId('general-approve-confirm'))
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const invalidatedKeys = invalidateSpy.mock.calls.map(
+      (call) => (call[0] as { queryKey: unknown[] }).queryKey,
+    )
+    expect(invalidatedKeys).toContainEqual(['bookings'])
+    expect(invalidatedKeys).toContainEqual(['views-bookings'])
+  })
 })

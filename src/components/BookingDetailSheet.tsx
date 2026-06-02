@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { BadgeEuro, Download, Printer, Unlock, UserX } from 'lucide-react'
+import { BadgeEuro, CheckCircle, Download, Printer, Unlock, UserX, XCircle } from 'lucide-react'
 
 import { useAuth } from '@/lib/auth'
 import { useOperator } from '@/lib/operator'
@@ -62,6 +62,7 @@ import {
   markBookingAsPaid,
   patchBookingProduct,
   patchCustomerContact,
+  postGeneralApprovalDecision,
   postHotelApprovalDecision,
   priceDisplay,
   stageCode,
@@ -202,6 +203,11 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const [showUnblock, setShowUnblock] = useState(false)
   const [showNoShow, setShowNoShow] = useState(false)
   const [chargeCancellationFee, setChargeCancellationFee] = useState(false)
+  // landr-hgd4 — general approve / reject from the detail sheet.
+  const [showGeneralApprove, setShowGeneralApprove] = useState(false)
+  const [showGeneralReject, setShowGeneralReject] = useState(false)
+  const [generalApproveNote, setGeneralApproveNote] = useState('')
+  const [generalRejectNote, setGeneralRejectNote] = useState('')
   // landr-okxm — Mark-as-paid dialog state. Amount defaults to the
   // booking's outstanding balance so the operator can confirm with one
   // click for full settlement; clearing/lowering the field records a
@@ -234,6 +240,10 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
 
   const code = stageCode(row)
   const canUnblock = code === 'awaiting_hotel_approval'
+  // landr-hgd4 — general approve/reject eligibility. The server re-checks
+  // defensively; we only show the buttons when the stage matches so the
+  // sheet isn't cluttered for bookings that aren't pending approval.
+  const canGeneralApprove = code === 'awaiting_general_approval'
   // landr-ng3m — eligibility mirrors the server guards in
   // app/routers/staff_bookings_no_show.py so the button only shows
   // when the request would actually succeed.
@@ -366,6 +376,56 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     },
   })
 
+  // landr-hgd4 — general approve mutation. Mirrors the GeneralApprovals page's
+  // approve action; calls postGeneralApprovalDecision (branch=general).
+  const generalApproveMutation = useMutation({
+    mutationFn: async () => {
+      await postGeneralApprovalDecision({
+        bookingId: row.id,
+        decision: 'approve',
+        notes: generalApproveNote.trim() || undefined,
+      })
+    },
+    onSuccess: () => {
+      toast.success(t.bookings.generalApprove.toastApproved)
+      setShowGeneralApprove(false)
+      setGeneralApproveNote('')
+      invalidateAll()
+    },
+    onError: (err: Error) => {
+      toast.error(t.bookings.generalApprove.toastError, {
+        description: err.message,
+      })
+    },
+  })
+
+  // landr-hgd4 — general reject mutation. Mirrors the GeneralApprovals page's
+  // reject action; calls postGeneralApprovalDecision (branch=general,
+  // decision=reject). Reject notes are optional but surfaced prominently
+  // (mirrors the cancel-reason pattern — same dialog style, no min-length guard
+  // since the server treats notes as optional too).
+  const generalRejectMutation = useMutation({
+    mutationFn: async () => {
+      await postGeneralApprovalDecision({
+        bookingId: row.id,
+        decision: 'reject',
+        notes: generalRejectNote.trim() || undefined,
+      })
+    },
+    onSuccess: () => {
+      toast.success(t.bookings.generalApprove.toastRejected)
+      setShowGeneralReject(false)
+      setGeneralRejectNote('')
+      invalidateAll()
+      onClose()
+    },
+    onError: (err: Error) => {
+      toast.error(t.bookings.generalApprove.toastError, {
+        description: err.message,
+      })
+    },
+  })
+
   // landr-ng3m — mark-as-no-show. Requires currentOperatorId because the
   // endpoint lives under /api/staff/operators/{op}/... — the cross-tenant
   // guard is path-based on the server.
@@ -465,6 +525,8 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     saveMutation.isPending ||
     cancelMutation.isPending ||
     unblockMutation.isPending ||
+    generalApproveMutation.isPending ||
+    generalRejectMutation.isPending ||
     noShowMutation.isPending ||
     markPaidMutation.isPending ||
     clearOverrideMutation.isPending ||
@@ -749,6 +811,35 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
                 <Unlock className="size-4" />
                 {t.bookings.hotelUnblock.label}
               </Button>
+            ) : null}
+            {/* landr-hgd4 — general approve / reject buttons. Only shown when
+                the booking is awaiting_general_approval. Approve advances the
+                booking to confirmed; Reject declines it and closes the sheet
+                (same pattern as the GeneralApprovals page). */}
+            {canGeneralApprove ? (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  onClick={() => setShowGeneralApprove(true)}
+                  disabled={busy}
+                  className="self-start"
+                  data-testid="booking-general-approve-btn"
+                >
+                  <CheckCircle className="size-4" />
+                  {t.bookings.generalApprove.approveAction}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowGeneralReject(true)}
+                  disabled={busy}
+                  className="self-start border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  data-testid="booking-general-reject-btn"
+                >
+                  <XCircle className="size-4" />
+                  {t.bookings.generalApprove.rejectAction}
+                </Button>
+              </div>
             ) : null}
           </CardContent>
         </Card>
@@ -1322,6 +1413,111 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
               {noShowMutation.isPending
                 ? t.bookings.noShow.working
                 : t.bookings.noShow.confirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* landr-hgd4 — General approve confirmation */}
+      <AlertDialog
+        open={showGeneralApprove}
+        onOpenChange={(next) => {
+          if (generalApproveMutation.isPending) return
+          if (!next) setGeneralApproveNote('')
+          setShowGeneralApprove(next)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t.bookings.generalApprove.approveDialogTitle}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.bookings.generalApprove.approveDialogDescription}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="bk-general-approve-note">
+              {t.bookings.generalApprove.noteLabel}
+            </Label>
+            <Textarea
+              id="bk-general-approve-note"
+              value={generalApproveNote}
+              onChange={(e) => setGeneralApproveNote(e.target.value)}
+              placeholder={t.bookings.generalApprove.notePlaceholder}
+              disabled={generalApproveMutation.isPending}
+              rows={2}
+              data-testid="general-approve-note"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={generalApproveMutation.isPending}>
+              {t.bookings.generalApprove.cancel}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={generalApproveMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault()
+                generalApproveMutation.mutate()
+              }}
+              data-testid="general-approve-confirm"
+            >
+              {generalApproveMutation.isPending
+                ? t.bookings.generalApprove.approving
+                : t.bookings.generalApprove.confirmApprove}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* landr-hgd4 — General reject confirmation */}
+      <AlertDialog
+        open={showGeneralReject}
+        onOpenChange={(next) => {
+          if (generalRejectMutation.isPending) return
+          if (!next) setGeneralRejectNote('')
+          setShowGeneralReject(next)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t.bookings.generalApprove.rejectDialogTitle}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.bookings.generalApprove.rejectDialogDescription}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="bk-general-reject-note">
+              {t.bookings.generalApprove.rejectNoteLabel}
+            </Label>
+            <Textarea
+              id="bk-general-reject-note"
+              value={generalRejectNote}
+              onChange={(e) => setGeneralRejectNote(e.target.value)}
+              placeholder={t.bookings.generalApprove.rejectNotePlaceholder}
+              disabled={generalRejectMutation.isPending}
+              rows={3}
+              data-testid="general-reject-note"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={generalRejectMutation.isPending}>
+              {t.bookings.generalApprove.cancel}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={generalRejectMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault()
+                generalRejectMutation.mutate()
+              }}
+              variant="destructive"
+              data-testid="general-reject-confirm"
+            >
+              {generalRejectMutation.isPending
+                ? t.bookings.generalApprove.rejecting
+                : t.bookings.generalApprove.confirmReject}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
