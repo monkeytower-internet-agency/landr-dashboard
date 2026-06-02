@@ -62,13 +62,44 @@ afterEach(() => {
 })
 
 describe('SecuritySettings', () => {
-  it('shows the no-password notice when the user has no email identity', async () => {
+  it('shows the set-password form (no current-password field) when the user has no email identity', async () => {
     authMock.getUserIdentities.mockResolvedValue({
       data: { identities: [{ provider: 'google' }] },
       error: null,
     })
     renderPage()
-    expect(await screen.findByText(/no password set/i)).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /set password/i }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByLabelText(/current password/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('sets a password for a provider-only user without a current-password check', async () => {
+    authMock.getUserIdentities.mockResolvedValue({
+      data: { identities: [{ provider: 'google' }] },
+      error: null,
+    })
+    const user = userEvent.setup()
+    renderPage()
+    await user.type(
+      await screen.findByLabelText(/^new password$/i),
+      'longenough1',
+    )
+    await user.type(
+      screen.getByLabelText(/confirm new password/i),
+      'longenough1',
+    )
+    await user.click(screen.getByRole('button', { name: /set password/i }))
+
+    await waitFor(() =>
+      expect(authMock.updateUser).toHaveBeenCalledWith({
+        password: 'longenough1',
+      }),
+    )
+    expect(authMock.signInWithPassword).not.toHaveBeenCalled()
+    expect(toastMock.success).toHaveBeenCalled()
   })
 
   it('verifies the current password before updating', async () => {
