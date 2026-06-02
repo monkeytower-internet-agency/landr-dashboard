@@ -6,6 +6,7 @@ import { BadgeEuro, Download, Printer, Unlock, UserX } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useOperator } from '@/lib/operator'
 import { trackView } from '@/lib/recently-viewed'
+import { useEntitlements } from '@/lib/entitlements'
 
 import {
   AlertDialog,
@@ -191,6 +192,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   // useOperator returns null when no operator is selected yet (rare
   // outside tests); the checklist hook handles that gracefully.
   const { currentOperatorId } = useOperator()
+  const { isEnabled } = useEntitlements()
   const [customer, setCustomer] = useState<CustomerDraft>(() =>
     customerDraftFromRow(row),
   )
@@ -1019,8 +1021,9 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
               fetches the auth-protected endpoint with the bearer token,
               reads the response as a blob, and triggers a download. Hidden
               when no operator is selected (the endpoint requires an
-              operator path param). */}
-          {currentOperatorId ? (
+              operator path param), or when the booking_invoice_download
+              feature is disabled for this operator (landr-xfcy). */}
+          {currentOperatorId && isEnabled('booking_invoice_download') ? (
             <Button
               type="button"
               variant="outline"
@@ -1039,19 +1042,23 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           {/* landr-pztv — explicit print trigger. Ctrl+P already works
               thanks to the @media print stylesheet in src/index.css; this
               button surfaces the affordance for operators who don't know
-              the shortcut. */}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => window.print()}
-            disabled={busy}
-            aria-label={t.bookings.detail.print}
-            title={t.bookings.detail.print}
-            data-testid="booking-print-btn"
-          >
-            <Printer className="size-4" />
-            {t.bookings.detail.print}
-          </Button>
+              the shortcut. Hidden when booking_print feature is disabled
+              for this operator (landr-xfcy). Do NOT touch the @media print
+              CSS or Ctrl+P — those are unconditional. */}
+          {isEnabled('booking_print') ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => window.print()}
+              disabled={busy}
+              aria-label={t.bookings.detail.print}
+              title={t.bookings.detail.print}
+              data-testid="booking-print-btn"
+            >
+              <Printer className="size-4" />
+              {t.bookings.detail.print}
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="outline"
