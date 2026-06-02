@@ -211,7 +211,17 @@ export const t = {
     tooShort: 'Password must be at least 8 characters.',
     sameAsCurrent: 'New password must be different from your current one.',
     genericError: 'Could not update your password. Please try again.',
-    // Operators who signed in via Google have no email/password identity yet.
+    // Provider-only operators (e.g. Google sign-in) have no email/password
+    // identity yet — they SET a password in-app instead of going through
+    // "Forgot password?".
+    setPasswordHeading: 'Set a password',
+    setPasswordDescription:
+      'Add a password so you can sign in with your email and password as well as with Google. Choose a strong password you do not use anywhere else.',
+    setSubmit: 'Set password',
+    setSubmitting: 'Setting…',
+    setSuccess:
+      'Password set. You can now sign in with your email and password.',
+    // Retained for reference; superseded by the in-app set-password form.
     noPasswordIdentityTitle: 'No password set',
     noPasswordIdentityBody:
       'You sign in with a connected provider (e.g. Google). To set a password, use “Forgot password?” on the sign-in screen to create one.',
