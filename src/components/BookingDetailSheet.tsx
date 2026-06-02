@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { BadgeEuro, CheckCircle, Download, Printer, Unlock, UserX, XCircle } from 'lucide-react'
+import { BadgeEuro, CheckCircle, Download, Mail, Printer, Unlock, UserX, XCircle } from 'lucide-react'
 
 import { useAuth } from '@/lib/auth'
 import { useOperator } from '@/lib/operator'
@@ -56,6 +56,7 @@ import {
   cancelBooking,
   clearBookingPriceOverride,
   customerDisplay,
+  getConfirmationStatus,
   hasPriceOverride,
   invalidateBookingCaches,
   markBookingAsNoShow,
@@ -65,6 +66,7 @@ import {
   postGeneralApprovalDecision,
   postHotelApprovalDecision,
   priceDisplay,
+  resendConfirmation,
   stageCode,
   type BookingRow,
   type MarkAsPaidMethod,
@@ -502,6 +504,46 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     },
   })
 
+  // landr-6629 — resend booking confirmation with old→new diff.
+  // Requires currentOperatorId (operator-scoped endpoint). The status
+  // query (confirmation-status) drives the dot-badge on the button;
+  // it refetches after a successful resend so the badge clears.
+  const confirmationStatusQuery = useQuery({
+    queryKey: ['confirmation-status', currentOperatorId, row.id],
+    queryFn: () =>
+      currentOperatorId
+        ? getConfirmationStatus(currentOperatorId, row.id)
+        : Promise.resolve({ last_sent_at: null, has_material_changes: false }),
+    enabled: !!currentOperatorId,
+    staleTime: 60_000,
+  })
+  const hasMaterialChanges =
+    confirmationStatusQuery.data?.has_material_changes ?? false
+
+  const resendConfirmationMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentOperatorId) {
+        throw new Error('No operator selected.')
+      }
+      return resendConfirmation(currentOperatorId, row.id)
+    },
+    onSuccess: (result) => {
+      const n = result.changes.length
+      if (n > 0) {
+        toast.success(t.bookings.resendConfirmation.toastSuccessWithChanges(n))
+      } else {
+        toast.success(t.bookings.resendConfirmation.toastSuccess)
+      }
+      // Refetch status so the badge clears / reflects current state.
+      void confirmationStatusQuery.refetch()
+    },
+    onError: (err: Error) => {
+      toast.error(t.bookings.resendConfirmation.toastError, {
+        description: err.message,
+      })
+    },
+  })
+
   // landr-irds — server-rendered invoice PDF download. Requires
   // currentOperatorId because the endpoint is operator-scoped
   // (/api/staff/operators/{op}/bookings/{id}/invoice.pdf). Cache
@@ -530,7 +572,8 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     noShowMutation.isPending ||
     markPaidMutation.isPending ||
     clearOverrideMutation.isPending ||
-    invoiceMutation.isPending
+    invoiceMutation.isPending ||
+    resendConfirmationMutation.isPending
 
   // landr-puix — Clear-override visibility. Gated on currentOperatorId
   // too (the DELETE route is operator-scoped), mirroring the no-show /
@@ -1108,6 +1151,34 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           ) : null}
         </div>
         <div className="flex items-center gap-2">
+          {/* landr-6629 — resend booking confirmation with old→new diff.
+              Highlighted with a dot-badge when material fields changed
+              since the last confirmation was sent. Hidden when no operator
+              is selected (operator-scoped endpoint). */}
+          {currentOperatorId ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => resendConfirmationMutation.mutate()}
+              disabled={busy}
+              aria-label={t.bookings.resendConfirmation.action}
+              title={t.bookings.resendConfirmation.action}
+              data-testid="booking-resend-confirmation-btn"
+              className="relative"
+            >
+              <Mail className="size-4" />
+              {resendConfirmationMutation.isPending
+                ? t.bookings.resendConfirmation.working
+                : t.bookings.resendConfirmation.action}
+              {hasMaterialChanges ? (
+                <span
+                  aria-label="Material changes since last confirmation"
+                  className="bg-destructive absolute -right-1 -top-1 size-2.5 rounded-full"
+                  data-testid="booking-resend-confirmation-dot"
+                />
+              ) : null}
+            </Button>
+          ) : null}
           {/* landr-irds — server-rendered invoice PDF download. The button
               fetches the auth-protected endpoint with the bearer token,
               reads the response as a blob, and triggers a download. Hidden
