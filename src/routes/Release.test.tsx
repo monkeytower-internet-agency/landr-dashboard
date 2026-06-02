@@ -39,6 +39,14 @@ const { mock } = vi.hoisted(() => {
     serverTier: null as 'dev' | 'staging' | 'prod' | null,
     eligibility: { can_request_golive: false },
     runs: [] as Array<Record<string, unknown>>,
+    // landr local-worktree — DEV/Trillian-only column. Default = disabled
+    // (the staging/prod shape), so existing tests render no Local column;
+    // dedicated tests flip enabled:true with repo rows.
+    localWorktree: { enabled: false, repos: [] } as {
+      enabled: boolean
+      stale?: boolean
+      repos: Array<Record<string, unknown>>
+    },
     statusError: null as Error | null,
     // Optional env-matrix commit-metadata decoration merged onto the single
     // status repo. Default {} ⇒ older-backend shape (no decoration); a test
@@ -105,6 +113,7 @@ vi.mock('@/lib/release-promotion', async () => {
       }
     }),
     fetchRuns: vi.fn(async () => mock.state.runs),
+    fetchLocalWorktree: vi.fn(async () => mock.state.localWorktree),
     fetchGoLiveEligibility: vi.fn(async () => mock.state.eligibility),
     promoteToStaging: vi.fn(async (body: unknown) => {
       mock.state.promoteCalls.push(body)
@@ -171,6 +180,7 @@ function resetState() {
   mock.state.serverTier = null
   mock.state.eligibility = { can_request_golive: false }
   mock.state.runs = []
+  mock.state.localWorktree = { enabled: false, repos: [] }
   mock.state.statusError = null
   mock.state.statusReposExtra = {}
   mock.state.promoteCalls = []
@@ -304,6 +314,69 @@ describe('Release route — env-matrix commit decoration', () => {
     expect(
       screen.queryByRole('link', { name: /history/i }),
     ).not.toBeInTheDocument()
+  })
+})
+
+describe('Release route — local (Trillian) worktree column', () => {
+  beforeEach(() => {
+    mock.state.effectiveIsStaff = true
+    vi.stubEnv('VITE_DEPLOY_TIER', 'dev')
+  })
+
+  it('hides the Local column entirely when the endpoint is disabled (staging/prod)', async () => {
+    mock.state.localWorktree = { enabled: false, repos: [] }
+    renderRoute()
+    await screen.findByText(/environment matrix/i)
+    expect(screen.queryByText(/local \(trillian\)/i)).not.toBeInTheDocument()
+    expect(
+      document.querySelectorAll('[data-testid="release-local-cell"]').length,
+    ).toBe(0)
+  })
+
+  it('renders uncommitted · unpushed per repo when enabled (dev)', async () => {
+    mock.state.localWorktree = {
+      enabled: true,
+      stale: true,
+      repos: [
+        {
+          repo: 'landr-api',
+          branch: 'dev',
+          uncommitted_count: 17,
+          untracked_count: 4,
+          ahead: 2,
+          behind: 0,
+          dirty: true,
+          error: null,
+        },
+      ],
+    }
+    renderRoute()
+    await screen.findByText(/environment matrix/i)
+    // Column header present…
+    expect(await screen.findByText(/local \(trillian\)/i)).toBeInTheDocument()
+    // …and the per-repo summary "17 uncommitted · 2 unpushed".
+    expect(screen.getByText(/17 uncommitted · 2 unpushed/i)).toBeInTheDocument()
+  })
+
+  it('shows "clean" for an in-sync repo and "unavailable" for a read error', async () => {
+    mock.state.localWorktree = {
+      enabled: true,
+      repos: [
+        {
+          repo: 'landr-api',
+          branch: 'dev',
+          uncommitted_count: 0,
+          untracked_count: 0,
+          ahead: 0,
+          behind: 0,
+          dirty: false,
+          error: null,
+        },
+      ],
+    }
+    renderRoute()
+    await screen.findByText(/local \(trillian\)/i)
+    expect(screen.getByText(/^clean$/i)).toBeInTheDocument()
   })
 })
 

@@ -86,6 +86,7 @@ import {
   approveRun,
   cancelRun,
   fetchGoLiveEligibility,
+  fetchLocalWorktree,
   fetchPreviewMigrations,
   kindLabel,
   promoteToStaging,
@@ -97,6 +98,8 @@ import {
   requestGoLive,
   shortSha,
   type GoLiveEligibility,
+  type LocalRepoStatus,
+  type LocalWorktreeResponse,
   type MergeStatus,
   type PreviewMigrationsResponse,
   type PromotionKind,
@@ -119,6 +122,7 @@ import { t } from '@/lib/strings'
 const STATUS_QUERY_KEY = ['release', 'status'] as const
 const RUNS_QUERY_KEY = ['release', 'runs'] as const
 const ELIGIBILITY_QUERY_KEY = ['release', 'eligibility'] as const
+const LOCAL_WORKTREE_QUERY_KEY = ['release', 'local-worktree'] as const
 const USERS_QUERY_KEY = ['assignable-users'] as const
 
 // landr-agiw — while any run is mid-flight the console polls (below) so the UI
@@ -318,9 +322,22 @@ function StaffReleaseConsole() {
     refetchInterval: anyRunInFlight ? RUN_POLL_MS : false,
   })
 
+  // landr local-worktree — DEV/Trillian-only. The backend returns
+  // {enabled:false} on every Cloud Run (staging/prod) deployment, so this query
+  // resolves cleanly everywhere; the matrix simply hides the column off-dev.
+  // retry:false so a transient hiccup doesn't spam the error log for a console
+  // affordance that's allowed to be absent.
+  const localWorktreeQuery = useQuery<LocalWorktreeResponse, Error>({
+    queryKey: LOCAL_WORKTREE_QUERY_KEY,
+    queryFn: () => fetchLocalWorktree(),
+    staleTime: 1000 * 15,
+    retry: false,
+  })
+
   const invalidateAll = () => {
     void queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY })
     void queryClient.invalidateQueries({ queryKey: RUNS_QUERY_KEY })
+    void queryClient.invalidateQueries({ queryKey: LOCAL_WORKTREE_QUERY_KEY })
   }
 
   const status = statusQuery.data
@@ -411,8 +428,9 @@ function StaffReleaseConsole() {
       ) : (
         <>
           {/* The env matrix is read-only context and useful on every tier
-              — show it everywhere (dev/staging/prod). */}
-          <EnvironmentMatrix repos={repos} />
+              — show it everywhere (dev/staging/prod). The Local (Trillian)
+              column only materialises on dev (enabled:false elsewhere). */}
+          <EnvironmentMatrix repos={repos} local={localWorktreeQuery.data} />
 
           <TierAwareSections
             tier={tier}
@@ -732,7 +750,72 @@ function HopCell({
   )
 }
 
-function EnvironmentMatrix({ repos }: { repos: RepoStatus[] }) {
+/**
+ * landr local-worktree — DEV/Trillian-only cell: surfaces uncommitted/unpushed
+ * work in the box's working tree that the GitHub-tip matrix can't see. Highlights
+ * (amber) when dirty or unpushed; muted "clean" when the tree is in sync;
+ * degrades to "unavailable (reason)" if that repo couldn't be read. Returns
+ * "—" when no row exists for the repo (shouldn't happen — same registry).
+ */
+function LocalCell({ row }: { row: LocalRepoStatus | undefined }) {
+  if (!row) return <span className="text-muted-foreground text-sm">—</span>
+  if (row.error) {
+    return (
+      <span className="text-muted-foreground text-xs">
+        {t.release.localError(row.error)}
+      </span>
+    )
+  }
+
+  const parts: string[] = []
+  if (row.uncommitted_count > 0) {
+    parts.push(t.release.localUncommitted(row.uncommitted_count))
+  }
+  if (row.ahead > 0) parts.push(t.release.localUnpushed(row.ahead))
+  if (row.behind > 0) parts.push(t.release.localBehind(row.behind))
+
+  const attention = row.dirty || row.ahead > 0
+  if (parts.length === 0) {
+    return (
+      <span className="text-muted-foreground text-sm">{t.release.localClean}</span>
+    )
+  }
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span
+        className={cn(
+          'text-sm font-medium tabular-nums',
+          attention ? 'text-amber-700 dark:text-amber-400' : undefined,
+        )}
+      >
+        {parts.join(' · ')}
+      </span>
+      {row.branch ? (
+        <span className="text-muted-foreground font-mono text-xs">
+          {row.branch}
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
+function EnvironmentMatrix({
+  repos,
+  local,
+}: {
+  repos: RepoStatus[]
+  local: LocalWorktreeResponse | undefined
+}) {
+  // Only render the Local (Trillian) column when the backend reports the
+  // dev-only reader is enabled (i.e. this is the dev/Trillian console). On
+  // staging/prod `enabled` is false and the column is hidden entirely.
+  const showLocal = local?.enabled === true
+  const localByRepo = useMemo(() => {
+    const m = new Map<string, LocalRepoStatus>()
+    for (const r of local?.repos ?? []) m.set(r.repo, r)
+    return m
+  }, [local])
+
   return (
     <Card>
       <CardHeader>
@@ -752,6 +835,11 @@ function EnvironmentMatrix({ repos }: { repos: RepoStatus[] }) {
                   <TableHead>{t.release.columnRepo}</TableHead>
                   <TableHead>{t.release.columnDevToStaging}</TableHead>
                   <TableHead>{t.release.columnStagingToMain}</TableHead>
+                  {showLocal ? (
+                    <TableHead title={t.release.localStaleTitle}>
+                      {t.release.columnLocal}
+                    </TableHead>
+                  ) : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -788,6 +876,11 @@ function EnvironmentMatrix({ repos }: { repos: RepoStatus[] }) {
                         historyUrl={r.staging_history_url}
                       />
                     </TableCell>
+                    {showLocal ? (
+                      <TableCell data-testid="release-local-cell">
+                        <LocalCell row={localByRepo.get(r.repo)} />
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                 ))}
               </TableBody>

@@ -662,6 +662,16 @@ export const t = {
     upToDate: 'up to date',
     commitsAhead: (n: number) => `${n} commit${n === 1 ? '' : 's'}`,
     matrixEmpty: 'No deployable repos reported.',
+    // landr local-worktree — DEV/Trillian-only column: uncommitted/unpushed work
+    // that hasn't reached GitHub yet (so the GitHub-tip matrix can't see it).
+    columnLocal: 'Local (Trillian)',
+    localClean: 'clean',
+    localUncommitted: (n: number) => `${n} uncommitted`,
+    localUnpushed: (n: number) => `${n} unpushed`,
+    localBehind: (n: number) => `${n} behind`,
+    localError: (reason: string) => `unavailable (${reason})`,
+    localStaleTitle:
+      'Ahead/behind read from local refs without a fetch — may be stale.',
     // Optional commit-metadata decoration (head commit + GitHub links)
     compareTitle: 'View the ahead range on GitHub',
     historyLink: 'history',
@@ -697,7 +707,7 @@ export const t = {
     pendingTitle: 'Pending production proposals',
     pendingEmpty: 'No proposals awaiting a decision.',
     proposedBy: (who: string, when: string) =>
-      `Proposed by ${who} · ${new Date(when).toLocaleString('de-DE')}`,
+      `Proposed by ${who} · ${new Date(when).toLocaleString('en-US')}`,
     approveButton: 'Approve & promote',
     rejectButton: 'Reject',
     cancelButton: 'Cancel proposal',
@@ -726,12 +736,12 @@ export const t = {
     notesLabel: 'Notes',
     decisionNotesLabel: 'Decision',
     decidedBy: (who: string, when: string) =>
-      `Decided by ${who} · ${new Date(when).toLocaleString('de-DE')}`,
+      `Decided by ${who} · ${new Date(when).toLocaleString('en-US')}`,
     // landr-agiw — run timing line. `elapsed` is preformatted (e.g. "1m 12s").
     runTiming: (start: string, end: string | null, elapsed: string | null) =>
       end
-        ? `Started ${new Date(start).toLocaleString('de-DE')} · ended ${new Date(end).toLocaleString('de-DE')} (${elapsed})`
-        : `Started ${new Date(start).toLocaleString('de-DE')} · running…`,
+        ? `Started ${new Date(start).toLocaleString('en-US')} · ended ${new Date(end).toLocaleString('en-US')} (${elapsed})`
+        : `Started ${new Date(start).toLocaleString('en-US')} · running…`,
     // landr-agiw — migration waterfall (boot-log style step list).
     migrationsApplyingTitle: 'Applying migrations…',
     // landr-agiw — migration_status defaults to 'pending' the moment a run row is
