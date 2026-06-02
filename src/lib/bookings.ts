@@ -1622,3 +1622,44 @@ export async function fetchBookingTimeline(
   return events
 }
 
+// ----- Resend confirmation (landr-6629) -----------------------------------
+// POST /api/staff/operators/{op}/bookings/{id}/resend-confirmation
+// Diffs current booking state against the last sent confirmation; sends a
+// booking_confirmation with is_update=true + changes list; returns the diff.
+
+export type ConfirmationChange = {
+  label: string
+  old: string
+  new: string
+}
+
+export type ResendConfirmationResult = {
+  changes_detected: boolean
+  changes: ConfirmationChange[]
+}
+
+export async function resendConfirmation(
+  operatorId: string,
+  bookingId: string,
+): Promise<ResendConfirmationResult> {
+  return api<ResendConfirmationResult>(
+    'POST',
+    `/api/staff/operators/${operatorId}/bookings/${bookingId}/resend-confirmation`,
+  )
+}
+
+export type ConfirmationStatus = {
+  last_sent_at: string | null
+  has_material_changes: boolean
+}
+
+export async function getConfirmationStatus(
+  operatorId: string,
+  bookingId: string,
+): Promise<ConfirmationStatus> {
+  return api<ConfirmationStatus>(
+    'GET',
+    `/api/staff/operators/${operatorId}/bookings/${bookingId}/confirmation-status`,
+  )
+}
+

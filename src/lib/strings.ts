@@ -1357,6 +1357,17 @@ export const t = {
       working: 'Generating…',
       toastError: 'Failed to download invoice.',
     },
+    // landr-6629 — resend confirmation email with old→new diff.
+    // Button lives in the sheet footer next to Download invoice.
+    // Highlighted (dot badge) when confirmation-status reports material changes.
+    resendConfirmation: {
+      action: 'Resend confirmation',
+      working: 'Sending…',
+      toastSuccess: 'Confirmation resent.',
+      toastSuccessWithChanges: (n: number): string =>
+        `Confirmation resent · ${n} change${n === 1 ? '' : 's'} highlighted.`,
+      toastError: 'Could not resend confirmation.',
+    },
     // landr-uzup — Payments tab inside BookingDetailSheet. Lists every
     // payments + payment_refunds row with a Refund button on succeeded
     // payments. Hits POST /api/staff/operators/{op}/bookings/{bid}/
