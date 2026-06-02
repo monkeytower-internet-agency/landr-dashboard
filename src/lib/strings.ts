@@ -1277,6 +1277,31 @@ export const t = {
       toastSuccess: 'Booking unblocked.',
       toastError: 'Failed to unblock booking.',
     },
+    // landr-hgd4 — general approve / reject directly from the detail sheet.
+    // Mirrors the generalApprovals page strings so the operator sees the same
+    // wording when acting from either surface.
+    generalApprove: {
+      approveAction: 'Approve',
+      rejectAction: 'Reject',
+      approveDialogTitle: 'Approve this booking?',
+      approveDialogDescription:
+        'The booking will move to confirmed. You can add an optional note.',
+      rejectDialogTitle: 'Reject this booking?',
+      rejectDialogDescription:
+        'The booking will be declined. You can add an optional note for the record.',
+      noteLabel: 'Note (optional)',
+      notePlaceholder: 'Optional note…',
+      rejectNoteLabel: 'Reason (optional)',
+      rejectNotePlaceholder: 'Why is this booking being rejected?',
+      cancel: 'Cancel',
+      confirmApprove: 'Approve',
+      confirmReject: 'Reject',
+      approving: 'Approving…',
+      rejecting: 'Rejecting…',
+      toastApproved: 'Booking approved.',
+      toastRejected: 'Booking rejected.',
+      toastError: 'Action failed.',
+    },
     // landr-z4lj — Participants tab: read-only roster of booking_participants
     // (service-recipients on this booking). Distinct from the booker, who
     // is shown in the Details tab's Customer card. Clicking a participant
