@@ -168,6 +168,10 @@ describe('participantDisplayName', () => {
         do_not_contact: false,
       },
       service_role: null,
+      // landr-wv0m: guiding participant defaults — display-name tests don't
+      // exercise the companion split, so the simplest valid shape suffices.
+      is_guiding: true,
+      companion_kind: null,
       ...overrides,
     }
   }

@@ -51,6 +51,9 @@ function makeParticipant(
       do_not_contact: false,
     },
     service_role: { id: 'sr1', code: 'pilot', label: 'Pilot' },
+    // landr-wv0m: guiding participant — is_guiding=true, no companion_kind.
+    is_guiding: true,
+    companion_kind: null,
     ...overrides,
   }
 }
