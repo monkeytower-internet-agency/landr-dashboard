@@ -39,6 +39,15 @@ const { mock } = vi.hoisted(() => {
     // (kept distinct from previewError, which simulates a network/HTTP
     // failure on the query itself).
     previewRenderError: null as string | null,
+    // landr-x5o5.4: effective template override — controls what fetchEffective returns.
+    // null → derive from templates list (is_default = no operator row exists)
+    effectiveOverride: null as {
+      subject: string
+      body_html: string
+      body_text: string | null
+      is_default: boolean
+      source: string
+    } | null,
   }
   return { mock: { state } }
 })
@@ -128,6 +137,38 @@ vi.mock('@/lib/emailTemplates', async (importOriginal) => {
         { name: 'operator_name', sample: 'Sample Operator', description: 'Operator / business name' },
       ],
     })),
+    // landr-x5o5.4: effective template endpoint — resolves to the operator row
+    // if one exists, otherwise the Landr default.
+    fetchEffective: vi.fn(async (_operatorId: string, kind: string, locale: string) => {
+      if (mock.state.effectiveOverride) {
+        return { kind, locale, ...mock.state.effectiveOverride }
+      }
+      // Derive from the templates list: if a row exists, it's the operator's custom.
+      const operatorRow = mock.state.templates.find(
+        (t) => t.template_kind === kind && t.locale === locale,
+      )
+      if (operatorRow) {
+        return {
+          kind,
+          locale,
+          subject: operatorRow.subject,
+          body_html: operatorRow.body_html,
+          body_text: operatorRow.body_text,
+          is_default: false,
+          source: 'operator_template',
+        }
+      }
+      // No custom row → return a synthetic default.
+      return {
+        kind,
+        locale,
+        subject: `Default subject for ${kind}`,
+        body_html: `<p>Default body for ${kind}</p>`,
+        body_text: null,
+        is_default: true,
+        source: 'system_template',
+      }
+    }),
   }
 })
 
@@ -222,6 +263,7 @@ beforeEach(() => {
   mock.state.deleteCalls = []
   mock.state.previewError = null
   mock.state.previewRenderError = null
+  mock.state.effectiveOverride = null
   toastCalls.success.length = 0
   toastCalls.error.length = 0
 })
@@ -245,11 +287,11 @@ describe('EmailTemplates route', () => {
     await screen.findByLabelText(/email template editor/i)
   })
 
-  it('shows "Custom" badge when a template row exists for that locale', async () => {
+  it('shows "Customized" badge when a template row exists for that locale (landr-x5o5.4)', async () => {
     mock.state.templates = [makeTemplate()]
     render(<EmailTemplates />)
     await screen.findByText('Booking received')
-    expect(screen.getByText('Custom')).toBeInTheDocument()
+    expect(screen.getByText('Customized')).toBeInTheDocument()
   })
 
   it('opens edit form with the correct template when locale tab is clicked', async () => {
@@ -320,7 +362,8 @@ describe('EmailTemplates route', () => {
     })
   })
 
-  it('creates a new template via POST when no row exists for that locale', async () => {
+  it('creates a new template via POST when content differs from the default', async () => {
+    // No operator row — form prefills with the mocked default content.
     mock.state.templates = []
     const user = userEvent.setup()
     render(<EmailTemplates />)
@@ -329,12 +372,12 @@ describe('EmailTemplates route', () => {
     const deTabs = screen.getAllByRole('tab', { name: /de/i })
     await user.click(deTabs[0])
 
+    // Wait for the effective template to prefill the subject.
     const form = await screen.findByLabelText(/email template editor/i)
     const subjectInput = within(form).getByLabelText(/subject/i)
+    // Clear the default and type a custom subject (diverges from default → create).
+    await user.clear(subjectInput)
     await user.type(subjectInput, 'Buchung erhalten')
-
-    const htmlInput = within(form).getByLabelText(/html body/i)
-    await user.type(htmlInput, '<p>Hallo</p>')
 
     await user.click(screen.getByRole('button', { name: /^save$/i }))
 
@@ -494,5 +537,118 @@ describe('EmailTemplates route', () => {
       expect(screen.getByRole('tablist', { name: /language/i })).toBeInTheDocument()
     })
     expect(screen.queryByTestId('hotel-locale-pin-note')).not.toBeInTheDocument()
+  })
+
+  // landr-x5o5.4 — prefill + badge + divergence guard
+  it('prefills the form with the default content when no operator row exists (landr-x5o5.4)', async () => {
+    mock.state.templates = []
+    mock.state.effectiveOverride = {
+      subject: 'Default subject',
+      body_html: '<p>Default HTML body</p>',
+      body_text: null,
+      is_default: true,
+      source: 'system_template',
+    }
+    render(<EmailTemplates />)
+    await screen.findByText('Booking received')
+
+    // Wait for the prefill to populate the subject field.
+    await screen.findByDisplayValue('Default subject')
+    // HTML body should also be prefilled.
+    expect(screen.getByDisplayValue('<p>Default HTML body</p>')).toBeInTheDocument()
+  })
+
+  it('shows "Using Landr default" badge when is_default is true (landr-x5o5.4)', async () => {
+    mock.state.templates = []
+    mock.state.effectiveOverride = {
+      subject: 'Default subject',
+      body_html: '<p>Default body</p>',
+      body_text: null,
+      is_default: true,
+      source: 'system_template',
+    }
+    render(<EmailTemplates />)
+    await screen.findByText('Booking received')
+    // Badge should show "Using Landr default"
+    await screen.findByText('Using Landr default')
+    expect(screen.queryByText('Customized')).not.toBeInTheDocument()
+  })
+
+  it('shows "Customized" badge when is_default is false (landr-x5o5.4)', async () => {
+    mock.state.templates = [makeTemplate()]
+    mock.state.effectiveOverride = {
+      subject: 'Operator subject',
+      body_html: '<p>Operator body</p>',
+      body_text: null,
+      is_default: false,
+      source: 'operator_template',
+    }
+    render(<EmailTemplates />)
+    await screen.findByText('Booking received')
+    await screen.findByText('Customized')
+    expect(screen.queryByText('Using Landr default')).not.toBeInTheDocument()
+  })
+
+  it('does NOT call createTemplate when saving content identical to the default (landr-x5o5.4)', async () => {
+    mock.state.templates = []
+    const defaultSubject = 'Default subject for booking_received'
+    const defaultBodyHtml = '<p>Default body for booking_received</p>'
+    mock.state.effectiveOverride = {
+      subject: defaultSubject,
+      body_html: defaultBodyHtml,
+      body_text: null,
+      is_default: true,
+      source: 'system_template',
+    }
+    const user = userEvent.setup()
+    render(<EmailTemplates />)
+    await screen.findByText('Booking received')
+
+    // Wait for prefill.
+    await screen.findByDisplayValue(defaultSubject)
+
+    // Click save without changing anything — content equals the default.
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => {
+      expect(toastCalls.success.length).toBeGreaterThan(0)
+    })
+    // No create call should have been made.
+    expect(mock.state.createCalls).toHaveLength(0)
+    // Should show the "no changes" toast.
+    expect(toastCalls.success[0]).toMatch(/no changes from the default/i)
+  })
+
+  it('calls createTemplate when saving content that differs from the default (landr-x5o5.4)', async () => {
+    mock.state.templates = []
+    mock.state.effectiveOverride = {
+      subject: 'Default subject',
+      body_html: '<p>Default body</p>',
+      body_text: null,
+      is_default: true,
+      source: 'system_template',
+    }
+    const user = userEvent.setup()
+    render(<EmailTemplates />)
+    await screen.findByText('Booking received')
+
+    // Wait for prefill then modify the subject.
+    const subjectInput = await screen.findByDisplayValue('Default subject')
+    await user.clear(subjectInput)
+    await user.type(subjectInput, 'My custom subject')
+
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => {
+      expect(mock.state.createCalls.length).toBe(1)
+    })
+    expect(mock.state.createCalls[0]).toMatchObject({
+      template_kind: 'booking_received',
+      subject: 'My custom subject',
+    })
+    await waitFor(() => {
+      expect(toastCalls.success.length).toBeGreaterThan(0)
+    })
+    expect(toastCalls.success[0]).toMatch(/template saved/i)
   })
 })

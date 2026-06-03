@@ -3255,8 +3255,11 @@ export const t = {
     loading: 'Loading email templates…',
     error: 'Failed to load email templates.',
     selectHint: 'Select a template kind and locale on the left to edit.',
-    statusCustom: 'Custom',
-    statusDefault: 'Default',
+    // landr-x5o5.4: badge labels — is_default from the effective endpoint drives which one shows.
+    statusCustom: 'Customized',
+    statusDefault: 'Using Landr default',
+    // landr-x5o5.4: toast when saving identical content against the default (no-op).
+    toastNoChangeFromDefault: 'No changes from the default — nothing saved.',
     selectorKindLabel: 'Template',
     selectorLocaleLabel: 'Language',
     // landr-x5o5.6: shown instead of the locale switcher for hotel-facing kinds.
