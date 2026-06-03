@@ -126,6 +126,31 @@ export async function previewTemplate(
   )
 }
 
+// landr-x5o5.4: effective-template endpoint — resolves the operator row if it
+// exists, otherwise falls back to the Landr system default.
+export type EffectiveTemplate = {
+  kind: string
+  locale: string
+  subject: string
+  body_html: string
+  body_text: string | null
+  /** true → content is the Landr default (no operator row); false → operator has a custom row */
+  is_default: boolean
+  /** e.g. "system_template" or "operator_template" */
+  source: string
+}
+
+export async function fetchEffective(
+  operatorId: string,
+  kind: string,
+  locale: string,
+): Promise<EffectiveTemplate> {
+  return api<EffectiveTemplate>(
+    'GET',
+    `/api/staff/operators/${operatorId}/email-templates/effective?kind=${encodeURIComponent(kind)}&locale=${encodeURIComponent(locale)}`,
+  )
+}
+
 // landr-x5o5.5: per-kind variable catalog — independent of saved templates.
 export type VariableCatalogEntry = {
   name: string

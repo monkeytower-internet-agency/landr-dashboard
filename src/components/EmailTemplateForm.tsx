@@ -8,11 +8,16 @@ import { t } from '@/lib/strings'
 import {
   templateFormSchema,
   type EmailTemplate,
+  type EffectiveTemplate,
   type TemplateFormValues,
 } from '@/lib/emailTemplates'
 
 type Props = {
   template: EmailTemplate | null
+  /** landr-x5o5.4: resolved effective template from the /effective endpoint.
+   *  Used to prefill the editor with the Landr default when no operator row
+   *  exists — the editor is never blank. */
+  effectiveTemplate: EffectiveTemplate | null
   saving: boolean
   onSave: (values: TemplateFormValues) => void
   onResetToDefault: () => void
@@ -21,11 +26,15 @@ type Props = {
 
 export function EmailTemplateForm({
   template,
+  effectiveTemplate,
   saving,
   onSave,
   onResetToDefault,
   resetting,
 }: Props) {
+  // landr-x5o5.4: prefer the operator's own row when it exists; fall back
+  // to the effective (resolved) default so the form is NEVER blank.
+  const prefill = template ?? effectiveTemplate
   const {
     register,
     handleSubmit,
@@ -33,9 +42,9 @@ export function EmailTemplateForm({
   } = useForm<TemplateFormValues>({
     resolver: zodResolver(templateFormSchema),
     values: {
-      subject: template?.subject ?? '',
-      body_html: template?.body_html ?? '',
-      body_text: template?.body_text ?? '',
+      subject: prefill?.subject ?? '',
+      body_html: prefill?.body_html ?? '',
+      body_text: prefill?.body_text ?? '',
     },
   })
 

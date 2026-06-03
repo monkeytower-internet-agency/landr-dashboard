@@ -11,12 +11,14 @@ import {
   TEMPLATE_KINDS,
   OPERATOR_LOCALES,
   fetchTemplates,
+  fetchEffective,
   fetchVariables,
   createTemplate,
   updateTemplate,
   deleteTemplate,
   isHotelKind,
   type EmailTemplate,
+  type EffectiveTemplate,
   type TemplateKind,
   type OperatorLocale,
   type TemplateFormValues,
@@ -85,6 +87,16 @@ export function EmailTemplates() {
     staleTime: 5 * 60 * 1000, // catalog is stable; cache 5 min
   })
 
+  // landr-x5o5.4: resolved effective template — prefills the editor with the
+  // default content when the operator hasn't customized yet (is_default=true).
+  const effectiveQuery = useQuery<EffectiveTemplate>({
+    queryKey: ['email-template-effective', currentOperatorId ?? 'none', selection.kind, effectiveLocale],
+    queryFn: () => fetchEffective(currentOperatorId as string, selection.kind, effectiveLocale),
+    enabled: !!currentOperatorId,
+    // Stable while operator row or system_templates don't change — 2 min TTL.
+    staleTime: 2 * 60 * 1000,
+  })
+
   const templates = query.data ?? []
 
   function findTemplate(kind: string, locale: string): EmailTemplate | null {
@@ -96,11 +108,32 @@ export function EmailTemplates() {
   }
 
   const selectedTemplate = findTemplate(selection.kind, effectiveLocale)
+  const effectiveTemplate = effectiveQuery.data ?? null
+
+  /** True when the operator has their own row (is_default=false from effective). */
+  const isCustom = effectiveTemplate ? !effectiveTemplate.is_default : !!selectedTemplate
+
+  /** Returns true if form values are byte-identical to the resolved default. */
+  function isIdenticalToDefault(values: TemplateFormValues): boolean {
+    if (!effectiveTemplate) return false
+    return (
+      values.subject === effectiveTemplate.subject &&
+      values.body_html === effectiveTemplate.body_html &&
+      (values.body_text ?? '') === (effectiveTemplate.body_text ?? '')
+    )
+  }
 
   const saveMutation = useMutation({
     mutationFn: async (values: TemplateFormValues) => {
       if (!currentOperatorId) throw new Error('No operator or selection')
       const existing = findTemplate(selection.kind, effectiveLocale)
+
+      // landr-x5o5.4: if the operator has no custom row AND the submitted
+      // content matches the default exactly, skip the write entirely.
+      if (!existing && effectiveTemplate?.is_default && isIdenticalToDefault(values)) {
+        return null // sentinel: no-op
+      }
+
       if (existing) {
         return updateTemplate(currentOperatorId, existing.id, {
           subject: values.subject,
@@ -117,10 +150,16 @@ export function EmailTemplates() {
         })
       }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result === null) {
+        // No-op: content was identical to the default.
+        toast.success(t.emailTemplates.toastNoChangeFromDefault)
+        return
+      }
       toast.success(t.emailTemplates.toastSaved)
       void qc.invalidateQueries({ queryKey: ['email-templates', currentOperatorId] })
       void qc.invalidateQueries({ queryKey: ['email-template-preview'] })
+      void qc.invalidateQueries({ queryKey: ['email-template-effective', currentOperatorId] })
     },
     onError: (err: Error) => {
       toast.error(`${t.emailTemplates.toastSaveError}: ${err.message}`)
@@ -155,7 +194,6 @@ export function EmailTemplates() {
     )
   }
 
-  const isCustom = !!selectedTemplate
   const catalogEntries = variablesQuery.data?.variables ?? []
 
   return (
@@ -303,6 +341,7 @@ export function EmailTemplates() {
             <CardContent className="flex flex-col gap-4">
               <EmailTemplateForm
                 template={selectedTemplate}
+                effectiveTemplate={effectiveTemplate}
                 saving={saveMutation.isPending}
                 onSave={(values) => saveMutation.mutate(values)}
                 onResetToDefault={() => deleteMutation.mutate()}
