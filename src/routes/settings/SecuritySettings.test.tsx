@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { authMock } = vi.hoisted(() => ({
   authMock: {
-    getUserIdentities: vi.fn(),
+    getUser: vi.fn(),
     signInWithPassword: vi.fn(),
     updateUser: vi.fn(),
   },
@@ -15,7 +15,7 @@ const { authMock } = vi.hoisted(() => ({
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
-      getUserIdentities: (...a: unknown[]) => authMock.getUserIdentities(...a),
+      getUser: (...a: unknown[]) => authMock.getUser(...a),
       signInWithPassword: (...a: unknown[]) => authMock.signInWithPassword(...a),
       updateUser: (...a: unknown[]) => authMock.updateUser(...a),
     },
@@ -45,12 +45,14 @@ function renderPage() {
 }
 
 beforeEach(() => {
-  authMock.getUserIdentities.mockReset()
+  authMock.getUser.mockReset()
   authMock.signInWithPassword.mockReset()
   authMock.updateUser.mockReset()
   toastMock.success.mockReset()
-  authMock.getUserIdentities.mockResolvedValue({
-    data: { identities: [{ provider: 'email' }] },
+  // Default: an account WITH a password (app_metadata.providers includes
+  // 'email') — even with no auth.identities rows, as seeded operators have.
+  authMock.getUser.mockResolvedValue({
+    data: { user: { app_metadata: { providers: ['email'] } } },
     error: null,
   })
   authMock.signInWithPassword.mockResolvedValue({ data: {}, error: null })
@@ -63,8 +65,8 @@ afterEach(() => {
 
 describe('SecuritySettings', () => {
   it('shows the set-password form (no current-password field) when the user has no email identity', async () => {
-    authMock.getUserIdentities.mockResolvedValue({
-      data: { identities: [{ provider: 'google' }] },
+    authMock.getUser.mockResolvedValue({
+      data: { user: { app_metadata: { providers: ['google'] } } },
       error: null,
     })
     renderPage()
@@ -77,8 +79,8 @@ describe('SecuritySettings', () => {
   })
 
   it('sets a password for a provider-only user without a current-password check', async () => {
-    authMock.getUserIdentities.mockResolvedValue({
-      data: { identities: [{ provider: 'google' }] },
+    authMock.getUser.mockResolvedValue({
+      data: { user: { app_metadata: { providers: ['google'] } } },
       error: null,
     })
     const user = userEvent.setup()

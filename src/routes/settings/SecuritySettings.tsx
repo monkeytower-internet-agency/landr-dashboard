@@ -3,7 +3,6 @@ import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
-import type { UserIdentity } from '@supabase/supabase-js'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -21,11 +20,19 @@ import { MIN_PASSWORD_LENGTH } from '@/lib/password-policy'
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
 
-async function fetchHasPasswordIdentity(): Promise<boolean> {
-  const { data, error } = await supabase.auth.getUserIdentities()
+// Whether the account has an email/password credential. Detected from
+// app_metadata.providers — NOT from auth.identities: seeded / admin-created
+// operators (e.g. ok@landr.de, info@para42.com) have a password and
+// providers:['email'] but ZERO auth.identities rows, so getUserIdentities()
+// returns [] and used to mis-route them to the *set* form — letting them
+// change their password WITHOUT entering the old one. providers contains
+// 'email' iff an email/password credential exists, so this can only ever err
+// toward requiring the current password, never toward skipping it.
+async function fetchHasPassword(): Promise<boolean> {
+  const { data, error } = await supabase.auth.getUser()
   if (error) throw error
-  const identities: UserIdentity[] = data?.identities ?? []
-  return identities.some((i) => i.provider === 'email')
+  const providers = data.user?.app_metadata?.providers
+  return Array.isArray(providers) && providers.includes('email')
 }
 
 function ChangePasswordCard({ email }: { email: string }) {
@@ -214,7 +221,7 @@ function SetPasswordCard() {
     // The new email identity now exists — refetch so the page swaps to the
     // change-password form.
     void queryClient.invalidateQueries({
-      queryKey: ['user-has-password-identity'],
+      queryKey: ['user-has-password'],
     })
   }
 
@@ -288,8 +295,8 @@ export function SecuritySettings() {
   const { user } = useAuth()
   const email = user?.email ?? ''
   const { data: hasPassword, isLoading } = useQuery({
-    queryKey: ['user-has-password-identity'],
-    queryFn: fetchHasPasswordIdentity,
+    queryKey: ['user-has-password'],
+    queryFn: fetchHasPassword,
   })
 
   return (
