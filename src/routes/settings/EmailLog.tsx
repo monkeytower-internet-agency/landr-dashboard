@@ -1,20 +1,24 @@
 /**
- * Settings → Email log (landr-qg4q).
+ * Settings → Email log (landr-qg4q, landr-0xo6).
  *
  * Read-only operator surface that surfaces the outbound_emails queue.
  * Helps operators debug "why didn't the customer get the email" without
- * having to open Supabase Studio. Direct REST read (RLS-scoped); no
- * mutations from this surface — retries belong to the drain worker.
+ * having to open Supabase Studio. Direct REST read (RLS-scoped); resend
+ * mutations go through FastAPI (landr-2js5 contract).
  *
  * UI:
  *   - status filter chips (queued/sending/sent/failed) — toggle to OR.
  *     Empty selection = all statuses.
  *   - newest-first table of subject / recipient / status / sent_at.
  *   - click a row → drawer with body_html + body_text + last_error.
+ *   - drawer has Resend button (terminal rows) → edit-and-resend dialog.
+ *   - sent_via='dev_fallback' → amber 'Captured (dev)' badge + drawer note.
  */
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { MailOpenIcon } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
@@ -23,9 +27,11 @@ import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { contactDateTime } from '@/lib/contacts'
 import {
   fetchOutboundEmails,
+  resendEmail,
   OUTBOUND_EMAIL_STATUSES,
   type OutboundEmailRow,
   type OutboundEmailStatus,
+  type ResendEmailPayload,
 } from '@/lib/outbound-emails'
 import {
   Table,
@@ -37,6 +43,7 @@ import {
 } from '@/components/ui/table'
 import { CountedFilterChip } from '@/components/ui/counted-filter-chip'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -45,6 +52,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 const STATUS_LABEL: Record<OutboundEmailStatus, string> = {
   queued: t.emailLog.statusLabels.queued,
@@ -63,7 +78,28 @@ const STATUS_BADGE_CLASS: Record<OutboundEmailStatus, string> = {
   failed: 'bg-destructive/15 text-destructive dark:text-destructive',
 }
 
-function StatusBadge({ status }: { status: OutboundEmailStatus }) {
+// Terminal statuses: rows where resend is meaningful.
+const TERMINAL_STATUSES: OutboundEmailStatus[] = ['sent', 'failed']
+
+function StatusBadge({
+  status,
+  sentVia,
+}: {
+  status: OutboundEmailStatus
+  sentVia?: 'gmail' | 'dev_fallback' | null
+}) {
+  // dev_fallback replaces the green Sent badge with an amber variant.
+  if (status === 'sent' && sentVia === 'dev_fallback') {
+    return (
+      <span
+        className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"
+        data-testid="email-log-status-dev_fallback"
+      >
+        {t.emailLog.badgeCapturedDev}
+      </span>
+    )
+  }
+
   return (
     <span
       className={cn(
@@ -101,14 +137,19 @@ export function EmailLog() {
   const sinceIso = useMemo(() => toIsoStart(sinceDate), [sinceDate])
   const untilIso = useMemo(() => toIsoEnd(untilDate), [untilDate])
 
-  const query = useQuery({
-    queryKey: [
+  const queryKey = useMemo(
+    () => [
       'outbound-emails',
       currentOperatorId ?? 'none',
       [...activeStatuses].sort().join(','),
       sinceIso ?? '',
       untilIso ?? '',
     ],
+    [currentOperatorId, activeStatuses, sinceIso, untilIso],
+  )
+
+  const query = useQuery({
+    queryKey,
     queryFn: () =>
       fetchOutboundEmails(currentOperatorId as string, {
         statuses: activeStatuses,
@@ -272,7 +313,7 @@ export function EmailLog() {
                   {row.to_address}
                 </TableCell>
                 <TableCell>
-                  <StatusBadge status={row.status} />
+                  <StatusBadge status={row.status} sentVia={row.sent_via} />
                 </TableCell>
                 <TableCell className="text-muted-foreground text-xs">
                   {contactDateTime(row.sent_at, { hour12 })}
@@ -289,6 +330,8 @@ export function EmailLog() {
       <EmailLogDrawer
         row={openRow}
         hour12={hour12}
+        operatorId={currentOperatorId}
+        emailLogQueryKey={queryKey}
         onOpenChange={(open) => {
           if (!open) setOpenRow(null)
         }}
@@ -300,88 +343,297 @@ export function EmailLog() {
 type DrawerProps = {
   row: OutboundEmailRow | null
   hour12: boolean
+  operatorId: string
+  emailLogQueryKey: readonly unknown[]
   onOpenChange: (open: boolean) => void
 }
 
-function EmailLogDrawer({ row, hour12, onOpenChange }: DrawerProps) {
+function EmailLogDrawer({
+  row,
+  hour12,
+  operatorId,
+  emailLogQueryKey,
+  onOpenChange,
+}: DrawerProps) {
   const open = row !== null
+  const [resendOpen, setResendOpen] = useState(false)
+  const isTerminal = row ? TERMINAL_STATUSES.includes(row.status) : false
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
-        <SheetHeader>
-          <SheetTitle>{row?.subject ?? ''}</SheetTitle>
-          <SheetDescription>
-            {row
-              ? t.emailLog.drawerHeader(row.to_address, row.template_kind, row.locale)
-              : ''}
-          </SheetDescription>
-        </SheetHeader>
-        {row && (
-          <div className="flex flex-col gap-4 px-4 pb-6 text-sm">
-            <dl className="grid grid-cols-2 gap-3 text-xs">
-              <div>
-                <dt className="text-muted-foreground">{t.emailLog.fieldStatus}</dt>
-                <dd className="mt-0.5">
-                  <StatusBadge status={row.status} />
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">{t.emailLog.fieldRetries}</dt>
-                <dd className="mt-0.5 font-mono">{row.retries}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">
-                  {t.emailLog.columnCreatedAt}
-                </dt>
-                <dd className="mt-0.5">
-                  {contactDateTime(row.created_at, { hour12 })}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">
-                  {t.emailLog.columnSentAt}
-                </dt>
-                <dd className="mt-0.5">
-                  {contactDateTime(row.sent_at, { hour12 })}
-                </dd>
-              </div>
-            </dl>
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+          <SheetHeader>
+            <SheetTitle>{row?.subject ?? ''}</SheetTitle>
+            <SheetDescription>
+              {row
+                ? t.emailLog.drawerHeader(
+                    row.to_address,
+                    row.template_kind,
+                    row.locale,
+                  )
+                : ''}
+            </SheetDescription>
+          </SheetHeader>
+          {row && (
+            <div className="flex flex-col gap-4 px-4 pb-6 text-sm">
+              <dl className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <dt className="text-muted-foreground">
+                    {t.emailLog.fieldStatus}
+                  </dt>
+                  <dd className="mt-0.5">
+                    <StatusBadge status={row.status} sentVia={row.sent_via} />
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">
+                    {t.emailLog.fieldRetries}
+                  </dt>
+                  <dd className="mt-0.5 font-mono">{row.retries}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">
+                    {t.emailLog.columnCreatedAt}
+                  </dt>
+                  <dd className="mt-0.5">
+                    {contactDateTime(row.created_at, { hour12 })}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">
+                    {t.emailLog.columnSentAt}
+                  </dt>
+                  <dd className="mt-0.5">
+                    {contactDateTime(row.sent_at, { hour12 })}
+                  </dd>
+                </div>
+              </dl>
 
-            {row.last_error && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3">
-                <p className="text-xs font-medium text-destructive">
-                  {t.emailLog.fieldLastError}
+              {/* dev_fallback explanation */}
+              {row.status === 'sent' && row.sent_via === 'dev_fallback' && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-900/20">
+                  <p className="text-xs text-amber-800 dark:text-amber-200">
+                    {t.emailLog.drawerDevFallbackNote}{' '}
+                    <Link
+                      to="/account/integrations/gmail"
+                      className="underline"
+                    >
+                      {t.emailLog.drawerDevFallbackLink}
+                    </Link>
+                  </p>
+                </div>
+              )}
+
+              {/* resent_from_id note */}
+              {row.resent_from_id && (
+                <p className="text-xs text-muted-foreground">
+                  {t.emailLog.drawerResentFromNote(row.resent_from_id)}
                 </p>
-                <p className="mt-1 whitespace-pre-wrap break-all text-xs text-destructive">
-                  {row.last_error}
-                </p>
-              </div>
-            )}
+              )}
 
-            <section>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t.emailLog.fieldBodyHtml}
-              </h3>
-              <iframe
-                title={t.emailLog.fieldBodyHtmlTitle}
-                srcDoc={row.body_html}
-                sandbox=""
-                className="h-72 w-full rounded-md border bg-background"
-              />
-            </section>
+              {/* last_error — only when non-null */}
+              {row.last_error && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3">
+                  <p className="text-xs font-medium text-destructive">
+                    {t.emailLog.fieldLastError}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap break-all text-xs text-destructive">
+                    {row.last_error}
+                  </p>
+                </div>
+              )}
 
-            <section>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t.emailLog.fieldBodyText}
-              </h3>
-              <pre className="max-h-72 overflow-auto rounded-md border bg-muted/40 p-3 text-xs whitespace-pre-wrap">
-                {row.body_text || '—'}
-              </pre>
-            </section>
+              <section>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t.emailLog.fieldBodyHtml}
+                </h3>
+                <iframe
+                  title={t.emailLog.fieldBodyHtmlTitle}
+                  srcDoc={row.body_html}
+                  sandbox=""
+                  className="h-72 w-full rounded-md border bg-background"
+                />
+              </section>
+
+              <section>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t.emailLog.fieldBodyText}
+                </h3>
+                <pre className="max-h-72 overflow-auto rounded-md border bg-muted/40 p-3 text-xs whitespace-pre-wrap">
+                  {row.body_text || '—'}
+                </pre>
+              </section>
+
+              {isTerminal && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="self-start"
+                  onClick={() => setResendOpen(true)}
+                  data-testid="email-log-resend-button"
+                >
+                  {t.emailLog.resendButton}
+                </Button>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {row && isTerminal && (
+        <ResendDialog
+          row={row}
+          operatorId={operatorId}
+          emailLogQueryKey={emailLogQueryKey}
+          open={resendOpen}
+          onOpenChange={setResendOpen}
+        />
+      )}
+    </>
+  )
+}
+
+type ResendDialogProps = {
+  row: OutboundEmailRow
+  operatorId: string
+  emailLogQueryKey: readonly unknown[]
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+function ResendDialog({
+  row,
+  operatorId,
+  emailLogQueryKey,
+  open,
+  onOpenChange,
+}: ResendDialogProps) {
+  const queryClient = useQueryClient()
+
+  // Local editable copies — initialised from the row each time the dialog opens.
+  const [toAddress, setToAddress] = useState(row.to_address)
+  const [subject, setSubject] = useState(row.subject)
+  const [bodyText, setBodyText] = useState(row.body_text)
+  const [bodyHtml, setBodyHtml] = useState(row.body_html)
+  const [htmlExpanded, setHtmlExpanded] = useState(false)
+
+  const mutation = useMutation({
+    mutationFn: () => {
+      // Build payload with ONLY changed fields.
+      const payload: ResendEmailPayload = {}
+      if (toAddress !== row.to_address) payload.to_address = toAddress
+      if (subject !== row.subject) payload.subject = subject
+      if (bodyText !== row.body_text) payload.body_text = bodyText
+      if (bodyHtml !== row.body_html) payload.body_html = bodyHtml
+      return resendEmail(operatorId, row.id, payload)
+    },
+    onSuccess: () => {
+      toast.success(t.emailLog.resendToastSuccess)
+      onOpenChange(false)
+      void queryClient.invalidateQueries({ queryKey: emailLogQueryKey as string[] })
+    },
+    onError: (err: Error) => {
+      toast.error(t.emailLog.resendToastError, { description: err.message })
+    },
+  })
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{t.emailLog.resendDialogTitle}</DialogTitle>
+          <DialogDescription>
+            {t.emailLog.resendDialogDescription}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" htmlFor="resend-to">
+              {t.emailLog.resendFieldTo}
+            </label>
+            <Input
+              id="resend-to"
+              type="email"
+              value={toAddress}
+              onChange={(e) => setToAddress(e.target.value)}
+              data-testid="resend-to-address"
+            />
           </div>
-        )}
-      </SheetContent>
-    </Sheet>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" htmlFor="resend-subject">
+              {t.emailLog.resendFieldSubject}
+            </label>
+            <Input
+              id="resend-subject"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              data-testid="resend-subject"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label
+              className="text-sm font-medium"
+              htmlFor="resend-body-text"
+            >
+              {t.emailLog.resendFieldBodyText}
+            </label>
+            <Textarea
+              id="resend-body-text"
+              rows={5}
+              value={bodyText}
+              onChange={(e) => setBodyText(e.target.value)}
+              data-testid="resend-body-text"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <button
+              type="button"
+              className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+              onClick={() => setHtmlExpanded((v) => !v)}
+              aria-expanded={htmlExpanded}
+              data-testid="resend-html-toggle"
+            >
+              {htmlExpanded ? '▾' : '▸'} {t.emailLog.resendHtmlToggle}
+            </button>
+            {htmlExpanded && (
+              <Textarea
+                id="resend-body-html"
+                rows={8}
+                value={bodyHtml}
+                onChange={(e) => setBodyHtml(e.target.value)}
+                className="font-mono text-xs"
+                data-testid="resend-body-html"
+              />
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={mutation.isPending}
+          >
+            {t.emailLog.resendCancel}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending}
+            data-testid="resend-submit"
+          >
+            {t.emailLog.resendSubmit}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
