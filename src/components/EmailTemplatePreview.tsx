@@ -37,12 +37,6 @@ export function EmailTemplatePreview({ operatorId, template }: Props) {
 
   const result = query.data
   const renderError = result.render_error ?? null
-  // Convert fixture.context (key→sample) into VariableCatalogEntry[] for
-  // the shared EmailVariableCatalog component. Description falls back to
-  // an empty string when not available from the preview fixture.
-  const contextEntries: VariableCatalogEntry[] = Object.entries(
-    result.fixture?.context ?? {},
-  ).map(([name, sample]) => ({ name, sample, description: '' }))
 
   return (
     <div className="flex flex-col gap-4">
@@ -96,9 +90,9 @@ export function EmailTemplatePreview({ operatorId, template }: Props) {
           </div>
         )}
       </div>
-
-      {/* Variable catalog — full width below the preview */}
-      <EmailVariableCatalog entries={contextEntries} />
+      {/* landr-x5o5.5: the variable catalog moved out of the preview into
+          the editor (single source, fed by the per-kind variables
+          endpoint). The preview now focuses on the rendered output only. */}
     </div>
   )
 }

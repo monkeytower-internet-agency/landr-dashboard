@@ -3,9 +3,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 
-import { EmailTemplatePreview } from './EmailTemplatePreview'
+import { EmailTemplatePreview, EmailVariableCatalog } from './EmailTemplatePreview'
 import { buildPreviewSrcDoc } from '@/lib/emailPreview'
-import type { EmailTemplate, PreviewResult } from '@/lib/emailTemplates'
+import type {
+  EmailTemplate,
+  PreviewResult,
+  VariableCatalogEntry,
+} from '@/lib/emailTemplates'
 
 // --- Hoisted mocks ---
 
@@ -164,48 +168,58 @@ describe('EmailTemplatePreview render_error', () => {
 })
 
 describe('EmailTemplatePreview variable catalog', () => {
-  it('renders one chip per fixture.context key with the Jinja placeholder', async () => {
+  // landr-x5o5.5: the catalog moved out of the preview into the editor
+  // (single source, fed by the per-kind variables endpoint). The preview
+  // no longer renders a catalog — assert it is gone here.
+  it('does NOT render a variable catalog inside the preview', async () => {
     render(
       <Providers>
         <EmailTemplatePreview operatorId="op-1" template={TEMPLATE} />
       </Providers>,
     )
 
-    const sidebar = await screen.findByRole('complementary', {
+    await screen.findByTitle(/email html preview/i)
+    expect(
+      screen.queryByRole('complementary', { name: /available variables/i }),
+    ).not.toBeInTheDocument()
+  })
+})
+
+// landr-x5o5.5: EmailVariableCatalog is now an exported, standalone
+// component fed by the per-kind variables endpoint. These tests cover the
+// chip rendering, copy-to-clipboard behaviour, and empty state directly.
+describe('EmailVariableCatalog', () => {
+  const ENTRIES: VariableCatalogEntry[] = [
+    { name: 'customer_name', sample: 'Sample Customer', description: 'Customer full name' },
+    { name: 'operator_name', sample: 'Sample Operator', description: 'Operator / business name' },
+    { name: 'start_date', sample: '2026-06-01', description: 'Booking start date' },
+  ]
+
+  it('renders one chip per entry with the Jinja placeholder', () => {
+    render(<EmailVariableCatalog entries={ENTRIES} />)
+
+    const sidebar = screen.getByRole('complementary', {
       name: /available variables/i,
     })
-    for (const key of Object.keys(SAMPLE_CONTEXT)) {
-      const chip = await screen.findByLabelText(
-        new RegExp(`copy {{ ${key} }} to clipboard`, 'i'),
+    for (const entry of ENTRIES) {
+      const chip = screen.getByLabelText(
+        new RegExp(`copy {{ ${entry.name} }} to clipboard`, 'i'),
       )
       expect(chip).toBeInTheDocument()
-      expect(chip).toHaveTextContent(`{{ ${key} }}`)
+      expect(chip).toHaveTextContent(`{{ ${entry.name} }}`)
     }
-    // Sanity: chips live inside the sidebar, not free-floating.
     expect(sidebar).toHaveTextContent('{{ customer_name }}')
   })
 
   it('copies the Jinja placeholder to the clipboard when a chip is clicked', async () => {
-    // Install the clipboard stub BEFORE rendering so the component's
-    // click handler resolves against our spy rather than jsdom's
-    // missing-clipboard or userEvent's internal clipboard plumbing.
     const writeText = vi.fn(async () => undefined)
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText },
     })
-    render(
-      <Providers>
-        <EmailTemplatePreview operatorId="op-1" template={TEMPLATE} />
-      </Providers>,
-    )
+    render(<EmailVariableCatalog entries={ENTRIES} />)
 
-    const chip = await screen.findByLabelText(
-      /copy {{ customer_name }} to clipboard/i,
-    )
-    // Use a raw click to bypass userEvent's clipboard interception
-    // (userEvent.setup wraps navigator.clipboard for paste/cut/copy key
-    // events, which can intercept ours in unexpected ways).
+    const chip = screen.getByLabelText(/copy {{ customer_name }} to clipboard/i)
     chip.click()
 
     await waitFor(() => {
@@ -216,17 +230,8 @@ describe('EmailTemplatePreview variable catalog', () => {
     })
   })
 
-  it('falls back to the empty-state copy when the renderer omits context', async () => {
-    mock.state.nextResult = buildResult({
-      fixture: { note: 'no context here' },
-    })
-    render(
-      <Providers>
-        <EmailTemplatePreview operatorId="op-1" template={TEMPLATE} />
-      </Providers>,
-    )
-
-    await screen.findByTitle(/email html preview/i)
+  it('shows the empty-state copy when there are no entries', () => {
+    render(<EmailVariableCatalog entries={[]} />)
     expect(
       screen.getByText(/no variables available for this template type\./i),
     ).toBeInTheDocument()
