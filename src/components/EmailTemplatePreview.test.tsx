@@ -228,7 +228,7 @@ describe('EmailTemplatePreview variable catalog', () => {
 
     await screen.findByTitle(/email html preview/i)
     expect(
-      screen.getByText(/run the preview to load available variables\./i),
+      screen.getByText(/no variables available for this template type\./i),
     ).toBeInTheDocument()
   })
 })

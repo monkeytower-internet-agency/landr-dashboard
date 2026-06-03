@@ -3314,7 +3314,7 @@ export const t = {
     variablesTitle: 'Available variables',
     variablesHint:
       'Click a chip to copy the Jinja placeholder. Paste into the subject or body to inject the value at send time.',
-    variablesEmpty: 'Run the preview to load available variables.',
+    variablesEmpty: 'No variables available for this template type.',
     variablesCopyAria: (key: string): string => `Copy {{ ${key} }} to clipboard`,
     variablesCopied: 'Copied to clipboard.',
     variablesCopyError: 'Could not copy to clipboard.',

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { t } from '@/lib/strings'
-import { previewTemplate, type EmailTemplate } from '@/lib/emailTemplates'
+import { previewTemplate, type EmailTemplate, type VariableCatalogEntry } from '@/lib/emailTemplates'
 import { buildPreviewSrcDoc } from '@/lib/emailPreview'
 
 type Props = {
@@ -37,7 +37,12 @@ export function EmailTemplatePreview({ operatorId, template }: Props) {
 
   const result = query.data
   const renderError = result.render_error ?? null
-  const contextEntries = Object.entries(result.fixture?.context ?? {})
+  // Convert fixture.context (key→sample) into VariableCatalogEntry[] for
+  // the shared EmailVariableCatalog component. Description falls back to
+  // an empty string when not available from the preview fixture.
+  const contextEntries: VariableCatalogEntry[] = Object.entries(
+    result.fixture?.context ?? {},
+  ).map(([name, sample]) => ({ name, sample, description: '' }))
 
   return (
     <div className="flex flex-col gap-4">
@@ -98,14 +103,13 @@ export function EmailTemplatePreview({ operatorId, template }: Props) {
   )
 }
 
-// landr-7tyo: variable catalog. Hydrates from the same fixture.context
-// the preview endpoint renders against (landr-tq6j), so the catalog is
-// guaranteed to stay in sync with the renderer — no second source of
-// truth to drift. Rendered full-width below the preview.
-function EmailVariableCatalog({
+// landr-x5o5.5: exported so EmailTemplates.tsx can render the catalog
+// in the editor for ANY kind, independent of whether a saved template
+// exists. Accepts the catalog API shape (VariableCatalogEntry[]).
+export function EmailVariableCatalog({
   entries,
 }: {
-  entries: Array<[string, unknown]>
+  entries: VariableCatalogEntry[]
 }) {
   async function copy(key: string) {
     const placeholder = `{{ ${key} }}`
@@ -136,22 +140,23 @@ function EmailVariableCatalog({
         </p>
       ) : (
         <ul className="flex flex-wrap gap-1.5">
-          {entries.map(([key, value]) => (
-            <li key={key}>
+          {entries.map((entry) => (
+            <li key={entry.name}>
               <button
                 type="button"
-                onClick={() => copy(key)}
-                aria-label={t.emailTemplates.variablesCopyAria(key)}
+                onClick={() => copy(entry.name)}
+                aria-label={t.emailTemplates.variablesCopyAria(entry.name)}
+                title={entry.description}
                 className="group flex flex-col items-start gap-0.5 rounded border bg-background px-2 py-1.5 text-left text-xs hover:border-primary/60 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <code className="font-mono text-[11px] text-primary group-hover:underline">
-                  {`{{ ${key} }}`}
+                  {`{{ ${entry.name} }}`}
                 </code>
                 <span className="line-clamp-1 text-[10px] text-muted-foreground">
                   <span className="mr-1 uppercase tracking-wide">
                     {t.emailTemplates.variablesSampleLabel}:
                   </span>
-                  {formatSample(value)}
+                  {formatSample(entry.sample)}
                 </span>
               </button>
             </li>
