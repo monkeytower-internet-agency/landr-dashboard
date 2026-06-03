@@ -5,6 +5,10 @@ import { z } from 'zod'
 import { CrownIcon, Trash2Icon } from 'lucide-react'
 
 import { ProductAddonsManager } from '@/components/products/ProductAddonsManager'
+import {
+  ProductImageManager,
+  ProductImageManagerDisabledHint,
+} from '@/components/products/ProductImageManager'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -1114,6 +1118,21 @@ export function ProductForm({
                 </p>
               </CardContent>
             </Card>
+          )
+        ) : null}
+
+        {/* landr-d8rg.9 — product image manager. Only meaningful for
+            existing products (needs product_id for storage paths + row FK).
+            Render the save-first hint for new products when operatorId is
+            present (matches the AddonsManager pattern above). */}
+        {operatorId ? (
+          product ? (
+            <ProductImageManager
+              operatorId={operatorId}
+              productId={product.id}
+            />
+          ) : (
+            <ProductImageManagerDisabledHint />
           )
         ) : null}
 
