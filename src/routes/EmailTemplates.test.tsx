@@ -142,6 +142,21 @@ vi.mock('@/lib/operator', () => ({
   OperatorProvider: ({ children }: { children: ReactNode }) => children,
 }))
 
+// landr-x5o5.6: mock fetchOperator to return default_locale so the hotel
+// locale pin resolves without a real API call.
+vi.mock('@/lib/operatorSettings', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/operatorSettings')>()
+  return {
+    ...actual,
+    fetchOperator: vi.fn(async (_operatorId: string) => ({
+      id: 'op-1',
+      slug: 'para42',
+      name: 'Para42',
+      default_locale: 'es',
+    })),
+  }
+})
+
 vi.mock('@/lib/auth', () => ({
   useAuth: () => ({
     session: null,
@@ -413,5 +428,71 @@ describe('EmailTemplates route', () => {
     expect(
       screen.getAllByRole('complementary', { name: /available variables/i }),
     ).toHaveLength(1)
+  })
+
+  // landr-x5o5.6 — hotel locale pin
+  it('hides locale switcher and shows pin note when hotel_request kind is selected (landr-x5o5.6)', async () => {
+    const user = userEvent.setup()
+    render(<EmailTemplates />)
+    await screen.findByText('Booking received')
+
+    // Click Hotel request kind tab
+    await user.click(screen.getByRole('tab', { name: /hotel request/i }))
+
+    // Locale switcher (tablist) must be gone
+    await waitFor(() => {
+      expect(screen.queryByRole('tablist', { name: /language/i })).not.toBeInTheDocument()
+    })
+
+    // Pin note must appear with the hotel locale
+    expect(screen.getByTestId('hotel-locale-pin-note')).toBeInTheDocument()
+    expect(screen.getByTestId('hotel-locale-pin-note')).toHaveTextContent(/hotel emails are always sent in/i)
+    expect(screen.getByTestId('hotel-locale-pin-note')).toHaveTextContent(/operator settings/i)
+  })
+
+  it('hides locale switcher and shows pin note when hotel_confirmation kind is selected (landr-x5o5.6)', async () => {
+    const user = userEvent.setup()
+    render(<EmailTemplates />)
+    await screen.findByText('Booking received')
+
+    // Click Hotel confirmation kind tab
+    await user.click(screen.getByRole('tab', { name: /hotel confirmation/i }))
+
+    // Locale switcher (tablist) must be gone
+    await waitFor(() => {
+      expect(screen.queryByRole('tablist', { name: /language/i })).not.toBeInTheDocument()
+    })
+
+    // Pin note must appear
+    expect(screen.getByTestId('hotel-locale-pin-note')).toBeInTheDocument()
+  })
+
+  it('shows locale switcher (not pin note) for non-hotel kinds (landr-x5o5.6)', async () => {
+    render(<EmailTemplates />)
+    // Default kind is booking_received — non-hotel
+    await screen.findByText('Booking received')
+
+    // Locale tablist must be present
+    expect(screen.getByRole('tablist', { name: /language/i })).toBeInTheDocument()
+    expect(screen.queryByTestId('hotel-locale-pin-note')).not.toBeInTheDocument()
+  })
+
+  it('locale switcher returns after switching from hotel kind back to non-hotel kind (landr-x5o5.6)', async () => {
+    const user = userEvent.setup()
+    render(<EmailTemplates />)
+    await screen.findByText('Booking received')
+
+    // Switch to hotel kind — switcher disappears
+    await user.click(screen.getByRole('tab', { name: /hotel request/i }))
+    await waitFor(() => {
+      expect(screen.queryByRole('tablist', { name: /language/i })).not.toBeInTheDocument()
+    })
+
+    // Switch back to booking_confirmation (non-hotel) — switcher reappears
+    await user.click(screen.getByRole('tab', { name: /booking confirmation/i }))
+    await waitFor(() => {
+      expect(screen.getByRole('tablist', { name: /language/i })).toBeInTheDocument()
+    })
+    expect(screen.queryByTestId('hotel-locale-pin-note')).not.toBeInTheDocument()
   })
 })

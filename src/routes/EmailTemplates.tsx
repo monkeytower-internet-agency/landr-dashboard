@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmailTemplateForm } from '@/components/EmailTemplateForm'
 import { EmailTemplatePreview, EmailVariableCatalog } from '@/components/EmailTemplatePreview'
 import { useOperator } from '@/lib/operator'
+import { fetchOperator } from '@/lib/operatorSettings'
 import { PageTitle } from '@/lib/page-title'
 import {
   TEMPLATE_KINDS,
@@ -14,6 +15,7 @@ import {
   createTemplate,
   updateTemplate,
   deleteTemplate,
+  isHotelKind,
   type EmailTemplate,
   type TemplateKind,
   type OperatorLocale,
@@ -24,6 +26,20 @@ import { cn } from '@/lib/utils'
 
 type Selection = { kind: TemplateKind; locale: OperatorLocale }
 
+// landr-x5o5.6: ASSUMPTION — hotel_email_locale is not yet surfaced in the
+// dashboard API (landr-x5o5.7 will add it). We resolve the pinned hotel locale
+// from the operator's default_locale (fetchOperator) and fall back to 'es'
+// when that is also absent (Para42 is ES, which is the only live operator).
+const HOTEL_LOCALE_FALLBACK: OperatorLocale = 'es'
+
+/** Resolve a valid OperatorLocale from a raw string or return the fallback. */
+function resolveHotelLocale(raw: string | null | undefined): OperatorLocale {
+  if (raw && (OPERATOR_LOCALES as readonly string[]).includes(raw)) {
+    return raw as OperatorLocale
+  }
+  return HOTEL_LOCALE_FALLBACK
+}
+
 export function EmailTemplates() {
   const { currentOperatorId } = useOperator()
   const qc = useQueryClient()
@@ -32,6 +48,26 @@ export function EmailTemplates() {
     kind: TEMPLATE_KINDS[0],
     locale: OPERATOR_LOCALES[0],
   })
+
+  // landr-x5o5.6: fetch operator settings to read default_locale as proxy
+  // for hotel_email_locale (until landr-x5o5.7 surfaces the real column).
+  // Shares the same React Query cache key used by OperatorSection in settings
+  // so the request is deduped on the settings page.
+  const operatorSettingsQuery = useQuery({
+    queryKey: ['operator-settings', currentOperatorId ?? 'none'],
+    queryFn: () => fetchOperator(currentOperatorId as string),
+    enabled: !!currentOperatorId,
+    staleTime: 5 * 60 * 1000,
+  })
+  const hotelLocale = resolveHotelLocale(operatorSettingsQuery.data?.default_locale)
+
+  // landr-x5o5.6: For hotel-facing kinds the locale is always the pinned
+  // hotelLocale — we derive it here rather than storing it in state to avoid
+  // an extra render cycle. `selection.locale` is only meaningful for
+  // non-hotel kinds and is left unchanged when the user switches kinds.
+  const effectiveLocale: OperatorLocale = isHotelKind(selection.kind)
+    ? hotelLocale
+    : selection.locale
 
   const query = useQuery({
     queryKey: ['email-templates', currentOperatorId ?? 'none'],
@@ -59,12 +95,12 @@ export function EmailTemplates() {
     )
   }
 
-  const selectedTemplate = findTemplate(selection.kind, selection.locale)
+  const selectedTemplate = findTemplate(selection.kind, effectiveLocale)
 
   const saveMutation = useMutation({
     mutationFn: async (values: TemplateFormValues) => {
       if (!currentOperatorId) throw new Error('No operator or selection')
-      const existing = findTemplate(selection.kind, selection.locale)
+      const existing = findTemplate(selection.kind, effectiveLocale)
       if (existing) {
         return updateTemplate(currentOperatorId, existing.id, {
           subject: values.subject,
@@ -74,7 +110,7 @@ export function EmailTemplates() {
       } else {
         return createTemplate(currentOperatorId, {
           template_kind: selection.kind,
-          locale: selection.locale,
+          locale: effectiveLocale,
           subject: values.subject,
           body_html: values.body_html,
           body_text: values.body_text ?? '',
@@ -177,48 +213,65 @@ export function EmailTemplates() {
                   </div>
                 </div>
 
-                {/* Locale segmented control */}
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-                    {t.emailTemplates.selectorLocaleLabel}
-                  </p>
-                  <div
-                    role="tablist"
-                    aria-label={t.emailTemplates.selectorLocaleLabel}
-                    className="flex rounded-md border bg-muted/40 p-0.5 gap-0.5"
-                  >
-                    {OPERATOR_LOCALES.map((locale) => {
-                      const isSelected = selection.locale === locale
-                      const hasCustom = !!findTemplate(selection.kind, locale)
-                      return (
-                        <button
-                          key={locale}
-                          type="button"
-                          role="tab"
-                          aria-selected={isSelected}
-                          onClick={() => setSelection((s) => ({ ...s, locale }))}
-                          className={cn(
-                            'relative flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                            isSelected
-                              ? 'bg-background text-foreground shadow-sm'
-                              : 'text-muted-foreground hover:text-foreground hover:bg-background/60',
-                          )}
-                        >
-                          <span className="uppercase">{locale}</span>
-                          {hasCustom && (
-                            <span
-                              aria-hidden="true"
-                              className={cn(
-                                'h-1.5 w-1.5 rounded-full',
-                                isSelected ? 'bg-primary' : 'bg-muted-foreground/60',
-                              )}
-                            />
-                          )}
-                        </button>
-                      )
-                    })}
+                {/* Locale segmented control — hidden for hotel-facing kinds;
+                    those are always sent in the operator's hotel_email_locale.
+                    landr-x5o5.6: until landr-x5o5.7 surfaces hotel_email_locale
+                    we display default_locale / 'es' fallback. */}
+                {isHotelKind(selection.kind) ? (
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                      {t.emailTemplates.selectorLocaleLabel}
+                    </p>
+                    <p
+                      className="text-muted-foreground text-sm"
+                      data-testid="hotel-locale-pin-note"
+                    >
+                      {t.emailTemplates.hotelLocalePinNote(hotelLocale)}
+                    </p>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                      {t.emailTemplates.selectorLocaleLabel}
+                    </p>
+                    <div
+                      role="tablist"
+                      aria-label={t.emailTemplates.selectorLocaleLabel}
+                      className="flex rounded-md border bg-muted/40 p-0.5 gap-0.5"
+                    >
+                      {OPERATOR_LOCALES.map((locale) => {
+                        const isSelected = selection.locale === locale
+                        const hasCustom = !!findTemplate(selection.kind, locale)
+                        return (
+                          <button
+                            key={locale}
+                            type="button"
+                            role="tab"
+                            aria-selected={isSelected}
+                            onClick={() => setSelection((s) => ({ ...s, locale }))}
+                            className={cn(
+                              'relative flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                              isSelected
+                                ? 'bg-background text-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground hover:bg-background/60',
+                            )}
+                          >
+                            <span className="uppercase">{locale}</span>
+                            {hasCustom && (
+                              <span
+                                aria-hidden="true"
+                                className={cn(
+                                  'h-1.5 w-1.5 rounded-full',
+                                  isSelected ? 'bg-primary' : 'bg-muted-foreground/60',
+                                )}
+                              />
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Status badge for selected kind+locale */}
                 <div className="flex items-end sm:ml-auto">
@@ -244,7 +297,7 @@ export function EmailTemplates() {
             <CardHeader>
               <CardTitle className="text-sm">
                 {t.emailTemplates.kindLabels[selection.kind]} —{' '}
-                {t.emailTemplates.localeLabels[selection.locale]}
+                {t.emailTemplates.localeLabels[effectiveLocale]}
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
