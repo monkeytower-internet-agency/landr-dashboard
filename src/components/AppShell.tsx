@@ -29,6 +29,7 @@ import { ReportFabProvider } from '@/lib/report-fab-context'
 import { SidebarModeProvider } from '@/lib/sidebar-mode-context'
 import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
 import { openFor } from '@/lib/sidebar-mode'
+import { useEntitlements } from '@/lib/entitlements'
 
 // landr-fzcg — inner shell that bridges the mode state into the shadcn
 // SidebarProvider's controlled `open` prop. Lives inside SidebarModeProvider
@@ -40,6 +41,11 @@ import { openFor } from '@/lib/sidebar-mode'
 function AppShellInner({ children }: { children: ReactNode }) {
   const { mode, hovered } = useSidebarModeContext()
   const open = openFor(mode, hovered)
+  // landr-p3b7 — staff flag for the TierBadge env-switcher: Dev is only
+  // offered to staff (dashboard.dev.landr.de is Tailscale-only). Use
+  // effectiveIsStaff so it mirrors view-as behaviour consistently (the same
+  // flag AppModeSwitcher / feature-gating uses).
+  const { effectiveIsStaff } = useEntitlements()
 
   return (
     <SidebarProvider open={open} onOpenChange={() => { /* mode-driven */ }}>
@@ -79,7 +85,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
                 chip opens a menu to jump to the same path on another tier's
                 dashboard. showProd ensures the chip is visible on prod;
                 switcher enables the dropdown behavior. */}
-            <TierBadge switcher showProd />
+            <TierBadge switcher showProd isStaff={effectiveIsStaff} />
             {/* landr-xen4 — one-click "open booking widget" topbar action.
                 Renders only when the embed feature is enabled AND the
                 operator's widget_token has loaded. Always uses the
