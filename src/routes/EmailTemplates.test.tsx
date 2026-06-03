@@ -183,8 +183,15 @@ vi.mock('@/lib/operator', () => ({
   OperatorProvider: ({ children }: { children: ReactNode }) => children,
 }))
 
-// landr-x5o5.6: mock fetchOperator to return default_locale so the hotel
-// locale pin resolves without a real API call.
+// landr-x5o5.7: mock fetchOperator to return hotel_email_locale (and
+// default_locale as fallback) so the hotel locale pin resolves correctly.
+const { operatorSettingsMock } = vi.hoisted(() => ({
+  operatorSettingsMock: {
+    hotel_email_locale: 'es' as string | null,
+    default_locale: 'es',
+  },
+}))
+
 vi.mock('@/lib/operatorSettings', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/operatorSettings')>()
   return {
@@ -193,7 +200,8 @@ vi.mock('@/lib/operatorSettings', async (importOriginal) => {
       id: 'op-1',
       slug: 'para42',
       name: 'Para42',
-      default_locale: 'es',
+      default_locale: operatorSettingsMock.default_locale,
+      hotel_email_locale: operatorSettingsMock.hotel_email_locale,
     })),
   }
 })
@@ -266,6 +274,9 @@ beforeEach(() => {
   mock.state.effectiveOverride = null
   toastCalls.success.length = 0
   toastCalls.error.length = 0
+  // landr-x5o5.7: reset hotel locale mock to the default (es) before each test.
+  operatorSettingsMock.hotel_email_locale = 'es'
+  operatorSettingsMock.default_locale = 'es'
 })
 
 afterEach(() => {
@@ -537,6 +548,39 @@ describe('EmailTemplates route', () => {
       expect(screen.getByRole('tablist', { name: /language/i })).toBeInTheDocument()
     })
     expect(screen.queryByTestId('hotel-locale-pin-note')).not.toBeInTheDocument()
+  })
+
+  // landr-x5o5.7 — hotel_email_locale as the real pin source
+  it('hotel locale pin uses hotel_email_locale when set (landr-x5o5.7)', async () => {
+    operatorSettingsMock.hotel_email_locale = 'de'
+    operatorSettingsMock.default_locale = 'es'
+
+    const user = userEvent.setup()
+    render(<EmailTemplates />)
+    await screen.findByText('Booking received')
+
+    // Switch to hotel kind
+    await user.click(screen.getByRole('tab', { name: /hotel request/i }))
+
+    // Pin note should show DE (from hotel_email_locale), not ES (from default_locale)
+    const pinNote = await screen.findByTestId('hotel-locale-pin-note')
+    expect(pinNote.textContent).toMatch(/DE/i)
+  })
+
+  it('hotel locale pin falls back to default_locale when hotel_email_locale is null (landr-x5o5.7)', async () => {
+    operatorSettingsMock.hotel_email_locale = null
+    operatorSettingsMock.default_locale = 'en'
+
+    const user = userEvent.setup()
+    render(<EmailTemplates />)
+    await screen.findByText('Booking received')
+
+    // Switch to hotel kind
+    await user.click(screen.getByRole('tab', { name: /hotel request/i }))
+
+    // Pin note should show EN (from default_locale fallback)
+    const pinNote = await screen.findByTestId('hotel-locale-pin-note')
+    expect(pinNote.textContent).toMatch(/EN/i)
   })
 
   // landr-x5o5.4 — prefill + badge + divergence guard

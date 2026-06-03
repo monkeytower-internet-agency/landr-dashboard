@@ -28,10 +28,10 @@ import { cn } from '@/lib/utils'
 
 type Selection = { kind: TemplateKind; locale: OperatorLocale }
 
-// landr-x5o5.6: ASSUMPTION — hotel_email_locale is not yet surfaced in the
-// dashboard API (landr-x5o5.7 will add it). We resolve the pinned hotel locale
-// from the operator's default_locale (fetchOperator) and fall back to 'es'
-// when that is also absent (Para42 is ES, which is the only live operator).
+// landr-x5o5.7: hotel_email_locale is now surfaced in the operator settings
+// API. We read it directly; fall back to default_locale → 'es' only when it
+// is null (Para42's hotel is ES, which is the only live operator, and that row
+// is already seeded to 'es' in the migration).
 const HOTEL_LOCALE_FALLBACK: OperatorLocale = 'es'
 
 /** Resolve a valid OperatorLocale from a raw string or return the fallback. */
@@ -51,8 +51,8 @@ export function EmailTemplates() {
     locale: OPERATOR_LOCALES[0],
   })
 
-  // landr-x5o5.6: fetch operator settings to read default_locale as proxy
-  // for hotel_email_locale (until landr-x5o5.7 surfaces the real column).
+  // landr-x5o5.7: fetch operator settings to read hotel_email_locale (now
+  // surfaced). Falls back to default_locale → 'es' only when null.
   // Shares the same React Query cache key used by OperatorSection in settings
   // so the request is deduped on the settings page.
   const operatorSettingsQuery = useQuery({
@@ -61,7 +61,10 @@ export function EmailTemplates() {
     enabled: !!currentOperatorId,
     staleTime: 5 * 60 * 1000,
   })
-  const hotelLocale = resolveHotelLocale(operatorSettingsQuery.data?.default_locale)
+  const hotelLocale = resolveHotelLocale(
+    operatorSettingsQuery.data?.hotel_email_locale
+      ?? operatorSettingsQuery.data?.default_locale,
+  )
 
   // landr-x5o5.6: For hotel-facing kinds the locale is always the pinned
   // hotelLocale — we derive it here rather than storing it in state to avoid
@@ -253,8 +256,8 @@ export function EmailTemplates() {
 
                 {/* Locale segmented control — hidden for hotel-facing kinds;
                     those are always sent in the operator's hotel_email_locale.
-                    landr-x5o5.6: until landr-x5o5.7 surfaces hotel_email_locale
-                    we display default_locale / 'es' fallback. */}
+                    landr-x5o5.7: reads hotel_email_locale directly (falls back
+                    to default_locale / 'es' when null). */}
                 {isHotelKind(selection.kind) ? (
                   <div className="flex flex-col gap-1.5">
                     <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">

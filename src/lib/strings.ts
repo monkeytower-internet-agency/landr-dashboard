@@ -2311,6 +2311,12 @@ export const t = {
     fieldCountry: 'Country (ISO-3166 alpha-2)',
     fieldTimezone: 'Timezone (IANA)',
     fieldLocale: 'Default locale',
+    // landr-x5o5.7 — hotel-facing email language in Settings → Company.
+    fieldHotelEmailLocale: 'Hotel email language',
+    fieldHotelEmailLocaleHint:
+      'Language for all hotel-facing emails (hotel request, hotel confirmation). '
+      + 'Leave blank to use the default locale above. '
+      + 'Setting this here controls the pin shown in Email templates.',
     fieldWorkHoursStart: 'Work hours — start',
     fieldWorkHoursEnd: 'Work hours — end',
     fieldWorkHoursHint:
@@ -3262,9 +3268,8 @@ export const t = {
     toastNoChangeFromDefault: 'No changes from the default — nothing saved.',
     selectorKindLabel: 'Template',
     selectorLocaleLabel: 'Language',
-    // landr-x5o5.6: shown instead of the locale switcher for hotel-facing kinds.
-    // ASSUMPTION: hotel_email_locale not yet surfaced — using default_locale / 'es'
-    // fallback. landr-x5o5.7 will fix the source.
+    // landr-x5o5.7: shown instead of the locale switcher for hotel-facing kinds.
+    // Reads hotel_email_locale (falls back to default_locale / 'es' when null).
     hotelLocalePinNote: (locale: string): string =>
       `Hotel emails are always sent in ${locale.toUpperCase()}. Hotel language is set in operator settings.`,
 
