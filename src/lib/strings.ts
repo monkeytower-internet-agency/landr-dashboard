@@ -3107,6 +3107,31 @@ export const t = {
     fieldBodyHtml: 'HTML body',
     fieldBodyHtmlTitle: 'Email HTML body (sandboxed preview)',
     fieldBodyText: 'Plain-text body',
+    fieldSentVia: 'Sent via',
+    fieldResentFrom: 'Resent from',
+
+    // sent_via badge labels
+    badgeSentGmail: 'Sent',
+    badgeCapturedDev: 'Captured (dev)',
+    drawerDevFallbackNote:
+      'This email was captured locally — no Gmail account is connected yet.',
+    drawerDevFallbackLink: 'Connect Gmail',
+    drawerResentFromNote: (id: string): string => `Resent from ${id}`,
+
+    // Resend dialog
+    resendButton: 'Resend',
+    resendDialogTitle: 'Resend email',
+    resendDialogDescription:
+      'Edit any fields below before resending. Only changed fields are sent.',
+    resendFieldTo: 'To',
+    resendFieldSubject: 'Subject',
+    resendFieldBodyText: 'Plain-text body',
+    resendFieldBodyHtml: 'HTML body',
+    resendHtmlToggle: 'Edit HTML',
+    resendSubmit: 'Send',
+    resendCancel: 'Cancel',
+    resendToastSuccess: 'Email queued for resend.',
+    resendToastError: 'Resend failed.',
   },
   reporting: {
     title: 'Reporting',

@@ -1,4 +1,5 @@
 // landr-qg4q — EmailLog route smoke + status filter coverage.
+// landr-0xo6 — truthful badges + edit-and-resend dialog.
 
 import {
   render as rtlRender,
@@ -43,8 +44,17 @@ vi.mock('@/lib/operator', async () => {
   }
 })
 
-const { fetchOutboundEmailsMock } = vi.hoisted(() => ({
+const { fetchOutboundEmailsMock, resendEmailMock } = vi.hoisted(() => ({
   fetchOutboundEmailsMock: vi.fn(),
+  resendEmailMock: vi.fn(),
+}))
+
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+  Toaster: () => null,
 }))
 
 vi.mock('@/lib/outbound-emails', async (importOriginal) => {
@@ -54,9 +64,11 @@ vi.mock('@/lib/outbound-emails', async (importOriginal) => {
     ...actual,
     fetchOutboundEmails: (...args: unknown[]) =>
       fetchOutboundEmailsMock(...args),
+    resendEmail: (...args: unknown[]) => resendEmailMock(...args),
   }
 })
 
+import { toast } from 'sonner'
 import { EmailLog } from './EmailLog'
 
 // ---------------------------------------------------------------------------
@@ -92,12 +104,17 @@ function makeRow(overrides: Partial<OutboundEmailRow> = {}): OutboundEmailRow {
     last_error: null,
     created_at: '2026-05-21T08:00:00Z',
     sent_at: '2026-05-21T08:00:05Z',
+    sent_via: 'gmail',
+    resent_from_id: null,
     ...overrides,
   }
 }
 
 beforeEach(() => {
   fetchOutboundEmailsMock.mockReset()
+  resendEmailMock.mockReset()
+  vi.mocked(toast.success).mockReset()
+  vi.mocked(toast.error).mockReset()
 })
 
 afterEach(() => {
@@ -111,7 +128,7 @@ afterEach(() => {
 describe('EmailLog (landr-qg4q)', () => {
   it('renders rows with subject, recipient and a status badge', async () => {
     fetchOutboundEmailsMock.mockResolvedValue([
-      makeRow({ id: 'oe-1', subject: 'Confirmation ABC', status: 'sent' }),
+      makeRow({ id: 'oe-1', subject: 'Confirmation ABC', status: 'sent', sent_via: 'gmail' }),
       makeRow({
         id: 'oe-2',
         subject: 'Receipt XYZ',
@@ -119,6 +136,7 @@ describe('EmailLog (landr-qg4q)', () => {
         status: 'failed',
         last_error: 'gmail token expired',
         sent_at: null,
+        sent_via: null,
       }),
     ])
 
@@ -170,6 +188,7 @@ describe('EmailLog (landr-qg4q)', () => {
         status: 'failed',
         last_error: 'gmail token expired',
         body_text: 'Hello plain.',
+        sent_via: null,
       }),
     ])
 
@@ -186,5 +205,204 @@ describe('EmailLog (landr-qg4q)', () => {
     expect(screen.getByText(/last sender error/i)).toBeInTheDocument()
     expect(screen.getByText('gmail token expired')).toBeInTheDocument()
     expect(screen.getByText('Hello plain.')).toBeInTheDocument()
+  })
+})
+
+describe('EmailLog badge mapping (landr-0xo6)', () => {
+  it('renders green Sent badge when sent_via=gmail', async () => {
+    fetchOutboundEmailsMock.mockResolvedValue([
+      makeRow({ status: 'sent', sent_via: 'gmail' }),
+    ])
+    render(<EmailLog />)
+    await waitFor(() =>
+      expect(screen.getByTestId('email-log-status-sent')).toBeInTheDocument(),
+    )
+    expect(
+      screen.queryByTestId('email-log-status-dev_fallback'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('renders amber Captured (dev) badge when sent_via=dev_fallback', async () => {
+    fetchOutboundEmailsMock.mockResolvedValue([
+      makeRow({ status: 'sent', sent_via: 'dev_fallback' }),
+    ])
+    render(<EmailLog />)
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('email-log-status-dev_fallback'),
+      ).toBeInTheDocument(),
+    )
+    expect(
+      screen.queryByTestId('email-log-status-sent'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('renders failed badge when status=failed regardless of sent_via', async () => {
+    fetchOutboundEmailsMock.mockResolvedValue([
+      makeRow({ status: 'failed', sent_via: null }),
+    ])
+    render(<EmailLog />)
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('email-log-status-failed'),
+      ).toBeInTheDocument(),
+    )
+  })
+})
+
+describe('EmailLog drawer conditional rendering (landr-0xo6)', () => {
+  it('does NOT render last_error section when last_error is null', async () => {
+    fetchOutboundEmailsMock.mockResolvedValue([
+      makeRow({ status: 'sent', last_error: null }),
+    ])
+    const user = userEvent.setup()
+    render(<EmailLog />)
+
+    const row = await screen.findByRole('button', {
+      name: /open email log entry/i,
+    })
+    await user.click(row)
+
+    await waitFor(() =>
+      expect(screen.queryByText(/last sender error/i)).not.toBeInTheDocument(),
+    )
+  })
+
+  it('shows dev_fallback explanation note in drawer when sent_via=dev_fallback', async () => {
+    fetchOutboundEmailsMock.mockResolvedValue([
+      makeRow({ status: 'sent', sent_via: 'dev_fallback' }),
+    ])
+    const user = userEvent.setup()
+    render(<EmailLog />)
+
+    const row = await screen.findByRole('button', {
+      name: /open email log entry/i,
+    })
+    await user.click(row)
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/captured locally/i),
+      ).toBeInTheDocument(),
+    )
+    expect(screen.getByText(/connect gmail/i)).toBeInTheDocument()
+  })
+
+  it('shows resent_from_id note when resent_from_id is set', async () => {
+    fetchOutboundEmailsMock.mockResolvedValue([
+      makeRow({ status: 'sent', resent_from_id: 'oe-original-99' }),
+    ])
+    const user = userEvent.setup()
+    render(<EmailLog />)
+
+    const row = await screen.findByRole('button', {
+      name: /open email log entry/i,
+    })
+    await user.click(row)
+
+    await waitFor(() =>
+      expect(screen.getByText(/oe-original-99/i)).toBeInTheDocument(),
+    )
+  })
+})
+
+describe('EmailLog resend dialog (landr-0xo6)', () => {
+  it('opens resend dialog prefilled with row values on terminal rows', async () => {
+    fetchOutboundEmailsMock.mockResolvedValue([
+      makeRow({
+        status: 'sent',
+        to_address: 'guest@example.com',
+        subject: 'Booking confirmed',
+        body_text: 'Hello there.',
+      }),
+    ])
+    const user = userEvent.setup()
+    render(<EmailLog />)
+
+    const row = await screen.findByRole('button', {
+      name: /open email log entry/i,
+    })
+    await user.click(row)
+
+    const resendBtn = await screen.findByTestId('email-log-resend-button')
+    await user.click(resendBtn)
+
+    expect(await screen.findByTestId('resend-to-address')).toHaveValue(
+      'guest@example.com',
+    )
+    expect(screen.getByTestId('resend-subject')).toHaveValue('Booking confirmed')
+    expect(screen.getByTestId('resend-body-text')).toHaveValue('Hello there.')
+  })
+
+  it('POSTs only changed fields', async () => {
+    resendEmailMock.mockResolvedValue({ id: 'oe-new', status: 'queued', sent_via: null })
+    fetchOutboundEmailsMock.mockResolvedValue([
+      makeRow({
+        status: 'sent',
+        to_address: 'guest@example.com',
+        subject: 'Booking confirmed',
+        body_text: 'Hello.',
+        body_html: '<p>Hello.</p>',
+      }),
+    ])
+    const user = userEvent.setup()
+    render(<EmailLog />)
+
+    // Open drawer
+    const row = await screen.findByRole('button', { name: /open email log entry/i })
+    await user.click(row)
+
+    // Open resend dialog
+    const resendBtn = await screen.findByTestId('email-log-resend-button')
+    await user.click(resendBtn)
+
+    // Edit only the subject
+    const subjectInput = await screen.findByTestId('resend-subject')
+    await user.clear(subjectInput)
+    await user.type(subjectInput, 'Updated subject')
+
+    // Submit
+    await user.click(screen.getByTestId('resend-submit'))
+
+    await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
+
+    const [calledOperatorId, calledEmailId, calledPayload] =
+      resendEmailMock.mock.calls[0] as [string, string, Record<string, unknown>]
+    expect(calledOperatorId).toBe('op-1')
+    expect(calledEmailId).toBe('oe-1')
+    // Only the changed field should be in the payload.
+    expect(calledPayload).toHaveProperty('subject', 'Updated subject')
+    expect(calledPayload).not.toHaveProperty('to_address')
+    expect(calledPayload).not.toHaveProperty('body_text')
+    expect(calledPayload).not.toHaveProperty('body_html')
+  })
+
+  it('shows error toast when resend fails — never silent', async () => {
+    resendEmailMock.mockRejectedValue(new Error('upstream smtp error'))
+    fetchOutboundEmailsMock.mockResolvedValue([
+      makeRow({ status: 'failed' }),
+    ])
+    const user = userEvent.setup()
+    render(<EmailLog />)
+
+    const row = await screen.findByRole('button', { name: /open email log entry/i })
+    await user.click(row)
+
+    const resendBtn = await screen.findByTestId('email-log-resend-button')
+    await user.click(resendBtn)
+
+    await user.click(await screen.findByTestId('resend-submit'))
+
+    await waitFor(() =>
+      expect(vi.mocked(toast.error)).toHaveBeenCalled(),
+    )
+
+    const [msg, opts] = vi.mocked(toast.error).mock.calls[0] as [
+      string,
+      { description?: string } | undefined,
+    ]
+    expect(msg).toMatch(/resend failed/i)
+    // The server error detail must be surfaced (never silent).
+    expect(opts?.description).toMatch(/upstream smtp error/i)
   })
 })
