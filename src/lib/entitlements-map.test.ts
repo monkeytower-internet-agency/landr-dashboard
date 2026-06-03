@@ -48,10 +48,10 @@ describe('featureForSection', () => {
     expect(featureForSection('/settings/campaigns')).toBe('campaigns')
     expect(featureForSection('/settings/tags')).toBe('tags')
     expect(featureForSection('/settings/webhooks')).toBe('webhooks')
-    expect(featureForSection('/settings/integrations/calendar')).toBe(
+    expect(featureForSection('/account/integrations/calendar')).toBe(
       'calendar_feed',
     )
-    expect(featureForSection('/settings/plan')).toBe('plan')
+    expect(featureForSection('/account/plan')).toBe('plan')
   })
 
   it('maps ON-set settings sections too', () => {
@@ -59,20 +59,20 @@ describe('featureForSection', () => {
     expect(featureForSection('/settings/pricing')).toBe('pricing')
     expect(featureForSection('/settings/commissions')).toBe('commission')
     expect(featureForSection('/settings/team')).toBe('team')
-    expect(featureForSection('/settings/company')).toBe('company')
+    expect(featureForSection('/account/company')).toBe('company')
   })
 
   it('returns null for ungated/personal sections (always visible)', () => {
     expect(featureForSection('/settings/calendar-display')).toBeNull()
     expect(featureForSection('/settings/display-preferences')).toBeNull()
-    expect(featureForSection('/settings/connected-accounts')).toBeNull()
-    expect(featureForSection('/settings/notifications')).toBeNull()
+    expect(featureForSection('/account/connected-accounts')).toBeNull()
+    expect(featureForSection('/account/notifications')).toBeNull()
     // landr-1nwu.2 — Payments & invoicing is ungated: operators always need
     // to enter their own Stripe/Holded keys (like connected-accounts).
-    expect(featureForSection('/settings/integrations/payments')).toBeNull()
+    expect(featureForSection('/account/integrations/payments')).toBeNull()
     // landr-ubqo — Gmail (sending mailbox) is ungated for the same reason:
     // operators always need to connect their own Gmail to send booking emails.
-    expect(featureForSection('/settings/integrations/gmail')).toBeNull()
+    expect(featureForSection('/account/integrations/gmail')).toBeNull()
     expect(featureForSection('/settings/offers')).toBeNull()
     expect(featureForSection('/settings/service-roles')).toBeNull()
     expect(featureForSection('/settings/operations')).toBeNull()
