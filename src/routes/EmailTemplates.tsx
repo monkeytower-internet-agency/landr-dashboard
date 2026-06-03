@@ -3,13 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmailTemplateForm } from '@/components/EmailTemplateForm'
-import { EmailTemplatePreview } from '@/components/EmailTemplatePreview'
+import { EmailTemplatePreview, EmailVariableCatalog } from '@/components/EmailTemplatePreview'
 import { useOperator } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import {
   TEMPLATE_KINDS,
   OPERATOR_LOCALES,
   fetchTemplates,
+  fetchVariables,
   createTemplate,
   updateTemplate,
   deleteTemplate,
@@ -36,6 +37,16 @@ export function EmailTemplates() {
     queryKey: ['email-templates', currentOperatorId ?? 'none'],
     queryFn: () => fetchTemplates(currentOperatorId as string),
     enabled: !!currentOperatorId,
+  })
+
+  // landr-x5o5.5: per-kind variable catalog — fetched by selected kind,
+  // independent of whether a saved template exists. A brand-new template
+  // immediately shows its variables.
+  const variablesQuery = useQuery({
+    queryKey: ['email-template-variables', currentOperatorId ?? 'none', selection.kind],
+    queryFn: () => fetchVariables(currentOperatorId as string, selection.kind),
+    enabled: !!currentOperatorId,
+    staleTime: 5 * 60 * 1000, // catalog is stable; cache 5 min
   })
 
   const templates = query.data ?? []
@@ -109,6 +120,7 @@ export function EmailTemplates() {
   }
 
   const isCustom = !!selectedTemplate
+  const catalogEntries = variablesQuery.data?.variables ?? []
 
   return (
     <div className="flex flex-col gap-6">
@@ -227,7 +239,7 @@ export function EmailTemplates() {
             </CardContent>
           </Card>
 
-          {/* Full-width editor */}
+          {/* Full-width editor — form + always-visible variable catalog */}
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">
@@ -235,7 +247,7 @@ export function EmailTemplates() {
                 {t.emailTemplates.localeLabels[selection.locale]}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col gap-4">
               <EmailTemplateForm
                 template={selectedTemplate}
                 saving={saveMutation.isPending}
@@ -243,6 +255,10 @@ export function EmailTemplates() {
                 onResetToDefault={() => deleteMutation.mutate()}
                 resetting={deleteMutation.isPending}
               />
+              {/* landr-x5o5.5: variable catalog — always visible for the
+                  selected kind, no saved template required. Replaces the
+                  preview-only path from landr-7tyo. */}
+              <EmailVariableCatalog entries={catalogEntries} />
             </CardContent>
           </Card>
 

@@ -109,3 +109,25 @@ export async function previewTemplate(
     {},
   )
 }
+
+// landr-x5o5.5: per-kind variable catalog — independent of saved templates.
+export type VariableCatalogEntry = {
+  name: string
+  sample: unknown
+  description: string
+}
+
+export type VariableCatalogResult = {
+  kind: string
+  variables: VariableCatalogEntry[]
+}
+
+export async function fetchVariables(
+  operatorId: string,
+  kind: string,
+): Promise<VariableCatalogResult> {
+  return api<VariableCatalogResult>(
+    'GET',
+    `/api/staff/operators/${operatorId}/email-templates/variables?kind=${encodeURIComponent(kind)}`,
+  )
+}

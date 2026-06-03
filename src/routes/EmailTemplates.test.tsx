@@ -118,6 +118,16 @@ vi.mock('@/lib/emailTemplates', async (importOriginal) => {
         },
       }
     }),
+    // landr-x5o5.5: per-kind variable catalog endpoint. The editor fetches
+    // this for the selected kind (independent of any saved template), so
+    // the catalog is always present — including for a brand-new template.
+    fetchVariables: vi.fn(async (_operatorId: string, kind: string) => ({
+      kind,
+      variables: [
+        { name: 'customer_name', sample: 'Sample Customer', description: 'Customer full name' },
+        { name: 'operator_name', sample: 'Sample Operator', description: 'Operator / business name' },
+      ],
+    })),
   }
 })
 
@@ -369,7 +379,7 @@ describe('EmailTemplates route', () => {
     expect(banner).toHaveTextContent("'undefined_xyz' is undefined")
   })
 
-  it('surfaces the variable catalog sidebar from fixture.context (landr-7tyo)', async () => {
+  it('shows the per-kind variable catalog in the editor for a saved template (landr-x5o5.5)', async () => {
     mock.state.templates = [makeTemplate()]
     const user = userEvent.setup()
     render(<EmailTemplates />)
@@ -384,5 +394,24 @@ describe('EmailTemplates route', () => {
     })
     expect(sidebar).toHaveTextContent('{{ customer_name }}')
     expect(sidebar).toHaveTextContent('{{ operator_name }}')
+  })
+
+  it('shows the per-kind variable catalog even when NO saved template exists (landr-x5o5.5)', async () => {
+    // No templates at all — the editor still renders the catalog fed by
+    // the variables endpoint, keyed on the selected (default) kind.
+    mock.state.templates = []
+    render(<EmailTemplates />)
+    await screen.findByText('Booking received')
+
+    await screen.findByLabelText(/email template editor/i)
+    const sidebar = await screen.findByRole('complementary', {
+      name: /available variables/i,
+    })
+    expect(sidebar).toHaveTextContent('{{ customer_name }}')
+    expect(sidebar).toHaveTextContent('{{ operator_name }}')
+    // Single source: exactly one catalog on the page (none in the preview).
+    expect(
+      screen.getAllByRole('complementary', { name: /available variables/i }),
+    ).toHaveLength(1)
   })
 })
