@@ -20,6 +20,7 @@ import { QuickCaptureFab } from '@/components/QuickCaptureFab'
 import { ReportFab } from '@/components/ReportFab'
 import { TierBadge } from '@/components/TierBadge'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { WidgetButton } from '@/components/WidgetButton'
 import { PageTitleDisplay } from '@/components/topbar/PageTitleDisplay'
 import { CommandPaletteProvider } from '@/lib/command-palette-context'
 import { KeyboardShortcutsHelpProvider } from '@/lib/keyboard-shortcuts-help-context'
@@ -72,10 +73,19 @@ function AppShellInner({ children }: { children: ReactNode }) {
             <PageTitleDisplay />
           </div>
           <div className="flex items-center gap-0.5 sm:gap-1">
-            {/* landr-7dya.19 — deploy tier badge (DEV/STAGING pill; nothing
-                on prod or when VITE_DEPLOY_TIER is unset). Mounted once at
-                the shell level so every route sees it. */}
-            <TierBadge />
+            {/* landr-hisw — deploy tier badge as env-switcher dropdown
+                (DEV/STAGING/PROD pill; shows on prod too so you can jump
+                back; nothing when VITE_DEPLOY_TIER is unset). Clicking the
+                chip opens a menu to jump to the same path on another tier's
+                dashboard. showProd ensures the chip is visible on prod;
+                switcher enables the dropdown behavior. */}
+            <TierBadge switcher showProd />
+            {/* landr-xen4 — one-click "open booking widget" topbar action.
+                Renders only when the embed feature is enabled AND the
+                operator's widget_token has loaded. Always uses the
+                env-matched widget host to prevent the wrong-env/token CORS
+                incident (staff opening bw.landr.de with a dev token). */}
+            <WidgetButton />
             {/* landr-wwhn.12 — persistent report/suggest button. Lives in
                 the topbar right-cluster so it's reachable from every
                 protected route without eating FAB real estate. */}
