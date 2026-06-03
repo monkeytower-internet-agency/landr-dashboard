@@ -12,20 +12,41 @@
 //   STAGING → amber
 //   PROD    → emerald  (only rendered when `showProd` is true; AppShell omits it)
 //
+// landr-hisw — when `switcher` is true, the chip becomes a
+// DropdownMenuTrigger that lets staff jump to the same path on another
+// tier's dashboard. The plain badge (switcher=false, the default) is fully
+// backward-compatible — used by the /release console and tests that don't
+// need the switcher affordance.
+//
 // Usage:
-//   <TierBadge />              — reads VITE_DEPLOY_TIER via getTier().
-//   <TierBadge tier={tier} />  — explicit override (the /release page passes
-//                                its resolved server-or-static tier).
-//   <TierBadge showProd />     — render the prod pill too.
+//   <TierBadge />                     — reads VITE_DEPLOY_TIER via getTier().
+//   <TierBadge tier={tier} />         — explicit override (the /release page
+//                                       passes its resolved server-or-static tier).
+//   <TierBadge showProd />            — render the prod pill too.
+//   <TierBadge switcher showProd />   — topbar variant; chip is a dropdown.
 
 import { cn } from '@/lib/utils'
-import { getTier, type DeployTier } from '@/lib/tier'
+import { getTier, otherTiers, urlForTier, type DeployTier } from '@/lib/tier'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { ExternalLinkIcon } from 'lucide-react'
 
 type Props = {
   /** Optional explicit tier (overrides VITE_DEPLOY_TIER). */
   tier?: DeployTier | null
   /** When true, render the prod pill instead of nothing. Default false. */
   showProd?: boolean
+  /**
+   * landr-hisw — when true, the chip is a DropdownMenuTrigger; the menu
+   * lists jump links to other tiers. Only shown when tier is known
+   * (non-null) so the dropdown always has an anchor. Default false.
+   */
+  switcher?: boolean
 }
 
 const TIER_STYLE: Record<DeployTier, string> = {
@@ -40,22 +61,86 @@ const TIER_LABEL: Record<DeployTier, string> = {
   prod: 'PROD',
 }
 
-export function TierBadge({ tier: tierProp, showProd = false }: Props = {}) {
+const TIER_DISPLAY: Record<DeployTier, string> = {
+  dev: 'Dev',
+  staging: 'Staging',
+  prod: 'Prod',
+}
+
+const chipClass = (tier: DeployTier) =>
+  cn(
+    'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold leading-none tracking-wide select-none',
+    TIER_STYLE[tier],
+  )
+
+export function TierBadge({ tier: tierProp, showProd = false, switcher = false }: Props = {}) {
   const tier = tierProp ?? getTier()
   if (tier === null) return null
   if (tier === 'prod' && !showProd) return null
 
-  return (
+  const chip = (
     <span
       role="status"
       aria-label={`Deploy tier: ${TIER_LABEL[tier]}`}
       data-testid={`tier-badge-${tier}`}
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold leading-none tracking-wide select-none',
-        TIER_STYLE[tier],
-      )}
+      className={chipClass(tier)}
     >
       {TIER_LABEL[tier]}
     </span>
+  )
+
+  // Without switcher prop (or when tier is null — already handled above),
+  // render the plain static chip. This keeps the /release console and any
+  // other caller that passes only `tier` fully backward-compatible.
+  if (!switcher) return chip
+
+  const others = otherTiers(tier)
+  const currentPath =
+    typeof window !== 'undefined'
+      ? window.location.pathname + window.location.search
+      : '/'
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          aria-label={`Deploy tier: ${TIER_LABEL[tier]}. Click to switch dashboard tier.`}
+          data-testid={`tier-badge-switcher-${tier}`}
+        >
+          {chip}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[10rem]">
+        {/* Current tier — disabled row showing where you are */}
+        <DropdownMenuItem
+          disabled
+          className="font-medium opacity-60"
+          data-testid={`tier-switch-current-${tier}`}
+        >
+          <span className={cn('mr-1.5 inline-block size-2 rounded-full', {
+            'bg-blue-500': tier === 'dev',
+            'bg-amber-500': tier === 'staging',
+            'bg-emerald-500': tier === 'prod',
+          })} />
+          {TIER_DISPLAY[tier]}
+          <span className="ml-1 text-xs text-muted-foreground">(current)</span>
+        </DropdownMenuItem>
+        {others.length > 0 && <DropdownMenuSeparator />}
+        {others.map((t) => (
+          <DropdownMenuItem key={t} asChild data-testid={`tier-switch-to-${t}`}>
+            <a
+              href={urlForTier(t, currentPath)}
+              rel="noopener noreferrer"
+              className="flex cursor-pointer items-center gap-1.5"
+            >
+              <ExternalLinkIcon className="size-3 text-muted-foreground" />
+              {TIER_DISPLAY[t]}
+            </a>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
