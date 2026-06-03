@@ -153,7 +153,7 @@ import { EmailTemplates } from './EmailTemplates'
 import { PickupLocations } from './PickupLocations'
 
 // landr-gka7 — index redirect now resolves via landingPathFor('settings')
-// in App.tsx, not a hard-coded /settings/company. We mirror that here so
+// in App.tsx, not a hard-coded /account/company. We mirror that here so
 // the routing test exercises the same redirect target as the real app.
 import { landingPathFor } from '@/components/settings/sections'
 
@@ -162,12 +162,27 @@ function renderSettingsTree(initialPath: string) {
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route element={<Outlet />}>
+          <Route path="/account" element={<SettingsLayout />}>
+            <Route
+              index
+              element={<Navigate to={landingPathFor('account')} replace />}
+            />
+            <Route path="company" element={<CompanySettings />} />
+            <Route
+              path="connected-accounts"
+              element={<ConnectedAccountsSettings />}
+            />
+            <Route
+              path="integrations/gmail"
+              element={<IntegrationsGmailSettings />}
+            />
+            <Route path="plan" element={<PlanSettings />} />
+          </Route>
           <Route path="/settings" element={<SettingsLayout />}>
             <Route
               index
               element={<Navigate to={landingPathFor('settings')} replace />}
             />
-            <Route path="company" element={<CompanySettings />} />
             <Route path="calendar-display" element={<CalendarDisplaySettings />} />
             <Route
               path="display-preferences"
@@ -184,15 +199,6 @@ function renderSettingsTree(initialPath: string) {
               element={<div data-testid="schedule-placeholder" />}
             />
             <Route path="email-templates" element={<EmailTemplates />} />
-            <Route
-              path="integrations/gmail"
-              element={<IntegrationsGmailSettings />}
-            />
-            <Route
-              path="connected-accounts"
-              element={<ConnectedAccountsSettings />}
-            />
-            <Route path="plan" element={<PlanSettings />} />
           </Route>
           <Route
             path="/staff"
@@ -234,7 +240,7 @@ afterEach(() => {
 describe('SettingsLayout', () => {
   // landr-gka7 — /settings index redirect now resolves to
   // landingPathFor('settings'), i.e. SETTINGS_SECTIONS[0].to
-  // (calendar-display today). The previous hard-coded /settings/company
+  // (calendar-display today). The previous hard-coded /account/company
   // landed users on an ACCOUNT section, which is precisely the bug that
   // ticket fixed — clicking the Settings gear briefly rendered the
   // Account sub-sidebar before re-navigating. We assert on the Settings
@@ -250,8 +256,8 @@ describe('SettingsLayout', () => {
   })
 
   it('renders the Account sub-sidebar when on an account URL (landr-fzcg)', () => {
-    renderSettingsTree('/settings/company')
-    // /settings/company belongs to the Account group, so the sub-sidebar
+    renderSettingsTree('/account/company')
+    // /account/company belongs to the Account group, so the sub-sidebar
     // renders ACCOUNT_SECTIONS (Company, Connected accounts, Security, Gmail,
     // Calendar feed, Payments & invoicing, Plan, Notifications).
     // landr-6ybs added Calendar feed; landr-wwhn.16 added Notifications;
@@ -365,7 +371,7 @@ describe('SettingsLayout', () => {
   })
 
   it('renders the Plan subsection placeholder when no package is embedded', async () => {
-    renderSettingsTree('/settings/plan')
+    renderSettingsTree('/account/plan')
     expect(
       await screen.findByText(/no plan information available/i),
     ).toBeInTheDocument()

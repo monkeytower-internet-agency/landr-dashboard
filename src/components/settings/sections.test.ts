@@ -57,35 +57,35 @@ describe('ACCOUNT_SECTIONS (landr-fzcg)', () => {
   // manage how the operator authenticates into the dashboard.
   it('contains exactly company/connected/security/gmail/calendar/payments/plan/notifications in that order', () => {
     expect(ACCOUNT_SECTIONS.map((s) => s.to)).toEqual([
-      '/settings/company',
-      '/settings/connected-accounts',
-      '/settings/security',
-      '/settings/integrations/gmail',
-      '/settings/integrations/calendar',
-      '/settings/integrations/payments',
-      '/settings/plan',
-      '/settings/notifications',
+      '/account/company',
+      '/account/connected-accounts',
+      '/account/security',
+      '/account/integrations/gmail',
+      '/account/integrations/calendar',
+      '/account/integrations/payments',
+      '/account/plan',
+      '/account/notifications',
     ])
   })
 
-  it('includes a Security entry at /settings/security', () => {
-    const entry = ACCOUNT_SECTIONS.find((s) => s.to === '/settings/security')
+  it('includes a Security entry at /account/security', () => {
+    const entry = ACCOUNT_SECTIONS.find((s) => s.to === '/account/security')
     expect(entry).toBeDefined()
     expect(entry?.label).toBe('Security')
   })
 
   // landr-1nwu.2 — pin the Payments & invoicing entry shape.
-  it('includes a Payments & invoicing entry at /settings/integrations/payments', () => {
+  it('includes a Payments & invoicing entry at /account/integrations/payments', () => {
     const entry = ACCOUNT_SECTIONS.find(
-      (s) => s.to === '/settings/integrations/payments',
+      (s) => s.to === '/account/integrations/payments',
     )
     expect(entry).toBeDefined()
     expect(entry?.label).toBe('Payments & invoicing')
   })
 
-  it('includes a Calendar feed entry at /settings/integrations/calendar', () => {
+  it('includes a Calendar feed entry at /account/integrations/calendar', () => {
     const entry = ACCOUNT_SECTIONS.find(
-      (s) => s.to === '/settings/integrations/calendar',
+      (s) => s.to === '/account/integrations/calendar',
     )
     expect(entry).toBeDefined()
     expect(entry?.label).toBe('Calendar feed')
@@ -199,10 +199,10 @@ describe('groupForPath() (landr-fzcg)', () => {
   })
 
   it('routes account-group deeper URLs to "account"', () => {
-    expect(groupForPath('/settings/integrations/gmail/oauth-callback')).toBe(
+    expect(groupForPath('/account/integrations/gmail/oauth-callback')).toBe(
       'account',
     )
-    expect(groupForPath('/settings/connected-accounts/google')).toBe('account')
+    expect(groupForPath('/account/connected-accounts/google')).toBe('account')
   })
 
   it('routes settings-group leaf URLs to "settings"', () => {

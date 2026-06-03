@@ -48,7 +48,7 @@ export const FEATURE_SECTIONS: Record<string, string[]> = {
   email_templates: ['/settings/email-templates'],
   email_log: ['/settings/email-log'],
   commission: ['/settings/commissions'],
-  company: ['/settings/company'],
+  company: ['/account/company'],
   branding: ['/settings/branding'],
   team: ['/settings/team'],
   // OFF-set for Para42
@@ -63,8 +63,8 @@ export const FEATURE_SECTIONS: Record<string, string[]> = {
   // Gmail section left operators unable to send ANY booking email. So it is
   // deliberately absent from this map (→ featureForSection returns null →
   // always visible). Do NOT re-add a `gmail:` entry here.
-  calendar_feed: ['/settings/integrations/calendar'],
-  plan: ['/settings/plan'],
+  calendar_feed: ['/account/integrations/calendar'],
+  plan: ['/account/plan'],
 }
 
 // Reverse index: route path → owning feature key. Built once. A path absent

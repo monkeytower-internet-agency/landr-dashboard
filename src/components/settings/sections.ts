@@ -44,32 +44,33 @@ export type SettingsSubSection = {
 // Settings holds program/operator-scoped subsections (calendar, display,
 // team, locations, products, email templates, pricing).
 //
-// URL routes intentionally stay under /settings/* for both groups —
-// keeps deep-link history valid and avoids a destructive route rename.
-// The sidebar exposes /account as a virtual top-level item that lands
-// the user on /settings/company (first ACCOUNT_SECTIONS entry) and the
-// sub-sidebar then renders the ACCOUNT_SECTIONS list. See
-// SettingsSubSidebar + AppSidebar for the path→group mapping.
+// Each group has its OWN URL namespace so the URL matches the nav:
+// ACCOUNT_SECTIONS live under /account/*, SETTINGS_SECTIONS under
+// /settings/*. Both render through the same SettingsLayout; groupForPath()
+// maps a pathname back to its group for the sub-sidebar, and /account &
+// /settings each redirect their index to the group's first entry. (Done
+// pre-launch — landr — when there were no stored deep links to preserve.)
+// See SettingsSubSidebar + AppSidebar for the path→group mapping.
 export const ACCOUNT_SECTIONS: SettingsSubSection[] = [
   {
-    to: '/settings/company',
+    to: '/account/company',
     label: t.settingsHub.sections.company,
     icon: BuildingIcon,
   },
   {
-    to: '/settings/connected-accounts',
+    to: '/account/connected-accounts',
     label: t.settingsHub.sections.connectedAccounts,
     icon: LinkIcon,
   },
   // landr — change-password surface. Sits next to Connected accounts because
   // both manage how the operator authenticates into the dashboard.
   {
-    to: '/settings/security',
+    to: '/account/security',
     label: t.settingsHub.sections.security,
     icon: KeyRoundIcon,
   },
   {
-    to: '/settings/integrations/gmail',
+    to: '/account/integrations/gmail',
     label: t.settingsHub.sections.integrationsGmail,
     icon: PlugIcon,
   },
@@ -77,7 +78,7 @@ export const ACCOUNT_SECTIONS: SettingsSubSection[] = [
   // the ACCOUNT group next to Gmail because both are personal third-
   // party integrations the operator wires up once.
   {
-    to: '/settings/integrations/calendar',
+    to: '/account/integrations/calendar',
     label: t.settingsHub.sections.integrationsCalendar,
     icon: CalendarDaysIcon,
   },
@@ -85,19 +86,19 @@ export const ACCOUNT_SECTIONS: SettingsSubSection[] = [
   // payment/ERP credentials. Sits with the other personal third-party
   // integrations (Gmail, Calendar feed) the operator wires up once.
   {
-    to: '/settings/integrations/payments',
+    to: '/account/integrations/payments',
     label: t.settingsHub.sections.integrationsPayments,
     icon: BanknoteIcon,
   },
   {
-    to: '/settings/plan',
+    to: '/account/plan',
     label: t.settingsHub.sections.plan,
     icon: CreditCardIcon,
   },
   // landr-wwhn.16 — personal notification preferences (bell/email/push).
   // Lives in Account (personal scope) not Settings (operator scope).
   {
-    to: '/settings/notifications',
+    to: '/account/notifications',
     label: t.settingsHub.sections.notifications,
     icon: BellIcon,
   },
@@ -288,7 +289,7 @@ export function groupForPath(
   pathname: string,
 ): 'account' | 'settings' {
   // Exact match on a known account path, OR a deeper segment under it
-  // (e.g. /settings/integrations/gmail/oauth-callback).
+  // (e.g. /account/integrations/gmail/oauth-callback).
   for (const p of ACCOUNT_PATHS) {
     if (pathname === p || pathname.startsWith(`${p}/`)) return 'account'
   }
