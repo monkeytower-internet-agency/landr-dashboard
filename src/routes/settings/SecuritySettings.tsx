@@ -101,14 +101,22 @@ function ChangePasswordCard({ email }: { email: string }) {
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} noValidate className="flex max-w-sm flex-col gap-4">
-          {/* Hidden username for password-manager heuristics. */}
+          {/*
+            Username hint for password managers. MUST be visually hidden via
+            `sr-only`, NOT the `hidden` attribute (= display:none). Chrome's
+            password manager ignores display:none username fields, and with no
+            parseable username it suppresses BOTH the "suggest strong password"
+            and "save/update password" prompts on the new-password field below.
+            sr-only keeps the field in the render tree so Chrome still parses it.
+          */}
           <input
             type="text"
             name="username"
             autoComplete="username"
             value={email}
             readOnly
-            hidden
+            tabIndex={-1}
+            className="sr-only"
           />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="current-password">
@@ -183,7 +191,7 @@ function ChangePasswordCard({ email }: { email: string }) {
   )
 }
 
-function SetPasswordCard() {
+function SetPasswordCard({ email }: { email: string }) {
   const queryClient = useQueryClient()
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -233,6 +241,20 @@ function SetPasswordCard() {
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} noValidate className="flex max-w-sm flex-col gap-4">
+          {/*
+            Username hint for password managers (see ChangePasswordCard). Lets
+            Chrome offer to generate + save the newly-set password against this
+            account. sr-only, never `hidden`/display:none.
+          */}
+          <input
+            type="text"
+            name="username"
+            autoComplete="username"
+            value={email}
+            readOnly
+            tabIndex={-1}
+            className="sr-only"
+          />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="set-new-password">{t.security.newPasswordLabel}</Label>
             <div className="relative">
@@ -313,7 +335,7 @@ export function SecuritySettings() {
       {isLoading ? null : hasPassword && email ? (
         <ChangePasswordCard email={email} />
       ) : (
-        <SetPasswordCard />
+        <SetPasswordCard email={email} />
       )}
     </div>
   )
