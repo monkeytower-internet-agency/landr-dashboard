@@ -22,6 +22,9 @@ export type ProductGroup = {
   parent_id: string | null
   sort_order: number
   active: boolean
+  // landr-d8rg.10 — single cover image (bucket product-images,
+  // path {operator_id}/groups/{group_id}/{uuid}.webp). Public URL.
+  image_url: string | null
   created_at: string
   updated_at: string
 }
@@ -36,8 +39,11 @@ export type ProductGroupCreate = {
 
 export type ProductGroupPatch = {
   name?: string
+  description?: string | null
   sort_order?: number
   active?: boolean
+  // landr-d8rg.10
+  image_url?: string | null
 }
 
 export async function fetchProductGroupsFull(
