@@ -18,12 +18,19 @@
 // backward-compatible — used by the /release console and tests that don't
 // need the switcher affordance.
 //
+// landr-p3b7 — `isStaff` gates the Dev option in the switcher. The
+// dashboard.dev.landr.de origin is Tailscale-only; non-staff operators
+// cannot reach it, so we omit 'dev' from their jump-target list. Staff see
+// the full set. When filtering leaves zero targets the dropdown collapses
+// back to a plain badge (no empty menu).
+//
 // Usage:
 //   <TierBadge />                     — reads VITE_DEPLOY_TIER via getTier().
 //   <TierBadge tier={tier} />         — explicit override (the /release page
 //                                       passes its resolved server-or-static tier).
 //   <TierBadge showProd />            — render the prod pill too.
 //   <TierBadge switcher showProd />   — topbar variant; chip is a dropdown.
+//   <TierBadge switcher showProd isStaff={false} />  — non-staff: Dev omitted.
 
 import { cn } from '@/lib/utils'
 import { getTier, otherTiers, urlForTier, type DeployTier } from '@/lib/tier'
@@ -47,6 +54,14 @@ type Props = {
    * (non-null) so the dropdown always has an anchor. Default false.
    */
   switcher?: boolean
+  /**
+   * landr-p3b7 — when true (Landr staff), the switcher includes Dev as a
+   * jump target. When false/undefined (non-staff operator), Dev is omitted
+   * because dashboard.dev.landr.de is Tailscale-only and unreachable for
+   * them. If filtering leaves zero targets the dropdown collapses to a
+   * plain badge. Has no effect when `switcher` is false.
+   */
+  isStaff?: boolean
 }
 
 const TIER_STYLE: Record<DeployTier, string> = {
@@ -73,7 +88,7 @@ const chipClass = (tier: DeployTier) =>
     TIER_STYLE[tier],
   )
 
-export function TierBadge({ tier: tierProp, showProd = false, switcher = false }: Props = {}) {
+export function TierBadge({ tier: tierProp, showProd = false, switcher = false, isStaff = false }: Props = {}) {
   const tier = tierProp ?? getTier()
   if (tier === null) return null
   if (tier === 'prod' && !showProd) return null
@@ -94,7 +109,13 @@ export function TierBadge({ tier: tierProp, showProd = false, switcher = false }
   // other caller that passes only `tier` fully backward-compatible.
   if (!switcher) return chip
 
-  const others = otherTiers(tier)
+  // landr-p3b7 — non-staff cannot reach dashboard.dev.landr.de (Tailscale-
+  // only), so exclude 'dev' from their jump-target list. If filtering leaves
+  // zero targets, fall back to a plain badge rather than rendering an empty
+  // dropdown menu.
+  const others = otherTiers(tier).filter((t) => t !== 'dev' || isStaff)
+  if (others.length === 0) return chip
+
   const currentPath =
     typeof window !== 'undefined'
       ? window.location.pathname + window.location.search

@@ -1,9 +1,10 @@
-// landr-7dya.19 / landr-hisw — TierBadge unit tests.
+// landr-7dya.19 / landr-hisw / landr-p3b7 — TierBadge unit tests.
 //
 // Covers:
 //   - Plain badge (static; backward-compatible): dev/staging/prod/unset
 //   - Switcher dropdown (landr-hisw): opens, lists other tiers, correct hrefs,
 //     shows current-tier disabled row, renders on prod when showProd is set
+//   - Staff gate (landr-p3b7): non-staff omits Dev; staff includes Dev
 
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -95,9 +96,9 @@ describe('TierBadge switcher dropdown (landr-hisw)', () => {
     expect(toProd).toBeInTheDocument()
   })
 
-  it('links to the correct tier dashboard origin for staging', async () => {
+  it('links to the correct tier dashboard origin for staging (staff sees dev link)', async () => {
     vi.stubEnv('VITE_DEPLOY_TIER', 'staging')
-    render(<TierBadge switcher showProd />)
+    render(<TierBadge switcher showProd isStaff />)
     await userEvent.click(screen.getByTestId('tier-badge-switcher-staging'))
 
     const toDevLink = screen.getByTestId('tier-switch-to-dev')
@@ -107,9 +108,9 @@ describe('TierBadge switcher dropdown (landr-hisw)', () => {
     expect(toProdLink).toHaveAttribute('href', expect.stringContaining('dashboard.landr.de'))
   })
 
-  it('shows switcher on prod when showProd is set', async () => {
+  it('shows switcher on prod when showProd is set (staff sees dev link)', async () => {
     vi.stubEnv('VITE_DEPLOY_TIER', 'prod')
-    render(<TierBadge switcher showProd />)
+    render(<TierBadge switcher showProd isStaff />)
     const trigger = screen.getByTestId('tier-badge-switcher-prod')
     expect(trigger).toBeInTheDocument()
 
@@ -142,5 +143,65 @@ describe('TierBadge switcher dropdown (landr-hisw)', () => {
     const toStaging = screen.getByTestId('tier-switch-to-staging')
     // href should include the current path (/) appended to the origin
     expect(toStaging).toHaveAttribute('href', 'https://dashboard-staging.landr.de/')
+  })
+})
+
+// ─── Staff gate (landr-p3b7) ─────────────────────────────────────────────────
+
+describe('TierBadge switcher staff gate (landr-p3b7)', () => {
+  it('non-staff on staging: omits Dev, keeps Prod only', async () => {
+    vi.stubEnv('VITE_DEPLOY_TIER', 'staging')
+    render(<TierBadge switcher showProd isStaff={false} />)
+    await userEvent.click(screen.getByTestId('tier-badge-switcher-staging'))
+
+    expect(screen.queryByTestId('tier-switch-to-dev')).not.toBeInTheDocument()
+    expect(screen.getByTestId('tier-switch-to-prod')).toBeInTheDocument()
+  })
+
+  it('staff on staging: includes Dev and Prod', async () => {
+    vi.stubEnv('VITE_DEPLOY_TIER', 'staging')
+    render(<TierBadge switcher showProd isStaff />)
+    await userEvent.click(screen.getByTestId('tier-badge-switcher-staging'))
+
+    expect(screen.getByTestId('tier-switch-to-dev')).toBeInTheDocument()
+    expect(screen.getByTestId('tier-switch-to-prod')).toBeInTheDocument()
+  })
+
+  it('non-staff on prod: omits Dev, keeps Staging only', async () => {
+    vi.stubEnv('VITE_DEPLOY_TIER', 'prod')
+    render(<TierBadge switcher showProd isStaff={false} />)
+    await userEvent.click(screen.getByTestId('tier-badge-switcher-prod'))
+
+    expect(screen.queryByTestId('tier-switch-to-dev')).not.toBeInTheDocument()
+    expect(screen.getByTestId('tier-switch-to-staging')).toBeInTheDocument()
+  })
+
+  it('staff on prod: includes Dev and Staging', async () => {
+    vi.stubEnv('VITE_DEPLOY_TIER', 'prod')
+    render(<TierBadge switcher showProd isStaff />)
+    await userEvent.click(screen.getByTestId('tier-badge-switcher-prod'))
+
+    expect(screen.getByTestId('tier-switch-to-dev')).toBeInTheDocument()
+    expect(screen.getByTestId('tier-switch-to-staging')).toBeInTheDocument()
+  })
+
+  it('non-staff on dev: others are staging+prod (dev is current; no filtering effect)', async () => {
+    // When the user IS on dev, dev is the current tier and never appears in
+    // others — the filter has no effect here.
+    vi.stubEnv('VITE_DEPLOY_TIER', 'dev')
+    render(<TierBadge switcher showProd isStaff={false} />)
+    await userEvent.click(screen.getByTestId('tier-badge-switcher-dev'))
+
+    expect(screen.getByTestId('tier-switch-to-staging')).toBeInTheDocument()
+    expect(screen.getByTestId('tier-switch-to-prod')).toBeInTheDocument()
+  })
+
+  it('non-staff on staging: zero-targets edge case does not apply (prod remains)', () => {
+    // Prod is always included regardless of staff; only dev is gated.
+    // So the "zero targets → plain badge" path is not reachable for staging/prod tiers.
+    vi.stubEnv('VITE_DEPLOY_TIER', 'staging')
+    render(<TierBadge switcher showProd isStaff={false} />)
+    // Still shows as a dropdown button trigger (not collapsed to a plain static badge).
+    expect(screen.getByTestId('tier-badge-switcher-staging')).toBeInTheDocument()
   })
 })
