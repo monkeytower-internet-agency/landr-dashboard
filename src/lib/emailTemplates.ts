@@ -13,6 +13,22 @@ export const OPERATOR_LOCALES = ['de', 'en', 'es'] as const
 export type TemplateKind = (typeof TEMPLATE_KINDS)[number]
 export type OperatorLocale = (typeof OPERATOR_LOCALES)[number]
 
+// landr-x5o5.6: hotel-facing kinds are always sent in the operator's
+// hotel_email_locale regardless of customer language. The locale switcher
+// is hidden for these kinds; only the pinned hotel locale is ever used.
+// ASSUMPTION: hotel_email_locale is not yet surfaced in the dashboard API
+// (landr-x5o5.7 will add it). Until then we fall back to operators.default_locale
+// (from fetchOperator) and then to 'es' as a hardcoded default (Para42 is ES).
+export const HOTEL_KINDS: ReadonlySet<TemplateKind> = new Set([
+  'hotel_request',
+  'hotel_confirmation',
+] as const)
+
+/** Returns true when the given kind is hotel-facing (locale is pinned). */
+export function isHotelKind(kind: TemplateKind): boolean {
+  return HOTEL_KINDS.has(kind)
+}
+
 export type EmailTemplate = {
   id: string
   operator_id: string
