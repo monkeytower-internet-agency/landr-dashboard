@@ -150,6 +150,32 @@ describe('SecuritySettings', () => {
     expect(toastMock.success).toHaveBeenCalled()
   })
 
+  // Regression: Chrome's password manager IGNORES username fields hidden with
+  // display:none / the `hidden` attribute, which suppresses the "suggest strong
+  // password" + "save password" prompts. The username hint must be sr-only.
+  it('exposes a parseable (sr-only, not display:none) username hint on the change form', async () => {
+    const { container } = renderPage()
+    await screen.findByRole('button', { name: /update password/i })
+    const username = container.querySelector('input[autocomplete="username"]')
+    expect(username).not.toBeNull()
+    expect(username).not.toHaveAttribute('hidden')
+    expect(username).toHaveClass('sr-only')
+    expect(username).toHaveValue('seed@para42.example')
+  })
+
+  it('exposes a parseable username hint on the set-password form too', async () => {
+    authMock.getUser.mockResolvedValue({
+      data: { user: { app_metadata: { providers: ['google'] } } },
+      error: null,
+    })
+    const { container } = renderPage()
+    await screen.findByRole('button', { name: /set password/i })
+    const username = container.querySelector('input[autocomplete="username"]')
+    expect(username).not.toBeNull()
+    expect(username).not.toHaveAttribute('hidden')
+    expect(username).toHaveClass('sr-only')
+  })
+
   it('rejects a new password equal to the current one', async () => {
     const user = userEvent.setup()
     renderPage()
