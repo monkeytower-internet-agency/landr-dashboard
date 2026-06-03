@@ -71,6 +71,10 @@ export const OperatorSettingsSchema = z.object({
   weather_provider: z.string().nullable().optional(),
   weather_lat: z.number().nullable().optional(),
   weather_lon: z.number().nullable().optional(),
+  // landr-x5o5.7 — language used for hotel-facing emails (hotel_request /
+  // hotel_confirmation). NULL = fall back to customer/operator locale. Mirrors
+  // max_length of default_locale (API: 10 chars). Editable in Settings → Company.
+  hotel_email_locale: z.string().nullable().optional(),
   // landr-znzz.11 — extended branding: dark-mode logo + 3-colour theme.
   // logo_dark_url: optional dark-mode variant uploaded to the same bucket.
   // theme: { brand, accent, background } (light) + optional dark overrides.
