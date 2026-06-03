@@ -123,7 +123,22 @@ function GmailCard({ operatorId }: { operatorId: string }) {
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    popupRef.current = window.open('about:blank', '_blank', 'noopener,noreferrer')
+                    // landr-tq28: NEVER pass 'noopener' here — by spec it
+                    // makes window.open() return null, so popupRef stayed
+                    // empty, the onSuccess fallback navigated the DASHBOARD
+                    // tab to Google, and the popup sat on about:blank. We
+                    // need the handle to route the OAuth flow into the popup
+                    // (popupRef.current.location.href = install_url). The
+                    // popup only ever shows Google's/our OAuth pages, and
+                    // cross-origin navigation severs scripting access anyway.
+                    // Must be opened synchronously in the click handler so
+                    // popup blockers allow it; null (blocked) keeps the
+                    // same-tab fallback.
+                    popupRef.current = window.open(
+                      'about:blank',
+                      '_blank',
+                      'popup,width=620,height=720',
+                    )
                     connectMutation.mutate()
                   }}
                   disabled={connectMutation.isPending || isLoading}
