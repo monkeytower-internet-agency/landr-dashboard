@@ -850,7 +850,10 @@ describe('ProductForm — addon-only flag + add-ons section (landr-u34k)', () =>
         onSubmit={() => {}}
       />,
     )
-    expect(screen.getByText(/save this product first/i)).toBeInTheDocument()
+    // Two "save first" hints: one for add-ons, one for images (landr-d8rg.9).
+    expect(
+      screen.getByText(/save this product first to manage its add-ons/i),
+    ).toBeInTheDocument()
     expect(
       screen.queryByLabelText(/^add-ons$/i),
     ).not.toBeInTheDocument()
