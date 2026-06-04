@@ -297,19 +297,35 @@ function App() {
                   is_landr_staff with a 403. */}
               <Route path="/release" element={<Release />} />
 
-              {/* landr-fzcg — Account is a virtual top-level nav item
-                  whose subsections live under /settings/*. Hitting
-                  /account lands the user on /settings/company (first
-                  ACCOUNT_SECTIONS entry); the sub-sidebar then renders
-                  the Account group's section list because the URL is
-                  in ACCOUNT_PATHS. Keeping leaf URLs under /settings/*
-                  preserves every existing deep link. */}
-              <Route path="/account" element={<AccountIndexRedirect />} />
+              {/* landr-fzcg — Account hub: user/billing-scoped subsections
+                  under /account/*. Same SettingsLayout + sub-sidebar as the
+                  Settings hub; groupForPath() maps /account/* to the ACCOUNT
+                  group. Pre-launch these moved off /settings/* so the URL
+                  matches the "Account" nav (best-practice alignment). */}
+              <Route path="/account" element={<SettingsLayout />}>
+                <Route index element={<AccountIndexRedirect />} />
+                <Route path="company" element={gatedSection('/account/company', <CompanySettings />)} />
+                <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
+                {/* landr — Account → Security: set / change password
+                    (logged-in). Personal scope; ungated. */}
+                <Route path="security" element={<SecuritySettings />} />
+                <Route path="integrations/gmail" element={gatedSection('/account/integrations/gmail', <IntegrationsGmailSettings />)} />
+                {/* landr-6ybs — per-operator subscribable ICS calendar feed. */}
+                <Route path="integrations/calendar" element={gatedSection('/account/integrations/calendar', <IntegrationsCalendarSettings />)} />
+                {/* landr-1nwu.2 — per-operator Stripe + Holded credentials.
+                    Ungated: operators always need to enter their own payment
+                    keys (like connected-accounts), so no feature-entitlement
+                    gate. */}
+                <Route path="integrations/payments" element={<IntegrationsPaymentsSettings />} />
+                <Route path="plan" element={gatedSection('/account/plan', <PlanSettings />)} />
+                {/* landr-wwhn.16 — personal notification preferences
+                    (bell/email/push + per-ticket overrides). */}
+                <Route path="notifications" element={<NotificationPrefsSettings />} />
+              </Route>
 
               {/* Settings hub — left sub-sidebar wraps every subsection. */}
               <Route path="/settings" element={<SettingsLayout />}>
                 <Route index element={<SettingsIndexRedirect />} />
-                <Route path="company" element={gatedSection('/settings/company', <CompanySettings />)} />
                 <Route path="calendar-display" element={<CalendarDisplaySettings />} />
                 <Route path="display-preferences" element={<DisplayPreferencesSettings />} />
                 {/* landr-yp8x — Branding (logo + primary colour shown in
@@ -340,19 +356,6 @@ function App() {
                 <Route path="email-templates" element={gatedSection('/settings/email-templates', <EmailTemplates />)} />
                 {/* landr-qg4q — outbound_emails viewer (failed sends, retried, sent). */}
                 <Route path="email-log" element={gatedSection('/settings/email-log', <EmailLog />)} />
-                <Route path="integrations/gmail" element={gatedSection('/settings/integrations/gmail', <IntegrationsGmailSettings />)} />
-                {/* landr-6ybs — per-operator subscribable ICS calendar feed. */}
-                <Route path="integrations/calendar" element={gatedSection('/settings/integrations/calendar', <IntegrationsCalendarSettings />)} />
-                {/* landr-1nwu.2 — per-operator Stripe + Holded credentials.
-                    Ungated: operators always need to enter their own payment
-                    keys (like connected-accounts), so no feature-entitlement
-                    gate. */}
-                <Route path="integrations/payments" element={<IntegrationsPaymentsSettings />} />
-                <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
-                {/* landr — Settings → Security: change password (logged-in).
-                    Personal scope; ungated (every operator can manage their
-                    own password). */}
-                <Route path="security" element={<SecuritySettings />} />
                 <Route path="pricing" element={gatedSection('/settings/pricing', <PricingSettings />)} />
                 {/* landr-9n0l — Settings → Commissions: scheme/rule/tier
                     editor + read-only agent-earnings report. */}
@@ -375,11 +378,6 @@ function App() {
                 {/* landr-ah9u — Settings → Webhooks: operator-managed event
                     subscriptions (v1 localStorage; v2 server-delivered). */}
                 <Route path="webhooks" element={gatedSection('/settings/webhooks', <WebhooksSettings />)} />
-                {/* landr-wwhn.16 — Settings → Notifications: personal
-                    notification preferences (bell/email/push + per-ticket
-                    overrides). Personal scope; lives in ACCOUNT group. */}
-                <Route path="notifications" element={<NotificationPrefsSettings />} />
-                <Route path="plan" element={gatedSection('/settings/plan', <PlanSettings />)} />
                 {/* landr-sbhz.5 — STAFF-ONLY tier/feature editor. Not gated by
                     the tenant entitlement system (like /audit it is Landr
                     tooling); TierSettings self-redirects non-staff to home and

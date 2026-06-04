@@ -27,7 +27,7 @@ vi.mock('@/lib/entitlements', () => ({
 
 import { SettingsSubSidebar } from './SettingsSubSidebar'
 
-// Use a SETTINGS-group path (not an ACCOUNT one like /settings/company) so the
+// Use a SETTINGS-group path (not an ACCOUNT one like /account/company) so the
 // sub-sidebar renders the SETTINGS list — that's where STAFF_SECTIONS append.
 function renderSub(initialPath = '/settings/team') {
   return render(

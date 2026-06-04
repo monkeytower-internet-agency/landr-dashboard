@@ -211,7 +211,17 @@ export const t = {
     tooShort: 'Password must be at least 8 characters.',
     sameAsCurrent: 'New password must be different from your current one.',
     genericError: 'Could not update your password. Please try again.',
-    // Operators who signed in via Google have no email/password identity yet.
+    // Provider-only operators (e.g. Google sign-in) have no email/password
+    // identity yet — they SET a password in-app instead of going through
+    // "Forgot password?".
+    setPasswordHeading: 'Set a password',
+    setPasswordDescription:
+      'Add a password so you can sign in with your email and password as well as with Google. Choose a strong password you do not use anywhere else.',
+    setSubmit: 'Set password',
+    setSubmitting: 'Setting…',
+    setSuccess:
+      'Password set. You can now sign in with your email and password.',
+    // Retained for reference; superseded by the in-app set-password form.
     noPasswordIdentityTitle: 'No password set',
     noPasswordIdentityBody:
       'You sign in with a connected provider (e.g. Google). To set a password, use “Forgot password?” on the sign-in screen to create one.',
@@ -1869,6 +1879,21 @@ export const t = {
     productGroupManagerToastUpdated: 'Group updated.',
     productGroupManagerToastDeleted: 'Group deleted.',
     productGroupManagerToastError: 'Could not save group.',
+    // landr-d8rg.10 — per-group cover image + description tagline
+    productGroupCoverLabel: 'Cover image',
+    productGroupCoverUpload: 'Upload cover',
+    productGroupCoverReplace: 'Replace',
+    productGroupCoverRemove: 'Remove',
+    productGroupCoverUploading: 'Uploading…',
+    productGroupCoverAlt: (name: string) => `Cover image for ${name}`,
+    productGroupCoverToastUploaded: 'Cover image saved.',
+    productGroupCoverToastRemoved: 'Cover image removed.',
+    productGroupCoverToastError: 'Could not save cover image.',
+    productGroupCoverToastRemoveError: 'Could not remove cover image.',
+    productGroupDescriptionLabel: 'Tagline',
+    productGroupDescriptionPlaceholder: 'One-line tagline shown in the booking widget…',
+    productGroupDescriptionToastSaved: 'Tagline saved.',
+    productGroupDescriptionToastError: 'Could not save tagline.',
     fieldSortOrder: 'Sort order',
     optionNone: '— None —',
 
@@ -2022,6 +2047,43 @@ export const t = {
     windowErrorLoad: 'Failed to load course windows.',
     windowErrorSave: 'Failed to save window.',
     windowErrorDelete: 'Failed to delete window.',
+
+    // landr-d8rg.9 — product image manager
+    imagesSectionTitle: 'Product images',
+    imagesSaveFirstHint: 'Save this product first to manage its images.',
+    imagesCounter: (n: number, max: number): string => `${n}/${max}`,
+    imagesAddButton: 'Add image',
+    imagesAddAriaLabel: 'Add product image',
+    imagesAltLabel: 'Alt text',
+    imagesAltPlaceholder: 'Describe the image for accessibility…',
+    imagesMoveUp: 'Move up',
+    imagesMoveDown: 'Move down',
+    imagesDelete: 'Delete image',
+    imagesUploading: 'Uploading…',
+    imagesToastUploaded: 'Image uploaded.',
+    imagesToastUploadError: 'Could not upload image.',
+    imagesToastDeleted: 'Image deleted.',
+    imagesToastDeleteStorageError: 'Image row deleted, but storage cleanup failed.',
+    imagesToastAltSaved: 'Alt text saved.',
+    imagesToastAltError: 'Could not save alt text.',
+    imagesToastReorderError: 'Could not reorder images.',
+    imagesEmpty: 'No images yet. Add up to 4.',
+    imagesLoading: 'Loading images…',
+    imagesLoadError: 'Failed to load images.',
+  },
+  // landr-14s4 — shared locale-tabbed text editor (LocalizedTextField).
+  // The widget renders the base (English) field when a locale override is
+  // absent, so an empty override === "inherits English".
+  localized: {
+    baseTab: 'EN (base)',
+    // Tablist label — kept distinct from the field's own label so the base
+    // editor's aria-label stays the single match for getByLabelText(name).
+    tablistAria: (label: string) => `${label} — language`,
+    overrideTabAria: (label: string) => `Translation — ${label}`,
+    overrideBadgeAria: (label: string) => `${label} has a translation`,
+    inheritsBaseHint: 'Empty — inherits the English text above.',
+    basePlaceholder: 'English text shown by default',
+    overridePlaceholderPrefix: 'Translation for ',
   },
   generalApprovals: {
     title: 'Pending approvals',
@@ -2301,6 +2363,12 @@ export const t = {
     fieldCountry: 'Country (ISO-3166 alpha-2)',
     fieldTimezone: 'Timezone (IANA)',
     fieldLocale: 'Default locale',
+    // landr-x5o5.7 — hotel-facing email language in Settings → Company.
+    fieldHotelEmailLocale: 'Hotel email language',
+    fieldHotelEmailLocaleHint:
+      'Language for all hotel-facing emails (hotel request, hotel confirmation). '
+      + 'Leave blank to use the default locale above. '
+      + 'Setting this here controls the pin shown in Email templates.',
     fieldWorkHoursStart: 'Work hours — start',
     fieldWorkHoursEnd: 'Work hours — end',
     fieldWorkHoursHint:
@@ -3091,6 +3159,31 @@ export const t = {
     fieldBodyHtml: 'HTML body',
     fieldBodyHtmlTitle: 'Email HTML body (sandboxed preview)',
     fieldBodyText: 'Plain-text body',
+    fieldSentVia: 'Sent via',
+    fieldResentFrom: 'Resent from',
+
+    // sent_via badge labels
+    badgeSentGmail: 'Sent',
+    badgeCapturedDev: 'Captured (dev)',
+    drawerDevFallbackNote:
+      'This email was captured locally — no Gmail account is connected yet.',
+    drawerDevFallbackLink: 'Connect Gmail',
+    drawerResentFromNote: (id: string): string => `Resent from ${id}`,
+
+    // Resend dialog
+    resendButton: 'Resend',
+    resendDialogTitle: 'Resend email',
+    resendDialogDescription:
+      'Edit any fields below before resending. Only changed fields are sent.',
+    resendFieldTo: 'To',
+    resendFieldSubject: 'Subject',
+    resendFieldBodyText: 'Plain-text body',
+    resendFieldBodyHtml: 'HTML body',
+    resendHtmlToggle: 'Edit HTML',
+    resendSubmit: 'Send',
+    resendCancel: 'Cancel',
+    resendToastSuccess: 'Email queued for resend.',
+    resendToastError: 'Resend failed.',
   },
   reporting: {
     title: 'Reporting',
@@ -3245,10 +3338,17 @@ export const t = {
     loading: 'Loading email templates…',
     error: 'Failed to load email templates.',
     selectHint: 'Select a template kind and locale on the left to edit.',
-    statusCustom: 'Custom',
-    statusDefault: 'Default',
+    // landr-x5o5.4: badge labels — is_default from the effective endpoint drives which one shows.
+    statusCustom: 'Customized',
+    statusDefault: 'Using Landr default',
+    // landr-x5o5.4: toast when saving identical content against the default (no-op).
+    toastNoChangeFromDefault: 'No changes from the default — nothing saved.',
     selectorKindLabel: 'Template',
     selectorLocaleLabel: 'Language',
+    // landr-x5o5.7: shown instead of the locale switcher for hotel-facing kinds.
+    // Reads hotel_email_locale (falls back to default_locale / 'es' when null).
+    hotelLocalePinNote: (locale: string): string =>
+      `Hotel emails are always sent in ${locale.toUpperCase()}. Hotel language is set in operator settings.`,
 
     kindLabels: {
       booking_received: 'Booking received',
@@ -3304,7 +3404,7 @@ export const t = {
     variablesTitle: 'Available variables',
     variablesHint:
       'Click a chip to copy the Jinja placeholder. Paste into the subject or body to inject the value at send time.',
-    variablesEmpty: 'Run the preview to load available variables.',
+    variablesEmpty: 'No variables available for this template type.',
     variablesCopyAria: (key: string): string => `Copy {{ ${key} }} to clipboard`,
     variablesCopied: 'Copied to clipboard.',
     variablesCopyError: 'Could not copy to clipboard.',
@@ -3674,6 +3774,10 @@ export const t = {
     weekBookingsLabel: 'Bookings this week',
     weekContactsLabel: 'New contacts this week',
     weekRevenueEmpty: 'No revenue yet.',
+    // landr-ar44 — short context chips on the dashboard stat cards. The
+    // big number reads at a glance; the chip qualifies the timeframe.
+    statContextWeek: 'This week',
+    statContextNow: 'Right now',
     pendingApprovalsLabel: 'Pending approvals',
     pendingApprovalsCta: 'Review queue',
     pendingApprovalsEmpty: 'All caught up.',

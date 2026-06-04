@@ -52,12 +52,14 @@ export function SettingsSubSidebar() {
                 to={section.to}
                 className={({ isActive }) =>
                   cn(
-                    // Structural only — visual polish (active pill, hover
-                    // bg) is tuned by sibling worker landr-z7t via theme
-                    // tokens + the shadcn primitives we re-use elsewhere.
-                    'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm',
+                    // landr-ar44 — settings section nav matches the app
+                    // sidebar's visual language: soft hover tint for
+                    // inactive rows, a filled primary pill for the active
+                    // section so it reads as the current location.
+                    'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors',
                     'text-muted-foreground hover:bg-accent hover:text-foreground',
-                    isActive && 'bg-accent font-medium text-foreground',
+                    isActive &&
+                      'bg-primary font-medium text-primary-foreground shadow-s hover:bg-primary hover:text-primary-foreground',
                   )
                 }
               >

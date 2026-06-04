@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { authMock } = vi.hoisted(() => ({
   authMock: {
-    getUserIdentities: vi.fn(),
+    getUser: vi.fn(),
     signInWithPassword: vi.fn(),
     updateUser: vi.fn(),
   },
@@ -15,7 +15,7 @@ const { authMock } = vi.hoisted(() => ({
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
-      getUserIdentities: (...a: unknown[]) => authMock.getUserIdentities(...a),
+      getUser: (...a: unknown[]) => authMock.getUser(...a),
       signInWithPassword: (...a: unknown[]) => authMock.signInWithPassword(...a),
       updateUser: (...a: unknown[]) => authMock.updateUser(...a),
     },
@@ -45,12 +45,14 @@ function renderPage() {
 }
 
 beforeEach(() => {
-  authMock.getUserIdentities.mockReset()
+  authMock.getUser.mockReset()
   authMock.signInWithPassword.mockReset()
   authMock.updateUser.mockReset()
   toastMock.success.mockReset()
-  authMock.getUserIdentities.mockResolvedValue({
-    data: { identities: [{ provider: 'email' }] },
+  // Default: an account WITH a password (app_metadata.providers includes
+  // 'email') — even with no auth.identities rows, as seeded operators have.
+  authMock.getUser.mockResolvedValue({
+    data: { user: { app_metadata: { providers: ['email'] } } },
     error: null,
   })
   authMock.signInWithPassword.mockResolvedValue({ data: {}, error: null })
@@ -62,13 +64,44 @@ afterEach(() => {
 })
 
 describe('SecuritySettings', () => {
-  it('shows the no-password notice when the user has no email identity', async () => {
-    authMock.getUserIdentities.mockResolvedValue({
-      data: { identities: [{ provider: 'google' }] },
+  it('shows the set-password form (no current-password field) when the user has no email identity', async () => {
+    authMock.getUser.mockResolvedValue({
+      data: { user: { app_metadata: { providers: ['google'] } } },
       error: null,
     })
     renderPage()
-    expect(await screen.findByText(/no password set/i)).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /set password/i }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByLabelText(/current password/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('sets a password for a provider-only user without a current-password check', async () => {
+    authMock.getUser.mockResolvedValue({
+      data: { user: { app_metadata: { providers: ['google'] } } },
+      error: null,
+    })
+    const user = userEvent.setup()
+    renderPage()
+    await user.type(
+      await screen.findByLabelText(/^new password$/i),
+      'longenough1',
+    )
+    await user.type(
+      screen.getByLabelText(/confirm new password/i),
+      'longenough1',
+    )
+    await user.click(screen.getByRole('button', { name: /set password/i }))
+
+    await waitFor(() =>
+      expect(authMock.updateUser).toHaveBeenCalledWith({
+        password: 'longenough1',
+      }),
+    )
+    expect(authMock.signInWithPassword).not.toHaveBeenCalled()
+    expect(toastMock.success).toHaveBeenCalled()
   })
 
   it('verifies the current password before updating', async () => {
@@ -115,6 +148,32 @@ describe('SecuritySettings', () => {
       }),
     )
     expect(toastMock.success).toHaveBeenCalled()
+  })
+
+  // Regression: Chrome's password manager IGNORES username fields hidden with
+  // display:none / the `hidden` attribute, which suppresses the "suggest strong
+  // password" + "save password" prompts. The username hint must be sr-only.
+  it('exposes a parseable (sr-only, not display:none) username hint on the change form', async () => {
+    const { container } = renderPage()
+    await screen.findByRole('button', { name: /update password/i })
+    const username = container.querySelector('input[autocomplete="username"]')
+    expect(username).not.toBeNull()
+    expect(username).not.toHaveAttribute('hidden')
+    expect(username).toHaveClass('sr-only')
+    expect(username).toHaveValue('seed@para42.example')
+  })
+
+  it('exposes a parseable username hint on the set-password form too', async () => {
+    authMock.getUser.mockResolvedValue({
+      data: { user: { app_metadata: { providers: ['google'] } } },
+      error: null,
+    })
+    const { container } = renderPage()
+    await screen.findByRole('button', { name: /set password/i })
+    const username = container.querySelector('input[autocomplete="username"]')
+    expect(username).not.toBeNull()
+    expect(username).not.toHaveAttribute('hidden')
+    expect(username).toHaveClass('sr-only')
   })
 
   it('rejects a new password equal to the current one', async () => {

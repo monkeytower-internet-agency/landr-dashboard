@@ -236,7 +236,7 @@ const signerItem: NavItem = {
 // landingPathFor() so the click lands directly on a Settings (or Account)
 // leaf URL. Previously these were the bare /account and /settings
 // virtual paths, both of which resolved (via Route-level Navigate) to
-// /settings/company — an ACCOUNT section. Clicking the bottom "Settings"
+// /account/company — an ACCOUNT section. Clicking the bottom "Settings"
 // gear would briefly render the Account sub-sidebar before the user
 // re-navigated, and Account-group highlighting was wrong on first paint.
 // landingPathFor() pulls from sections.ts so this stays in sync as the
@@ -260,10 +260,13 @@ const secondaryItems: NavItem[] = [
 
 function isMatch(pathname: string, item: NavItem): boolean {
   if (item.matchGroup) {
-    // Only consider Account/Settings active when the user is actually
-    // INSIDE the settings hub (or onthe Account redirect target). A user
-    // on /bookings shouldn't see either bottom nav item highlighted.
-    if (pathname !== '/account' && !pathname.startsWith('/settings')) {
+    // Only consider Account/Settings active when the user is actually inside
+    // one of the two hubs (/account/* or /settings/*). A user on /bookings
+    // shouldn't see either bottom nav item highlighted.
+    if (
+      !pathname.startsWith('/account') &&
+      !pathname.startsWith('/settings')
+    ) {
       return false
     }
     return groupForPath(pathname) === item.matchGroup

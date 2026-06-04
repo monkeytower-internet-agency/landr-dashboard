@@ -148,7 +148,7 @@ describe('AppSidebar (landr-sydf)', () => {
       // the first sub-section of each group (via landingPathFor) so the
       // click lands directly on a leaf URL whose groupForPath() matches
       // the clicked icon. Previously bare /account and /settings both
-      // resolved to /settings/company (ACCOUNT) and briefly rendered the
+      // resolved to /account/company (ACCOUNT) and briefly rendered the
       // wrong sub-sidebar.
       landingPathFor('account'),
       landingPathFor('settings'),
@@ -161,7 +161,7 @@ describe('AppSidebar (landr-sydf)', () => {
 // landr-gka7 — Settings gear must land directly on a SETTINGS section,
 // not the first ACCOUNT section. Bug repro before the fix: the sidebar
 // Settings entry had `to: '/settings'`, App.tsx's /settings index
-// redirected to /settings/company (ACCOUNT_SECTIONS[0]), and the
+// redirected to /account/company (ACCOUNT_SECTIONS[0]), and the
 // SettingsLayout briefly rendered the Account sub-sidebar before the
 // user re-navigated. These tests pin both the AppSidebar href contract
 // and the assumption that the Account/Settings hrefs come from
@@ -207,7 +207,7 @@ describe('AppSidebar — Settings gear lands on a Settings section (landr-gka7)'
   })
 
   it('Settings href groupForPath resolves to "settings" (not "account")', () => {
-    // The repro: groupForPath('/settings/company') === 'account', so a
+    // The repro: groupForPath('/account/company') === 'account', so a
     // bare /settings click would briefly render the Account sub-sidebar.
     // This assertion guards against a regression where someone changes
     // landingPathFor('settings') to a path that secretly belongs to the
@@ -301,8 +301,8 @@ describe('AppSidebar — Account/Settings split (landr-fzcg)', () => {
   })
 
   it('highlights Account when on an account subsection URL', () => {
-    renderSidebar('/settings/plan')
-    // /settings/plan belongs to the Account group, so the Account nav
+    renderSidebar('/account/plan')
+    // /account/plan belongs to the Account group, so the Account nav
     // row should be marked active and Settings should NOT be.
     const accountLink = screen
       .queryAllByRole('link')

@@ -22,7 +22,7 @@ import { usePageTitle } from '@/lib/page-title'
 import { cn } from '@/lib/utils'
 
 export function PageTitleDisplay() {
-  const { title, crumbs, subtitle } = usePageTitle()
+  const { title, crumbs, subtitle, action } = usePageTitle()
 
   // Subtitle slot — rendered as the second row in the stack, only when
   // we have a title or breadcrumb above it to anchor it.
@@ -36,66 +36,86 @@ export function PageTitleDisplay() {
       </p>
     ) : null
 
+  // landr-ar44 — primary-action slot. Rendered right-aligned in the page
+  // header, opposite the title/breadcrumb. shrink-0 so a long title
+  // truncates before the action does. Only shown when a title or
+  // breadcrumb anchors the header (an action with no title is a misuse).
+  const actionNode =
+    action && (crumbs.length > 0 || title) ? (
+      <div className="flex shrink-0 items-center" data-testid="page-title-action">
+        {action}
+      </div>
+    ) : null
+
   if (crumbs.length > 0) {
     return (
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <nav
-          aria-label="Breadcrumb"
-          className="flex min-w-0 items-center gap-1 text-sm"
-        >
-          <ol className="flex min-w-0 items-center gap-1">
-            {crumbs.map((crumb, index) => {
-              const isLast = index === crumbs.length - 1
-              return (
-                <Fragment key={`${index}-${crumb.label}`}>
-                  <li className="min-w-0">
-                    {crumb.to && !isLast ? (
-                      <Link
-                        to={crumb.to}
-                        className={cn(
-                          'truncate rounded px-1 py-0.5',
-                          'text-muted-foreground hover:text-foreground',
-                          'hover:underline underline-offset-2',
-                        )}
-                      >
-                        {crumb.label}
-                      </Link>
-                    ) : (
-                      <span
-                        className={cn(
-                          'truncate px-1 py-0.5',
-                          isLast
-                            ? 'text-foreground font-medium'
-                            : 'text-muted-foreground',
-                        )}
-                        aria-current={isLast ? 'page' : undefined}
-                      >
-                        {crumb.label}
-                      </span>
-                    )}
-                  </li>
-                  {!isLast ? (
-                    <li aria-hidden="true" className="text-muted-foreground/60">
-                      <ChevronRight className="size-3.5" />
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <nav
+            aria-label="Breadcrumb"
+            className="flex min-w-0 items-center gap-1 text-sm"
+          >
+            <ol className="flex min-w-0 items-center gap-1">
+              {crumbs.map((crumb, index) => {
+                const isLast = index === crumbs.length - 1
+                return (
+                  <Fragment key={`${index}-${crumb.label}`}>
+                    <li className="min-w-0">
+                      {crumb.to && !isLast ? (
+                        <Link
+                          to={crumb.to}
+                          className={cn(
+                            'truncate rounded px-1 py-0.5',
+                            'text-muted-foreground hover:text-foreground',
+                            'hover:underline underline-offset-2',
+                          )}
+                        >
+                          {crumb.label}
+                        </Link>
+                      ) : (
+                        <span
+                          className={cn(
+                            'truncate px-1 py-0.5',
+                            isLast
+                              ? 'text-foreground font-medium'
+                              : 'text-muted-foreground',
+                          )}
+                          aria-current={isLast ? 'page' : undefined}
+                        >
+                          {crumb.label}
+                        </span>
+                      )}
                     </li>
-                  ) : null}
-                </Fragment>
-              )
-            })}
-          </ol>
-        </nav>
-        {subtitleNode}
+                    {!isLast ? (
+                      <li
+                        aria-hidden="true"
+                        className="text-muted-foreground/60"
+                      >
+                        <ChevronRight className="size-3.5" />
+                      </li>
+                    ) : null}
+                  </Fragment>
+                )
+              })}
+            </ol>
+          </nav>
+          {subtitleNode}
+        </div>
+        {actionNode}
       </div>
     )
   }
 
   if (title) {
     return (
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <h1 className="truncate text-sm font-medium" aria-live="polite">
-          {title}
-        </h1>
-        {subtitleNode}
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h1 className="truncate text-sm font-medium" aria-live="polite">
+            {title}
+          </h1>
+          {subtitleNode}
+        </div>
+        {actionNode}
       </div>
     )
   }

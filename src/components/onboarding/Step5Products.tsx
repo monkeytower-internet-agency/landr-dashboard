@@ -156,7 +156,11 @@ export function Step5Products({ operatorId, onAdvance, onBack }: Props) {
       product_group_id: groupsQuery.data?.[0]?.id ?? null,
       slug: uniqueSlug(baseSlug),
       name: tpl.name,
+      // landr-14s4 — onboarding templates ship English-only; translations
+      // are added later via the ProductForm locale tabs.
+      name_localized: null,
       short_description: tpl.description,
+      short_description_localized: null,
       description: null,
       product_kind: 'service',
       service_time_shape: tpl.service_time_shape,

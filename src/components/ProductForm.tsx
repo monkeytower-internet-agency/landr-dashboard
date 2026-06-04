@@ -4,7 +4,12 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { CrownIcon, Trash2Icon } from 'lucide-react'
 
+import { LocalizedTextField } from '@/components/LocalizedTextField'
 import { ProductAddonsManager } from '@/components/products/ProductAddonsManager'
+import {
+  ProductImageManager,
+  ProductImageManagerDisabledHint,
+} from '@/components/products/ProductImageManager'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -81,15 +86,23 @@ const ALL_SHAPES: readonly ServiceTimeShape[] = [
   'time_slot',
 ] as const
 
+// landr-14s4 — per-locale override map ({ locale: text }). Stored alongside
+// the base column; the widget falls back to the base when a key is absent.
+// Empty overrides are stripped (absent keys) before submit by the
+// LocalizedTextField, so this map only ever carries non-empty values.
+const localizedMap = z.record(z.string(), z.string()).nullable()
+
 const productFormSchema = z
   .object({
     name: z.string().trim().min(1, t.products.errorNameRequired),
+    name_localized: localizedMap,
     slug: z
       .string()
       .trim()
       .min(1, t.products.errorSlugRequired)
       .regex(/^[a-z0-9-]+$/i, t.products.errorSlugFormat),
     short_description: z.string().max(280),
+    short_description_localized: localizedMap,
     description: z.string(),
     product_group_id: z.string(),
     product_kind: z.enum(ALL_KINDS as unknown as [ProductKind, ...ProductKind[]]),
@@ -196,8 +209,12 @@ export type ProductFormValues = z.infer<typeof productFormSchema>
 
 export type ProductFormSubmitValue = {
   name: string
+  // landr-14s4 — per-locale overrides for name + short_description. Empty
+  // overrides are stripped to absent keys; null when no override remains.
+  name_localized: Record<string, string> | null
   slug: string
   short_description: string | null
+  short_description_localized: Record<string, string> | null
   description: string | null
   product_group_id: string | null
   product_kind: ProductKind
@@ -263,8 +280,10 @@ function defaultValues(
   if (!product) {
     return {
       name: '',
+      name_localized: null,
       slug: '',
       short_description: '',
+      short_description_localized: null,
       description: '',
       product_group_id: '',
       product_kind: initialKind,
@@ -296,8 +315,10 @@ function defaultValues(
   }
   return {
     name: product.name,
+    name_localized: product.name_localized ?? null,
     slug: product.slug,
     short_description: product.short_description ?? '',
+    short_description_localized: product.short_description_localized ?? null,
     description: product.description ?? '',
     product_group_id: product.product_group_id ?? '',
     product_kind: product.product_kind,
@@ -518,8 +539,11 @@ export function ProductForm({
         : null
     const payload: ProductFormSubmitValue = {
       name: values.name.trim(),
+      // landr-14s4 — already stripped of empty keys by LocalizedTextField.
+      name_localized: values.name_localized ?? null,
       slug: values.slug.trim(),
       short_description: emptyToNull(values.short_description),
+      short_description_localized: values.short_description_localized ?? null,
       description: emptyToNull(values.description),
       product_group_id: emptyToNull(values.product_group_id),
       product_kind: values.product_kind,
@@ -645,6 +669,8 @@ export function ProductForm({
         ) : null}
 
         <div className="grid gap-4 sm:grid-cols-2">
+          {/* landr-14s4 — name is locale-tabbed (EN base + DE override). The
+              slug auto-fill still keys off the EN base value only. */}
           <FormField
             control={form.control}
             name="name"
@@ -652,16 +678,21 @@ export function ProductForm({
               <FormItem>
                 <FormLabel>{t.products.fieldName}</FormLabel>
                 <FormControl>
-                  <Input
-                    {...field}
-                    onChange={(e) => {
-                      field.onChange(e)
+                  <LocalizedTextField
+                    label={t.products.fieldName}
+                    base={field.value}
+                    localized={form.watch('name_localized')}
+                    onChange={(base, localized) => {
+                      field.onChange(base)
+                      form.setValue('name_localized', localized, {
+                        shouldDirty: true,
+                      })
                       // Auto-fill slug when creating a new product and slug
                       // is either empty or still matches the slugified name.
                       if (!product) {
                         const current = form.getValues('slug')
                         if (!current || current === nameToSlug(field.value)) {
-                          form.setValue('slug', nameToSlug(e.target.value))
+                          form.setValue('slug', nameToSlug(base))
                         }
                       }
                     }}
@@ -688,6 +719,8 @@ export function ProductForm({
           />
         </div>
 
+        {/* landr-14s4 — short_description is locale-tabbed (EN base + DE
+            override). */}
         <FormField
           control={form.control}
           name="short_description"
@@ -695,7 +728,17 @@ export function ProductForm({
             <FormItem>
               <FormLabel>{t.products.fieldShortDescription}</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <LocalizedTextField
+                  label={t.products.fieldShortDescription}
+                  base={field.value}
+                  localized={form.watch('short_description_localized')}
+                  onChange={(base, localized) => {
+                    field.onChange(base)
+                    form.setValue('short_description_localized', localized, {
+                      shouldDirty: true,
+                    })
+                  }}
+                />
               </FormControl>
               <FormDescription>
                 {t.products.fieldShortDescriptionHelp}
@@ -705,6 +748,12 @@ export function ProductForm({
           )}
         />
 
+        {/* landr-14s4 — the long Markdown `description` is intentionally NOT
+            locale-tabbed yet. The DB column products.description_localized
+            exists, but no public widget RPC returns it, so a DE override here
+            would never render. DE translation for the long description ships
+            later — tracked by follow-up bead landr-soo4 (widget RPC pick +
+            a Markdown-aware locale editor are the remaining work). */}
         <FormField
           control={form.control}
           name="description"
@@ -1114,6 +1163,21 @@ export function ProductForm({
                 </p>
               </CardContent>
             </Card>
+          )
+        ) : null}
+
+        {/* landr-d8rg.9 — product image manager. Only meaningful for
+            existing products (needs product_id for storage paths + row FK).
+            Render the save-first hint for new products when operatorId is
+            present (matches the AddonsManager pattern above). */}
+        {operatorId ? (
+          product ? (
+            <ProductImageManager
+              operatorId={operatorId}
+              productId={product.id}
+            />
+          ) : (
+            <ProductImageManagerDisabledHint />
           )
         ) : null}
 
