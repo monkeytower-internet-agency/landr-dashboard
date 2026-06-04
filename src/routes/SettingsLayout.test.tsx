@@ -384,7 +384,11 @@ describe('SettingsLayout', () => {
       name: /settings sections/i,
     })
     const teamLink = within(nav).getByRole('link', { name: /team/i })
-    expect(teamLink).toHaveClass(/text-foreground/)
+    // landr-ar44 — the active settings-nav link is now a filled primary
+    // pill (bg-primary + text-primary-foreground). `font-medium` is the
+    // active-only marker (inactive rows are normal weight), so it's the
+    // stable proxy for "this section is active".
+    expect(teamLink).toHaveClass(/font-medium/)
   })
 
   it('redirects /pickup-locations to /settings/pickup-locations', async () => {
@@ -393,7 +397,9 @@ describe('SettingsLayout', () => {
       name: /settings sections/i,
     })
     const link = within(nav).getByRole('link', { name: /pickup locations/i })
-    expect(link).toHaveClass(/text-foreground/)
+    // landr-ar44 — active link = filled primary pill; assert the
+    // active-only `font-medium` marker (see /staff test).
+    expect(link).toHaveClass(/font-medium/)
   })
 
   it('redirects /email-templates to /settings/email-templates', async () => {
@@ -402,7 +408,9 @@ describe('SettingsLayout', () => {
       name: /settings sections/i,
     })
     const link = within(nav).getByRole('link', { name: /email templates/i })
-    expect(link).toHaveClass(/text-foreground/)
+    // landr-ar44 — active link = filled primary pill; assert the
+    // active-only `font-medium` marker (see /staff test).
+    expect(link).toHaveClass(/font-medium/)
   })
 
   // landr-e8jf — Schedule now lives at /settings/schedule. Pin both the
@@ -416,6 +424,8 @@ describe('SettingsLayout', () => {
       name: /settings sections/i,
     })
     const link = within(nav).getByRole('link', { name: /schedule/i })
-    expect(link).toHaveClass(/text-foreground/)
+    // landr-ar44 — active link = filled primary pill; assert the
+    // active-only `font-medium` marker (see /staff test).
+    expect(link).toHaveClass(/font-medium/)
   })
 })

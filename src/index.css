@@ -67,20 +67,36 @@
   --shadow-m: var(--shadow-m-recipe);
   --shadow-l: var(--shadow-l-recipe);
   --shadow-recessed: var(--shadow-inset-recipe);
+  /* landr-ar44 — named elevation scale L0-L3 as Tailwind shadow utilities
+     (shadow-e0 … shadow-e3). L0 = flush (no lift), L1 = resting card,
+     L2 = raised / popover, L3 = floating / modal. These alias the same
+     compound recipes the depth pass already tuned, but give the visual-v1
+     surface system a self-documenting ladder distinct from the s/m/l
+     button-vs-card semantic naming. */
+  --shadow-e0: none;
+  --shadow-e1: var(--shadow-s-recipe);
+  --shadow-e2: var(--shadow-m-recipe);
+  --shadow-e3: var(--shadow-l-recipe);
 }
 
 /* Light theme (default — no class on <html>). */
 :root {
   --radius: 0.625rem;
 
-  /* Three-shade ramp — light theme. Steps ~0.03 here because surfaces
-     are already bright; bigger steps would feel chalky. Page is dimmest
-     so cards lift forward; selected/highlighted gets pure white. */
-  --bg-dark: oklch(0.94 0 264);
-  --bg: oklch(0.97 0 264);
-  --bg-light: oklch(1 0 264);
-  --text: oklch(0.15 0 264);
-  --text-muted: oklch(0.45 0 264);
+  /* landr-ar44 — visual-v1 surface ramp (light). The reference is a soft
+     off-white page with elevated WHITE cards: the page should read as a
+     warm paper tone, cards should pop as clean white, and the
+     selected/highlighted rung stays pure white. A faint warm hue (h 95,
+     low chroma) lifts the off-white away from a cold clinical gray
+     without tinting it visibly. Page is dimmest so cards lift forward.
+       L0 page   = bg-dark  (off-white paper)
+       L1 card   = bg       (white surface, clearly above the page)
+       L2 lifted = bg-light (pure white — selected / interactive) */
+  --bg-dark: oklch(0.965 0.0035 95);
+  --bg: oklch(0.995 0.0015 95);
+  --bg-light: oklch(1 0 95);
+  --text: oklch(0.16 0 264);
+  --text-muted: oklch(0.46 0 264);
 
   /* shadcn aliases mapped onto the ramp. */
   --background: var(--bg-dark);
@@ -91,28 +107,35 @@
   --popover-foreground: var(--text);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.92 0 264);
+  --secondary: oklch(0.955 0.003 95);
   --secondary-foreground: var(--text);
   /* --muted is used on recessed elements (progress track, inputs) — pin
-     to the dimmest rung so it reads "deeper" than the card surface. */
-  --muted: oklch(0.91 0 264);
+     below the page so it reads "deeper" than the card surface. With the
+     near-white visual-v1 page, this is a soft warm gray, not chalk. */
+  --muted: oklch(0.945 0.003 95);
   --muted-foreground: var(--text-muted);
-  /* --accent is the selected/highlighted shade. */
-  --accent: var(--bg-light);
+  /* landr-ar44 — --accent is the hover/selected shade applied across
+     menus, dropdowns and the settings nav. The depth pass pinned it to
+     pure white, but against the near-white visual-v1 page/card surfaces
+     a white highlight is invisible. Pull it DOWN to a soft tint so
+     hover/active states read clearly on bright surfaces. */
+  --accent: oklch(0.935 0.004 95);
   --accent-foreground: var(--text);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.88 0 264);
-  --input: oklch(0.88 0 264);
+  --border: oklch(0.905 0.003 95);
+  --input: oklch(0.9 0.003 95);
   --ring: oklch(0.708 0 0);
-  /* Sidebar sits on the page; selected items use --bg-light. */
+  /* Sidebar sits on the off-white page. The active item is a filled
+     primary pill (see sidebar.tsx CVA); --sidebar-accent here is the
+     softer HOVER tint for inactive rows. */
   --sidebar: var(--bg-dark);
   --sidebar-foreground: var(--text);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: var(--bg-light);
+  --sidebar-accent: oklch(0.93 0.004 95);
   --sidebar-accent-foreground: var(--text);
-  --sidebar-border: oklch(0.88 0 264);
+  --sidebar-border: oklch(0.905 0.003 95);
   --sidebar-ring: oklch(0.708 0 0);
 
   /* Light-mode shadow recipes — lower inset white opacity (surfaces
@@ -135,9 +158,13 @@
 
 /* Dark theme. */
 .dark {
-  --bg-dark: oklch(0.14 0 264);
-  --bg: oklch(0.22 0 264);
-  --bg-light: oklch(0.31 0 264);
+  /* landr-ar44 — visual-v1 dark ramp. Page dropped a touch (0.13) and
+     the card stepped up (0.205) so the same "page recedes / card lifts"
+     hierarchy as the light theme reads clearly. bg-light is the lifted
+     interactive rung. */
+  --bg-dark: oklch(0.13 0 264);
+  --bg: oklch(0.205 0 264);
+  --bg-light: oklch(0.3 0 264);
   --text: oklch(0.985 0 264);
   --text-muted: oklch(0.72 0 264);
 
@@ -168,7 +195,9 @@
   --sidebar-foreground: var(--text);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: var(--bg-light);
+  /* landr-ar44 — softer hover rung; active row is a filled primary pill
+     (sidebar.tsx CVA), so this only carries the hover/inactive state. */
+  --sidebar-accent: oklch(0.26 0 264);
   --sidebar-accent-foreground: var(--text);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);

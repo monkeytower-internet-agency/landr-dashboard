@@ -3760,6 +3760,10 @@ export const t = {
     weekBookingsLabel: 'Bookings this week',
     weekContactsLabel: 'New contacts this week',
     weekRevenueEmpty: 'No revenue yet.',
+    // landr-ar44 — short context chips on the dashboard stat cards. The
+    // big number reads at a glance; the chip qualifies the timeframe.
+    statContextWeek: 'This week',
+    statContextNow: 'Right now',
     pendingApprovalsLabel: 'Pending approvals',
     pendingApprovalsCta: 'Review queue',
     pendingApprovalsEmpty: 'All caught up.',
