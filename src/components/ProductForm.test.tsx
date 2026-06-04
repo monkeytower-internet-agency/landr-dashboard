@@ -787,7 +787,9 @@ describe('ProductForm — addon-only flag + add-ons section (landr-u34k)', () =>
       product_group_id: null,
       slug: 'tandem-flight',
       name: 'Tandem Flight',
+      name_localized: null,
       short_description: null,
+      short_description_localized: null,
       description: null,
       product_kind: 'service',
       service_time_shape: 'days_range',
@@ -938,5 +940,109 @@ describe('ProductForm — discount scheme (landr-wto)', () => {
 
     expect(submitted).toHaveLength(1)
     expect(submitted[0].default_pricing_scheme_id).toBeNull()
+  })
+})
+
+// landr-14s4 — name + short_description are locale-tabbed. The submit value
+// must carry name_localized / short_description_localized with empty
+// overrides stripped (absent keys) so the widget base-language fallback
+// keeps working. The long Markdown description is intentionally NOT
+// translatable yet (no widget RPC), so the form exposes no DE tab for it.
+describe('ProductForm — localized fields (landr-14s4)', () => {
+  function makeServiceProduct(): ProductRow {
+    return {
+      id: 'p-loc',
+      operator_id: 'op-1',
+      product_group_id: null,
+      slug: 'tandem-flight',
+      name: 'Tandem Flight',
+      name_localized: null,
+      short_description: 'Fly with a pro',
+      short_description_localized: null,
+      description: null,
+      product_kind: 'service',
+      service_time_shape: 'single_date',
+      is_contiguous: false,
+      duration_minutes: null,
+      fixed_start_date: null,
+      fixed_end_date: null,
+      default_pricing_scheme_id: null,
+      needs_provider: true,
+      needs_pickup: true,
+      revenue_flows_through_operator: true,
+      is_publicly_listed: true,
+      active: true,
+      sort_order: 0,
+      hotel_location_id: null,
+      hotel_offering: 'none',
+      is_addon_only: false,
+      capacity_per_unit: null,
+      deleted_at: null,
+      created_at: '2026-06-01T00:00:00Z',
+      updated_at: '2026-06-01T00:00:00Z',
+      pricing_scheme: null,
+      product_group: null,
+      hotel_location: null,
+    }
+  }
+
+  it('submits name_localized + short_description_localized with the DE override', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    setup({
+      allowedKinds: ['service'],
+      product: makeServiceProduct(),
+      onSubmit: (v) => {
+        submitted.push(v)
+      },
+    })
+
+    // Add a DE name override. The name field is the first locale strip.
+    const deTabs = screen.getAllByTestId('locale-tab-de')
+    await user.click(deTabs[0])
+    await user.type(screen.getByTestId('locale-input-de'), 'Tandemflug')
+
+    // Switch the name strip back to base so the short_description DE editor
+    // is the only DE input on screen, then add its override.
+    await user.click(screen.getAllByTestId('locale-tab-base')[0])
+    const shortDeTab = screen.getAllByTestId('locale-tab-de')[1]
+    await user.click(shortDeTab)
+    await user.type(screen.getByTestId('locale-input-de'), 'Flieg mit Profi')
+
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      name: 'Tandem Flight',
+      name_localized: { de: 'Tandemflug' },
+      short_description: 'Fly with a pro',
+      short_description_localized: { de: 'Flieg mit Profi' },
+    })
+  })
+
+  it('seeds null localized maps and never emits empty-string keys', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    setup({
+      allowedKinds: ['service'],
+      product: makeServiceProduct(),
+      onSubmit: (v) => {
+        submitted.push(v)
+      },
+    })
+
+    // No DE overrides touched → both localized maps stay null.
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0].name_localized).toBeNull()
+    expect(submitted[0].short_description_localized).toBeNull()
+  })
+
+  it('does not offer a translation tab for the long Markdown description', () => {
+    setup({ allowedKinds: ['service'], product: makeServiceProduct() })
+    // name + short_description each contribute one DE tab → exactly two.
+    // The long description renders a MarkdownEditor with no locale strip.
+    expect(screen.getAllByTestId('locale-tab-de')).toHaveLength(2)
   })
 })
