@@ -60,6 +60,11 @@ type Variant = 'aurora' | 'summit' | 'alpine'
 // widget_tile_font stored value === WidgetFont; 'system' persists as NULL.
 type TileFont = WidgetFont
 type TitleCase = 'uppercase' | 'lowercase' | 'capitalize'
+// landr-jb1k.4 — tile-style enums. null = Auto (the widget's current behaviour).
+type TileRadius = 'sharp' | 'rounded' | 'round'
+type TileAspect = 'square' | 'landscape' | 'wide'
+type TileScrim = 'dark' | 'brand' | 'light'
+type TileHover = 'lift' | 'zoom' | 'none'
 
 // NULL widget_variant resolves to aurora on the widget side, so the picker
 // treats null as aurora-selected and surfaces a "Default" hint on that card.
@@ -107,6 +112,76 @@ const CASE_OPTIONS: { value: TitleCase | null; label: string }[] = [
   { value: 'capitalize', label: t.settings.widgetCaseCapitalize },
 ]
 
+// ── landr-jb1k.4: tile-style option sets. Each leads with the null = Auto
+// (current/auto behaviour) state, followed by the explicit choices. radius and
+// aspect carry a tiny CSS swatch (a class string applied to a mini preview box);
+// scrim carries a mini gradient overlay; hover is a plain select.
+
+const RADIUS_OPTIONS: {
+  value: TileRadius | null
+  label: string
+  // Tailwind rounding class for the mini swatch box.
+  swatch: string
+}[] = [
+  { value: null, label: t.settings.widgetTileAuto, swatch: 'rounded-md' },
+  { value: 'sharp', label: t.settings.widgetTileRadiusSharp, swatch: 'rounded-none' },
+  { value: 'rounded', label: t.settings.widgetTileRadiusRounded, swatch: 'rounded-lg' },
+  { value: 'round', label: t.settings.widgetTileRadiusRound, swatch: 'rounded-2xl' },
+]
+
+const ASPECT_OPTIONS: {
+  value: TileAspect | null
+  label: string
+  // Aspect class for the mini swatch box.
+  swatch: string
+}[] = [
+  { value: null, label: t.settings.widgetTileAuto, swatch: 'aspect-[4/3]' },
+  { value: 'square', label: t.settings.widgetTileAspectSquare, swatch: 'aspect-square' },
+  { value: 'landscape', label: t.settings.widgetTileAspectLandscape, swatch: 'aspect-[4/3]' },
+  { value: 'wide', label: t.settings.widgetTileAspectWide, swatch: 'aspect-video' },
+]
+
+const SCRIM_OPTIONS: {
+  value: TileScrim | null
+  label: string
+  // Gradient class for the mini overlay swatch; textDark flips the sample title
+  // to dark text (mirrors the widget's AA enforcement for the 'light' scrim).
+  overlay: string
+  textDark: boolean
+}[] = [
+  {
+    value: null,
+    label: t.settings.widgetTileAuto,
+    overlay: 'bg-gradient-to-t from-black/70 via-black/25 to-transparent',
+    textDark: false,
+  },
+  {
+    value: 'dark',
+    label: t.settings.widgetTileScrimDark,
+    overlay: 'bg-gradient-to-t from-black/70 via-black/25 to-transparent',
+    textDark: false,
+  },
+  {
+    value: 'brand',
+    label: t.settings.widgetTileScrimBrand,
+    overlay: 'bg-gradient-to-t from-primary/80 via-black/30 to-transparent',
+    textDark: false,
+  },
+  {
+    value: 'light',
+    label: t.settings.widgetTileScrimLight,
+    overlay: 'bg-gradient-to-t from-white/85 via-white/35 to-transparent',
+    textDark: true,
+  },
+]
+
+const HOVER_OPTIONS: { value: TileHover | null; label: string }[] = [
+  { value: null, label: t.settings.widgetTileAuto },
+  { value: 'lift', label: t.settings.widgetTileHoverLift },
+  { value: 'zoom', label: t.settings.widgetTileHoverZoom },
+  { value: 'none', label: t.settings.widgetTileHoverNone },
+]
+
 // ── page wrapper ─────────────────────────────────────────────────────────────
 
 export function WidgetSettings() {
@@ -129,6 +204,11 @@ export function WidgetSettings() {
               c: operator.widget_category_columns,
               f: operator.widget_tile_font,
               tc: operator.widget_title_case,
+              // landr-jb1k.4 — re-seed when any tile-style field changes.
+              tr: operator.widget_tile_radius,
+              ta: operator.widget_tile_aspect,
+              ts: operator.widget_tile_scrim,
+              th: operator.widget_tile_hover,
             })}
             operator={operator}
             operatorId={operatorId}
@@ -164,6 +244,19 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
   )
   const [titleCase, setTitleCase] = useState<TitleCase | null>(
     operator.widget_title_case ?? null,
+  )
+  // landr-jb1k.4 — tile-style state. null = Auto (current/auto behaviour).
+  const [tileRadius, setTileRadius] = useState<TileRadius | null>(
+    operator.widget_tile_radius ?? null,
+  )
+  const [tileAspect, setTileAspect] = useState<TileAspect | null>(
+    operator.widget_tile_aspect ?? null,
+  )
+  const [tileScrim, setTileScrim] = useState<TileScrim | null>(
+    operator.widget_tile_scrim ?? null,
+  )
+  const [tileHover, setTileHover] = useState<TileHover | null>(
+    operator.widget_tile_hover ?? null,
   )
 
   // Self-hosted showcase fonts (GDPR — no Google CDN) are pulled in lazily
@@ -215,6 +308,28 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
   function selectCase(next: TitleCase | null) {
     setTitleCase(next)
     save({ widget_title_case: next }, t.settings.widgetCaseToastSaved)
+  }
+
+  // landr-jb1k.4 — tile-style savers. Each PATCHes its key (null = Auto) via
+  // the same patchOperator path; the toast confirms the save.
+  function selectTileRadius(next: TileRadius | null) {
+    setTileRadius(next)
+    save({ widget_tile_radius: next }, t.settings.widgetTileRadiusToastSaved)
+  }
+
+  function selectTileAspect(next: TileAspect | null) {
+    setTileAspect(next)
+    save({ widget_tile_aspect: next }, t.settings.widgetTileAspectToastSaved)
+  }
+
+  function selectTileScrim(next: TileScrim | null) {
+    setTileScrim(next)
+    save({ widget_tile_scrim: next }, t.settings.widgetTileScrimToastSaved)
+  }
+
+  function selectTileHover(next: TileHover | null) {
+    setTileHover(next)
+    save({ widget_tile_hover: next }, t.settings.widgetTileHoverToastSaved)
   }
 
   const saving = patchMutation.isPending
@@ -398,6 +513,182 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
             >
               {t.settings.widgetCasePreviewSample}
             </span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Tile style (radius / aspect / scrim / hover) ── landr-jb1k.4 ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.settings.widgetTileStyleTitle}</CardTitle>
+          <CardDescription>{t.settings.widgetTileStyleDesc}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
+          {/* Corners — segmented control with a tiny rounded-box swatch. */}
+          <div className="flex flex-col gap-1.5">
+            <Label asChild>
+              <span>{t.settings.widgetTileRadiusLabel}</span>
+            </Label>
+            <div
+              role="radiogroup"
+              aria-label={t.settings.widgetTileRadiusLabel}
+              className="border-input bg-muted/40 inline-flex w-fit max-w-full flex-wrap gap-1 rounded-lg border p-1"
+            >
+              {RADIUS_OPTIONS.map((o) => {
+                const selected = tileRadius === o.value
+                return (
+                  <button
+                    key={o.value ?? 'auto'}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    disabled={saving}
+                    onClick={() => selectTileRadius(o.value)}
+                    data-testid={`widget-tile-radius-${o.value ?? 'auto'}`}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition',
+                      selected
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground',
+                      saving && 'opacity-60',
+                    )}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={cn('bg-primary/70 size-3.5', o.swatch)}
+                    />
+                    {o.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Shape — segmented control with an aspect-ratio swatch box. */}
+          <div className="flex flex-col gap-1.5">
+            <Label asChild>
+              <span>{t.settings.widgetTileAspectLabel}</span>
+            </Label>
+            <div
+              role="radiogroup"
+              aria-label={t.settings.widgetTileAspectLabel}
+              className="border-input bg-muted/40 inline-flex w-fit max-w-full flex-wrap gap-1 rounded-lg border p-1"
+            >
+              {ASPECT_OPTIONS.map((o) => {
+                const selected = tileAspect === o.value
+                return (
+                  <button
+                    key={o.value ?? 'auto'}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    disabled={saving}
+                    onClick={() => selectTileAspect(o.value)}
+                    data-testid={`widget-tile-aspect-${o.value ?? 'auto'}`}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition',
+                      selected
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground',
+                      saving && 'opacity-60',
+                    )}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={cn('bg-primary/70 w-4 rounded-[2px]', o.swatch)}
+                    />
+                    {o.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Text overlay scrim — three mini overlay swatches (radiogroup).
+              Each swatch shows the gradient over a faux image with a sample
+              title, so the operator sees the contrast at a glance. The 'light'
+              swatch renders a dark title (AA — mirrors the widget). */}
+          <div className="flex flex-col gap-1.5">
+            <Label asChild>
+              <span>{t.settings.widgetTileScrimLabel}</span>
+            </Label>
+            <div
+              role="radiogroup"
+              aria-label={t.settings.widgetTileScrimLabel}
+              className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+            >
+              {SCRIM_OPTIONS.map((o) => {
+                const selected = tileScrim === o.value
+                return (
+                  <button
+                    key={o.value ?? 'auto'}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    aria-label={o.label}
+                    disabled={saving}
+                    onClick={() => selectTileScrim(o.value)}
+                    data-testid={`widget-tile-scrim-${o.value ?? 'auto'}`}
+                    className={cn(
+                      'focus-visible:ring-ring relative overflow-hidden rounded-lg border transition focus-visible:ring-2 focus-visible:outline-none',
+                      selected
+                        ? 'border-primary ring-primary/40 ring-2'
+                        : 'border-border hover:border-primary/50',
+                      saving && 'opacity-60',
+                    )}
+                  >
+                    {/* faux image area */}
+                    <div className="relative h-12 bg-gradient-to-br from-sky-200 to-slate-300">
+                      <div
+                        aria-hidden="true"
+                        className={cn('absolute inset-0', o.overlay)}
+                      />
+                      <span
+                        className={cn(
+                          'absolute bottom-1 left-1.5 text-[0.6rem] font-semibold',
+                          o.textDark ? 'text-foreground' : 'text-white',
+                        )}
+                      >
+                        {t.settings.widgetCasePreviewSample}
+                      </span>
+                    </div>
+                    <span className="block px-1.5 py-1 text-[0.7rem] font-medium">
+                      {o.label}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              {t.settings.widgetTileScrimHelper}
+            </p>
+          </div>
+
+          {/* Hover effect — plain select. */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="widget-tile-hover">
+              {t.settings.widgetTileHoverLabel}
+            </Label>
+            <NativeSelect
+              id="widget-tile-hover"
+              value={tileHover ?? 'auto'}
+              disabled={saving}
+              onChange={(e) =>
+                selectTileHover(
+                  e.target.value === 'auto'
+                    ? null
+                    : (e.target.value as TileHover),
+                )
+              }
+              data-testid="widget-tile-hover-select"
+              className="sm:max-w-xs"
+            >
+              {HOVER_OPTIONS.map((o) => (
+                <option key={o.value ?? 'auto'} value={o.value ?? 'auto'}>
+                  {o.label}
+                </option>
+              ))}
+            </NativeSelect>
           </div>
         </CardContent>
       </Card>
