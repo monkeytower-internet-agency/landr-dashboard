@@ -2,7 +2,7 @@
  * ProductGroupManager tests — CRUD + cover image (upload/replace/remove)
  * coverage for the per-operator `product_groups` editor.
  *
- * landr-19m, landr-d8rg.10.
+ * landr-19m, landr-d8rg.10, landr-fqni.
  */
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -22,7 +22,8 @@ type GroupFixture = {
   parent_id: string | null
   sort_order: number
   active: boolean
-  image_url: string | null
+  // landr-fqni: storage path (not public URL)
+  image_path: string | null
   created_at: string
   updated_at: string
 }
@@ -65,7 +66,7 @@ vi.mock('@/lib/productGroups', async (importOriginal) => {
           parent_id: null,
           sort_order: (body.sort_order as number) ?? 0,
           active: true,
-          image_url: null,
+          image_path: null,
           created_at: '2026-05-21T12:00:00Z',
           updated_at: '2026-05-21T12:00:00Z',
         }
@@ -191,7 +192,7 @@ function makeGroup(overrides: Partial<GroupFixture> = {}): GroupFixture {
     parent_id: null,
     sort_order: 10,
     active: true,
-    image_url: null,
+    image_path: null,
     created_at: '2026-05-20T10:00:00Z',
     updated_at: '2026-05-20T10:00:00Z',
     ...overrides,
@@ -316,10 +317,10 @@ describe('<ProductGroupManager>', () => {
   })
 })
 
-// ── Cover image tests (landr-d8rg.10) ────────────────────────────────────────
+// ── Cover image tests (landr-d8rg.10, landr-fqni) ────────────────────────────
 
 describe('<ProductGroupManager> — cover image upload (happy path)', () => {
-  it('calls processImage, uploads hero blob to groups path, PATCHes image_url, toasts success', async () => {
+  it('calls processImage, uploads hero blob to groups path, PATCHes image_path (storage path, not URL), toasts success', async () => {
     mock.state.groups = [makeGroup()]
     const { processImage } = await import('@/lib/image-pipeline')
 
@@ -343,14 +344,16 @@ describe('<ProductGroupManager> — cover image upload (happy path)', () => {
       ).toBe(true)
     })
 
-    // Supabase PATCH product_groups.image_url with a string (public URL).
+    // Supabase PATCH product_groups.image_path with a storage path string
+    // (NOT a full public URL — landr-fqni).
     await waitFor(() => {
       expect(
         mock.state.supabaseUpdates.some(
           (u) =>
             u.table === 'product_groups' &&
             u.id === 'pg-courses' &&
-            typeof u.payload['image_url'] === 'string',
+            typeof u.payload['image_path'] === 'string' &&
+            !u.payload['image_path'].startsWith('http'),
         ),
       ).toBe(true)
     })
@@ -362,11 +365,11 @@ describe('<ProductGroupManager> — cover image upload (happy path)', () => {
 })
 
 describe('<ProductGroupManager> — cover image replace', () => {
-  it('shows Replace button when image_url is set; Replace re-uploads and re-PATCHes', async () => {
+  it('shows Replace button when image_path is set; Replace re-uploads and re-PATCHes', async () => {
     mock.state.groups = [
       makeGroup({
-        image_url:
-          'https://example.supabase.co/storage/v1/object/public/product-images/op-1/groups/pg-courses/old.webp',
+        // landr-fqni: image_path is the storage path, not a public URL.
+        image_path: 'op-1/groups/pg-courses/old.webp',
       }),
     ]
     const { processImage } = await import('@/lib/image-pipeline')
@@ -404,29 +407,29 @@ describe('<ProductGroupManager> — cover image replace', () => {
 })
 
 describe('<ProductGroupManager> — cover image remove', () => {
-  it('PATCHes image_url to null and deletes storage object, then toasts success', async () => {
-    const coverUrl =
-      'https://example.supabase.co/storage/v1/object/public/product-images/op-1/groups/pg-courses/old.webp'
-    mock.state.groups = [makeGroup({ image_url: coverUrl })]
+  it('PATCHes image_path to null and deletes storage object (path directly, not parsed from URL), then toasts success', async () => {
+    // landr-fqni: image_path is the storage path (not a public URL).
+    const coverPath = 'op-1/groups/pg-courses/old.webp'
+    mock.state.groups = [makeGroup({ image_path: coverPath })]
 
     renderManager()
 
     const removeBtn = await screen.findByTestId('cover-remove-pg-courses')
     await userEvent.click(removeBtn)
 
-    // PATCH image_url → null.
+    // PATCH image_path → null.
     await waitFor(() => {
       expect(
         mock.state.supabaseUpdates.some(
           (u) =>
             u.table === 'product_groups' &&
             u.id === 'pg-courses' &&
-            u.payload['image_url'] === null,
+            u.payload['image_path'] === null,
         ),
       ).toBe(true)
     })
 
-    // Storage object deleted.
+    // Storage object deleted using the path directly (no URL parsing needed).
     await waitFor(() => {
       expect(
         mock.state.storageRemoved.some((p) =>

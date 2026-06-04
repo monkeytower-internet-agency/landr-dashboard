@@ -7,12 +7,13 @@
  * `['product_groups', operatorId]` query is invalidated so the parent
  * dropdown picks up the change without a manual reload.
  *
- * landr-19m, landr-d8rg.10.
+ * landr-19m, landr-d8rg.10, landr-fqni.
  *
- * Cover image upload (landr-d8rg.10):
+ * Cover image upload (landr-d8rg.10, updated landr-fqni):
  *   file → processImage (hero rendition only; thumb discarded) →
  *   supabase.storage.from('product-images').upload(hero blob) →
- *   PATCH product_groups.image_url with the public URL via direct Supabase REST.
+ *   PATCH product_groups.image_path with the STORAGE PATH via direct Supabase REST.
+ *   (The full public URL is composed at read time by FastAPI — see public_operators.py.)
  *
  * Storage bucket:  'product-images' (public)
  * Path pattern:    {operator_id}/groups/{group_id}/{uuid}.webp
@@ -56,7 +57,10 @@ type Props = {
 
 /**
  * Upload a File as the group cover image (hero rendition only — 1600 w or
- * the source width if narrower). Returns the public URL.
+ * the source width if narrower). Returns the STORAGE PATH (not a public URL).
+ *
+ * landr-fqni: we store the host-agnostic path in product_groups.image_path.
+ * FastAPI composes the absolute URL at read time so it self-heals across envs.
  */
 async function uploadGroupCover(
   file: File,
@@ -80,23 +84,9 @@ async function uploadGroupCover(
     })
   if (error) throw new Error(error.message)
 
-  return getProductImagePublicUrl(storagePath)
-}
-
-/**
- * Extract the storage path from a public URL so we can call storage.remove().
- * The URL is of the form:
- *   https://<project>.supabase.co/storage/v1/object/public/product-images/<path>
- * Returns null when the URL doesn't match the expected shape (storage delete
- * is then skipped gracefully).
- */
-function storagePathFromPublicUrl(
-  publicUrl: string,
-  bucket: string,
-): string | null {
-  const marker = `/object/public/${bucket}/`
-  const idx = publicUrl.indexOf(marker)
-  return idx !== -1 ? publicUrl.slice(idx + marker.length) : null
+  // Return the storage path — not the public URL — so the caller can
+  // PATCH product_groups.image_path directly (host-agnostic).
+  return storagePath
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -188,18 +178,20 @@ export function ProductGroupManager({ operatorId }: Props) {
 
   const coverUploadMutation = useMutation({
     mutationFn: async (vars: { groupId: string; file: File }) => {
-      const publicUrl = await uploadGroupCover(
+      // uploadGroupCover now returns the storage PATH (landr-fqni).
+      const storagePath = await uploadGroupCover(
         vars.file,
         operatorId,
         vars.groupId,
       )
-      // PATCH product_groups.image_url via direct Supabase REST
+      // PATCH product_groups.image_path (host-agnostic storage path) via
+      // direct Supabase REST. FastAPI composes the public URL at read time.
       const { error } = await supabase
         .from('product_groups')
-        .update({ image_url: publicUrl })
+        .update({ image_path: storagePath })
         .eq('id', vars.groupId)
       if (error) throw new Error(error.message)
-      return publicUrl
+      return storagePath
     },
     onMutate: (vars) => setUploadingGroupId(vars.groupId),
     onSuccess: () => {
@@ -216,23 +208,20 @@ export function ProductGroupManager({ operatorId }: Props) {
   // ── Cover image remove ──────────────────────────────────────────────────────
 
   const coverRemoveMutation = useMutation({
-    mutationFn: async (vars: { groupId: string; imageUrl: string }) => {
-      // PATCH image_url → NULL first; row is the source of truth.
+    mutationFn: async (vars: { groupId: string; imagePath: string }) => {
+      // PATCH image_path → NULL first; row is the source of truth (landr-fqni).
       const { error: patchErr } = await supabase
         .from('product_groups')
-        .update({ image_url: null })
+        .update({ image_path: null })
         .eq('id', vars.groupId)
       if (patchErr) throw new Error(patchErr.message)
 
-      // Best-effort storage object delete.
-      const storagePath = storagePathFromPublicUrl(
-        vars.imageUrl,
-        PRODUCT_IMAGES_BUCKET,
-      )
-      if (storagePath) {
+      // Best-effort storage object delete. image_path is already the storage
+      // path (no URL parsing needed — landr-fqni).
+      if (vars.imagePath) {
         const { error: storageErr } = await supabase.storage
           .from(PRODUCT_IMAGES_BUCKET)
-          .remove([storagePath])
+          .remove([vars.imagePath])
         if (storageErr) {
           // Row already cleared — surface via toast but don't re-throw.
           toast.error(t.products.productGroupCoverToastRemoveError, {
@@ -348,13 +337,15 @@ export function ProductGroupManager({ operatorId }: Props) {
                   // ── View row ──────────────────────────────────────────────
                   <div className="flex items-start gap-2">
                     {/* Cover image thumbnail or placeholder */}
+                    {/* landr-fqni: image_path is the host-agnostic storage path;
+                        compose the public URL here for display only. */}
                     <div
                       className="bg-muted flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded border"
                       data-testid={`group-cover-${g.id}`}
                     >
-                      {g.image_url ? (
+                      {g.image_path ? (
                         <img
-                          src={g.image_url}
+                          src={getProductImagePublicUrl(g.image_path)}
                           alt={t.products.productGroupCoverAlt(g.name)}
                           className="h-full w-full object-cover"
                         />
@@ -439,7 +430,7 @@ export function ProductGroupManager({ operatorId }: Props) {
                           }}
                         />
 
-                        {g.image_url ? (
+                        {g.image_path ? (
                           <>
                             <Button
                               type="button"
@@ -469,7 +460,7 @@ export function ProductGroupManager({ operatorId }: Props) {
                               onClick={() =>
                                 coverRemoveMutation.mutate({
                                   groupId: g.id,
-                                  imageUrl: g.image_url!,
+                                  imagePath: g.image_path!,
                                 })
                               }
                             >
