@@ -98,6 +98,11 @@ function makeOperator(overrides = {}) {
     widget_category_columns: null,
     widget_tile_font: null,
     widget_title_case: null,
+    // landr-jb1k.4 — tile-style fields default to null (Auto).
+    widget_tile_radius: null,
+    widget_tile_aspect: null,
+    widget_tile_scrim: null,
+    widget_tile_hover: null,
     ...overrides,
   }
 }
@@ -293,6 +298,132 @@ describe('WidgetSettings — title style', () => {
     const preview = await screen.findByTestId('widget-title-preview')
     expect(preview.style.fontFamily).toContain('Caveat')
     expect(preview.style.textTransform).toBe('uppercase')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Tile style — radius / aspect / scrim / hover (landr-jb1k.4)
+// ---------------------------------------------------------------------------
+
+describe('WidgetSettings — tile style', () => {
+  it('renders the Tile style group with all four controls', async () => {
+    render(<WidgetSettings />)
+    expect(await screen.findByTestId('widget-tile-radius-auto')).toBeTruthy()
+    expect(screen.getByTestId('widget-tile-aspect-auto')).toBeTruthy()
+    expect(screen.getByTestId('widget-tile-scrim-auto')).toBeTruthy()
+    expect(screen.getByTestId('widget-tile-hover-select')).toBeTruthy()
+  })
+
+  // --- radius ---
+  it('every radius control starts on Auto when widget_tile_radius is null', async () => {
+    render(<WidgetSettings />)
+    const auto = await screen.findByTestId('widget-tile-radius-auto')
+    expect(auto.getAttribute('aria-checked')).toBe('true')
+    expect(
+      screen.getByTestId('widget-tile-radius-round').getAttribute('aria-checked'),
+    ).toBe('false')
+  })
+
+  it('selecting a radius PATCHes widget_tile_radius with the value', async () => {
+    const user = userEvent.setup()
+    render(<WidgetSettings />)
+    const round = await screen.findByTestId('widget-tile-radius-round')
+    await user.click(round)
+    await waitFor(() =>
+      expect(patchOperatorMock).toHaveBeenCalledWith('op-1', {
+        widget_tile_radius: 'round',
+      }),
+    )
+  })
+
+  it('selecting Auto radius PATCHes widget_tile_radius null', async () => {
+    const user = userEvent.setup()
+    fetchOperatorMock.mockResolvedValue(
+      makeOperator({ widget_tile_radius: 'sharp' }),
+    )
+    render(<WidgetSettings />)
+    const sharp = await screen.findByTestId('widget-tile-radius-sharp')
+    expect(sharp.getAttribute('aria-checked')).toBe('true')
+    await user.click(screen.getByTestId('widget-tile-radius-auto'))
+    await waitFor(() =>
+      expect(patchOperatorMock).toHaveBeenCalledWith('op-1', {
+        widget_tile_radius: null,
+      }),
+    )
+  })
+
+  // --- aspect ---
+  it('selecting an aspect PATCHes widget_tile_aspect with the value', async () => {
+    const user = userEvent.setup()
+    render(<WidgetSettings />)
+    const wide = await screen.findByTestId('widget-tile-aspect-wide')
+    await user.click(wide)
+    await waitFor(() =>
+      expect(patchOperatorMock).toHaveBeenCalledWith('op-1', {
+        widget_tile_aspect: 'wide',
+      }),
+    )
+  })
+
+  it('seeds the selected aspect from a persisted value', async () => {
+    fetchOperatorMock.mockResolvedValue(
+      makeOperator({ widget_tile_aspect: 'square' }),
+    )
+    render(<WidgetSettings />)
+    const square = await screen.findByTestId('widget-tile-aspect-square')
+    expect(square.getAttribute('aria-checked')).toBe('true')
+  })
+
+  // --- scrim ---
+  it('selecting a scrim swatch PATCHes widget_tile_scrim with the value', async () => {
+    const user = userEvent.setup()
+    render(<WidgetSettings />)
+    const brand = await screen.findByTestId('widget-tile-scrim-brand')
+    await user.click(brand)
+    await waitFor(() =>
+      expect(patchOperatorMock).toHaveBeenCalledWith('op-1', {
+        widget_tile_scrim: 'brand',
+      }),
+    )
+  })
+
+  it('the light scrim swatch renders the sample title in dark text (AA)', async () => {
+    render(<WidgetSettings />)
+    const light = await screen.findByTestId('widget-tile-scrim-light')
+    const sample = light.querySelector('span')
+    expect(sample?.className).toContain('text-foreground')
+    expect(sample?.className).not.toContain('text-white')
+  })
+
+  // --- hover ---
+  it('selecting a hover option PATCHes widget_tile_hover with the value', async () => {
+    const user = userEvent.setup()
+    render(<WidgetSettings />)
+    const select = await screen.findByTestId('widget-tile-hover-select')
+    await user.selectOptions(select, 'zoom')
+    await waitFor(() =>
+      expect(patchOperatorMock).toHaveBeenCalledWith('op-1', {
+        widget_tile_hover: 'zoom',
+      }),
+    )
+  })
+
+  it('selecting Auto hover PATCHes widget_tile_hover null', async () => {
+    const user = userEvent.setup()
+    fetchOperatorMock.mockResolvedValue(
+      makeOperator({ widget_tile_hover: 'zoom' }),
+    )
+    render(<WidgetSettings />)
+    const select = (await screen.findByTestId(
+      'widget-tile-hover-select',
+    )) as HTMLSelectElement
+    expect(select.value).toBe('zoom')
+    await user.selectOptions(select, 'auto')
+    await waitFor(() =>
+      expect(patchOperatorMock).toHaveBeenCalledWith('op-1', {
+        widget_tile_hover: null,
+      }),
+    )
   })
 })
 

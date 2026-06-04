@@ -2522,6 +2522,38 @@ export const t = {
     widgetCaseCapitalize: 'Capitalized',
     widgetCasePreviewSample: 'Guided days',
     widgetCaseToastSaved: 'Title case saved.',
+    // landr-jb1k.4 — Tile style group: creative category-tile options. Each
+    // control has an Auto/default state (= the widget's current behaviour).
+    widgetTileStyleTitle: 'Tile style',
+    widgetTileStyleDesc:
+      'Fine-tune how the category tiles look. Auto keeps the layout’s built-in style.',
+    widgetTileAuto: 'Auto',
+    // Corner radius.
+    widgetTileRadiusLabel: 'Corners',
+    widgetTileRadiusSharp: 'Sharp',
+    widgetTileRadiusRounded: 'Rounded',
+    widgetTileRadiusRound: 'Round',
+    widgetTileRadiusToastSaved: 'Tile corners saved.',
+    // Aspect ratio.
+    widgetTileAspectLabel: 'Shape',
+    widgetTileAspectSquare: 'Square (1:1)',
+    widgetTileAspectLandscape: 'Landscape (4:3)',
+    widgetTileAspectWide: 'Wide (16:9)',
+    widgetTileAspectToastSaved: 'Tile shape saved.',
+    // Text-overlay scrim.
+    widgetTileScrimLabel: 'Overlay tint',
+    widgetTileScrimHelper:
+      'Applies to the Text overlay layout, where the title sits on the image.',
+    widgetTileScrimDark: 'Dark',
+    widgetTileScrimBrand: 'Brand',
+    widgetTileScrimLight: 'Light',
+    widgetTileScrimToastSaved: 'Text overlay saved.',
+    // Hover interaction.
+    widgetTileHoverLabel: 'Hover effect',
+    widgetTileHoverLift: 'Lift',
+    widgetTileHoverZoom: 'Zoom',
+    widgetTileHoverNone: 'None',
+    widgetTileHoverToastSaved: 'Hover effect saved.',
     // Preview-widget external link (opens the live widget with ?preview=1).
     widgetPreviewLinkTitle: 'Preview widget',
     widgetPreviewLinkDesc:

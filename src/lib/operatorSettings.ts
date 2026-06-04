@@ -113,6 +113,29 @@ export const OperatorSettingsSchema = z.object({
     .enum(['uppercase', 'lowercase', 'capitalize'])
     .nullable()
     .optional(),
+  // landr-jb1k.4 — booking-widget creative tile-style options for the category
+  // grid. Each NULL = the widget's current/auto behaviour (the variant token
+  // wins) so untouched embeds never shift. widget_tile_radius sets the tile
+  // corner radius; widget_tile_aspect the tile ratio; widget_tile_scrim the
+  // text-overlay gradient tint (light forces dark title text, AA enforced);
+  // widget_tile_hover the hover interaction. All mirror the DB CHECK
+  // constraints (landr-jb1k.4) and are edited in Settings → Booking widget.
+  widget_tile_radius: z
+    .enum(['sharp', 'rounded', 'round'])
+    .nullable()
+    .optional(),
+  widget_tile_aspect: z
+    .enum(['square', 'landscape', 'wide'])
+    .nullable()
+    .optional(),
+  widget_tile_scrim: z
+    .enum(['dark', 'brand', 'light'])
+    .nullable()
+    .optional(),
+  widget_tile_hover: z
+    .enum(['lift', 'zoom', 'none'])
+    .nullable()
+    .optional(),
   // landr-znzz.11 — extended branding: dark-mode logo + 3-colour theme.
   // logo_dark_url: optional dark-mode variant uploaded to the same bucket.
   // theme: { brand, accent, background } (light) + optional dark overrides.
