@@ -42,7 +42,14 @@ export type ProductGroupCreate = {
 
 export type ProductGroupPatch = {
   name?: string
+  // landr-14s4 — per-locale name overrides ({ locale: text }). The widget
+  // renders the exact locale → base-language → base `name` (pickLocalized);
+  // an absent key inherits `name`. The staff PATCH endpoint accepts these.
+  name_localized?: Record<string, string> | null
   description?: string | null
+  // landr-14s4 — per-locale description (tagline) overrides; same fallback
+  // semantics as name_localized.
+  description_localized?: Record<string, string> | null
   sort_order?: number
   active?: boolean
   // landr-fqni: storage path (not a public URL) — FastAPI composes the URL

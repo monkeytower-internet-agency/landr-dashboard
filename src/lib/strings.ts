@@ -2071,6 +2071,20 @@ export const t = {
     imagesLoading: 'Loading images…',
     imagesLoadError: 'Failed to load images.',
   },
+  // landr-14s4 — shared locale-tabbed text editor (LocalizedTextField).
+  // The widget renders the base (English) field when a locale override is
+  // absent, so an empty override === "inherits English".
+  localized: {
+    baseTab: 'EN (base)',
+    // Tablist label — kept distinct from the field's own label so the base
+    // editor's aria-label stays the single match for getByLabelText(name).
+    tablistAria: (label: string) => `${label} — language`,
+    overrideTabAria: (label: string) => `Translation — ${label}`,
+    overrideBadgeAria: (label: string) => `${label} has a translation`,
+    inheritsBaseHint: 'Empty — inherits the English text above.',
+    basePlaceholder: 'English text shown by default',
+    overridePlaceholderPrefix: 'Translation for ',
+  },
   generalApprovals: {
     title: 'Pending approvals',
     // landr-fnhz — topbar subtitle. Mirrors the pendingCount badge in

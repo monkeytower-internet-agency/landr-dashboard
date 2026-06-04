@@ -76,7 +76,15 @@ export type ProductRow = {
   product_group_id: string | null
   slug: string
   name: string
+  // landr-14s4 — per-locale overrides ({ locale: text }) for name +
+  // short_description. The widget renders exact locale → base-language →
+  // base column (pickLocalized); an absent key inherits the base field.
+  // NOTE: products.description has NO *_localized widget pick yet (the
+  // column exists but no public RPC returns it) — see ProductForm + the
+  // follow-up bead. We deliberately don't surface description_localized here.
+  name_localized: Record<string, string> | null
   short_description: string | null
+  short_description_localized: Record<string, string> | null
   description: string | null
   product_kind: ProductKind
   service_time_shape: ServiceTimeShape | null
@@ -122,7 +130,9 @@ const SELECT = `
   product_group_id,
   slug,
   name,
+  name_localized,
   short_description,
+  short_description_localized,
   description,
   product_kind,
   service_time_shape,
@@ -308,7 +318,12 @@ export type ProductWritePayload = {
   product_group_id: string | null
   slug: string
   name: string
+  // landr-14s4 — per-locale overrides for name + short_description. Empty
+  // overrides are stripped to absent keys before the write so the widget
+  // fallback keeps working.
+  name_localized: Record<string, string> | null
   short_description: string | null
+  short_description_localized: Record<string, string> | null
   description: string | null
   product_kind: ProductKind
   service_time_shape: ServiceTimeShape | null
