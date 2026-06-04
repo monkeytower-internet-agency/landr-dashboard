@@ -32,7 +32,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { LocalizedTextField } from '@/components/LocalizedTextField'
 import { processImage } from '@/lib/image-pipeline'
 import { nameToSlug } from '@/lib/products'
 import {
@@ -97,6 +97,15 @@ export function ProductGroupManager({ operatorId }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [editingDescription, setEditingDescription] = useState('')
+  // landr-14s4 — per-locale overrides edited alongside the base fields. Empty
+  // overrides are stripped before they reach state (LocalizedTextField does
+  // the stripping), so these only ever hold non-empty keys (or null).
+  const [editingNameLocalized, setEditingNameLocalized] = useState<Record<
+    string,
+    string
+  > | null>(null)
+  const [editingDescriptionLocalized, setEditingDescriptionLocalized] =
+    useState<Record<string, string> | null>(null)
   const [uploadingGroupId, setUploadingGroupId] = useState<string | null>(null)
   const fileInputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
 
@@ -142,15 +151,26 @@ export function ProductGroupManager({ operatorId }: Props) {
   // ── Rename + description patch ──────────────────────────────────────────────
 
   const patchMutation = useMutation({
-    mutationFn: (vars: { id: string; name: string; description: string }) =>
+    mutationFn: (vars: {
+      id: string
+      name: string
+      description: string
+      // landr-14s4 — already stripped of empty keys by LocalizedTextField.
+      nameLocalized: Record<string, string> | null
+      descriptionLocalized: Record<string, string> | null
+    }) =>
       updateProductGroup(operatorId, vars.id, {
         name: vars.name.trim(),
+        name_localized: vars.nameLocalized,
         description: vars.description.trim() || null,
+        description_localized: vars.descriptionLocalized,
       }),
     onSuccess: () => {
       setEditingId(null)
       setEditingName('')
       setEditingDescription('')
+      setEditingNameLocalized(null)
+      setEditingDescriptionLocalized(null)
       invalidate()
       toast.success(t.products.productGroupManagerToastUpdated)
     },
@@ -281,7 +301,7 @@ export function ProductGroupManager({ operatorId }: Props) {
                 {activeEditId === g.id ? (
                   // ── Edit form ─────────────────────────────────────────────
                   <form
-                    className="flex flex-col gap-2"
+                    className="flex flex-col gap-3"
                     aria-label={t.products.productGroupManagerEditTitle}
                     onSubmit={(e) => {
                       e.preventDefault()
@@ -290,27 +310,45 @@ export function ProductGroupManager({ operatorId }: Props) {
                           id: g.id,
                           name: editingName,
                           description: editingDescription,
+                          nameLocalized: editingNameLocalized,
+                          descriptionLocalized: editingDescriptionLocalized,
                         })
                     }}
                   >
-                    <Input
-                      autoFocus
-                      aria-label={t.products.productGroupManagerNameLabel}
-                      value={editingName}
-                      onChange={(e) => setEditingName(e.target.value)}
-                      className="h-8"
-                      placeholder={t.products.productGroupManagerNameLabel}
-                    />
-                    <Textarea
-                      aria-label={t.products.productGroupDescriptionLabel}
-                      value={editingDescription}
-                      onChange={(e) => setEditingDescription(e.target.value)}
-                      placeholder={
-                        t.products.productGroupDescriptionPlaceholder
-                      }
-                      className="min-h-[4rem] resize-none text-sm"
-                      rows={2}
-                    />
+                    {/* landr-14s4 — name + tagline become locale-tabbed
+                        fields so Martin can translate them for the widget. */}
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs">
+                        {t.products.productGroupManagerNameLabel}
+                      </Label>
+                      <LocalizedTextField
+                        label={t.products.productGroupManagerNameLabel}
+                        base={editingName}
+                        localized={editingNameLocalized}
+                        onChange={(base, localized) => {
+                          setEditingName(base)
+                          setEditingNameLocalized(localized)
+                        }}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs">
+                        {t.products.productGroupDescriptionLabel}
+                      </Label>
+                      <LocalizedTextField
+                        multiline
+                        label={t.products.productGroupDescriptionLabel}
+                        base={editingDescription}
+                        localized={editingDescriptionLocalized}
+                        basePlaceholder={
+                          t.products.productGroupDescriptionPlaceholder
+                        }
+                        onChange={(base, localized) => {
+                          setEditingDescription(base)
+                          setEditingDescriptionLocalized(localized)
+                        }}
+                      />
+                    </div>
                     <div className="flex gap-2">
                       <Button
                         type="submit"
@@ -327,6 +365,8 @@ export function ProductGroupManager({ operatorId }: Props) {
                           setEditingId(null)
                           setEditingName('')
                           setEditingDescription('')
+                          setEditingNameLocalized(null)
+                          setEditingDescriptionLocalized(null)
                         }}
                       >
                         {t.products.productGroupManagerCancel}
@@ -375,6 +415,12 @@ export function ProductGroupManager({ operatorId }: Props) {
                               setEditingId(g.id)
                               setEditingName(g.name)
                               setEditingDescription(g.description ?? '')
+                              // landr-14s4 — seed the locale overrides so the
+                              // tabs show existing translations on open.
+                              setEditingNameLocalized(g.name_localized ?? null)
+                              setEditingDescriptionLocalized(
+                                g.description_localized ?? null,
+                              )
                             }}
                           >
                             <PencilIcon className="size-3.5" />

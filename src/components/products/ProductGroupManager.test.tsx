@@ -296,6 +296,91 @@ describe('<ProductGroupManager>', () => {
     })
   })
 
+  // landr-14s4 — locale-tabbed name + tagline. The PATCH must carry the
+  // *_localized jsonb with empty overrides STRIPPED so the widget fallback
+  // keeps working.
+  it('patches name_localized + description_localized via the locale tabs', async () => {
+    mock.state.groups = [
+      makeGroup({
+        name: 'Courses',
+        // Seed an existing DE name override; the edit must preserve it.
+        name_localized: { de: 'Kurse' },
+        description: 'All our courses',
+        description_localized: null,
+      }),
+    ]
+    const user = userEvent.setup()
+    renderManager()
+
+    await screen.findByText('Courses')
+    await user.click(
+      screen.getByRole('button', { name: /Edit group — Courses/i }),
+    )
+    const editForm = await screen.findByRole('form', { name: /rename group/i })
+
+    // The DE name tab already shows the override badge (seeded value).
+    expect(
+      within(editForm).getByTestId('locale-override-badge-de'),
+    ).toBeInTheDocument()
+
+    // Add a DE override for the tagline (description). There are two locale
+    // tab strips (name, tagline); target the tagline one via its DE tab —
+    // the second locale-tab-de in document order.
+    const deTabs = within(editForm).getAllByTestId('locale-tab-de')
+    await user.click(deTabs[1])
+    const taglineDe = within(editForm).getByTestId('locale-input-de')
+    await user.type(taglineDe, 'Alle unsere Kurse')
+
+    await user.click(within(editForm).getByRole('button', { name: /save/i }))
+
+    await waitFor(() => {
+      expect(mock.state.lastPatch).not.toBeNull()
+    })
+    // name_localized preserved (jsonb merge keeps the seeded DE name),
+    // description_localized gains the new DE tagline. Both base fields ride
+    // along unchanged.
+    expect(mock.state.lastPatch?.payload).toMatchObject({
+      name: 'Courses',
+      name_localized: { de: 'Kurse' },
+      description: 'All our courses',
+      description_localized: { de: 'Alle unsere Kurse' },
+    })
+  })
+
+  it('strips an emptied tagline override to null on PATCH', async () => {
+    mock.state.groups = [
+      makeGroup({
+        name: 'Courses',
+        name_localized: null,
+        description: 'All our courses',
+        description_localized: { de: 'Alle unsere Kurse' },
+      }),
+    ]
+    const user = userEvent.setup()
+    renderManager()
+
+    await screen.findByText('Courses')
+    await user.click(
+      screen.getByRole('button', { name: /Edit group — Courses/i }),
+    )
+    const editForm = await screen.findByRole('form', { name: /rename group/i })
+
+    // Open the tagline DE tab and clear the existing override.
+    const deTabs = within(editForm).getAllByTestId('locale-tab-de')
+    await user.click(deTabs[1])
+    await user.clear(within(editForm).getByTestId('locale-input-de'))
+
+    await user.click(within(editForm).getByRole('button', { name: /save/i }))
+
+    await waitFor(() => {
+      expect(mock.state.lastPatch).not.toBeNull()
+    })
+    // Emptied override → null, never an empty-string key.
+    expect(mock.state.lastPatch?.payload).toMatchObject({
+      description_localized: null,
+    })
+  })
+
   it('deletes a group when the trash button is confirmed', async () => {
     mock.state.groups = [makeGroup()]
     const user = userEvent.setup()
