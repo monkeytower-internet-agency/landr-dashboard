@@ -50,6 +50,10 @@ export const FEATURE_SECTIONS: Record<string, string[]> = {
   commission: ['/settings/commissions'],
   company: ['/account/company'],
   branding: ['/settings/branding'],
+  // landr-jb1k — Booking widget presentation (variant + category columns).
+  // Gated alongside Branding: both are paid "make the embedded widget yours"
+  // surfaces. The feature key mirrors the API registry (landr-jb1k.1).
+  widget_config: ['/settings/widget'],
   team: ['/settings/team'],
   // OFF-set for Para42
   vouchers: ['/settings/vouchers'],

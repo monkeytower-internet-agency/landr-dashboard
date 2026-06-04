@@ -73,6 +73,7 @@ import { Providers } from '@/routes/Providers'
 import { SettingsLayout } from '@/routes/SettingsLayout'
 import { landingPathFor } from '@/components/settings/sections'
 import { BrandingSettings } from '@/routes/settings/BrandingSettings'
+import { WidgetSettings } from '@/routes/settings/WidgetSettings'
 import { CompanySettings } from '@/routes/settings/CompanySettings'
 import { CalendarDisplaySettings } from '@/routes/settings/CalendarDisplaySettings'
 import { DisplayPreferencesSettings } from '@/routes/settings/DisplayPreferencesSettings'
@@ -331,6 +332,10 @@ function App() {
                 {/* landr-yp8x — Branding (logo + primary colour shown in
                     the embedded booking widget). */}
                 <Route path="branding" element={gatedSection('/settings/branding', <BrandingSettings />)} />
+                {/* landr-jb1k — Booking widget (showcased layout variant +
+                    category grid columns + title typography). Gated like
+                    Branding via widget_config. */}
+                <Route path="widget" element={gatedSection('/settings/widget', <WidgetSettings />)} />
                 {/* landr-znzz.7 — Weather (opt-in forecast hint for conditions pre-fill). */}
                 <Route path="weather" element={<WeatherSettings />} />
                 <Route path="team" element={gatedSection('/settings/team', <Staff />)} />

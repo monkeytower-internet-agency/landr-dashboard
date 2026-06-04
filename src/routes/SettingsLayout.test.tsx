@@ -295,12 +295,14 @@ describe('SettingsLayout', () => {
     // landr-up1b — Categories + Embed joined Settings → 20 sections.
     // landr-znzz.5 — Upsells & offers joined Settings → 21 sections.
     // landr-znzz.7 — Weather forecast hint joined Settings → 22 sections.
+    // landr-jb1k — Booking widget configurator joined Settings → 23 sections.
     const nav = screen.getByRole('navigation', { name: /settings sections/i })
     const links = nav.querySelectorAll('a')
-    expect(links).toHaveLength(22)
+    expect(links).toHaveLength(23)
     expect(nav).toHaveTextContent(/calendar & display/i)
     expect(nav).toHaveTextContent(/display preferences/i)
     expect(nav).toHaveTextContent(/branding/i)
+    expect(nav).toHaveTextContent(/booking widget/i)
     expect(nav).toHaveTextContent(/weather/i)
     expect(nav).toHaveTextContent(/team/i)
     expect(nav).toHaveTextContent(/providers/i)
