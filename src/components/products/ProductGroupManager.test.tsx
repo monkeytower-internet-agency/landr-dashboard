@@ -1,14 +1,15 @@
 /**
- * ProductGroupManager tests — happy-path CRUD coverage for the
- * per-operator `product_groups` editor reached via the pen icon next
- * to the product-form "Product group" select.
+ * ProductGroupManager tests — CRUD + cover image (upload/replace/remove)
+ * coverage for the per-operator `product_groups` editor.
  *
- * landr-19m.
+ * landr-19m, landr-d8rg.10.
  */
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+// ── Fixtures ──────────────────────────────────────────────────────────────────
 
 type GroupFixture = {
   id: string
@@ -18,11 +19,15 @@ type GroupFixture = {
   name_localized: Record<string, string> | null
   description: string | null
   description_localized: Record<string, string> | null
+  parent_id: string | null
   sort_order: number
   active: boolean
+  image_url: string | null
   created_at: string
   updated_at: string
 }
+
+// ── Module mocks ──────────────────────────────────────────────────────────────
 
 const { mock } = vi.hoisted(() => {
   const state = {
@@ -30,6 +35,13 @@ const { mock } = vi.hoisted(() => {
     lastCreate: null as Record<string, unknown> | null,
     lastPatch: null as { id: string; payload: Record<string, unknown> } | null,
     lastDelete: null as string | null,
+    supabaseUpdates: [] as {
+      table: string
+      id: string
+      payload: Record<string, unknown>
+    }[],
+    storageUploaded: [] as string[],
+    storageRemoved: [] as string[],
   }
   return { mock: { state } }
 })
@@ -50,8 +62,10 @@ vi.mock('@/lib/productGroups', async (importOriginal) => {
           name_localized: null,
           description: null,
           description_localized: null,
+          parent_id: null,
           sort_order: (body.sort_order as number) ?? 0,
           active: true,
+          image_url: null,
           created_at: '2026-05-21T12:00:00Z',
           updated_at: '2026-05-21T12:00:00Z',
         }
@@ -80,6 +94,71 @@ vi.mock('@/lib/productGroups', async (importOriginal) => {
   }
 })
 
+vi.mock('@/lib/image-pipeline', () => ({
+  processImage: vi.fn(async (_file: File) => ({
+    thumb: {
+      blob: new Blob(['thumb'], { type: 'image/webp' }),
+      width: 800,
+      height: 450,
+      label: 'thumb',
+    },
+    hero: {
+      blob: new Blob(['hero'], { type: 'image/webp' }),
+      width: 1600,
+      height: 900,
+      label: 'hero',
+    },
+  })),
+  ImagePipelineError: class ImagePipelineError extends Error {
+    constructor(msg: string) {
+      super(msg)
+      this.name = 'ImagePipelineError'
+    }
+  },
+}))
+
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    from: vi.fn((table: string) => ({
+      update: vi.fn((payload: Record<string, unknown>) => ({
+        eq: vi.fn((_col: string, val: string) => {
+          mock.state.supabaseUpdates.push({ table, id: val, payload })
+          return Promise.resolve({ error: null })
+        }),
+      })),
+    })),
+    storage: {
+      from: vi.fn(() => ({
+        upload: vi.fn(async (path: string) => {
+          mock.state.storageUploaded.push(path)
+          return { error: null }
+        }),
+        remove: vi.fn(async (paths: string[]) => {
+          mock.state.storageRemoved.push(...paths)
+          return { error: null }
+        }),
+        getPublicUrl: vi.fn((path: string) => ({
+          data: {
+            publicUrl: `https://example.supabase.co/storage/v1/object/public/product-images/${path}`,
+          },
+        })),
+      })),
+    },
+  },
+}))
+
+vi.mock('@/lib/product-images', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/product-images')>()
+  return {
+    ...actual,
+    PRODUCT_IMAGES_BUCKET: 'product-images',
+    getProductImagePublicUrl: vi.fn(
+      (path: string) =>
+        `https://example.supabase.co/storage/v1/object/public/product-images/${path}`,
+    ),
+  }
+})
+
 const { toastCalls } = vi.hoisted(() => ({
   toastCalls: { success: [] as string[], error: [] as string[] },
 }))
@@ -89,7 +168,7 @@ vi.mock('sonner', () => ({
     success: vi.fn((msg: string) => {
       toastCalls.success.push(msg)
     }),
-    error: vi.fn((msg: string) => {
+    error: vi.fn((msg: string, _opts?: unknown) => {
       toastCalls.error.push(msg)
     }),
   },
@@ -97,6 +176,8 @@ vi.mock('sonner', () => ({
 }))
 
 import { ProductGroupManager } from './ProductGroupManager'
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeGroup(overrides: Partial<GroupFixture> = {}): GroupFixture {
   return {
@@ -107,8 +188,10 @@ function makeGroup(overrides: Partial<GroupFixture> = {}): GroupFixture {
     name_localized: null,
     description: null,
     description_localized: null,
+    parent_id: null,
     sort_order: 10,
     active: true,
+    image_url: null,
     created_at: '2026-05-20T10:00:00Z',
     updated_at: '2026-05-20T10:00:00Z',
     ...overrides,
@@ -131,6 +214,9 @@ beforeEach(() => {
   mock.state.lastCreate = null
   mock.state.lastPatch = null
   mock.state.lastDelete = null
+  mock.state.supabaseUpdates = []
+  mock.state.storageUploaded = []
+  mock.state.storageRemoved = []
   toastCalls.success.length = 0
   toastCalls.error.length = 0
 })
@@ -138,6 +224,8 @@ beforeEach(() => {
 afterEach(() => {
   vi.clearAllMocks()
 })
+
+// ── CRUD tests ────────────────────────────────────────────────────────────────
 
 describe('<ProductGroupManager>', () => {
   it('shows the empty state when no groups exist', async () => {
@@ -225,5 +313,166 @@ describe('<ProductGroupManager>', () => {
       expect(toastCalls.success.length).toBeGreaterThan(0)
     })
     confirmSpy.mockRestore()
+  })
+})
+
+// ── Cover image tests (landr-d8rg.10) ────────────────────────────────────────
+
+describe('<ProductGroupManager> — cover image upload (happy path)', () => {
+  it('calls processImage, uploads hero blob to groups path, PATCHes image_url, toasts success', async () => {
+    mock.state.groups = [makeGroup()]
+    const { processImage } = await import('@/lib/image-pipeline')
+
+    renderManager()
+    await screen.findByText('Courses')
+
+    const fileInput = screen.getByTestId('cover-file-input-pg-courses')
+    const file = new File(['img'], 'cover.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(processImage).toHaveBeenCalledWith(file)
+    })
+
+    // Storage upload uses the groups path.
+    await waitFor(() => {
+      expect(
+        mock.state.storageUploaded.some((p) =>
+          p.includes('/groups/pg-courses/'),
+        ),
+      ).toBe(true)
+    })
+
+    // Supabase PATCH product_groups.image_url with a string (public URL).
+    await waitFor(() => {
+      expect(
+        mock.state.supabaseUpdates.some(
+          (u) =>
+            u.table === 'product_groups' &&
+            u.id === 'pg-courses' &&
+            typeof u.payload['image_url'] === 'string',
+        ),
+      ).toBe(true)
+    })
+
+    await waitFor(() => {
+      expect(toastCalls.success.length).toBeGreaterThan(0)
+    })
+  })
+})
+
+describe('<ProductGroupManager> — cover image replace', () => {
+  it('shows Replace button when image_url is set; Replace re-uploads and re-PATCHes', async () => {
+    mock.state.groups = [
+      makeGroup({
+        image_url:
+          'https://example.supabase.co/storage/v1/object/public/product-images/op-1/groups/pg-courses/old.webp',
+      }),
+    ]
+    const { processImage } = await import('@/lib/image-pipeline')
+
+    renderManager()
+
+    const replaceBtn = await screen.findByTestId('cover-replace-pg-courses')
+    expect(replaceBtn).toBeInTheDocument()
+
+    // Trigger file selection via the hidden input.
+    const fileInput = screen.getByTestId('cover-file-input-pg-courses')
+    const file = new File(['img2'], 'new-cover.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(processImage).toHaveBeenCalledWith(file)
+    })
+
+    await waitFor(() => {
+      expect(
+        mock.state.storageUploaded.some((p) =>
+          p.includes('/groups/pg-courses/'),
+        ),
+      ).toBe(true)
+    })
+
+    await waitFor(() => {
+      expect(
+        mock.state.supabaseUpdates.some(
+          (u) => u.table === 'product_groups' && u.id === 'pg-courses',
+        ),
+      ).toBe(true)
+    })
+  })
+})
+
+describe('<ProductGroupManager> — cover image remove', () => {
+  it('PATCHes image_url to null and deletes storage object, then toasts success', async () => {
+    const coverUrl =
+      'https://example.supabase.co/storage/v1/object/public/product-images/op-1/groups/pg-courses/old.webp'
+    mock.state.groups = [makeGroup({ image_url: coverUrl })]
+
+    renderManager()
+
+    const removeBtn = await screen.findByTestId('cover-remove-pg-courses')
+    await userEvent.click(removeBtn)
+
+    // PATCH image_url → null.
+    await waitFor(() => {
+      expect(
+        mock.state.supabaseUpdates.some(
+          (u) =>
+            u.table === 'product_groups' &&
+            u.id === 'pg-courses' &&
+            u.payload['image_url'] === null,
+        ),
+      ).toBe(true)
+    })
+
+    // Storage object deleted.
+    await waitFor(() => {
+      expect(
+        mock.state.storageRemoved.some((p) =>
+          p.includes('op-1/groups/pg-courses/old.webp'),
+        ),
+      ).toBe(true)
+    })
+
+    // Success toast.
+    await waitFor(() => {
+      expect(toastCalls.success.length).toBeGreaterThan(0)
+    })
+  })
+})
+
+describe('<ProductGroupManager> — cover image upload failure toast', () => {
+  it('shows error toast when processImage throws; storage and PATCH are not called', async () => {
+    mock.state.groups = [makeGroup()]
+    const { processImage, ImagePipelineError } = await import(
+      '@/lib/image-pipeline'
+    )
+    vi.mocked(processImage).mockRejectedValueOnce(
+      new ImagePipelineError(
+        'Image is still 300 KB after maximum compression (limit: 250 KB).',
+      ),
+    )
+
+    renderManager()
+    await screen.findByText('Courses')
+
+    const fileInput = screen.getByTestId('cover-file-input-pg-courses')
+    const file = new File(['x'.repeat(400 * 1024)], 'big.jpg', {
+      type: 'image/jpeg',
+    })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(processImage).toHaveBeenCalledWith(file)
+    })
+
+    await waitFor(() => {
+      expect(toastCalls.error.length).toBeGreaterThan(0)
+    })
+
+    // Storage and PATCH must NOT have been called.
+    expect(mock.state.storageUploaded).toHaveLength(0)
+    expect(mock.state.supabaseUpdates).toHaveLength(0)
   })
 })
