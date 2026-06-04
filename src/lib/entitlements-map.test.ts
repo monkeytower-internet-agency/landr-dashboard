@@ -60,6 +60,9 @@ describe('featureForSection', () => {
     expect(featureForSection('/settings/commissions')).toBe('commission')
     expect(featureForSection('/settings/team')).toBe('team')
     expect(featureForSection('/account/company')).toBe('company')
+    // landr-jb1k — Booking widget presentation gates on widget_config,
+    // mirroring how Branding gates the colours/logo surface.
+    expect(featureForSection('/settings/widget')).toBe('widget_config')
   })
 
   it('returns null for ungated/personal sections (always visible)', () => {
