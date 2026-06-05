@@ -7,6 +7,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 
+import { Button } from '@/components/ui/button'
 import { PageTitle, PageTitleProvider } from '@/lib/page-title'
 import { PageTitleDisplay } from './PageTitleDisplay'
 
@@ -86,5 +87,63 @@ describe('PageTitleDisplay (landr-fx2i)', () => {
     )
     expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull()
     expect(screen.getByText('Settings')).toBeInTheDocument()
+  })
+})
+
+// landr-3qkr.1 — on phones the title cluster must STACK: the title/breadcrumb
+// row on top, the primary-action row beneath it (full-width), rather than the
+// desktop side-by-side layout that overflows a 360px topbar. jsdom doesn't run
+// CSS media queries, so these smoke tests assert on the responsive class
+// contract (the column→row switch is gated on `md:`) plus the action being
+// rendered and reachable. The breakpoint is the shared 768px `md`.
+describe('PageTitleDisplay — mobile stacking (landr-3qkr.1)', () => {
+  it('title mode: outer cluster stacks (flex-col) below md, row from md up', () => {
+    renderShell(
+      <PageTitle
+        title="Bookings"
+        action={<Button>New booking</Button>}
+      />,
+    )
+    const action = screen.getByTestId('page-title-action')
+    // The action's parent is the outer title cluster.
+    const cluster = action.parentElement as HTMLElement
+    expect(cluster.className).toContain('flex-col')
+    expect(cluster.className).toContain('md:flex-row')
+  })
+
+  it('breadcrumb mode: outer cluster stacks (flex-col) below md, row from md up', () => {
+    renderShell(
+      <PageTitle
+        crumbs={[{ label: 'Settings', to: '/settings' }, { label: 'Products' }]}
+        action={<Button>New product</Button>}
+      />,
+    )
+    const action = screen.getByTestId('page-title-action')
+    const cluster = action.parentElement as HTMLElement
+    expect(cluster.className).toContain('flex-col')
+    expect(cluster.className).toContain('md:flex-row')
+  })
+
+  it('action goes full-width on mobile (w-full) and auto-width from md up', () => {
+    renderShell(
+      <PageTitle title="Bookings" action={<Button>New booking</Button>} />,
+    )
+    const action = screen.getByTestId('page-title-action')
+    // Wrapper fills the row on mobile, reverts to auto/shrink-0 from md.
+    expect(action.className).toContain('w-full')
+    expect(action.className).toContain('md:w-auto')
+    // …and the child button itself stretches full-width on mobile (≥44px
+    // tap target) but not on desktop.
+    expect(action.className).toContain('[&>*]:w-full')
+    expect(action.className).toContain('md:[&>*]:w-auto')
+    // The action's content is actually present + reachable.
+    expect(
+      screen.getByRole('button', { name: /new booking/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('renders no action wrapper when no action is declared', () => {
+    renderShell(<PageTitle title="Bookings" />)
+    expect(screen.queryByTestId('page-title-action')).toBeNull()
   })
 })
