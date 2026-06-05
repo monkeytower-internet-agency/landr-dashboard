@@ -102,11 +102,15 @@ export function LocalizedTextField({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Locale tab strip */}
+      {/* Locale tab strip — landr-3qkr.4: overflow-x-auto so tabs scroll
+          horizontally on very narrow widths rather than wrapping onto a second
+          line, which would push the editor further down the viewport. The tabs
+          are not many (EN + DE today), so scroll is a last resort; they'll
+          usually fit side by side. pb-0.5 keeps the scrollbar clear of tabs. */}
       <div
         role="tablist"
         aria-label={t.localized.tablistAria(label)}
-        className="flex flex-wrap items-center gap-1"
+        className="flex items-center gap-1 overflow-x-auto pb-0.5"
       >
         <button
           type="button"
@@ -115,7 +119,7 @@ export function LocalizedTextField({
           data-testid="locale-tab-base"
           onClick={() => setActiveTab(BASE_TAB)}
           className={cn(
-            'rounded-md border px-2 py-0.5 text-xs font-medium transition-colors',
+            'shrink-0 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors',
             isBase
               ? 'border-primary bg-primary/10 text-foreground'
               : 'border-input text-muted-foreground hover:text-foreground',
@@ -136,7 +140,7 @@ export function LocalizedTextField({
               data-testid={`locale-tab-${loc.code}`}
               onClick={() => setActiveTab(loc.code)}
               className={cn(
-                'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors',
+                'inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors',
                 selected
                   ? 'border-primary bg-primary/10 text-foreground'
                   : 'border-input text-muted-foreground hover:text-foreground',

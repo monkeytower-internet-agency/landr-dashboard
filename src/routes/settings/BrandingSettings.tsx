@@ -160,8 +160,10 @@ function ColorField({
     // pattern — avoids the react-hooks/set-state-in-effect lint error.
   }
 
+  // landr-3qkr.4 — color picker + hex input stay in a row (the color swatch
+  // is small enough); the label wraps below on very narrow widths via flex-wrap.
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <input
         type="color"
         aria-label={label}
@@ -170,7 +172,7 @@ function ColorField({
           setText(e.target.value)
           onChange(e.target.value)
         }}
-        className="h-10 w-14 cursor-pointer rounded border bg-transparent"
+        className="h-11 w-14 cursor-pointer rounded border bg-transparent"
       />
       <Input
         aria-label={`${label} hex`}
@@ -453,7 +455,10 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
   // ── render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    // landr-3qkr.4 — remove mx-auto to let the AppShell safe-area padding
+    // govern horizontal gutter on mobile. max-w-2xl still constrains on
+    // larger screens. Cards already stack (space-y-6 flex-col).
+    <div className="max-w-2xl space-y-6">
       <h1 className="text-2xl font-semibold">{t.settings.sectionBranding}</h1>
 
       {/* ── Light logo ── */}
@@ -700,8 +705,9 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
           <CardTitle>{t.settings.brandingPreviewTitle}</CardTitle>
           <CardDescription>{t.settings.brandingPreviewDesc}</CardDescription>
         </CardHeader>
+        {/* landr-3qkr.4 — single column on mobile, 2-up on sm+ */}
         <CardContent>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Light preview */}
             <div>
               <p className="text-muted-foreground mb-2 text-xs font-medium">
