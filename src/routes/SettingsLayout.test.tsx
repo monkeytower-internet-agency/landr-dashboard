@@ -430,4 +430,24 @@ describe('SettingsLayout', () => {
     // active-only `font-medium` marker (see /staff test).
     expect(link).toHaveClass(/font-medium/)
   })
+
+  // landr-3qkr.4 — Mobile nav smoke: the sub-sidebar renders a scrollable
+  // chip strip on mobile. The nav element must always be in the document
+  // and all section links must be reachable (even if visually off-screen
+  // in a scroll container). This test pins that the nav is present and
+  // queryable regardless of viewport width — the overflow-x-auto class
+  // is a CSS concern, so we just assert presence + link count stability.
+  it('renders mobile-nav: sub-sidebar links remain accessible in scrollable strip (landr-3qkr.4)', () => {
+    renderSettingsTree('/settings/team')
+    const nav = screen.getByRole('navigation', { name: /settings sections/i })
+    // All 23 links must be in the DOM (the chip strip doesn't clip DOM nodes,
+    // only overflows visually). If the count grows in future, extend the
+    // existing "renders the Settings sub-sidebar" test comment chain first.
+    expect(nav.querySelectorAll('a')).toHaveLength(23)
+    // The <ul> must have the overflow-x-auto class (applied on mobile, stripped
+    // on md+). We assert the class is present in the rendered markup so a
+    // future refactor of the chip-strip doesn't silently remove mobile scroll.
+    const ul = nav.querySelector('ul')
+    expect(ul).toHaveClass('overflow-x-auto')
+  })
 })

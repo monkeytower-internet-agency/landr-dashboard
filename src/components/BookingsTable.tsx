@@ -1,15 +1,15 @@
 import { useCallback, useMemo, useState } from 'react'
 import {
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type Row,
   type SortingState,
 } from '@tanstack/react-table'
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarRangeIcon } from 'lucide-react'
+import { CalendarRangeIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -21,21 +21,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { DataTable } from '@/components/DataTable'
+import { selectColumn } from '@/components/data-table-select'
 import { EmptyState } from '@/components/EmptyState'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import {
   bulkSendReminder,
   customerDisplay,
@@ -60,7 +53,6 @@ import { BulkActionToolbar } from '@/components/BulkActionToolbar'
 import { BookingRowContextMenu } from '@/components/bookings/BookingRowContextMenu'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { DayChips } from '@/components/booking/DayChips'
-import { SkeletonTableRows } from '@/components/SkeletonTableRows'
 import { StageBadge } from '@/components/booking/StageBadge'
 import { TagChipRow } from '@/components/tags/TagChip'
 import { InlineEditCell } from '@/components/bookings/InlineEditCell'
@@ -184,58 +176,13 @@ export function BookingsTable({
 
   const columns = useMemo<ColumnDef<BookingRow>[]>(
     () => [
-      // landr-lbbj — leading select column (matches GeneralApprovals).
-      {
-        id: 'select',
-        enableSorting: false,
-        header: ({ table: t1 }) => {
-          const visibleIds = t1
-            .getRowModel()
-            .rows.map((r) => (r.original as BookingRow).id)
-          const allChecked =
-            visibleIds.length > 0 &&
-            visibleIds.every((id) => selectedIds.has(id))
-          const someChecked = visibleIds.some((id) => selectedIds.has(id))
-          return (
-            <Checkbox
-              checked={allChecked}
-              ref={(el) => {
-                if (el) el.indeterminate = !allChecked && someChecked
-              }}
-              onChange={(e) => {
-                const next = new Set(selectedIds)
-                if (e.currentTarget.checked) {
-                  for (const id of visibleIds) next.add(id)
-                } else {
-                  for (const id of visibleIds) next.delete(id)
-                }
-                setSelectedIds(next)
-              }}
-              onClick={(e) => e.stopPropagation()}
-              aria-label={t.bulkActions.selectAllAria}
-              data-testid="bookings-select-all"
-            />
-          )
-        },
-        cell: ({ row }) => {
-          const id = row.original.id
-          const checked = selectedIds.has(id)
-          return (
-            <Checkbox
-              checked={checked}
-              onChange={(e) => {
-                const next = new Set(selectedIds)
-                if (e.currentTarget.checked) next.add(id)
-                else next.delete(id)
-                setSelectedIds(next)
-              }}
-              onClick={(e) => e.stopPropagation()}
-              aria-label={t.bulkActions.selectRowAria(id)}
-              data-testid={`bookings-select-${id}`}
-            />
-          )
-        },
-      },
+      // landr-lbbj / landr-3qkr.2 — leading select column via the shared
+      // selectColumn factory (matches ContactsTable + GeneralApprovals).
+      selectColumn<BookingRow>({
+        selectedIds,
+        setSelectedIds,
+        testIdPrefix: 'bookings',
+      }),
       {
         id: 'created_at',
         accessorKey: 'created_at',
@@ -577,137 +524,104 @@ export function BookingsTable({
     )
   }
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <Input
-          value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          placeholder={t.bookings.filterPlaceholder}
-          className="max-w-sm"
-          aria-label={t.bookings.filterPlaceholder}
-        />
-        <div className="text-muted-foreground text-sm">
-          {table.getFilteredRowModel().rows.length} / {rows.length}
+  // landr-3qkr.2 — mobile card: select checkbox (bulk actions exist here)
+  // + customer (key field) + product + service date + status badge + price.
+  // Tapping the card body opens the detail sheet (the row's primary
+  // action); the inline-edit price/status cells stay desktop-only.
+  const renderCard = (row: Row<BookingRow>) => {
+    const booking = row.original
+    const checked = selectedIds.has(booking.id)
+    const item = earliestScheduledItem(booking)
+    const serviceDate =
+      item && item.date_range_start
+        ? formatServiceDateRange(
+            item.date_range_start,
+            matchingServiceEnd(booking, item.date_range_start),
+            { hour12 },
+          )
+        : null
+    const overridden = hasPriceOverride(booking)
+    return (
+      <div className="bg-card flex flex-col gap-2 rounded-lg border p-3 shadow-s">
+        <div className="flex items-start gap-2">
+          <Checkbox
+            checked={checked}
+            onChange={(e) => {
+              const next = new Set(selectedIds)
+              if (e.currentTarget.checked) next.add(booking.id)
+              else next.delete(booking.id)
+              setSelectedIds(next)
+            }}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={t.bulkActions.selectRowAria(booking.id)}
+            data-testid={`bookings-card-select-${booking.id}`}
+            className="mt-1 size-5"
+          />
+          <button
+            type="button"
+            onClick={() => onRowClick(booking)}
+            className="min-w-0 flex-1 text-left"
+            data-testid={`bookings-card-${booking.id}`}
+          >
+            <span className="block truncate font-medium">
+              {highlightMatch(customerDisplay(booking), globalFilter)}
+            </span>
+            <span className="text-muted-foreground block truncate text-sm">
+              {highlightMatch(productDisplay(booking), globalFilter)}
+            </span>
+          </button>
+          <StageBadge
+            state={booking.current_semantic_state}
+            stageCode={stageCode(booking)}
+          />
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-muted-foreground text-sm">
+            {serviceDate ?? '—'}
+          </span>
+          <span
+            className={cn('font-medium', overridden && 'text-amber-700 italic')}
+          >
+            {priceDisplay(booking)}
+          </span>
         </div>
       </div>
-      <div className="overflow-x-auto rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((group) => (
-              <TableRow key={group.id}>
-                {group.headers.map((header) => {
-                  const canSort = header.column.getCanSort()
-                  const dir = header.column.getIsSorted()
-                  const Icon = !dir
-                    ? ArrowUpDown
-                    : dir === 'asc'
-                      ? ArrowUp
-                      : ArrowDown
-                  return (
-                    <TableHead key={header.id}>
-                      {canSort ? (
-                        <button
-                          type="button"
-                          onClick={header.column.getToggleSortingHandler()}
-                          className="hover:text-foreground inline-flex cursor-pointer items-center gap-1"
-                        >
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                          <Icon className="size-3 opacity-60" />
-                        </button>
-                      ) : (
-                        flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )
-                      )}
-                    </TableHead>
-                  )
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              // landr-sj2z — pulsing skeleton placeholder while the first
-              // fetch is still in flight. Column count matches the live
-              // table so the eventual rows land in the same grid.
-              <SkeletonTableRows
-                count={6}
-                columnCount={columns.length}
-                data-testid="bookings-skeleton"
-              />
-            ) : table.getRowModel().rows.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="text-muted-foreground py-8 text-center text-sm"
-                >
-                  {t.bookings.empty}
-                </TableCell>
-              </TableRow>
-            ) : (
-              visibleRows.map((row, index) => {
-                const rowProps = nav.getRowProps(index)
-                // landr-oxlk — right-click → quick actions. The trigger
-                // wraps the TableRow via asChild so left-click → open
-                // sheet, j/k focus, and the row's existing testid stay
-                // unchanged. Tags & destructive actions live behind the
-                // menu so the common case (click row → sheet) is
-                // unaffected.
-                return (
-                  <BookingRowContextMenu
-                    key={row.id}
-                    row={row.original}
-                    operatorId={currentOperatorId ?? null}
-                    onOpenDetail={(r) => onRowClick(r)}
-                    copyLinkPath={(r) => `/bookings?open=${r.id}`}
-                  >
-                    <TableRow
-                      onClick={() => onRowClick(row.original)}
-                      className="cursor-pointer data-[focused]:bg-muted/60"
-                      data-testid={`bookings-row-${row.original.id}`}
-                      ref={rowProps.ref}
-                      data-focused={rowProps['data-focused']}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  </BookingRowContextMenu>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Previous
-        </Button>
-        <span className="text-muted-foreground text-sm">
-          {table.getState().pagination.pageIndex + 1} /{' '}
-          {Math.max(1, table.getPageCount())}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </Button>
-      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <DataTable
+        table={table}
+        columnCount={columns.length}
+        emptyMessage={t.bookings.empty}
+        isLoading={isLoading}
+        skeletonTestId="bookings-skeleton"
+        search={{
+          value: globalFilter,
+          onChange: setGlobalFilter,
+          placeholder: t.bookings.filterPlaceholder,
+        }}
+        matchCountNode={`${table.getFilteredRowModel().rows.length} / ${rows.length}`}
+        onRowClick={(row) => onRowClick(row.original)}
+        rowTestId={(row) => `bookings-row-${row.original.id}`}
+        rowProps={(_row, index) => nav.getRowProps(index)}
+        renderCard={renderCard}
+        rowWrapper={(row, rowNode) => (
+          // landr-oxlk — right-click → quick actions. The trigger wraps the
+          // row/card via asChild so left-click → open sheet, j/k focus, and
+          // the testid stay unchanged.
+          <BookingRowContextMenu
+            key={row.id}
+            row={row.original}
+            operatorId={currentOperatorId ?? null}
+            onOpenDetail={(r) => onRowClick(r)}
+            copyLinkPath={(r) => `/bookings?open=${r.id}`}
+          >
+            {rowNode}
+          </BookingRowContextMenu>
+        )}
+      />
 
       <BulkActionToolbar
         selectedIds={[...selectedIds]}

@@ -443,11 +443,13 @@ export function BoardLayout({ view, items, onItemMutate }: Props) {
           // — that keeps DnD ids unique across the grid (drop targets like
           // `column:confirmed` would collide otherwise) while reusing the
           // same column chrome the flat board ships with.
+          // landr-3qkr.5 — horizontal scroll with snap + edge-fade affordance.
+          // mask-image fades the right edge so the user sees content continues.
           <div
             data-testid="board-layout"
             data-board-column-by={columnBy}
             data-board-swimlane-by={swimlaneBy ?? undefined}
-            className="overflow-x-auto pb-2"
+            className="overflow-x-auto pb-2 snap-x snap-mandatory [mask-image:linear-gradient(to_right,black_85%,transparent_100%)]"
           >
             <div
               role="grid"
@@ -519,10 +521,11 @@ export function BoardLayout({ view, items, onItemMutate }: Props) {
             </div>
           </div>
         ) : (
+          /* landr-3qkr.5 — horizontal scroll with snap + edge-fade affordance. */
           <div
             data-testid="board-layout"
             data-board-column-by={columnBy}
-            className="flex gap-3 overflow-x-auto pb-2"
+            className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory [mask-image:linear-gradient(to_right,black_85%,transparent_100%)]"
           >
             {columns.map((col) => {
               // For current_stage, decide whether THIS column is a valid drop

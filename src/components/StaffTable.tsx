@@ -1,31 +1,17 @@
 import { useMemo, useState } from 'react'
 import {
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type Row,
   type SortingState,
 } from '@tanstack/react-table'
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  PencilIcon,
-  Trash2Icon,
-} from 'lucide-react'
+import { PencilIcon, Trash2Icon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { DataTable } from '@/components/DataTable'
 import {
   permissionsSummary,
   staffDate,
@@ -39,6 +25,51 @@ type Props = {
   rows: StaffRow[]
   onEdit: (row: StaffRow) => void
   onRevoke: (row: StaffRow) => void
+}
+
+// landr-3qkr.2 — shared edit/revoke action cluster, reused by the desktop
+// actions column and the mobile card so behaviour stays identical.
+function StaffRowActions({
+  row,
+  onEdit,
+  onRevoke,
+}: {
+  row: StaffRow
+  onEdit: (row: StaffRow) => void
+  onRevoke: (row: StaffRow) => void
+}) {
+  const label = staffEmailDisplay(row)
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={(e) => {
+          e.stopPropagation()
+          onEdit(row)
+        }}
+        aria-label={`${t.staff.actionEdit} — ${label}`}
+      >
+        <PencilIcon className="size-3.5" />
+        <span className="hidden sm:inline">{t.staff.actionEdit}</span>
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={(e) => {
+          e.stopPropagation()
+          onRevoke(row)
+        }}
+        aria-label={`${t.staff.actionRevoke} — ${label}`}
+        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+      >
+        <Trash2Icon className="size-3.5" />
+        <span className="hidden sm:inline">{t.staff.actionRevoke}</span>
+      </Button>
+    </div>
+  )
 }
 
 export function StaffTable({ rows, onEdit, onRevoke }: Props) {
@@ -97,40 +128,9 @@ export function StaffTable({ rows, onEdit, onRevoke }: Props) {
         header: () => <span className="sr-only">{t.staff.columnActions}</span>,
         enableSorting: false,
         enableGlobalFilter: false,
-        cell: ({ row }) => {
-          const label = staffEmailDisplay(row.original)
-          return (
-            <div className="flex items-center justify-end gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onEdit(row.original)
-                }}
-                aria-label={`${t.staff.actionEdit} — ${label}`}
-              >
-                <PencilIcon className="size-3.5" />
-                <span className="hidden sm:inline">{t.staff.actionEdit}</span>
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onRevoke(row.original)
-                }}
-                aria-label={`${t.staff.actionRevoke} — ${label}`}
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <Trash2Icon className="size-3.5" />
-                <span className="hidden sm:inline">{t.staff.actionRevoke}</span>
-              </Button>
-            </div>
-          )
-        },
+        cell: ({ row }) => (
+          <StaffRowActions row={row.original} onEdit={onEdit} onRevoke={onRevoke} />
+        ),
       },
     ],
     [onEdit, onRevoke],
@@ -149,105 +149,52 @@ export function StaffTable({ rows, onEdit, onRevoke }: Props) {
     initialState: { pagination: { pageSize: 25 } },
   })
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <Input
-          value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          placeholder={t.staff.filterPlaceholder}
-          className="max-w-sm"
-          aria-label={t.staff.filterPlaceholder}
-        />
+  // landr-3qkr.2 — mobile card: name + email + role badge + permissions,
+  // edit/revoke actions inline. Tap targets are the buttons themselves.
+  const renderCard = (row: Row<StaffRow>) => {
+    const member = row.original
+    return (
+      <div className="bg-card flex flex-col gap-2 rounded-lg border p-3 shadow-s">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="truncate font-medium">{staffNameDisplay(member)}</div>
+            <div className="text-muted-foreground truncate text-sm">
+              {staffEmailDisplay(member)}
+            </div>
+          </div>
+          <span className="bg-muted text-muted-foreground inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs">
+            {member.role}
+          </span>
+        </div>
         <div className="text-muted-foreground text-sm">
-          {t.staff.matches(table.getFilteredRowModel().rows.length, rows.length)}
+          {permissionsSummary(member.permissions)}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-muted-foreground text-xs">
+            {staffDate(member.created_at)}
+          </span>
+          <StaffRowActions row={member} onEdit={onEdit} onRevoke={onRevoke} />
         </div>
       </div>
-      <div className="overflow-x-auto rounded-md border">
-        <Table aria-label={t.staff.listAriaLabel}>
-          <TableHeader>
-            {table.getHeaderGroups().map((group) => (
-              <TableRow key={group.id}>
-                {group.headers.map((header) => {
-                  const canSort = header.column.getCanSort()
-                  const dir = header.column.getIsSorted()
-                  const Icon = !dir
-                    ? ArrowUpDown
-                    : dir === 'asc'
-                      ? ArrowUp
-                      : ArrowDown
-                  return (
-                    <TableHead key={header.id}>
-                      {canSort ? (
-                        <button
-                          type="button"
-                          onClick={header.column.getToggleSortingHandler()}
-                          className="hover:text-foreground inline-flex cursor-pointer items-center gap-1"
-                        >
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                          <Icon className="size-3 opacity-60" />
-                        </button>
-                      ) : (
-                        flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )
-                      )}
-                    </TableHead>
-                  )
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="text-muted-foreground py-8 text-center text-sm"
-                >
-                  {t.staff.empty}
-                </TableCell>
-              </TableRow>
-            ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Previous
-        </Button>
-        <span className="text-muted-foreground text-sm">
-          {table.getState().pagination.pageIndex + 1} /{' '}
-          {Math.max(1, table.getPageCount())}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </Button>
-      </div>
-    </div>
+    )
+  }
+
+  return (
+    <DataTable
+      table={table}
+      columnCount={columns.length}
+      emptyMessage={t.staff.empty}
+      search={{
+        value: globalFilter,
+        onChange: setGlobalFilter,
+        placeholder: t.staff.filterPlaceholder,
+      }}
+      matchCountNode={t.staff.matches(
+        table.getFilteredRowModel().rows.length,
+        rows.length,
+      )}
+      tableAriaLabel={t.staff.listAriaLabel}
+      renderCard={renderCard}
+    />
   )
 }

@@ -277,10 +277,12 @@ export function ProductImageManager({ operatorId, productId }: Props) {
           <p className="text-destructive text-sm">{t.products.imagesLoadError}</p>
         )}
 
-        {/* Image strip */}
+        {/* Image strip — landr-3qkr.4: horizontal scroll with snap on mobile.
+            snap-x mandatory + snap-start on each slot so the strip aligns
+            cleanly on phones. pb-2 creates clearance below the scrollbar. */}
         {images.length > 0 && (
           <div
-            className="flex gap-3 overflow-x-auto pb-1"
+            className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
             role="list"
             aria-label={t.products.imagesSectionTitle}
           >
@@ -335,12 +337,14 @@ export function ProductImageManager({ operatorId, productId }: Props) {
               e.target.value = ''
             }}
           />
+          {/* landr-3qkr.4 — full-width on mobile; min-h-11 ensures ≥44px. */}
           <Button
             type="button"
             variant="outline"
             disabled={atMax || isUploading}
             onClick={() => fileInputRef.current?.click()}
             data-testid="add-product-image-btn"
+            className="w-full min-h-11 sm:w-auto"
           >
             <PlusIcon className="mr-1 size-4" />
             {isUploading
@@ -388,9 +392,10 @@ function ImageSlot({
   }
 
   return (
+    // landr-3qkr.4 — snap-start aligns each slot to the scroll snap container.
     <div
       role="listitem"
-      className="bg-muted flex w-40 shrink-0 flex-col gap-2 rounded border p-2"
+      className="bg-muted flex w-40 shrink-0 snap-start flex-col gap-2 rounded border p-2"
       data-testid={`image-slot-${img.id}`}
     >
       {/* Preview */}
@@ -431,45 +436,46 @@ function ImageSlot({
         }}
       />
 
-      {/* Controls */}
+      {/* Controls — landr-3qkr.4: min 44px touch targets via h-11 w-11.
+          The slot is 160px wide so two up/down + one delete fit on one row. */}
       <div className="flex items-center justify-between gap-1">
         <div className="flex gap-1">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="h-6 w-6"
+            className="h-11 w-11"
             disabled={idx === 0 || isReordering}
             aria-label={t.products.imagesMoveUp}
             onClick={onMoveUp}
             data-testid={`move-up-${img.id}`}
           >
-            <ArrowUpIcon className="size-3" />
+            <ArrowUpIcon className="size-4" />
           </Button>
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="h-6 w-6"
+            className="h-11 w-11"
             disabled={idx >= total - 1 || isReordering}
             aria-label={t.products.imagesMoveDown}
             onClick={onMoveDown}
             data-testid={`move-down-${img.id}`}
           >
-            <ArrowDownIcon className="size-3" />
+            <ArrowDownIcon className="size-4" />
           </Button>
         </div>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="text-destructive h-6 w-6"
+          className="text-destructive h-11 w-11"
           disabled={isDeleting}
           aria-label={t.products.imagesDelete}
           onClick={onDelete}
           data-testid={`delete-image-${img.id}`}
         >
-          <Trash2Icon className="size-3" />
+          <Trash2Icon className="size-4" />
         </Button>
       </div>
     </div>

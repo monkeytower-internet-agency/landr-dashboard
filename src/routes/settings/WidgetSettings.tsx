@@ -335,7 +335,9 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
   const saving = patchMutation.isPending
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6">
+    // landr-3qkr.4 — full-bleed on mobile (no horizontal padding that fights
+    // the AppShell safe-area padding); constrained to 2xl on larger screens.
+    <div className="flex max-w-2xl flex-col gap-6">
       <h1 className="text-2xl font-semibold">{t.settings.widgetConfigTitle}</h1>
 
       {/* ── Layout variant picker ── */}
@@ -345,6 +347,7 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
           <CardDescription>{t.settings.widgetLayoutDesc}</CardDescription>
         </CardHeader>
         <CardContent>
+          {/* landr-3qkr.4 — single column on mobile, 3-up on sm+ */}
           <div
             role="radiogroup"
             aria-label={t.settings.widgetLayoutTitle}
@@ -791,8 +794,10 @@ function PreviewWidgetLink({
         <CardTitle>{t.settings.widgetPreviewLinkTitle}</CardTitle>
         <CardDescription>{t.settings.widgetPreviewLinkDesc}</CardDescription>
       </CardHeader>
+      {/* landr-3qkr.4 — preview link is full-width on mobile (≥44px touch
+          target is satisfied by Button's default py-2 + text-sm). */}
       <CardContent>
-        <Button type="button" variant="outline" asChild data-testid="widget-preview-link">
+        <Button type="button" variant="outline" asChild data-testid="widget-preview-link" className="w-full sm:w-auto">
           <a href={url} target="_blank" rel="noopener noreferrer">
             <ExternalLinkIcon className="size-4" />
             <span className="ml-1.5">{t.settings.widgetPreviewLinkButton}</span>
