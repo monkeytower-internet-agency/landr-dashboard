@@ -140,7 +140,10 @@ export function ProvidersManager({ operatorId }: Props) {
       ) : providers.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t.providers.empty}</p>
       ) : (
-        <Table>
+        // landr-3qkr.6 — overflow-x-auto so the 4-column providers roster
+        // scrolls inside its box on a 360px phone instead of being clipped.
+        <div className="overflow-x-auto rounded-md border">
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t.providers.columnName}</TableHead>
@@ -211,7 +214,8 @@ export function ProvidersManager({ operatorId }: Props) {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+          </Table>
+        </div>
       )}
 
       {/* Keyed remount so the draft state seeds fresh per open/target — no

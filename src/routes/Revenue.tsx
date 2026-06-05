@@ -180,7 +180,9 @@ function OperatorCard({ op }: { op: OperatorRevenue }) {
         ) : op.years.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t.revenue.empty}</p>
         ) : (
-          <div className="rounded-md border">
+          // landr-3qkr.6 — overflow-x-auto so the multi-column revenue table
+          // scrolls inside its box on a 360px phone instead of being clipped.
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>

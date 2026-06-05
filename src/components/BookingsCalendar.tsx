@@ -413,7 +413,11 @@ export function BookingsCalendar({
   return (
     <div className="flex flex-col gap-3">
       {/* Toolbar row: view-mode tabs on the left + agenda toggle on the right. */}
-      <div className="flex items-center justify-between gap-2">
+      {/* landr-3qkr.6 — flex-wrap so that if a phone user switches to grid
+          mode the grid/list toggle + the Month/Week/Day view tabs wrap to a
+          second line instead of being clipped by the page overflow-x-guard.
+          Desktop is unchanged (wraps only when the row can't fit). */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
         {/* Grid/List toggle — shown always so users can switch on any screen.
             On mobile it defaults to List; on desktop it defaults to Grid. */}
         <div className="flex items-center gap-1">

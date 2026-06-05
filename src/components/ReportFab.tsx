@@ -69,10 +69,15 @@ export function ReportFab() {
         aria-label={t.reportButton.triggerLabel}
         onClick={() => setOpen(true)}
         data-testid="report-fab-trigger"
+        // landr-3qkr.6 — text label collapses to icon-only below md so the
+        // topbar right-cluster (TierBadge · widget · report · errors ·
+        // notifications · theme · account) fits a 360px phone without the
+        // rightmost items (UserMenu) clipping under overflow-x-guard. The
+        // aria-label keeps the icon-only state accessible; desktop is unchanged.
         className="gap-1.5 text-xs"
       >
         <MessageSquarePlusIcon className="size-3.5" aria-hidden />
-        {t.reportButton.triggerText}
+        <span className="hidden md:inline">{t.reportButton.triggerText}</span>
       </Button>
       <ReportDialog
         operatorId={currentOperatorId}

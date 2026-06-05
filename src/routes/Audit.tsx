@@ -233,7 +233,9 @@ export function Audit() {
         </Card>
       ) : (
         <>
-          <div className="rounded-md border">
+          {/* landr-3qkr.6 — overflow-x-auto so the 5-column audit log scrolls
+              inside its own box on a 360px phone rather than being clipped. */}
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
