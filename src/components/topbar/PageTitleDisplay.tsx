@@ -40,16 +40,27 @@ export function PageTitleDisplay() {
   // header, opposite the title/breadcrumb. shrink-0 so a long title
   // truncates before the action does. Only shown when a title or
   // breadcrumb anchors the header (an action with no title is a misuse).
+  //
+  // landr-3qkr.1 — on phones (<md) the topbar title cluster stacks
+  // vertically (see the outer flex-col below), so the action drops onto its
+  // own row UNDER the title rather than competing for the cramped horizontal
+  // space. There it goes full-width ([&>*]:w-full so the route's existing
+  // <Button> fills the row → a comfortable ≥44px tap target) and left-aligns.
+  // From md up it reverts to the desktop layout: shrink-0, auto width,
+  // right-aligned opposite the title.
   const actionNode =
     action && (crumbs.length > 0 || title) ? (
-      <div className="flex shrink-0 items-center" data-testid="page-title-action">
+      <div
+        className="flex w-full items-center md:w-auto md:shrink-0 [&>*]:w-full md:[&>*]:w-auto"
+        data-testid="page-title-action"
+      >
         {action}
       </div>
     ) : null
 
   if (crumbs.length > 0) {
     return (
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <nav
             aria-label="Breadcrumb"
@@ -108,7 +119,7 @@ export function PageTitleDisplay() {
 
   if (title) {
     return (
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h1 className="truncate text-sm font-medium" aria-live="polite">
             {title}

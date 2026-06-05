@@ -54,13 +54,24 @@ function AppShellInner({ children }: { children: ReactNode }) {
           content inside (Tables, Cards, etc.) doesn't push the whole page
           past the viewport — without it, table/cell intrinsic widths win
           and the document gains a horizontal scrollbar on smaller screens. */}
-      <SidebarInset className="min-w-0">
+      {/* landr-3qkr.1 — overflow-x-guard clips any over-wide child (wide
+          table header, unbroken URL, mis-sized absolute element) so the
+          document can never gain a horizontal scrollbar on a 360px phone.
+          It's `overflow-x: clip` (not hidden) so it does NOT create a scroll
+          container — keeping the sticky topbar + sticky table headers below
+          working. min-w-0 still lets this flex item shrink to its parent. */}
+      <SidebarInset className="min-w-0 overflow-x-guard">
         {/* landr-fx2i — topbar layout: OperatorSwitcher (collapses to a
             static label when the user only has 1 operator), then the
             current page title or breadcrumb (declared by each route via
             <PageTitle/> from src/lib/page-title), then the right-aligned
-            ThemeToggle + UserMenu cluster. */}
-        <header className="bg-background sticky top-0 z-10 flex h-14 items-center gap-2 border-b px-3 sm:gap-3 sm:px-4">
+            ThemeToggle + UserMenu cluster.
+            landr-3qkr.1 — pt-safe lifts the sticky bar out of the status-bar
+            notch on phones; px-safe-3/4 keeps the left/right chrome clear of
+            rounded-screen corners while preserving the design gutter. The bar
+            height grows by the top inset (h-14 min) so the content row stays
+            vertically centred below the notch. */}
+        <header className="bg-background pt-safe px-safe-3 sm:px-safe-4 sticky top-0 z-10 flex min-h-14 items-center gap-2 border-b sm:gap-3">
           {/* landr-gu14 — mobile-only sidebar opener. The shadcn Sidebar
               renders as a slide-in Sheet on viewports below md (768px);
               without this trigger the operator has no way to reach the
@@ -116,8 +127,14 @@ function AppShellInner({ children }: { children: ReactNode }) {
         <OnboardingBanner />
         {/* min-w-0 mirrors the inset constraint so route content respects
             the available width; per-table overflow-x-auto (shadcn Table) then
-            handles its own horizontal scroll inside the card. */}
-        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6">{children}</main>
+            handles its own horizontal scroll inside the card.
+            landr-3qkr.1 — px-safe-4/6 keeps the page gutter clear of rounded
+            corners; pb-safe-6 = the base 1.5rem bottom gutter PLUS the
+            home-indicator inset so the last row of content isn't tucked under
+            the gesture bar. */}
+        <main className="min-w-0 flex-1 px-safe-4 sm:px-safe-6 pt-6 pb-safe-6">
+          {children}
+        </main>
       </SidebarInset>
       {/* landr-f18d — Quick capture FAB. Bottom-right, mounted at the
           shell level so it's reachable from every protected route (the
