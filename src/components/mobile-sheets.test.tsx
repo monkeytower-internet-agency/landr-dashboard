@@ -142,6 +142,7 @@ vi.mock('@/lib/bookings', async () => {
     getConfirmationStatus: vi.fn(async () => ({
       last_sent_at: null,
       has_material_changes: false,
+      has_prior_confirmation: false,
     })),
     cancelBooking: vi.fn(async () => {}),
     markBookingAsNoShow: vi.fn(async () => {}),
