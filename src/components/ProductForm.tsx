@@ -668,6 +668,7 @@ export function ProductForm({
           </Card>
         ) : null}
 
+        {/* landr-3qkr.4 — single column on mobile, 2-up on sm+ */}
         <div className="grid gap-4 sm:grid-cols-2">
           {/* landr-14s4 — name is locale-tabbed (EN base + DE override). The
               slug auto-fill still keys off the EN base value only. */}
@@ -1181,23 +1182,27 @@ export function ProductForm({
           )
         ) : null}
 
-        <div className="flex items-center justify-between gap-2">
+        {/* landr-3qkr.4 — action row: stack vertically (column-reverse) on
+            mobile so the primary Save button appears on top; row on sm+.
+            min-h-11 ensures ≥44px touch targets on both buttons. */}
+        <div className="flex flex-col-reverse items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
           {product && onDelete ? (
             <Button
               type="button"
               variant="outline"
               onClick={onDelete}
               disabled={!!deleting}
-              className="text-destructive"
+              className="min-h-11 text-destructive"
             >
               <Trash2Icon className="size-4" />
               {deleting ? t.products.deleting : t.products.delete}
             </Button>
           ) : (
-            <span />
+            <span className="hidden sm:block" />
           )}
           <Button
             type="submit"
+            className="min-h-11"
             // landr-ssrx — service + hotel_room are both fully editable. The
             // still-unsupported kinds (subscription, *_good, gift_card) keep
             // the upgrade-prompt tooltip from the prior package-gating work.
