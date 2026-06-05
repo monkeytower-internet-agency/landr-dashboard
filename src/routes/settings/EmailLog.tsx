@@ -25,6 +25,12 @@ import { t } from '@/lib/strings'
 import { cn } from '@/lib/utils'
 import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { contactDateTime } from '@/lib/contacts'
+import { useIsMobile } from '@/hooks/use-mobile'
+import {
+  mobileSheetContent,
+  mobileSheetHeader,
+  mobileSheetBody,
+} from '@/lib/mobile-sheet-classes'
 import {
   fetchOutboundEmails,
   resendEmail,
@@ -356,14 +362,19 @@ function EmailLogDrawer({
   onOpenChange,
 }: DrawerProps) {
   const open = row !== null
+  const isMobile = useIsMobile()
   const [resendOpen, setResendOpen] = useState(false)
   const isTerminal = row ? TERMINAL_STATUSES.includes(row.status) : false
 
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
-          <SheetHeader>
+        {/* landr-3qkr.3 — full-screen below md. */}
+        <SheetContent
+          className={cn('w-full overflow-y-auto sm:max-w-2xl', mobileSheetContent)}
+        >
+          {/* landr-3qkr.3 — sticky header below md with notch clearance. */}
+          <SheetHeader className={cn('p-4', isMobile && mobileSheetHeader)}>
             <SheetTitle>{row?.subject ?? ''}</SheetTitle>
             <SheetDescription>
               {row
@@ -375,8 +386,9 @@ function EmailLogDrawer({
                 : ''}
             </SheetDescription>
           </SheetHeader>
+          {/* landr-3qkr.3 — pb-safe via mobileSheetBody on mobile. */}
           {row && (
-            <div className="flex flex-col gap-4 px-4 pb-6 text-sm">
+            <div className={cn('flex flex-col gap-4 px-4 pb-6 text-sm', mobileSheetBody)}>
               <dl className="grid grid-cols-2 gap-3 text-xs">
                 <div>
                   <dt className="text-muted-foreground">

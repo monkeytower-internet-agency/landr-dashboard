@@ -7,6 +7,15 @@ import { useAuth } from '@/lib/auth'
 import { useOperator } from '@/lib/operator'
 import { trackView } from '@/lib/recently-viewed'
 import { useEntitlements } from '@/lib/entitlements'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
+import {
+  mobileSheetContent,
+  mobileSheetHeader,
+  mobileSheetBody,
+  mobileSheetTabStrip,
+  mobileSheetFooter,
+} from '@/lib/mobile-sheet-classes'
 
 import {
   AlertDialog,
@@ -98,9 +107,13 @@ export function BookingDetailSheet({
       {/* landr-pztv — data-print-target marks the @media print scope so
           Ctrl+P (or the explicit Print button in the footer) prints the
           open booking detail as a clean receipt. See src/index.css. */}
+      {/* landr-3qkr.3 — full-screen below md. */}
       <SheetContent
         data-print-target="booking-detail"
-        className="flex w-full flex-col gap-0 sm:max-w-[60vw]"
+        className={cn(
+          'flex w-full flex-col gap-0 sm:max-w-[60vw]',
+          mobileSheetContent,
+        )}
       >
         {row ? (
           <BookingDetailBody
@@ -191,6 +204,7 @@ type ActiveTab =
 function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
+  const isMobile = useIsMobile()
   // landr-84n1 — the checklist tab persists per (operator, booking_id).
   // useOperator returns null when no operator is selected yet (rare
   // outside tests); the checklist hook handles that gracefully.
@@ -600,7 +614,8 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
 
   return (
     <>
-      <SheetHeader>
+      {/* landr-3qkr.3 — sticky header below md; pt-safe guards the notch. */}
+      <SheetHeader className={cn('p-4', isMobile && mobileSheetHeader)}>
         <div className="flex items-center justify-between gap-2">
           <SheetTitle>{t.bookings.detailsTitle}</SheetTitle>
           {/* landr-a8fg — shareable deep-link to this booking. Mirrors the
@@ -632,11 +647,13 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
 
       {/* landr-5f8q — Details / Timeline tab strip. Built on the shared
           shadcn Tabs primitive (landr-maat). Panels render conditionally
-          below to keep the form/sheet flex layout intact. */}
+          below to keep the form/sheet flex layout intact.
+          landr-3qkr.3 — horizontally scrollable on mobile so 8 tabs never
+          clip off the edge of a 360px screen. */}
       <Tabs
         value={activeTab}
         onValueChange={(next) => setActiveTab(next as ActiveTab)}
-        className="mx-4 mt-2 w-fit shrink-0 self-start"
+        className={cn('mx-4 mt-2 w-fit shrink-0 self-start', mobileSheetTabStrip)}
       >
         <TabsList variant="pill" aria-label={t.bookings.detailsTitle}>
           <TabsTrigger
@@ -724,7 +741,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         <div
           role="tabpanel"
           aria-label={t.bookings.briefing.tabBriefing}
-          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3"
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
         >
           {currentOperatorId ? (
             <BookingCustomerPage
@@ -743,7 +760,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         <div
           role="tabpanel"
           aria-label={t.bookings.participants.tabParticipants}
-          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3"
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
         >
           {/* landr-z4lj — clicking a participant name forwards to the same
               onCustomerClick the booker name in the sheet header uses. The
@@ -759,7 +776,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         <div
           role="tabpanel"
           aria-label={t.bookings.timeline.tabProviders}
-          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3"
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
         >
           {currentOperatorId ? (
             <BookingProviderAssignments
@@ -777,7 +794,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         <div
           role="tabpanel"
           aria-label={t.bookings.timeline.tabTimeline}
-          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3"
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
         >
           <BookingTimeline booking={row} />
         </div>
@@ -785,7 +802,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         <div
           role="tabpanel"
           aria-label={t.bookings.checklist.tabChecklist}
-          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3"
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
         >
           <BookingChecklist
             bookingId={row.id}
@@ -796,7 +813,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         <div
           role="tabpanel"
           aria-label={t.bookings.notes.tabNotes}
-          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3"
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
         >
           {currentOperatorId ? (
             <BookingNotes
@@ -813,7 +830,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         <div
           role="tabpanel"
           aria-label={t.bookings.payments.tabPayments}
-          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3"
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
         >
           <BookingPayments
             operatorId={currentOperatorId}
@@ -827,7 +844,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           e.preventDefault()
           if (isDirty && !busy) saveMutation.mutate()
         }}
-        className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3"
+        className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
         aria-label={t.bookings.detailsTitle}
         role="tabpanel"
       >
@@ -1090,7 +1107,11 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         />
       ) : null}
 
-      <SheetFooter className="flex flex-row items-center justify-between gap-2 border-t">
+      {/* landr-3qkr.3 — sticky bottom bar on mobile with safe-area clearance. */}
+      <SheetFooter className={cn(
+        'flex flex-row items-center justify-between gap-2 border-t',
+        isMobile ? mobileSheetFooter : 'p-4',
+      )}>
         <div className="flex items-center gap-2">
           <Button
             type="button"
