@@ -190,7 +190,10 @@ export function TableLayout({
           onToggle={handleToggleColumn}
         />
       </div>
-      <div className="overflow-x-auto rounded-md border">
+      {/* landr-3qkr.5 — edge-fade affordance on the right so users see the
+          table continues off-screen on phones. The mask only takes effect
+          when content overflows; on wide screens it's invisible. */}
+      <div className="overflow-x-auto rounded-md border [mask-image:linear-gradient(to_right,black_90%,transparent_100%)]">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((group) => (

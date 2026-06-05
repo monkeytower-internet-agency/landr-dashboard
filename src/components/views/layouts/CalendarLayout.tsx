@@ -429,7 +429,10 @@ export function CalendarLayout({
           </Button>
         ))}
       </div>
-      <div className="landr-fc rounded-md border p-3">
+      {/* landr-3qkr.5 — horizontal scroll container with edge-fade so the
+          user can see the calendar grid continues off-screen on narrow
+          viewports (the FullCalendar month grid has a fixed min-width). */}
+      <div className="landr-fc overflow-x-auto rounded-md border p-3 [mask-image:linear-gradient(to_right,black_90%,transparent_100%)]">
         <FullCalendar
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}

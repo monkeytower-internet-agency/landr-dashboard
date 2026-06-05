@@ -59,7 +59,13 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
+          // Phone-safe sizing (landr-3qkr.5): horizontally centred with 1rem
+          // gutters; vertically capped at 90dvh so tall dialogs (GDPR erase,
+          // staff revoke) get internal scroll rather than clipping off-screen.
+          // max-w-[calc(100%-2rem)] gives 1rem gutter on each side; sm:max-w-lg
+          // restores the desktop width. overflow-y-auto + flex-col let the body
+          // scroll while the header/footer stay sticky inside the content box.
+          "fixed top-[50%] left-[50%] z-50 flex w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] flex-col gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none max-h-[90dvh] overflow-y-auto data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
           className
         )}
         {...props}
