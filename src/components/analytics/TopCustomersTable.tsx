@@ -40,6 +40,10 @@ export function TopCustomersTable({
     )
   }
   return (
+    // landr-3qkr.6 — overflow-x-auto so the name+email+2-numeric columns
+    // scroll inside the analytics card on a 360px phone instead of being
+    // clipped by the page-level overflow-x-guard.
+    <div className="overflow-x-auto">
     <Table data-testid="top-customers-table">
       <TableHeader>
         <TableRow>
@@ -66,5 +70,6 @@ export function TopCustomersTable({
         ))}
       </TableBody>
     </Table>
+    </div>
   )
 }

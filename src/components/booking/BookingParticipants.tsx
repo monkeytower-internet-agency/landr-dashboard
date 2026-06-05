@@ -76,6 +76,10 @@ export function BookingParticipants({ bookingId, onContactClick }: Props) {
   return (
     <Card>
       <CardContent className="p-0">
+        {/* landr-3qkr.6 — overflow-x-auto so the participants table (name ·
+            role · email · phone) scrolls inside the card on a 360px phone
+            instead of being clipped by the page-level overflow-x-guard. */}
+        <div className="overflow-x-auto">
         <table
           className="w-full text-sm"
           data-testid="booking-participants-table"
@@ -118,6 +122,7 @@ export function BookingParticipants({ bookingId, onContactClick }: Props) {
             ))}
           </tbody>
         </table>
+        </div>
       </CardContent>
     </Card>
   )

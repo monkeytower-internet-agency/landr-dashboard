@@ -33,6 +33,7 @@ import { PlusIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { cn } from '@/lib/utils'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -52,6 +53,7 @@ import {
 } from '@/lib/booking-create'
 import { fetchProducts, type ProductRow } from '@/lib/products'
 import { useOperator } from '@/lib/operator'
+import { useBulkToolbar } from '@/lib/bulk-toolbar-context'
 
 // Same trivial regex the public widget uses for inline email validation —
 // keep it permissive (server is the source of truth) but enough to catch
@@ -65,6 +67,13 @@ function todayIsoDate(): string {
 export function QuickCaptureFab() {
   const { currentOperatorId } = useOperator()
   const [open, setOpen] = useState(false)
+  // landr-3qkr.7 — hide the FAB on small screens while the BulkActionToolbar
+  // is active. On a 360px phone the centered bulk toolbar (max-w ~359px) and
+  // the bottom-right FAB overlap, making both hard to tap. We hide the FAB
+  // below md (CSS `sm:block` restores it at ≥640px where overlap is unlikely).
+  // On desktop the toolbar uses sm:flex-nowrap and sm:rounded-full so both
+  // elements fit without collision — hence only hiding below sm/md.
+  const { bulkToolbarActive } = useBulkToolbar()
 
   // Hide the FAB until an operator is selected. The shell renders us
   // unconditionally inside the protected tree, but the operator context can
@@ -80,9 +89,18 @@ export function QuickCaptureFab() {
         size="icon-lg"
         aria-label="Quick capture booking"
         title="Quick capture booking"
-        className="fixed bottom-6 right-6 z-30 rounded-full shadow-lg"
+        // landr-3qkr.6 — bottom-safe-6 keeps the FAB clear of the
+        // home-indicator on notched phones (plain bottom-6 tucked it partly
+        // under the gesture bar). No-ops to 1.5rem where there's no inset.
+        // landr-3qkr.7 — when bulkToolbarActive, hide below sm to avoid
+        // the horizontal overlap with the centred BulkActionToolbar pill.
+        className={cn(
+          'fixed bottom-safe-6 right-6 z-30 rounded-full shadow-lg',
+          bulkToolbarActive && 'sm:flex hidden',
+        )}
         onClick={() => setOpen(true)}
         data-testid="quick-capture-fab"
+        data-bulk-hidden={bulkToolbarActive ? 'true' : undefined}
       >
         <PlusIcon className="size-5" aria-hidden />
       </Button>

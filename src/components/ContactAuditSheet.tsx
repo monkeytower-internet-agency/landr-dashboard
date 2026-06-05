@@ -14,6 +14,13 @@ import {
 } from '@/lib/contacts'
 import { useOperatorCalendarPrefs } from '@/lib/operator'
 import { t } from '@/lib/strings'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
+import {
+  mobileSheetContent,
+  mobileSheetHeader,
+  mobileSheetBody,
+} from '@/lib/mobile-sheet-classes'
 
 type Props = {
   contact: ContactRow | null
@@ -22,6 +29,7 @@ type Props = {
 
 export function ContactAuditSheet({ contact, onOpenChange }: Props) {
   const open = contact !== null
+  const isMobile = useIsMobile()
   // landr-f1s — respect time_format_24h for audit-log timestamps.
   const { hour12 } = useOperatorCalendarPrefs()
   const query = useQuery({
@@ -34,14 +42,17 @@ export function ContactAuditSheet({ contact, onOpenChange }: Props) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-md">
-        <SheetHeader>
+      {/* landr-3qkr.3 — full-screen below md. */}
+      <SheetContent className={cn('w-full sm:max-w-md', mobileSheetContent)}>
+        {/* landr-3qkr.3 — sticky header below md. */}
+        <SheetHeader className={cn('p-4', isMobile && mobileSheetHeader)}>
           <SheetTitle>{t.contacts.auditTitle}</SheetTitle>
           <SheetDescription>
             {contact ? contactNameDisplay(contact) : ''}
           </SheetDescription>
         </SheetHeader>
-        <div className="flex flex-col gap-2 px-4 pb-6">
+        {/* landr-3qkr.3 — pb-safe via mobileSheetBody. */}
+        <div className={cn('flex flex-col gap-2 px-4 pb-6', mobileSheetBody)}>
           {query.isPending ? (
             <p className="text-muted-foreground text-sm">
               {t.contacts.auditLoading}

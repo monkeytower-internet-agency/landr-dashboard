@@ -14,6 +14,14 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
+import {
+  mobileSheetContent,
+  mobileSheetHeader,
+  mobileSheetBody,
+  mobileSheetFooter,
+} from '@/lib/mobile-sheet-classes'
 import {
   STAFF_ROLE_OPTIONS,
   parsePermissions,
@@ -37,7 +45,10 @@ export function StaffEditSheet({ member, onOpenChange }: Props) {
   const open = member !== null
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-md">
+      {/* landr-3qkr.3 — full-screen below md. */}
+      <SheetContent
+        className={cn('w-full sm:max-w-md', mobileSheetContent)}
+      >
         {member ? (
           <StaffEditSheetBody
             key={member.id}
@@ -57,6 +68,7 @@ type BodyProps = {
 
 function StaffEditSheetBody({ member, onClose }: BodyProps) {
   const queryClient = useQueryClient()
+  const isMobile = useIsMobile()
   const [role, setRole] = useState(member.role)
   const [permissionsText, setPermissionsText] = useState(
     permissionsToText(member.permissions),
@@ -103,13 +115,14 @@ function StaffEditSheetBody({ member, onClose }: BodyProps) {
 
   return (
     <>
-      <SheetHeader>
+      {/* landr-3qkr.3 — sticky header below md with notch clearance. */}
+      <SheetHeader className={cn('p-4', isMobile && mobileSheetHeader)}>
         <SheetTitle>{t.staff.editTitle}</SheetTitle>
         <SheetDescription>{staffEmailDisplay(member)}</SheetDescription>
       </SheetHeader>
       <form
         onSubmit={handleSubmit}
-        className="flex flex-1 flex-col gap-4 overflow-y-auto px-4"
+        className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4', mobileSheetBody)}
         aria-label={t.staff.editTitle}
       >
         <div className="flex flex-col gap-1.5">
@@ -170,7 +183,8 @@ function StaffEditSheetBody({ member, onClose }: BodyProps) {
           )}
         </div>
       </form>
-      <SheetFooter>
+      {/* landr-3qkr.3 — sticky bottom bar on mobile. */}
+      <SheetFooter className={cn(isMobile ? mobileSheetFooter : 'p-4')}>
         <Button
           type="button"
           variant="outline"

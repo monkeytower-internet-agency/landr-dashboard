@@ -24,6 +24,7 @@ import {
   type BookingSemanticState,
 } from '@/lib/bookings'
 import { fetchAvailability, type AvailabilityRow } from '@/lib/availability'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { t } from '@/lib/strings'
 import { cn } from '@/lib/utils'
 
@@ -149,6 +150,15 @@ export function BookingsCalendar({
 }: Props) {
   const calendarRef = useRef<FullCalendar | null>(null)
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
+  // landr-3qkr.5 — on phones the month grid is unusable; default to agenda
+  // list mode when the viewport is <md. The toggle lets users switch back.
+  // Initialised to `true` on mobile; `false` on desktop. We use a lazy
+  // initial state so the hook value (which starts `false` on first paint) is
+  // read only once — switching from desktop to phone mid-session is not a
+  // supported scenario so the stale initial value on frame 1 is acceptable.
+  const [agendaMode, setAgendaMode] = useState(() => isMobile)
+
   const isControlled = controlledView !== undefined
   const [uncontrolledView, setUncontrolledView] = useState<CalendarView>(
     controlledView ?? initialView,
@@ -402,27 +412,63 @@ export function BookingsCalendar({
 
   return (
     <div className="flex flex-col gap-3">
-      <Tabs
-        value={view}
-        onValueChange={(next) => handleViewChange(next as CalendarView)}
-      >
-        <TabsList
-          className="flex items-center justify-end gap-1 border-0 bg-transparent p-0"
-        >
-          {(Object.keys(VIEW_LABEL) as CalendarView[]).map((v) => (
-            <TabsTrigger key={v} value={v} asChild>
-              <Button
-                type="button"
-                size="sm"
-                variant={view === v ? 'default' : 'outline'}
-              >
-                {VIEW_LABEL[v]}
-              </Button>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-      {showOffHoursToggle ? (
+      {/* Toolbar row: view-mode tabs on the left + agenda toggle on the right. */}
+      {/* landr-3qkr.6 — flex-wrap so that if a phone user switches to grid
+          mode the grid/list toggle + the Month/Week/Day view tabs wrap to a
+          second line instead of being clipped by the page overflow-x-guard.
+          Desktop is unchanged (wraps only when the row can't fit). */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* Grid/List toggle — shown always so users can switch on any screen.
+            On mobile it defaults to List; on desktop it defaults to Grid. */}
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant={!agendaMode ? 'default' : 'outline'}
+            onClick={() => setAgendaMode(false)}
+            data-testid="calendar-grid-toggle"
+            aria-pressed={!agendaMode}
+          >
+            {t.calendar.agendaToggleToGrid}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={agendaMode ? 'default' : 'outline'}
+            onClick={() => setAgendaMode(true)}
+            data-testid="calendar-agenda-toggle"
+            aria-pressed={agendaMode}
+          >
+            {t.calendar.agendaToggleToList}
+          </Button>
+        </div>
+
+        {/* Grid-view tab switcher — only when showing the calendar grid. */}
+        {!agendaMode ? (
+          <Tabs
+            value={view}
+            onValueChange={(next) => handleViewChange(next as CalendarView)}
+          >
+            <TabsList
+              className="flex items-center gap-1 border-0 bg-transparent p-0"
+            >
+              {(Object.keys(VIEW_LABEL) as CalendarView[]).map((v) => (
+                <TabsTrigger key={v} value={v} asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={view === v ? 'default' : 'outline'}
+                  >
+                    {VIEW_LABEL[v]}
+                  </Button>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        ) : null}
+      </div>
+
+      {!agendaMode && showOffHoursToggle ? (
         <div className="flex items-center justify-end">
           <Button
             type="button"
@@ -438,38 +484,218 @@ export function BookingsCalendar({
           </Button>
         </div>
       ) : null}
-      {/* landr-gu14 — tighter padding on phone so the FullCalendar grid
-          has more width to render day cells; desktop keeps the original
-          p-3 breathing room. */}
-      <div className="landr-fc rounded-md border p-1 sm:p-3">
-        <FullCalendar
-          ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView={isControlled ? controlledView : initialView}
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: '',
-          }}
-          height="auto"
-          firstDay={firstDayOfWeek}
-          weekNumbers={false}
-          editable={!!onReschedule}
-          eventStartEditable
-          eventDurationEditable={false}
-          events={fcEvents}
-          eventClick={handleEventClick}
-          eventDrop={handleEventDrop}
-          eventContent={renderEventContent}
-          datesSet={handleDatesSet}
-          dayCellContent={renderDayCellContent}
-          nowIndicator
-          slotMinTime={slotMinTime}
-          slotMaxTime={slotMaxTime}
-          slotLabelFormat={slotLabelFormat}
-          eventTimeFormat={eventTimeFormat}
+
+      {agendaMode ? (
+        // landr-3qkr.5 — agenda list: chronological, day-grouped. Same tap
+        // behaviour as the grid (calls onEventClick for the matching row).
+        <AgendaList
+          events={calendarEvents}
+          onEventClick={onEventClick}
+          onCustomerClick={onCustomerClick}
         />
+      ) : (
+        /* landr-gu14 — tighter padding on phone so the FullCalendar grid
+           has more width to render day cells; desktop keeps the original
+           p-3 breathing room. */
+        <div className="landr-fc rounded-md border p-1 sm:p-3">
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView={isControlled ? controlledView : initialView}
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: '',
+            }}
+            height="auto"
+            firstDay={firstDayOfWeek}
+            weekNumbers={false}
+            editable={!!onReschedule}
+            eventStartEditable
+            eventDurationEditable={false}
+            events={fcEvents}
+            eventClick={handleEventClick}
+            eventDrop={handleEventDrop}
+            eventContent={renderEventContent}
+            datesSet={handleDatesSet}
+            dayCellContent={renderDayCellContent}
+            nowIndicator
+            slotMinTime={slotMinTime}
+            slotMaxTime={slotMaxTime}
+            slotLabelFormat={slotLabelFormat}
+            eventTimeFormat={eventTimeFormat}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// landr-3qkr.5 — AgendaList: chronological, day-grouped list of bookings.
+//
+// Groups events by their start date (ISO YYYY-MM-DD) and renders each group
+// as a labelled section. Tapping a row calls onEventClick with the raw
+// BookingRow — identical to the calendar grid's click behaviour so the
+// parent's detail sheet flow is unchanged.
+
+const _agendaDateFormatter = new Intl.DateTimeFormat('en-IE', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+})
+
+function formatAgendaDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (!m) return iso
+  const [, y, mo, d] = m
+  const date = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d), 12))
+  return _agendaDateFormatter.format(date)
+}
+
+type AgendaListProps = {
+  events: BookingCalendarEvent[]
+  onEventClick?: (row: BookingRow) => void
+  onCustomerClick?: (contactId: string) => void
+}
+
+function AgendaList({ events, onEventClick, onCustomerClick }: AgendaListProps) {
+  // Group by start date (YYYY-MM-DD), sorted chronologically.
+  const groups = useMemo(() => {
+    const map = new Map<string, BookingCalendarEvent[]>()
+    const noDate: BookingCalendarEvent[] = []
+    for (const ev of events) {
+      const dateKey = ev.start ? ev.start.slice(0, 10) : null
+      if (!dateKey) {
+        noDate.push(ev)
+        continue
+      }
+      const existing = map.get(dateKey)
+      if (existing) {
+        existing.push(ev)
+      } else {
+        map.set(dateKey, [ev])
+      }
+    }
+    const sorted = Array.from(map.entries()).sort(([a], [b]) =>
+      a < b ? -1 : a > b ? 1 : 0,
+    )
+    return { sorted, noDate }
+  }, [events])
+
+  if (groups.sorted.length === 0 && groups.noDate.length === 0) {
+    return (
+      <p
+        className="text-muted-foreground py-8 text-center text-sm"
+        data-testid="calendar-agenda-empty"
+      >
+        {t.calendar.agendaEmpty}
+      </p>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-1" data-testid="calendar-agenda-list">
+      {groups.sorted.map(([dateKey, dayEvents]) => (
+        <AgendaDay
+          key={dateKey}
+          dateKey={dateKey}
+          events={dayEvents}
+          onEventClick={onEventClick}
+          onCustomerClick={onCustomerClick}
+        />
+      ))}
+      {groups.noDate.length > 0 ? (
+        <AgendaDay
+          key="__no-date__"
+          dateKey={null}
+          events={groups.noDate}
+          onEventClick={onEventClick}
+          onCustomerClick={onCustomerClick}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+type AgendaDayProps = {
+  dateKey: string | null
+  events: BookingCalendarEvent[]
+  onEventClick?: (row: BookingRow) => void
+  onCustomerClick?: (contactId: string) => void
+}
+
+function AgendaDay({ dateKey, events, onEventClick, onCustomerClick }: AgendaDayProps) {
+  const dateLabel = dateKey ? formatAgendaDate(dateKey) : t.calendar.agendaNoDate
+  return (
+    <div data-testid={`agenda-day-${dateKey ?? 'no-date'}`}>
+      <div className="bg-muted/40 border-t px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+        {dateLabel}
+      </div>
+      <div className="divide-y">
+        {events.map((ev) => (
+          <AgendaRow
+            key={ev.id}
+            event={ev}
+            onEventClick={onEventClick}
+            onCustomerClick={onCustomerClick}
+          />
+        ))}
       </div>
     </div>
+  )
+}
+
+type AgendaRowProps = {
+  event: BookingCalendarEvent
+  onEventClick?: (row: BookingRow) => void
+  onCustomerClick?: (contactId: string) => void
+}
+
+function AgendaRow({ event, onEventClick, onCustomerClick }: AgendaRowProps) {
+  const state = event.state
+  const cls = STATE_CLASS[state]
+  const contactId = event.raw.customer?.id ?? null
+
+  return (
+    <button
+      type="button"
+      data-testid="agenda-row"
+      data-state={state}
+      data-booking-id={event.id}
+      onClick={() => onEventClick?.(event.raw)}
+      className={cn(
+        'flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/20 min-h-[44px]',
+      )}
+    >
+      {/* State colour strip */}
+      <span
+        className={cn(
+          'mt-0.5 h-full w-1 shrink-0 rounded-full border',
+          cls,
+        )}
+        aria-hidden="true"
+      />
+      <div className="min-w-0 flex-1">
+        {contactId && event.customerName && onCustomerClick ? (
+          <CustomerNameLink
+            contactId={contactId}
+            display={event.customerName}
+            onClick={onCustomerClick}
+            className="truncate font-medium text-sm"
+          />
+        ) : (
+          <span className="truncate font-medium text-sm block">
+            {event.title}
+          </span>
+        )}
+        {event.productName ? (
+          <span className="truncate text-xs text-muted-foreground block">
+            {event.productName}
+          </span>
+        ) : null}
+      </div>
+    </button>
   )
 }
