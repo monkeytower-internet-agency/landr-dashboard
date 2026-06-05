@@ -29,6 +29,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { cn } from '@/lib/utils'
+import {
+  mobileSheetContent,
+  mobileSheetHeader,
+  mobileSheetBody,
+} from '@/lib/mobile-sheet-classes'
 import {
   createRule,
   fetchPricingSchemeTree,
@@ -64,7 +70,10 @@ export function PricingSchemeEditorSheet({ schemeId, operatorId, onClose }: Prop
   const open = schemeId !== null
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <SheetContent className="w-full sm:max-w-lg flex flex-col overflow-hidden">
+      {/* landr-3qkr.3 — full-screen below md. */}
+      <SheetContent
+        className={cn('w-full sm:max-w-lg flex flex-col overflow-hidden', mobileSheetContent)}
+      >
         {schemeId ? (
           <PricingSchemeEditorBody
             key={schemeId}
@@ -274,7 +283,8 @@ function SchemeEditor({ scheme, operatorId, onRefetch }: EditorProps) {
 
   return (
     <>
-      <SheetHeader className="border-b pb-4">
+      {/* landr-3qkr.3 — sticky header below md; border-b already present. */}
+      <SheetHeader className={cn('border-b pb-4 px-4 pt-4', mobileSheetHeader)}>
         <div className="flex items-center gap-2 flex-wrap">
           <Input
             className="h-8 text-base font-semibold flex-1 min-w-0"
@@ -317,7 +327,8 @@ function SchemeEditor({ scheme, operatorId, onRefetch }: EditorProps) {
         </SheetDescription>
       </SheetHeader>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      {/* landr-3qkr.3 — pb-safe added via mobileSheetBody. */}
+      <div className={cn('flex-1 overflow-y-auto px-4 py-4 space-y-4', mobileSheetBody)}>
         {/* Notes */}
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Notes</Label>

@@ -15,6 +15,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
+import {
+  mobileSheetContent,
+  mobileSheetHeader,
+  mobileSheetBody,
+  mobileSheetFooter,
+} from '@/lib/mobile-sheet-classes'
 import {
   clearCustomOffer,
   fetchCustomOffer,
@@ -57,7 +65,10 @@ export function CustomOfferEditorSheet({ bookingId, operatorId, onClose }: Props
   const open = bookingId !== null
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <SheetContent className="w-full sm:max-w-lg flex flex-col overflow-hidden">
+      {/* landr-3qkr.3 — full-screen below md. */}
+      <SheetContent
+        className={cn('w-full sm:max-w-lg flex flex-col overflow-hidden', mobileSheetContent)}
+      >
         {bookingId ? (
           <CustomOfferEditorBody
             key={bookingId}
@@ -78,6 +89,7 @@ type BodyProps = {
 }
 
 function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
+  const isMobile = useIsMobile()
   const qc = useQueryClient()
   const queryKey = ['custom-offer', operatorId, bookingId] as const
 
@@ -225,12 +237,14 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
 
   return (
     <>
-      <SheetHeader>
+      {/* landr-3qkr.3 — sticky header below md with notch clearance. */}
+      <SheetHeader className={cn('p-4', isMobile && mobileSheetHeader)}>
         <SheetTitle>{t.bookings.customOffer.title}</SheetTitle>
         <SheetDescription>{t.bookings.customOffer.description}</SheetDescription>
       </SheetHeader>
 
-      <div className="flex-1 overflow-y-auto px-1 py-2 flex flex-col gap-4">
+      {/* landr-3qkr.3 — pb-safe via mobileSheetBody. */}
+      <div className={cn('flex-1 overflow-y-auto px-1 py-2 flex flex-col gap-4', mobileSheetBody)}>
         {/* ---- Per-participant lines ---- */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
@@ -383,7 +397,11 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
         </div>
       </div>
 
-      <SheetFooter className="flex flex-row items-center justify-between gap-2 border-t pt-3">
+      {/* landr-3qkr.3 — sticky bottom bar on mobile. */}
+      <SheetFooter className={cn(
+        'flex flex-row items-center justify-between gap-2 border-t pt-3',
+        isMobile ? mobileSheetFooter : 'px-4 py-3',
+      )}>
         {data.custom_offer_applied ? (
           <Button
             type="button"

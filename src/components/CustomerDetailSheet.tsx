@@ -7,6 +7,15 @@ import { z } from 'zod'
 
 import { useAuth } from '@/lib/auth'
 import { trackView } from '@/lib/recently-viewed'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
+import {
+  mobileSheetContent,
+  mobileSheetHeader,
+  mobileSheetBody,
+  mobileSheetTabStrip,
+  mobileSheetFooter,
+} from '@/lib/mobile-sheet-classes'
 
 import {
   AlertDialog,
@@ -110,7 +119,13 @@ export function CustomerDetailSheet({ contactId, onOpenChange }: Props) {
       {/* landr-li8e — widen to ~60vw on desktop so the contact form +
           history have room to breathe. Stays as Sheet (not modal) so the
           contacts list behind it remains visible for quick triage. */}
-      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-[60vw]">
+      {/* landr-3qkr.3 — full-screen below md. */}
+      <SheetContent
+        className={cn(
+          'flex w-full flex-col gap-0 sm:max-w-[60vw]',
+          mobileSheetContent,
+        )}
+      >
         {contactId ? (
           <CustomerDetailBody
             key={contactId}
@@ -133,6 +148,7 @@ type ActiveTab = 'details' | 'bookings'
 function CustomerDetailBody({ contactId, onClose }: BodyProps) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
+  const isMobile = useIsMobile()
   const [showDiscard, setShowDiscard] = useState(false)
   // landr-7o2a — Details vs Bookings tab. Defaults to Details so the most
   // common operator interaction (editing the contact) stays one click away.
@@ -169,7 +185,8 @@ function CustomerDetailBody({ contactId, onClose }: BodyProps) {
 
   return (
     <>
-      <SheetHeader>
+      {/* landr-3qkr.3 — sticky header below md with notch clearance. */}
+      <SheetHeader className={cn('p-4', isMobile && mobileSheetHeader)}>
         <div className="flex items-center justify-between gap-2">
           <SheetTitle>{t.customerDetail.title}</SheetTitle>
           {/* landr-a8fg — shareable deep-link to this contact. Uses the
@@ -190,10 +207,11 @@ function CustomerDetailBody({ contactId, onClose }: BodyProps) {
         // landr-7o2a — Details / Bookings tab strip. Built on the shared
         // shadcn Tabs primitive (landr-maat). Panels render conditionally
         // below so the form/sheet flex layout stays intact.
+        // landr-3qkr.3 — horizontally scrollable on mobile.
         <Tabs
           value={activeTab}
           onValueChange={(next) => setActiveTab(next as ActiveTab)}
-          className="mx-4 mt-2 w-fit shrink-0 self-start"
+          className={cn('mx-4 mt-2 w-fit shrink-0 self-start', mobileSheetTabStrip)}
         >
           <TabsList variant="pill" aria-label={t.customerDetail.title}>
             <TabsTrigger
@@ -233,13 +251,17 @@ function CustomerDetailBody({ contactId, onClose }: BodyProps) {
         <div
           role="tabpanel"
           aria-label={t.customerDetail.bookings.tabBookings}
-          className="flex flex-1 flex-col overflow-hidden"
+          className={cn('flex flex-1 flex-col overflow-hidden', mobileSheetBody)}
         >
           <CustomerBookings
             contactId={contactId}
             onBookingClick={(row) => setActiveBooking(row)}
           />
-          <SheetFooter className="flex flex-row items-center justify-end gap-2 border-t">
+          {/* landr-3qkr.3 — sticky bottom bar on mobile. */}
+          <SheetFooter className={cn(
+            'flex flex-row items-center justify-end gap-2 border-t',
+            isMobile ? mobileSheetFooter : 'p-4',
+          )}>
             <Button type="button" variant="outline" onClick={onClose}>
               {t.customerDetail.close}
             </Button>
@@ -344,12 +366,13 @@ function CustomerEditForm({
     return all
   })()
 
+  const isMobile = useIsMobile()
   return (
     <>
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(handleSubmit)}
-          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2"
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2', mobileSheetBody)}
           aria-label={t.customerDetail.title}
         >
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -478,7 +501,11 @@ function CustomerEditForm({
         </form>
       </Form>
 
-      <SheetFooter className="flex flex-row items-center justify-end gap-2 border-t">
+      {/* landr-3qkr.3 — sticky bottom bar on mobile. */}
+      <SheetFooter className={cn(
+        'flex flex-row items-center justify-end gap-2 border-t',
+        isMobile ? mobileSheetFooter : 'p-4',
+      )}>
         <Button
           type="button"
           variant="outline"

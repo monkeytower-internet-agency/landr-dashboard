@@ -56,6 +56,13 @@ import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
 import { supabase } from '@/lib/supabase'
+import { useIsMobile } from '@/hooks/use-mobile'
+import {
+  mobileSheetContent,
+  mobileSheetHeader,
+  mobileSheetBody,
+  mobileSheetTabStrip,
+} from '@/lib/mobile-sheet-classes'
 import {
   fetchNotificationPrefs,
   fetchTicketNotifySettings,
@@ -137,7 +144,13 @@ export function TicketDetailSheet({ ticket, onOpenChange }: Props) {
   const open = ticket !== null
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-[52rem]">
+      {/* landr-3qkr.3 — full-screen below md. */}
+      <SheetContent
+        className={cn(
+          'flex w-full flex-col gap-0 sm:max-w-[52rem]',
+          mobileSheetContent,
+        )}
+      >
         {ticket ? (
           <TicketDetailBody
             key={ticket.id}
@@ -160,6 +173,7 @@ type BodyProps = {
 function TicketDetailBody({ ticket, onClose }: BodyProps) {
   const { user: authUser } = useAuth()
   const qc = useQueryClient()
+  const isMobile = useIsMobile()
   // Comments is the primary tab — open first.
   const [activeTab, setActiveTab] = useState<Tab>('comments')
 
@@ -251,7 +265,8 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
 
   return (
     <>
-      <SheetHeader>
+      {/* landr-3qkr.3 — sticky header below md with notch clearance. */}
+      <SheetHeader className={cn('p-4', isMobile && mobileSheetHeader)}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-start gap-2 flex-wrap">
@@ -325,11 +340,12 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
         </div>
       </SheetHeader>
 
-      {/* Tab strip — Comments first */}
+      {/* Tab strip — Comments first.
+          landr-3qkr.3 — horizontally scrollable on mobile. */}
       <Tabs
         value={activeTab}
         onValueChange={(v) => setActiveTab(v as Tab)}
-        className="mx-4 mt-2 w-fit shrink-0 self-start"
+        className={cn('mx-4 mt-2 w-fit shrink-0 self-start', mobileSheetTabStrip)}
       >
         <TabsList variant="pill" aria-label={t.ticketDetail.sheetTitle}>
           <TabsTrigger
@@ -363,12 +379,12 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
         </TabsList>
       </Tabs>
 
-      {/* Tab panels */}
+      {/* Tab panels — landr-3qkr.3: mobileSheetBody adds pb-safe on phones. */}
       {activeTab === 'comments' ? (
         <div
           role="tabpanel"
           aria-label={t.ticketDetail.tabComments}
-          className="flex flex-1 flex-col overflow-hidden"
+          className={cn('flex flex-1 flex-col overflow-hidden', mobileSheetBody)}
         >
           <CommentsPanel
             ticketId={ticket.id}
@@ -379,7 +395,7 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
         <div
           role="tabpanel"
           aria-label={t.ticketDetail.tabDetails}
-          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4 pt-3"
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4 pt-3', mobileSheetBody)}
         >
           <DetailsPanel
             ticket={ticket}
@@ -400,7 +416,7 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
         <div
           role="tabpanel"
           aria-label={t.ticketDetail.tabTimeline}
-          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4 pt-3"
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4 pt-3', mobileSheetBody)}
         >
           <TimelinePanel ticketId={ticket.id} />
         </div>
@@ -408,7 +424,7 @@ function TicketDetailBody({ ticket, onClose }: BodyProps) {
         <div
           role="tabpanel"
           aria-label={t.ticketDetail.tabAttachments}
-          className="flex flex-1 flex-col overflow-hidden"
+          className={cn('flex flex-1 flex-col overflow-hidden', mobileSheetBody)}
         >
           <AttachmentsPanel
             ticketId={ticket.id}
