@@ -485,7 +485,7 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
                     className={cn(
                       'rounded-md px-3 py-1 text-xs font-medium transition',
                       selected
-                        ? 'bg-background text-foreground shadow-sm'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
                         : 'text-muted-foreground hover:text-foreground',
                       saving && 'opacity-60',
                     )}
@@ -548,14 +548,14 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
                     className={cn(
                       'flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition',
                       selected
-                        ? 'bg-background text-foreground shadow-sm'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
                         : 'text-muted-foreground hover:text-foreground',
                       saving && 'opacity-60',
                     )}
                   >
                     <span
                       aria-hidden="true"
-                      className={cn('bg-primary/70 size-3.5', o.swatch)}
+                      className={cn(selected ? 'bg-primary-foreground/90' : 'bg-primary/70', 'size-3.5', o.swatch)}
                     />
                     {o.label}
                   </button>
@@ -588,14 +588,14 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
                     className={cn(
                       'flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition',
                       selected
-                        ? 'bg-background text-foreground shadow-sm'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
                         : 'text-muted-foreground hover:text-foreground',
                       saving && 'opacity-60',
                     )}
                   >
                     <span
                       aria-hidden="true"
-                      className={cn('bg-primary/70 w-4 rounded-[2px]', o.swatch)}
+                      className={cn(selected ? 'bg-primary-foreground/90' : 'bg-primary/70', 'w-4 rounded-[2px]', o.swatch)}
                     />
                     {o.label}
                   </button>
