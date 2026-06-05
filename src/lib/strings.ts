@@ -634,6 +634,9 @@ export const t = {
     emptyRail: 'No operators with feedback yet.',
     emptyThreads: 'No threads match the current filters.',
     emptyThreadsNoFilter: 'No feedback threads from this operator yet.',
+    // landr-3qkr.6 — mobile single-pane: return from the thread pane to the
+    // operator rail (only shown below md).
+    backToInbox: 'Inbox',
     // Left-rail operator row
     unreadBadge: (n: number): string => `${n} unread`,
     awaitingBadge: (n: number): string => `${n} awaiting reply`,

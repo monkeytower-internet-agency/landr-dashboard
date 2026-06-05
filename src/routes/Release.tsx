@@ -828,7 +828,10 @@ function EnvironmentMatrix({
         {repos.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t.release.matrixEmpty}</p>
         ) : (
-          <div className="rounded-md border">
+          // landr-3qkr.6 — overflow-x-auto so the promotion matrix (repo +
+          // dev→staging + staging→main + local cols) scrolls horizontally on a
+          // 360px phone instead of being clipped by the page overflow-x-guard.
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>

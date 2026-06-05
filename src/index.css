@@ -273,6 +273,19 @@
   padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
 }
 
+/* landr-3qkr.6 — bottom OFFSET for `position: fixed` floating chrome (the
+   bulk-action toolbar, the quick-capture FAB). Padding can't lift a fixed
+   element off the home-indicator — its `bottom` anchor has to include the
+   inset. These mirror the bottom-4 / bottom-6 Tailwind steps but add the
+   gesture-bar inset so the floating control never sits under it on a notched
+   phone. They no-op to the plain rem on devices without insets. */
+@utility bottom-safe-4 {
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+@utility bottom-safe-6 {
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+}
+
 /* landr-3qkr.1 — global no-horizontal-page-scroll guard. The epic's hard
    rule is "no horizontal page scroll EVER". `min-w-0` on the flex inset lets
    the column shrink, but a single mis-sized child (a wide table header, an

@@ -466,7 +466,10 @@ export function GeneralApprovals() {
         title={t.generalApprovals.title}
         subtitle={t.generalApprovals.subtitleCount(pendingCount)}
       />
-      <header className="flex items-center justify-between gap-4">
+      {/* landr-3qkr.6 — flex-wrap so the title+badge and the Export CSV
+          button drop to two lines on a 360px phone instead of being clipped
+          when the localized title is long. Desktop stays single-row. */}
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">{t.generalApprovals.title}</h1>
           {pendingCount > 0 ? (

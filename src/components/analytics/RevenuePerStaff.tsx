@@ -41,6 +41,9 @@ export function RevenuePerStaff({
     )
   }
   return (
+    // landr-3qkr.6 — overflow-x-auto so the name + 3 numeric columns scroll
+    // inside the analytics card on a 360px phone instead of being clipped.
+    <div className="overflow-x-auto">
     <Table data-testid="revenue-per-staff-table">
       <TableHeader>
         <TableRow>
@@ -67,5 +70,6 @@ export function RevenuePerStaff({
         ))}
       </TableBody>
     </Table>
+    </div>
   )
 }

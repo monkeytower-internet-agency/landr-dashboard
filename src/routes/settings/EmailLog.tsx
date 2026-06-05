@@ -286,7 +286,11 @@ export function EmailLog() {
       ) : rows.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t.emailLog.empty}</p>
       ) : (
-        <Table>
+        // landr-3qkr.6 — overflow-x-auto so the 5-column email log scrolls
+        // horizontally inside its own container on a 360px phone instead of
+        // being clipped by the page-level overflow-x-guard.
+        <div className="overflow-x-auto rounded-md border">
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t.emailLog.columnSubject}</TableHead>
@@ -330,7 +334,8 @@ export function EmailLog() {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+          </Table>
+        </div>
       )}
 
       <EmailLogDrawer

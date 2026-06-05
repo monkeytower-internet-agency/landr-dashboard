@@ -110,7 +110,10 @@ export function BulkActionToolbar({
         // the 375px viewport. Allow wrapping + cap width via max-w so the
         // pill stays on-screen; desktop keeps the original single-row look
         // via sm:flex-nowrap.
-        className="fixed bottom-4 left-1/2 z-50 flex max-w-[calc(100vw-1rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-2xl border bg-background px-3 py-2 shadow-lg sm:max-w-none sm:flex-nowrap sm:rounded-full"
+        // landr-3qkr.6 — bottom-safe-4 lifts the floating pill above the
+        // home-indicator on notched phones (plain bottom-4 left it under the
+        // gesture bar). Same 1rem offset on devices without insets.
+        className="fixed bottom-safe-4 left-1/2 z-50 flex max-w-[calc(100vw-1rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-2xl border bg-background px-3 py-2 shadow-lg sm:max-w-none sm:flex-nowrap sm:rounded-full"
       >
         <span
           className="text-sm font-medium pl-2"

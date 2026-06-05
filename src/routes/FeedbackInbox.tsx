@@ -33,11 +33,13 @@ import {
   InboxIcon,
   MessageSquareIcon,
   ArrowUpRightIcon,
+  ChevronLeftIcon,
   UserIcon,
 } from 'lucide-react'
 import { OriginChip, CardStatusIcons } from '@/components/tickets/CardVisuals'
 
 import { PageTitle } from '@/lib/page-title'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { t } from '@/lib/strings'
 import { cn } from '@/lib/utils'
 import { contactDateTime } from '@/lib/contacts'
@@ -614,6 +616,13 @@ function FeedbackInboxInner() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
+  // landr-3qkr.6 — on a phone the rail + main pane can't sit side-by-side
+  // (the w-60 rail would crush the thread pane to ~120px). Below md we show
+  // ONE pane at a time: the operator rail until a lane is picked, then the
+  // thread pane with a Back button. isMobile only gates the auto-select (so
+  // mobile lands on the rail first); the pane visibility is pure CSS so it's
+  // right on first paint without waiting for matchMedia.
+  const isMobile = useIsMobile()
 
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(
     null,
@@ -763,8 +772,11 @@ function FeedbackInboxInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openTicketId])
 
-  // Auto-select first operator once summaries load
-  if (selectedOperatorId === null && summaries.length > 0) {
+  // Auto-select first operator once summaries load. landr-3qkr.6 — desktop
+  // only: on a phone we leave the rail un-selected so the operator picks a
+  // lane first (single-pane), rather than being dropped straight into the
+  // first lane's threads with no visible way back to the list.
+  if (!isMobile && selectedOperatorId === null && summaries.length > 0) {
     const first = summaries[0]
     if (first) setSelectedOperatorId(first.operator_id)
   }
@@ -790,8 +802,14 @@ function FeedbackInboxInner() {
 
       <div className="flex h-full min-h-0 overflow-hidden">
         {/* ---- Left rail --------------------------------------------------- */}
+        {/* landr-3qkr.6 — full-width on a phone (single-pane), fixed w-60 from
+            md up. Once a lane is selected the rail hides below md so the
+            thread pane gets the whole screen; desktop always shows both. */}
         <aside
-          className="flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto border-r p-2"
+          className={cn(
+            'flex w-full shrink-0 flex-col gap-0.5 overflow-y-auto p-2 md:w-60 md:border-r',
+            selectedOperatorId !== null && 'hidden md:flex',
+          )}
           data-testid="inbox-left-rail"
           aria-label={t.feedbackInbox.title}
         >
@@ -832,8 +850,14 @@ function FeedbackInboxInner() {
         </aside>
 
         {/* ---- Main pane --------------------------------------------------- */}
+        {/* landr-3qkr.6 — hidden below md until a lane is selected, so the
+            phone shows the rail first; once a lane is picked it takes the
+            whole screen. Always visible from md up (desktop master-detail). */}
         <main
-          className="flex min-w-0 flex-1 flex-col overflow-y-auto p-4 gap-4"
+          className={cn(
+            'min-w-0 flex-1 flex-col overflow-y-auto p-4 gap-4 md:flex',
+            selectedOperatorId === null ? 'hidden' : 'flex',
+          )}
           data-testid="inbox-main-pane"
         >
           {/* Placeholder when no operator is selected */}
@@ -853,8 +877,23 @@ function FeedbackInboxInner() {
             <>
               {/* Operator header row */}
               <div className="flex items-center justify-between gap-2 border-b pb-3">
-                <div>
-                  <h1 className="text-base font-semibold">
+                <div className="flex min-w-0 items-center gap-2">
+                  {/* landr-3qkr.6 — mobile-only back affordance: returns to the
+                      operator rail (single-pane on phones). Hidden from md up
+                      where both panes are visible side-by-side. */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-2 shrink-0 md:hidden"
+                    onClick={() => setSelectedOperatorId(null)}
+                    data-testid="inbox-back-to-rail"
+                  >
+                    <ChevronLeftIcon className="size-4" aria-hidden />
+                    {t.feedbackInbox.backToInbox}
+                  </Button>
+                  <div className="min-w-0">
+                  <h1 className="truncate text-base font-semibold">
                     {selectedSummary?.operator_name ??
                       selectedSummary?.operator_slug ??
                       selectedOperatorId.slice(0, 8)}
@@ -886,6 +925,7 @@ function FeedbackInboxInner() {
                       )}
                     </p>
                   )}
+                  </div>
                 </div>
               </div>
 

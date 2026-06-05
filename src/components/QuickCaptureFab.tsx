@@ -80,7 +80,10 @@ export function QuickCaptureFab() {
         size="icon-lg"
         aria-label="Quick capture booking"
         title="Quick capture booking"
-        className="fixed bottom-6 right-6 z-30 rounded-full shadow-lg"
+        // landr-3qkr.6 — bottom-safe-6 keeps the FAB clear of the
+        // home-indicator on notched phones (plain bottom-6 tucked it partly
+        // under the gesture bar). No-ops to 1.5rem where there's no inset.
+        className="fixed bottom-safe-6 right-6 z-30 rounded-full shadow-lg"
         onClick={() => setOpen(true)}
         data-testid="quick-capture-fab"
       >
