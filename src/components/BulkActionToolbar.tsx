@@ -14,7 +14,7 @@
 // it forwards (selectedIds) to each handler. Parent routes do the
 // Promise.all + toast.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Download, Mail, Tag as TagIcon, X } from 'lucide-react'
 
 import {
@@ -33,6 +33,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { TagPicker } from '@/components/tags/TagPicker'
+import { useBulkToolbar } from '@/lib/bulk-toolbar-context'
 import { t } from '@/lib/strings'
 
 export type BulkAction =
@@ -92,6 +93,19 @@ export function BulkActionToolbar({
   const [tagPopoverOpen, setTagPopoverOpen] = useState(false)
   const [tagSelection, setTagSelection] = useState<string[]>([])
   const count = selectedIds.length
+
+  // landr-3qkr.7 — signal active state so QuickCaptureFab can hide itself
+  // below md while this toolbar is on screen (prevents horizontal overlap).
+  const { setBulkToolbarActive } = useBulkToolbar()
+  useEffect(() => {
+    const active = count > 0
+    setBulkToolbarActive(active)
+    return () => {
+      // When this toolbar unmounts (route change / selection cleared),
+      // mark it inactive so the FAB can reappear.
+      setBulkToolbarActive(false)
+    }
+  }, [count, setBulkToolbarActive])
 
   if (count === 0) return null
 

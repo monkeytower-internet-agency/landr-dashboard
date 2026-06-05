@@ -22,9 +22,11 @@ import { TierBadge } from '@/components/TierBadge'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { WidgetButton } from '@/components/WidgetButton'
 import { PageTitleDisplay } from '@/components/topbar/PageTitleDisplay'
+import { TopbarMoreMenu } from '@/components/topbar/TopbarMoreMenu'
 import { CommandPaletteProvider } from '@/lib/command-palette-context'
 import { KeyboardShortcutsHelpProvider } from '@/lib/keyboard-shortcuts-help-context'
 import { PageTitleProvider } from '@/lib/page-title'
+import { BulkToolbarProvider } from '@/lib/bulk-toolbar-context'
 import { ReportFabProvider } from '@/lib/report-fab-context'
 import { SidebarModeProvider } from '@/lib/sidebar-mode-context'
 import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
@@ -103,10 +105,17 @@ function AppShellInner({ children }: { children: ReactNode }) {
                 env-matched widget host to prevent the wrong-env/token CORS
                 incident (staff opening bw.landr.de with a dev token). */}
             <WidgetButton />
+            {/* landr-3qkr.7 — overflow menu: below md, ThemeToggle + ReportFab
+                collapse into this single ellipsis trigger to reclaim ~64px in
+                the topbar right-cluster on 360px phones. ErrorHistoryBell stays
+                in-line (icon-only, 32px) because it runs its own Radix
+                DropdownMenu and cannot be nested inside another. */}
+            <TopbarMoreMenu />
             {/* landr-wwhn.12 — persistent report/suggest button. Lives in
                 the topbar right-cluster so it's reachable from every
-                protected route without eating FAB real estate. */}
-            <ReportFab />
+                protected route without eating FAB real estate.
+                landr-3qkr.7 — hidden below md; surfaced via TopbarMoreMenu. */}
+            <ReportFab className="hidden md:flex" />
             {/* landr-40x0 — recent-errors history. Badge shows capture count;
                 dropdown lists errors with Copy + Report per row. Sits between
                 the feedback button and the notifications bell so error-capture
@@ -116,7 +125,8 @@ function AppShellInner({ children }: { children: ReactNode }) {
                 topbar reads left→right as: scope (operator) · title ·
                 quick-actions (feedback · errors · notifications · theme · account). */}
             <NotificationsBell />
-            <ThemeToggle />
+            {/* landr-3qkr.7 — hidden below md; surfaced via TopbarMoreMenu. */}
+            <ThemeToggle className="hidden md:flex" />
             <UserMenu />
           </div>
         </header>
@@ -163,15 +173,21 @@ function AppShellInner({ children }: { children: ReactNode }) {
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <ReportFabProvider>
-      <SidebarModeProvider>
-        <PageTitleProvider>
-          <CommandPaletteProvider>
-            <KeyboardShortcutsHelpProvider>
-              <AppShellInner>{children}</AppShellInner>
-            </KeyboardShortcutsHelpProvider>
-          </CommandPaletteProvider>
-        </PageTitleProvider>
-      </SidebarModeProvider>
+      {/* landr-3qkr.7 — BulkToolbarProvider lets BulkActionToolbar signal
+          its active state up to QuickCaptureFab (which is mounted outside the
+          route tree). Both components call useBulkToolbar(); the context
+          avoids prop-threading through the router → AppShell boundary. */}
+      <BulkToolbarProvider>
+        <SidebarModeProvider>
+          <PageTitleProvider>
+            <CommandPaletteProvider>
+              <KeyboardShortcutsHelpProvider>
+                <AppShellInner>{children}</AppShellInner>
+              </KeyboardShortcutsHelpProvider>
+            </CommandPaletteProvider>
+          </PageTitleProvider>
+        </SidebarModeProvider>
+      </BulkToolbarProvider>
     </ReportFabProvider>
   )
 }
