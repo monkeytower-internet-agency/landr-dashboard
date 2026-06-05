@@ -1622,6 +1622,11 @@ export const t = {
     // that date + product.
     capacityPillAria: (reserved: number, capacity: number, date: string) =>
       `${reserved} of ${capacity} reserved on ${date}. Open schedule editor.`,
+    // landr-3qkr.5 — mobile agenda list mode.
+    agendaToggleToGrid: 'Grid',
+    agendaToggleToList: 'List',
+    agendaEmpty: 'No upcoming bookings.',
+    agendaNoDate: 'Unscheduled',
   },
   contacts: {
     title: 'Contacts',

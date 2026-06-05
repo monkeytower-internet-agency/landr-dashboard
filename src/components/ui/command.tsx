@@ -55,8 +55,20 @@ function CommandDialog({
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
+      {/* landr-3qkr.5 — mobile: full-width near-top sheet style.
+          On phones (<md) the dialog anchors near the top of the screen
+          (top-4, translate-y-0) and spans the full width minus 1rem gutters
+          so it feels like a bottom/top sheet rather than a tiny centred box.
+          On desktop (md+) the standard centred dialog look is restored. */}
       <DialogContent
-        className={cn('overflow-hidden p-0', className)}
+        className={cn(
+          'overflow-hidden p-0',
+          // Mobile positioning: anchor near top, full-width with gutters.
+          'top-4 translate-y-0 max-h-[80dvh]',
+          // Desktop: restore centred positioning.
+          'md:top-[50%] md:translate-y-[-50%] md:max-h-[90dvh]',
+          className,
+        )}
         showCloseButton={showCloseButton}
       >
         <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:size-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:size-5">
@@ -74,7 +86,8 @@ function CommandInput({
   return (
     <div
       data-slot="command-input-wrapper"
-      className="flex h-9 items-center gap-2 border-b px-3"
+      // landr-3qkr.5 — min-h-11 (44px) for touch targets; desktop keeps h-9.
+      className="flex min-h-11 items-center gap-2 border-b px-3"
       cmdk-input-wrapper=""
     >
       <SearchIcon className="size-4 shrink-0 opacity-50" />
