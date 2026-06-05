@@ -1,18 +1,15 @@
 import { useCallback, useMemo, useState } from 'react'
 import {
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type Row,
   type SortingState,
 } from '@tanstack/react-table'
 import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
   CalendarIcon,
   ClockIcon,
   Trash2Icon,
@@ -23,17 +20,9 @@ import { BulkActionToolbar } from '@/components/BulkActionToolbar'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ContactRowContextMenu } from '@/components/contacts/ContactRowContextMenu'
+import { DataTable } from '@/components/DataTable'
+import { selectColumn } from '@/components/data-table-select'
 import { EmptyState } from '@/components/EmptyState'
-import { Input } from '@/components/ui/input'
-import { SkeletonTableRows } from '@/components/SkeletonTableRows'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import {
   contactBookingWindow,
   contactDate,
@@ -63,6 +52,97 @@ type Props = {
    */
   globalFilter?: string
   onGlobalFilterChange?: (next: string) => void
+}
+
+// landr-6993 — booking-window indicator next to the contact name. Shared by
+// the desktop name cell and the mobile card so the dot logic stays in one
+// place.
+function NextBookingIcon({ row }: { row: ContactRow }) {
+  const window = contactBookingWindow(row)
+  const dateLabel = row.next_booking_date
+    ? contactDate(row.next_booking_date)
+    : null
+  const showIcon = window !== 'none' && !!dateLabel
+  if (!showIcon) return null
+  return (
+    <span
+      title={t.contacts.filters.iconNextBookingTooltip(dateLabel as string)}
+      data-testid={`contacts-next-booking-${window}-${row.id}`}
+      className="inline-flex shrink-0 items-center"
+    >
+      <CalendarIcon
+        aria-label={
+          window === 'today'
+            ? t.contacts.filters.iconTodayAria
+            : t.contacts.filters.iconFutureAria
+        }
+        className={
+          window === 'today'
+            ? 'size-3.5 text-emerald-600'
+            : 'size-3.5 text-sky-600'
+        }
+      />
+    </span>
+  )
+}
+
+function ContactStatusBadge({ erased }: { erased: boolean }) {
+  return (
+    <span
+      data-erased={erased}
+      className={
+        erased
+          ? 'bg-destructive/10 text-destructive inline-flex rounded-full px-2 py-0.5 text-xs'
+          : 'bg-muted text-muted-foreground inline-flex rounded-full px-2 py-0.5 text-xs'
+      }
+    >
+      {erased ? t.contacts.statusErased : t.contacts.statusActive}
+    </span>
+  )
+}
+
+function ContactRowActions({
+  row,
+  onErase,
+  onAudit,
+}: {
+  row: ContactRow
+  onErase: (row: ContactRow) => void
+  onAudit: (row: ContactRow) => void
+}) {
+  const erased = contactIsErased(row)
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={(e) => {
+          e.stopPropagation()
+          onAudit(row)
+        }}
+        aria-label={`${t.contacts.actionAudit} — ${contactNameDisplay(row)}`}
+      >
+        <ClockIcon className="size-3.5" />
+        <span className="hidden sm:inline">{t.contacts.actionAudit}</span>
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={erased}
+        onClick={(e) => {
+          e.stopPropagation()
+          onErase(row)
+        }}
+        aria-label={`${t.contacts.actionErase} — ${contactNameDisplay(row)}`}
+        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+      >
+        <Trash2Icon className="size-3.5" />
+        <span className="hidden sm:inline">{t.contacts.actionEraseShort}</span>
+      </Button>
+    </div>
+  )
 }
 
 export function ContactsTable({
@@ -103,106 +183,25 @@ export function ContactsTable({
 
   const columns = useMemo<ColumnDef<ContactRow>[]>(
     () => [
-      // landr-uqr2 — leading select column (matches BookingsTable +
-      // GeneralApprovals). Header toggles every visible row; row click
-      // stopPropagation so the checkbox does not trigger onEdit().
-      {
-        id: 'select',
-        enableSorting: false,
-        header: ({ table: t1 }) => {
-          const visibleIds = t1
-            .getRowModel()
-            .rows.map((r) => (r.original as ContactRow).id)
-          const allChecked =
-            visibleIds.length > 0 &&
-            visibleIds.every((id) => selectedIds.has(id))
-          const someChecked = visibleIds.some((id) => selectedIds.has(id))
-          return (
-            <Checkbox
-              checked={allChecked}
-              ref={(el) => {
-                if (el) el.indeterminate = !allChecked && someChecked
-              }}
-              onChange={(e) => {
-                const next = new Set(selectedIds)
-                if (e.currentTarget.checked) {
-                  for (const id of visibleIds) next.add(id)
-                } else {
-                  for (const id of visibleIds) next.delete(id)
-                }
-                setSelectedIds(next)
-              }}
-              onClick={(e) => e.stopPropagation()}
-              aria-label={t.bulkActions.selectAllAria}
-              data-testid="contacts-select-all"
-            />
-          )
-        },
-        cell: ({ row }) => {
-          const id = row.original.id
-          const checked = selectedIds.has(id)
-          return (
-            <Checkbox
-              checked={checked}
-              onChange={(e) => {
-                const next = new Set(selectedIds)
-                if (e.currentTarget.checked) next.add(id)
-                else next.delete(id)
-                setSelectedIds(next)
-              }}
-              onClick={(e) => e.stopPropagation()}
-              aria-label={t.bulkActions.selectRowAria(id)}
-              data-testid={`contacts-select-${id}`}
-            />
-          )
-        },
-      },
+      // landr-uqr2 / landr-3qkr.2 — leading select column via the shared
+      // selectColumn factory (matches BookingsTable + GeneralApprovals).
+      selectColumn<ContactRow>({
+        selectedIds,
+        setSelectedIds,
+        testIdPrefix: 'contacts',
+      }),
       {
         id: 'name',
         header: t.contacts.columnName,
         accessorFn: (row) => contactNameDisplay(row),
-        cell: ({ row, getValue }) => {
-          // landr-6993 — calendar dot next to the name. Green when the
-          // contact has a booking TODAY, blue when only FUTURE, hidden
-          // otherwise. The wrapping span carries a native `title=` so the
-          // date is one hover away without pulling in TooltipProvider on
-          // every row; the icon itself has an aria-label since the
-          // colour-coded state isn't conveyed by text.
-          const window = contactBookingWindow(row.original)
-          const dateLabel = row.original.next_booking_date
-            ? contactDate(row.original.next_booking_date)
-            : null
-          const showIcon = window !== 'none' && !!dateLabel
-          return (
-            <span className="flex items-center gap-2">
-              {showIcon ? (
-                <span
-                  title={t.contacts.filters.iconNextBookingTooltip(
-                    dateLabel as string,
-                  )}
-                  data-testid={`contacts-next-booking-${window}-${row.original.id}`}
-                  className="inline-flex shrink-0 items-center"
-                >
-                  <CalendarIcon
-                    aria-label={
-                      window === 'today'
-                        ? t.contacts.filters.iconTodayAria
-                        : t.contacts.filters.iconFutureAria
-                    }
-                    className={
-                      window === 'today'
-                        ? 'size-3.5 text-emerald-600'
-                        : 'size-3.5 text-sky-600'
-                    }
-                  />
-                </span>
-              ) : null}
-              <span className="truncate font-medium">
-                {highlightMatch(getValue<string>(), globalFilter)}
-              </span>
+        cell: ({ row, getValue }) => (
+          <span className="flex items-center gap-2">
+            <NextBookingIcon row={row.original} />
+            <span className="truncate font-medium">
+              {highlightMatch(getValue<string>(), globalFilter)}
             </span>
-          )
-        },
+          </span>
+        ),
       },
       {
         id: 'email',
@@ -251,21 +250,9 @@ export function ContactsTable({
           contactIsErased(row)
             ? t.contacts.statusErased
             : t.contacts.statusActive,
-        cell: ({ row }) => {
-          const erased = contactIsErased(row.original)
-          return (
-            <span
-              data-erased={erased}
-              className={
-                erased
-                  ? 'bg-destructive/10 text-destructive inline-flex rounded-full px-2 py-0.5 text-xs'
-                  : 'bg-muted text-muted-foreground inline-flex rounded-full px-2 py-0.5 text-xs'
-              }
-            >
-              {erased ? t.contacts.statusErased : t.contacts.statusActive}
-            </span>
-          )
-        },
+        cell: ({ row }) => (
+          <ContactStatusBadge erased={contactIsErased(row.original)} />
+        ),
       },
       {
         id: 'actions',
@@ -274,48 +261,16 @@ export function ContactsTable({
         ),
         enableSorting: false,
         enableGlobalFilter: false,
-        cell: ({ row }) => {
-          const erased = contactIsErased(row.original)
-          return (
-            <div className="flex items-center justify-end gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onAudit(row.original)
-                }}
-                aria-label={`${t.contacts.actionAudit} — ${contactNameDisplay(row.original)}`}
-              >
-                <ClockIcon className="size-3.5" />
-                <span className="hidden sm:inline">
-                  {t.contacts.actionAudit}
-                </span>
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={erased}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onErase(row.original)
-                }}
-                aria-label={`${t.contacts.actionErase} — ${contactNameDisplay(row.original)}`}
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <Trash2Icon className="size-3.5" />
-                <span className="hidden sm:inline">
-                  {t.contacts.actionEraseShort}
-                </span>
-              </Button>
-            </div>
-          )
-        },
+        cell: ({ row }) => (
+          <ContactRowActions
+            row={row.original}
+            onErase={onErase}
+            onAudit={onAudit}
+          />
+        ),
       },
     ],
-    [onEdit, onErase, onAudit, globalFilter, selectedIds],
+    [onErase, onAudit, globalFilter, selectedIds],
   )
 
   const table = useReactTable({
@@ -408,136 +363,101 @@ export function ContactsTable({
     )
   }
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <Input
-          value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          placeholder={t.contacts.filterPlaceholder}
-          className="max-w-sm"
-          aria-label={t.contacts.filterPlaceholder}
-        />
-        <div className="text-muted-foreground text-sm">
-          {table.getFilteredRowModel().rows.length} / {rows.length}
+  // landr-3qkr.2 — mobile card: select checkbox (bulk actions exist here) +
+  // name with the next-booking dot + email/phone + status badge + the
+  // audit/erase actions. Tapping the card body opens the contact editor.
+  const renderCard = (row: Row<ContactRow>) => {
+    const contact = row.original
+    const checked = selectedIds.has(contact.id)
+    return (
+      <div className="bg-card flex flex-col gap-2 rounded-lg border p-3 shadow-s">
+        <div className="flex items-start gap-2">
+          <Checkbox
+            checked={checked}
+            onChange={(e) => {
+              const next = new Set(selectedIds)
+              if (e.currentTarget.checked) next.add(contact.id)
+              else next.delete(contact.id)
+              setSelectedIds(next)
+            }}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={t.bulkActions.selectRowAria(contact.id)}
+            data-testid={`contacts-card-select-${contact.id}`}
+            className="mt-1 size-5"
+          />
+          <button
+            type="button"
+            onClick={() => onEdit(contact)}
+            className="min-w-0 flex-1 text-left"
+            data-testid={`contacts-card-${contact.id}`}
+          >
+            <span className="flex items-center gap-2">
+              <NextBookingIcon row={contact} />
+              <span className="truncate font-medium">
+                {highlightMatch(contactNameDisplay(contact), globalFilter)}
+              </span>
+            </span>
+            <span className="text-muted-foreground block truncate text-sm">
+              {contact.email
+                ? highlightMatch(contact.email, globalFilter)
+                : '—'}
+            </span>
+            {contact.phone ? (
+              <span className="text-muted-foreground block truncate text-sm">
+                {highlightMatch(contact.phone, globalFilter)}
+              </span>
+            ) : null}
+          </button>
+          <ContactStatusBadge erased={contactIsErased(contact)} />
+        </div>
+        {(contact.tags ?? []).length > 0 ? (
+          <TagChipRow tags={contact.tags ?? []} />
+        ) : null}
+        <div className="flex justify-end">
+          <ContactRowActions
+            row={contact}
+            onErase={onErase}
+            onAudit={onAudit}
+          />
         </div>
       </div>
-      <div className="overflow-x-auto rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((group) => (
-              <TableRow key={group.id}>
-                {group.headers.map((header) => {
-                  const canSort = header.column.getCanSort()
-                  const dir = header.column.getIsSorted()
-                  const Icon = !dir
-                    ? ArrowUpDown
-                    : dir === 'asc'
-                      ? ArrowUp
-                      : ArrowDown
-                  return (
-                    <TableHead key={header.id}>
-                      {canSort ? (
-                        <button
-                          type="button"
-                          onClick={header.column.getToggleSortingHandler()}
-                          className="hover:text-foreground inline-flex cursor-pointer items-center gap-1"
-                        >
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                          <Icon className="size-3 opacity-60" />
-                        </button>
-                      ) : (
-                        flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )
-                      )}
-                    </TableHead>
-                  )
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              // landr-sj2z — pulsing placeholder while the first fetch is
-              // in flight. Column count matches the visible columns so the
-              // real rows drop into the same grid.
-              <SkeletonTableRows
-                count={6}
-                columnCount={columns.length}
-                data-testid="contacts-skeleton"
-              />
-            ) : table.getRowModel().rows.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="text-muted-foreground py-8 text-center text-sm"
-                >
-                  {t.contacts.empty}
-                </TableCell>
-              </TableRow>
-            ) : (
-              visibleRows.map((row, index) => {
-                const rowProps = nav.getRowProps(index)
-                // landr-oxlk — right-click → quick actions (Open / Copy
-                // link / Apply tag / Erase). Wraps the existing TableRow
-                // via asChild so left-click → onEdit, j/k focus, and the
-                // testid stay untouched.
-                return (
-                  <ContactRowContextMenu
-                    key={row.id}
-                    row={row.original}
-                    operatorId={row.original.operator_id ?? null}
-                    onOpenDetail={(r) => onEdit(r)}
-                    onErase={(r) => onErase(r)}
-                    copyLinkPath={(r) => `/contacts?open=${r.id}`}
-                  >
-                    <TableRow
-                      onClick={() => onEdit(row.original)}
-                      className="cursor-pointer data-[focused]:bg-muted/60"
-                      data-testid={`contacts-row-${row.original.id}`}
-                      ref={rowProps.ref}
-                      data-focused={rowProps['data-focused']}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  </ContactRowContextMenu>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Previous
-        </Button>
-        <span className="text-muted-foreground text-sm">
-          {table.getState().pagination.pageIndex + 1} /{' '}
-          {Math.max(1, table.getPageCount())}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </Button>
-      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <DataTable
+        table={table}
+        columnCount={columns.length}
+        emptyMessage={t.contacts.empty}
+        isLoading={isLoading}
+        skeletonTestId="contacts-skeleton"
+        search={{
+          value: globalFilter,
+          onChange: setGlobalFilter,
+          placeholder: t.contacts.filterPlaceholder,
+        }}
+        matchCountNode={`${table.getFilteredRowModel().rows.length} / ${rows.length}`}
+        onRowClick={(row) => onEdit(row.original)}
+        rowTestId={(row) => `contacts-row-${row.original.id}`}
+        rowProps={(_row, index) => nav.getRowProps(index)}
+        renderCard={renderCard}
+        rowWrapper={(row, rowNode) => (
+          // landr-oxlk — right-click → quick actions (Open / Copy link /
+          // Apply tag / Erase). Wraps the row/card so left-click → onEdit,
+          // j/k focus, and the testid stay untouched.
+          <ContactRowContextMenu
+            key={row.id}
+            row={row.original}
+            operatorId={row.original.operator_id ?? null}
+            onOpenDetail={(r) => onEdit(r)}
+            onErase={(r) => onErase(r)}
+            copyLinkPath={(r) => `/contacts?open=${r.id}`}
+          >
+            {rowNode}
+          </ContactRowContextMenu>
+        )}
+      />
 
       <BulkActionToolbar
         selectedIds={[...selectedIds]}

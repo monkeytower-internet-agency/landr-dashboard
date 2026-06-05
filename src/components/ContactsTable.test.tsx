@@ -7,10 +7,11 @@
 // erase / audit / sort flows through the supabase mock; this file
 // focuses on the loading-state branch the table itself owns.
 
-import { render as rtlRender, screen } from '@testing-library/react'
+import { act, render as rtlRender, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // landr-uqr2 — ContactsTable now reads useOperator() so the bulk-apply
 // handler can resolve the operator id for setContactTags calls. Stub
@@ -195,5 +196,81 @@ describe('ContactsTable — next-booking icon (landr-6993)', () => {
     expect(
       screen.queryByTestId('contacts-next-booking-future-c-none'),
     ).not.toBeInTheDocument()
+  })
+})
+
+// landr-3qkr.2 — mobile card-list mode for ContactsTable. Below md the table
+// renders stacked cards via the shared DataTable shell, with the bulk-select
+// checkbox preserved (Contacts has a bulk-tag action).
+describe('ContactsTable — mobile card-list mode (landr-3qkr.2)', () => {
+  const originalWidth = window.innerWidth
+
+  afterEach(() => {
+    act(() => {
+      window.innerWidth = originalWidth
+      window.dispatchEvent(new Event('resize'))
+    })
+  })
+
+  function renderMobile(ui: ReactElement) {
+    act(() => {
+      window.innerWidth = 390
+    })
+    return render(ui)
+  }
+
+  it('renders a stacked card list (no data table) with key fields', () => {
+    renderMobile(
+      <ContactsTable
+        rows={[
+          makeRow({
+            id: 'c-1',
+            first_name: 'Alice',
+            last_name: 'Anderson',
+            email: 'alice@example.com',
+          }),
+        ]}
+        onEdit={() => {}}
+        onErase={() => {}}
+        onAudit={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('datatable-card-list')).toBeInTheDocument()
+    expect(screen.getByTestId('contacts-card-c-1')).toBeInTheDocument()
+    expect(screen.getByText(/alice anderson/i)).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('tapping the card body opens the editor (primary action)', async () => {
+    const user = userEvent.setup()
+    const onEdit = vi.fn()
+    renderMobile(
+      <ContactsTable
+        rows={[makeRow({ id: 'c-1' })]}
+        onEdit={onEdit}
+        onErase={() => {}}
+        onAudit={() => {}}
+      />,
+    )
+    await user.click(screen.getByTestId('contacts-card-c-1'))
+    expect(onEdit).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the bulk-select checkbox on the card', async () => {
+    const user = userEvent.setup()
+    renderMobile(
+      <ContactsTable
+        rows={[makeRow({ id: 'c-1' })]}
+        onEdit={() => {}}
+        onErase={() => {}}
+        onAudit={() => {}}
+      />,
+    )
+    const box = screen.getByTestId(
+      'contacts-card-select-c-1',
+    ) as HTMLInputElement
+    expect(box.checked).toBe(false)
+    await user.click(box)
+    expect(box.checked).toBe(true)
   })
 })
