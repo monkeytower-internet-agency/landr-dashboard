@@ -75,6 +75,67 @@ export const OperatorSettingsSchema = z.object({
   // hotel_confirmation). NULL = fall back to customer/operator locale. Mirrors
   // max_length of default_locale (API: 10 chars). Editable in Settings → Company.
   hotel_email_locale: z.string().nullable().optional(),
+  // landr-jb1k — operator-configurable booking-widget presentation.
+  // widget_variant picks the showcased layout (aurora/summit/alpine); NULL =
+  // the widget's default (aurora). widget_category_columns clamps the >=md
+  // category grid to a fixed column count (1..4); NULL = the widget's
+  // count-aware auto. Both mirror the DB CHECK constraints (landr-jb1k.1) and
+  // are edited in Settings → Booking widget. The ?variant= URL param still
+  // overrides widget_variant for preview.
+  widget_variant: z
+    .enum(['aurora', 'summit', 'alpine'])
+    .nullable()
+    .optional(),
+  widget_category_columns: z
+    .number()
+    .int()
+    .min(1)
+    .max(4)
+    .nullable()
+    .optional(),
+  // landr-jb1k — booking-widget title typography. widget_tile_font picks the
+  // font family used for product/category titles in the widget; NULL =
+  // 'system' default. widget_title_case applies a CSS text-transform to those
+  // titles; NULL = render titles exactly as entered. Both mirror the DB CHECK
+  // constraints (landr-jb1k.1) and are edited in Settings → Booking widget.
+  widget_tile_font: z
+    .enum([
+      'system',
+      'playfair',
+      'montserrat',
+      'bebas',
+      'space-grotesk',
+      'caveat',
+    ])
+    .nullable()
+    .optional(),
+  widget_title_case: z
+    .enum(['uppercase', 'lowercase', 'capitalize'])
+    .nullable()
+    .optional(),
+  // landr-jb1k.4 — booking-widget creative tile-style options for the category
+  // grid. Each NULL = the widget's current/auto behaviour (the variant token
+  // wins) so untouched embeds never shift. widget_tile_radius sets the tile
+  // corner radius; widget_tile_aspect the tile ratio; widget_tile_scrim the
+  // text-overlay gradient tint (light forces dark title text, AA enforced);
+  // widget_tile_hover the hover interaction. All mirror the DB CHECK
+  // constraints (landr-jb1k.4) and are edited in Settings → Booking widget.
+  widget_tile_radius: z
+    .enum(['sharp', 'rounded', 'round'])
+    .nullable()
+    .optional(),
+  widget_tile_aspect: z
+    .enum(['square', 'landscape', 'wide'])
+    .nullable()
+    .optional(),
+  widget_tile_scrim: z
+    .enum(['dark', 'brand', 'light'])
+    .nullable()
+    .optional(),
+  widget_tile_hover: z
+    .enum(['lift', 'zoom', 'none'])
+    .nullable()
+    .optional(),
   // landr-znzz.11 — extended branding: dark-mode logo + 3-colour theme.
   // logo_dark_url: optional dark-mode variant uploaded to the same bucket.
   // theme: { brand, accent, background } (light) + optional dark overrides.

@@ -445,6 +445,9 @@ export const t = {
       commissions: 'Commissions',
       // landr-yp8x — operator branding shown in the embedded booking widget.
       branding: 'Branding',
+      // landr-jb1k — booking-widget presentation: showcased layout variant,
+      // category grid columns, and title typography.
+      widget: 'Booking widget',
       // landr-znzz.7 — optional weather forecast hint for the conditions verdict.
       weather: 'Weather',
       // landr-iz58 — operator-scoped tags applied to bookings + contacts.
@@ -513,6 +516,9 @@ export const t = {
       commissions:
         'Commission schemes for agents, providers, and the platform, plus per-agent earnings.',
       branding: 'Apply your logo and brand theme (3 colours + dark mode) to the booking widget.',
+      // landr-jb1k — booking-widget layout/density/title style.
+      widget:
+        'Choose the showcased layout, category grid columns, and title typography for your booking widget.',
       // landr-znzz.7 — optional weather forecast hint for the conditions verdict.
       weather:
         'Opt in to a weather forecast hint shown next to the conditions chips when setting daily updates.',
@@ -2467,6 +2473,92 @@ export const t = {
     brandingDarkLogoRemoveError: 'Failed to remove dark logo.',
     brandingDarkLogoToastUploaded: 'Dark logo uploaded.',
     brandingDarkLogoToastRemoved: 'Dark logo removed.',
+
+    // landr-jb1k — Settings → Booking widget. Operator picks the showcased
+    // layout variant, the category grid column count, and the title
+    // typography for the embedded booking widget. Card labels are
+    // descriptive (no internal codenames); the stored values stay
+    // aurora/summit/alpine.
+    widgetConfigTitle: 'Booking widget',
+    widgetConfigSubtitle:
+      'Choose how your embedded booking widget looks: layout, category density, and title style.',
+    widgetLayoutTitle: 'Layout',
+    widgetLayoutDesc:
+      'Pick the layout your booking widget showcases. You can change it any time.',
+    // Descriptive card labels + subtitles (values: aurora / summit / alpine).
+    widgetVariantAuroraLabel: 'Text overlay',
+    widgetVariantAuroraDesc: 'Title over the image, rounded corners.',
+    widgetVariantSummitLabel: 'Text below image',
+    widgetVariantSummitDesc: 'Editorial — image on top, text underneath.',
+    widgetVariantAlpineLabel: 'Compact cards',
+    widgetVariantAlpineDesc: 'Dense bordered tiles.',
+    widgetVariantDefaultHint: 'Default — used when you haven’t picked one.',
+    widgetVariantSelected: 'Selected',
+    widgetVariantToastSaved: 'Widget layout saved.',
+    // Category grid columns.
+    widgetColumnsTitle: 'Category columns',
+    widgetColumnsDesc:
+      'How many columns the category grid uses on larger screens. Mobile always shows one.',
+    widgetColumnsLabel: 'Columns',
+    widgetColumnsAuto: 'Auto (recommended)',
+    widgetColumnsHelper: 'Auto fits your category count.',
+    widgetColumnsToastSaved: 'Category columns saved.',
+    // Title typography.
+    widgetTitleStyleTitle: 'Title style',
+    widgetTitleStyleDesc:
+      'Set the font and letter case for product and category titles in the widget.',
+    widgetFontLabel: 'Font',
+    widgetFontSystem: 'Standard',
+    widgetFontPlayfair: 'Playfair Display — elegant serif',
+    widgetFontMontserrat: 'Montserrat — clean geometric',
+    widgetFontBebas: 'Bebas Neue — bold display',
+    widgetFontSpaceGrotesk: 'Space Grotesk — contemporary',
+    widgetFontCaveat: 'Caveat — handwritten',
+    widgetFontToastSaved: 'Title font saved.',
+    widgetCaseLabel: 'Text case',
+    widgetCaseAsEntered: 'As entered',
+    widgetCaseUppercase: 'UPPERCASE',
+    widgetCaseLowercase: 'lowercase',
+    widgetCaseCapitalize: 'Capitalized',
+    widgetCasePreviewSample: 'Guided days',
+    widgetCaseToastSaved: 'Title case saved.',
+    // landr-jb1k.4 — Tile style group: creative category-tile options. Each
+    // control has an Auto/default state (= the widget's current behaviour).
+    widgetTileStyleTitle: 'Tile style',
+    widgetTileStyleDesc:
+      'Fine-tune how the category tiles look. Auto keeps the layout’s built-in style.',
+    widgetTileAuto: 'Auto',
+    // Corner radius.
+    widgetTileRadiusLabel: 'Corners',
+    widgetTileRadiusSharp: 'Sharp',
+    widgetTileRadiusRounded: 'Rounded',
+    widgetTileRadiusRound: 'Round',
+    widgetTileRadiusToastSaved: 'Tile corners saved.',
+    // Aspect ratio.
+    widgetTileAspectLabel: 'Shape',
+    widgetTileAspectSquare: 'Square (1:1)',
+    widgetTileAspectLandscape: 'Landscape (4:3)',
+    widgetTileAspectWide: 'Wide (16:9)',
+    widgetTileAspectToastSaved: 'Tile shape saved.',
+    // Text-overlay scrim.
+    widgetTileScrimLabel: 'Overlay tint',
+    widgetTileScrimHelper:
+      'Applies to the Text overlay layout, where the title sits on the image.',
+    widgetTileScrimDark: 'Dark',
+    widgetTileScrimBrand: 'Brand',
+    widgetTileScrimLight: 'Light',
+    widgetTileScrimToastSaved: 'Text overlay saved.',
+    // Hover interaction.
+    widgetTileHoverLabel: 'Hover effect',
+    widgetTileHoverLift: 'Lift',
+    widgetTileHoverZoom: 'Zoom',
+    widgetTileHoverNone: 'None',
+    widgetTileHoverToastSaved: 'Hover effect saved.',
+    // Preview-widget external link (opens the live widget with ?preview=1).
+    widgetPreviewLinkTitle: 'Preview widget',
+    widgetPreviewLinkDesc:
+      'Open your live booking widget in a new tab to see these settings applied.',
+    widgetPreviewLinkButton: 'Preview widget',
 
     gmailLoading: 'Loading Gmail status…',
     gmailError: 'Failed to load Gmail status.',

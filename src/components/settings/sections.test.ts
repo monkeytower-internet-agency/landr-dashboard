@@ -35,6 +35,14 @@ describe('SETTINGS_SECTIONS', () => {
     expect(entry?.label).toBe('Branding')
   })
 
+  // landr-jb1k — Booking widget section drives the embedded widget's
+  // showcased layout variant, category grid columns, and title typography.
+  it('includes a Booking widget entry at /settings/widget', () => {
+    const entry = SETTINGS_SECTIONS.find((s) => s.to === '/settings/widget')
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Booking widget')
+  })
+
   it('has no duplicate routes', () => {
     const tos = SETTINGS_SECTIONS.map((s) => s.to)
     expect(new Set(tos).size).toBe(tos.length)
@@ -120,11 +128,16 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // landr-up1b — Categories + Embed joined the SETTINGS group right after
   // Products (nested category tree editor + booking-widget embed generator).
   // landr-znzz.7 — Weather (opt-in forecast hint) added after Branding.
-  it('settings group contains the twenty-two program subsections', () => {
+  // landr-jb1k — Booking widget (layout variant + category columns + title
+  // style) joined the SETTINGS group between Branding and Weather.
+  it('settings group contains the twenty-three program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
       '/settings/branding',
+      // landr-jb1k — booking-widget presentation configurator (sits between
+      // Branding and Weather; both shape the embedded widget).
+      '/settings/widget',
       // landr-znzz.7 — weather forecast hint opt-in (sits next to Branding).
       '/settings/weather',
       '/settings/team',

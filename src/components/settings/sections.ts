@@ -7,6 +7,7 @@ import {
   CheckSquareIcon,
   CloudSunIcon,
   CodeIcon,
+  LayoutGridIcon,
   CoinsIcon,
   CreditCardIcon,
   FolderTreeIcon,
@@ -127,6 +128,15 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/branding',
     label: t.settingsHub.sections.branding,
     icon: PaletteIcon,
+  },
+  // landr-jb1k — Booking widget presentation (showcased variant + category
+  // grid columns). Sits next to Branding because both configure how the
+  // embedded booking widget looks; Branding owns colours/logo/copy, this
+  // owns layout/density.
+  {
+    to: '/settings/widget',
+    label: t.settingsHub.sections.widget,
+    icon: LayoutGridIcon,
   },
   // landr-znzz.7 — optional weather forecast hint for conditions pre-fill.
   // Sits next to Branding because both are "how this operator's surfaces
