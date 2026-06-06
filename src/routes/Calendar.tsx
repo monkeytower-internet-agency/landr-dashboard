@@ -7,6 +7,11 @@ import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
 import { EmptyState } from '@/components/EmptyState'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { fetchBookings, type BookingRow } from '@/lib/bookings'
+import {
+  buildDayRoster,
+  fetchFlyingParticipants,
+  type FlyingParticipantsByBooking,
+} from '@/lib/day-roster'
 import { filterBookings } from '@/lib/bookings-filter-match'
 import { useBookingsFilters } from '@/lib/bookings-filters'
 import { useCalendarView } from '@/lib/calendar-view-memory'
@@ -52,10 +57,35 @@ export function Calendar() {
     queryKeys: [['bookings', currentOperatorId ?? 'none']],
   })
 
+  // landr-sr69 — flying participants for the day roster. One query per
+  // operator (companions excluded server-side via is_guiding), kept live via
+  // realtime on booking_participants. The per-day roster is derived
+  // client-side from the bookings already loaded (their items.selected_days).
+  const participantsQuery = useRealtimeQuery<FlyingParticipantsByBooking>({
+    queryKey: ['flying-participants', currentOperatorId ?? 'none'],
+    queryFn: () => fetchFlyingParticipants(currentOperatorId as string),
+    enabled: !!currentOperatorId,
+    realtime: currentOperatorId
+      ? [
+          {
+            table: 'booking_participants',
+            filter: `operator_id=eq.${currentOperatorId}`,
+          },
+        ]
+      : null,
+  })
+
   const rows = useMemo(() => query.data ?? [], [query.data])
   const filteredRows = useMemo(
     () => filterBookings(rows, filtersApi.filters),
     [rows, filtersApi.filters],
+  )
+
+  // landr-sr69 — roster keyed by day, derived from the FILTERED bookings so
+  // the roster stays consistent with whatever the operator has filtered to.
+  const rosterByDay = useMemo(
+    () => buildDayRoster(filteredRows, participantsQuery.data ?? new Map()),
+    [filteredRows, participantsQuery.data],
   )
   // landr-3uai — the calendar shows per-day capacity pills only when the
   // operator has narrowed to a single product. Multi-select means the
@@ -112,6 +142,7 @@ export function Calendar() {
             onViewChange={calendarView.setView}
             operatorId={currentOperatorId}
             activeProductId={activeProductId}
+            rosterByDay={rosterByDay}
             onEventClick={(row) => setActive(row)}
             onCustomerClick={(id) => setOpenCustomerId(id)}
             onReschedule={({ event, newStart, newEnd }) => {
