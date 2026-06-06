@@ -1653,6 +1653,20 @@ export const t = {
     agendaToggleToList: 'List',
     agendaEmpty: 'No upcoming bookings.',
     agendaNoDate: 'Unscheduled',
+    // landr-sr69 — per-day flying roster shown in each month-grid day cell
+    // and the day-roster popover.
+    roster: {
+      /** '+N more' suffix when a day cell truncates its roster. */
+      moreCount: (n: number): string => `+${n} more`,
+      /** aria-label for the clickable day-cell roster summary. */
+      dayCellAria: (count: number, dayNumber: string): string =>
+        `${count} ${count === 1 ? 'pilot' : 'pilots'} flying on ${dayNumber}. Open day roster.`,
+      /** Popover heading: count of flying participants that day. */
+      panelHeading: (count: number): string =>
+        `${count} ${count === 1 ? 'pilot' : 'pilots'} flying`,
+      /** Empty roster (shouldn't normally render — defensive). */
+      panelEmpty: 'No pilots flying this day.',
+    },
   },
   contacts: {
     title: 'Contacts',
