@@ -51,6 +51,35 @@ vi.mock('@/lib/supabase', () => ({
   getSupabase: () => mock.supabase,
 }))
 
+// useOperator drives the operator-scoped resend endpoint. Stub it so the
+// timeline renders outside an <OperatorProvider> (landr-33r3).
+vi.mock('@/lib/operator', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/operator')>()
+  return {
+    ...actual,
+    useOperator: () => ({
+      currentOperatorId: 'op-1',
+    }),
+  }
+})
+
+// resendEmail (landr-2js5 endpoint) — assert the timeline POSTs correctly.
+const { resendEmailMock } = vi.hoisted(() => ({ resendEmailMock: vi.fn() }))
+vi.mock('@/lib/outbound-emails', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/lib/outbound-emails')>()
+  return {
+    ...actual,
+    resendEmail: (...args: unknown[]) => resendEmailMock(...args),
+  }
+})
+
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}))
+
+import userEvent from '@testing-library/user-event'
+import { toast } from 'sonner'
 import { BookingTimeline } from './BookingTimeline'
 import type { BookingRow } from '@/lib/bookings'
 
@@ -88,11 +117,33 @@ function makeRow(overrides: Partial<BookingRow> = {}): BookingRow {
 
 beforeEach(() => {
   mock.overrides.clear()
+  resendEmailMock.mockReset()
+  vi.mocked(toast.success).mockReset()
+  vi.mocked(toast.error).mockReset()
 })
 
 afterEach(() => {
   vi.clearAllMocks()
 })
+
+// A full outbound_emails row carrying the body/subject the preview needs.
+function emailRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'e-1',
+    operator_id: 'op-1',
+    template_kind: 'booking_confirmation',
+    locale: 'en',
+    status: 'sent',
+    created_at: '2026-05-17T10:00:00.000Z',
+    sent_at: '2026-05-17T10:05:00.000Z',
+    to_address: 'a@b.test',
+    subject: 'Your booking is confirmed',
+    body_html: '<p>HTML body here</p>',
+    body_text: 'TEXT body here',
+    resent_from_id: null,
+    ...overrides,
+  }
+}
 
 describe('BookingTimeline', () => {
   it('renders the empty fallback (created event) when no audit/email/payment rows exist', async () => {
@@ -230,5 +281,149 @@ describe('BookingTimeline', () => {
       expect(screen.queryByTestId('booking-timeline-loading')).toBeNull(),
     )
     expect(screen.getByTestId('booking-timeline')).toBeInTheDocument()
+  })
+
+  // -------------------------------------------------------------------------
+  // landr-33r3 — per-email actions: preview, send-exact, modify & send
+  // -------------------------------------------------------------------------
+
+  it('expands an email event into a preview with subject + sandboxed iframe + text fallback', async () => {
+    mock.overrides.set('outbound_emails', () => ({
+      data: [emailRow()],
+      error: null,
+    }))
+    const user = userEvent.setup()
+    render(<BookingTimeline booking={makeRow()} />)
+
+    const toggle = await screen.findByTestId('timeline-email-preview-toggle')
+    expect(screen.queryByTestId('timeline-email-preview')).toBeNull()
+
+    await user.click(toggle)
+
+    const preview = await screen.findByTestId('timeline-email-preview')
+    expect(
+      within(preview).getByText('Your booking is confirmed'),
+    ).toBeInTheDocument()
+    const iframe = within(preview).getByTestId('timeline-email-iframe')
+    expect(iframe).toHaveAttribute('sandbox', '')
+    expect(iframe).toHaveAttribute('srcdoc', '<p>HTML body here</p>')
+    expect(within(preview).getByText('TEXT body here')).toBeInTheDocument()
+  })
+
+  it('"Send exactly this email" posts an empty body after confirming', async () => {
+    resendEmailMock.mockResolvedValue({
+      id: 'e-new',
+      status: 'queued',
+      sent_via: null,
+    })
+    mock.overrides.set('outbound_emails', () => ({
+      data: [emailRow()],
+      error: null,
+    }))
+    const user = userEvent.setup()
+    render(<BookingTimeline booking={makeRow()} />)
+
+    await user.click(await screen.findByTestId('timeline-email-preview-toggle'))
+    await user.click(await screen.findByTestId('timeline-email-send-exact'))
+
+    // Confirm dialog summarises to/subject before firing.
+    const confirm = await screen.findByTestId('timeline-email-confirm')
+    expect(within(confirm).getByText('a@b.test')).toBeInTheDocument()
+    expect(
+      within(confirm).getByText('Your booking is confirmed'),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByTestId('timeline-email-confirm-send'))
+
+    await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
+    const [opId, emailId, payload] = resendEmailMock.mock.calls[0] as [
+      string,
+      string,
+      Record<string, unknown>,
+    ]
+    expect(opId).toBe('op-1')
+    expect(emailId).toBe('e-1')
+    // Verbatim copy → empty payload.
+    expect(payload).toEqual({})
+  })
+
+  it('"Modify & send" posts only the changed fields', async () => {
+    resendEmailMock.mockResolvedValue({
+      id: 'e-new',
+      status: 'queued',
+      sent_via: null,
+    })
+    mock.overrides.set('outbound_emails', () => ({
+      data: [emailRow()],
+      error: null,
+    }))
+    const user = userEvent.setup()
+    render(<BookingTimeline booking={makeRow()} />)
+
+    await user.click(await screen.findByTestId('timeline-email-preview-toggle'))
+    await user.click(await screen.findByTestId('timeline-email-modify'))
+
+    const subject = await screen.findByTestId('resend-subject')
+    expect(subject).toHaveValue('Your booking is confirmed')
+    await user.clear(subject)
+    await user.type(subject, 'Edited subject')
+
+    await user.click(screen.getByTestId('resend-submit'))
+
+    await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
+    const [, , payload] = resendEmailMock.mock.calls[0] as [
+      string,
+      string,
+      Record<string, unknown>,
+    ]
+    expect(payload).toHaveProperty('subject', 'Edited subject')
+    expect(payload).not.toHaveProperty('to_address')
+    expect(payload).not.toHaveProperty('body_html')
+    expect(payload).not.toHaveProperty('body_text')
+  })
+
+  it('shows a "resent" provenance note when resent_from_id is set', async () => {
+    mock.overrides.set('outbound_emails', () => ({
+      data: [emailRow({ resent_from_id: 'src-123' })],
+      error: null,
+    }))
+    render(<BookingTimeline booking={makeRow()} />)
+
+    const note = await screen.findByTestId('timeline-email-resent-note')
+    expect(note).toHaveTextContent(/src-123/)
+  })
+
+  it('refreshes the timeline after an exact resend (new email event appears)', async () => {
+    resendEmailMock.mockResolvedValue({
+      id: 'e-new',
+      status: 'queued',
+      sent_via: null,
+    })
+    // First fetch returns one email; after the resend the refetch returns two.
+    let calls = 0
+    mock.overrides.set('outbound_emails', () => {
+      calls += 1
+      const rows =
+        calls === 1
+          ? [emailRow()]
+          : [emailRow(), emailRow({ id: 'e-2', resent_from_id: 'e-1' })]
+      return { data: rows, error: null }
+    })
+    const user = userEvent.setup()
+    render(<BookingTimeline booking={makeRow()} />)
+
+    await user.click(await screen.findByTestId('timeline-email-preview-toggle'))
+    await user.click(await screen.findByTestId('timeline-email-send-exact'))
+    await user.click(await screen.findByTestId('timeline-email-confirm-send'))
+
+    await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
+    // The timeline query was invalidated → a second email event shows up.
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('booking-timeline').querySelectorAll(
+          '[data-event-kind="email_sent"]',
+        ).length,
+      ).toBe(2),
+    )
   })
 })

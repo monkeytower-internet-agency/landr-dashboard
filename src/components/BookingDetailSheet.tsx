@@ -527,12 +527,21 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     queryFn: () =>
       currentOperatorId
         ? getConfirmationStatus(currentOperatorId, row.id)
-        : Promise.resolve({ last_sent_at: null, has_material_changes: false }),
+        : Promise.resolve({
+            last_sent_at: null,
+            has_material_changes: false,
+            has_prior_confirmation: false,
+          }),
     enabled: !!currentOperatorId,
     staleTime: 60_000,
   })
   const hasMaterialChanges =
     confirmationStatusQuery.data?.has_material_changes ?? false
+  // landr-tf39 — the Resend-Confirmation button only makes sense once a real
+  // confirmation has gone out; rendering it for never-confirmed bookings is
+  // how the premature-confirmation bug happened.
+  const hasPriorConfirmation =
+    confirmationStatusQuery.data?.has_prior_confirmation ?? false
 
   const resendConfirmationMutation = useMutation({
     mutationFn: async () => {
@@ -1175,8 +1184,11 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           {/* landr-6629 — resend booking confirmation with old→new diff.
               Highlighted with a dot-badge when material fields changed
               since the last confirmation was sent. Hidden when no operator
-              is selected (operator-scoped endpoint). */}
-          {currentOperatorId ? (
+              is selected (operator-scoped endpoint).
+              landr-tf39 — also hidden until a real confirmation has gone out:
+              resending makes no sense before the first confirmation, and the
+              server now 409s that case anyway. */}
+          {currentOperatorId && hasPriorConfirmation ? (
             <Button
               type="button"
               variant="outline"

@@ -1489,6 +1489,29 @@ export const t = {
       loading: 'Loading timeline…',
       error: 'Failed to load timeline.',
       empty: 'No timeline events yet.',
+      // landr-33r3 — per-email actions (preview + resend) on email events.
+      email: {
+        expand: 'Preview email',
+        collapse: 'Hide preview',
+        previewSubjectLabel: 'Subject',
+        previewBodyHtmlLabel: 'HTML body',
+        previewBodyHtmlTitle: 'Email HTML body (sandboxed preview)',
+        previewBodyTextLabel: 'Plain-text body',
+        sendExact: 'Send exactly this email',
+        modifyAndSend: 'Modify & send',
+        resentNote: (id: string): string => `Resent from a previous email (${id})`,
+        // "Send exactly this email" confirmation dialog.
+        confirmTitle: 'Send this email again?',
+        confirmDescription:
+          'An exact copy of this email will be sent — no changes.',
+        confirmToLabel: 'To',
+        confirmSubjectLabel: 'Subject',
+        confirmCancel: 'Cancel',
+        confirmSend: 'Send',
+        confirmSending: 'Sending…',
+        toastSuccess: 'Email resent.',
+        toastError: 'Could not resend the email.',
+      },
     },
     // landr-84n1 — Checklist tab: operator-private per-booking todo list.
     // v1 lives in localStorage scoped on (operator, booking_id); v2 will
@@ -1630,6 +1653,20 @@ export const t = {
     agendaToggleToList: 'List',
     agendaEmpty: 'No upcoming bookings.',
     agendaNoDate: 'Unscheduled',
+    // landr-sr69 — per-day flying roster shown in each month-grid day cell
+    // and the day-roster popover.
+    roster: {
+      /** '+N more' suffix when a day cell truncates its roster. */
+      moreCount: (n: number): string => `+${n} more`,
+      /** aria-label for the clickable day-cell roster summary. */
+      dayCellAria: (count: number, dayNumber: string): string =>
+        `${count} ${count === 1 ? 'pilot' : 'pilots'} flying on ${dayNumber}. Open day roster.`,
+      /** Popover heading: count of flying participants that day. */
+      panelHeading: (count: number): string =>
+        `${count} ${count === 1 ? 'pilot' : 'pilots'} flying`,
+      /** Empty roster (shouldn't normally render — defensive). */
+      panelEmpty: 'No pilots flying this day.',
+    },
   },
   contacts: {
     title: 'Contacts',

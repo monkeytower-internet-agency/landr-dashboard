@@ -17,8 +17,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MailOpenIcon } from 'lucide-react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
@@ -33,12 +32,11 @@ import {
 } from '@/lib/mobile-sheet-classes'
 import {
   fetchOutboundEmails,
-  resendEmail,
   OUTBOUND_EMAIL_STATUSES,
   type OutboundEmailRow,
   type OutboundEmailStatus,
-  type ResendEmailPayload,
 } from '@/lib/outbound-emails'
+import { ResendDialog } from '@/components/email/ResendDialog'
 import {
   Table,
   TableBody,
@@ -49,7 +47,6 @@ import {
 } from '@/components/ui/table'
 import { CountedFilterChip } from '@/components/ui/counted-filter-chip'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -58,14 +55,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 
 const STATUS_LABEL: Record<OutboundEmailStatus, string> = {
   queued: t.emailLog.statusLabels.queued,
@@ -368,6 +357,7 @@ function EmailLogDrawer({
 }: DrawerProps) {
   const open = row !== null
   const isMobile = useIsMobile()
+  const queryClient = useQueryClient()
   const [resendOpen, setResendOpen] = useState(false)
   const isTerminal = row ? TERMINAL_STATUSES.includes(row.status) : false
 
@@ -501,156 +491,18 @@ function EmailLogDrawer({
 
       {row && isTerminal && (
         <ResendDialog
-          row={row}
+          source={row}
           operatorId={operatorId}
-          emailLogQueryKey={emailLogQueryKey}
           open={resendOpen}
           onOpenChange={setResendOpen}
+          onResent={() =>
+            void queryClient.invalidateQueries({
+              queryKey: emailLogQueryKey as string[],
+            })
+          }
         />
       )}
     </>
-  )
-}
-
-type ResendDialogProps = {
-  row: OutboundEmailRow
-  operatorId: string
-  emailLogQueryKey: readonly unknown[]
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}
-
-function ResendDialog({
-  row,
-  operatorId,
-  emailLogQueryKey,
-  open,
-  onOpenChange,
-}: ResendDialogProps) {
-  const queryClient = useQueryClient()
-
-  // Local editable copies — initialised from the row each time the dialog opens.
-  const [toAddress, setToAddress] = useState(row.to_address)
-  const [subject, setSubject] = useState(row.subject)
-  const [bodyText, setBodyText] = useState(row.body_text)
-  const [bodyHtml, setBodyHtml] = useState(row.body_html)
-  const [htmlExpanded, setHtmlExpanded] = useState(false)
-
-  const mutation = useMutation({
-    mutationFn: () => {
-      // Build payload with ONLY changed fields.
-      const payload: ResendEmailPayload = {}
-      if (toAddress !== row.to_address) payload.to_address = toAddress
-      if (subject !== row.subject) payload.subject = subject
-      if (bodyText !== row.body_text) payload.body_text = bodyText
-      if (bodyHtml !== row.body_html) payload.body_html = bodyHtml
-      return resendEmail(operatorId, row.id, payload)
-    },
-    onSuccess: () => {
-      toast.success(t.emailLog.resendToastSuccess)
-      onOpenChange(false)
-      void queryClient.invalidateQueries({ queryKey: emailLogQueryKey as string[] })
-    },
-    onError: (err: Error) => {
-      toast.error(t.emailLog.resendToastError, { description: err.message })
-    },
-  })
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t.emailLog.resendDialogTitle}</DialogTitle>
-          <DialogDescription>
-            {t.emailLog.resendDialogDescription}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium" htmlFor="resend-to">
-              {t.emailLog.resendFieldTo}
-            </label>
-            <Input
-              id="resend-to"
-              type="email"
-              value={toAddress}
-              onChange={(e) => setToAddress(e.target.value)}
-              data-testid="resend-to-address"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium" htmlFor="resend-subject">
-              {t.emailLog.resendFieldSubject}
-            </label>
-            <Input
-              id="resend-subject"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              data-testid="resend-subject"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label
-              className="text-sm font-medium"
-              htmlFor="resend-body-text"
-            >
-              {t.emailLog.resendFieldBodyText}
-            </label>
-            <Textarea
-              id="resend-body-text"
-              rows={5}
-              value={bodyText}
-              onChange={(e) => setBodyText(e.target.value)}
-              data-testid="resend-body-text"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <button
-              type="button"
-              className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-              onClick={() => setHtmlExpanded((v) => !v)}
-              aria-expanded={htmlExpanded}
-              data-testid="resend-html-toggle"
-            >
-              {htmlExpanded ? '▾' : '▸'} {t.emailLog.resendHtmlToggle}
-            </button>
-            {htmlExpanded && (
-              <Textarea
-                id="resend-body-html"
-                rows={8}
-                value={bodyHtml}
-                onChange={(e) => setBodyHtml(e.target.value)}
-                className="font-mono text-xs"
-                data-testid="resend-body-html"
-              />
-            )}
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={mutation.isPending}
-          >
-            {t.emailLog.resendCancel}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => mutation.mutate()}
-            disabled={mutation.isPending}
-            data-testid="resend-submit"
-          >
-            {t.emailLog.resendSubmit}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
 

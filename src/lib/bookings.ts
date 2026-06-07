@@ -1329,6 +1329,23 @@ export type TimelineEventKind =
   | 'rescheduled'
   | 'email_sent'
 
+/** The outbound_emails row fields needed to preview + re-send an email
+ *  directly from the timeline (landr-33r3). Only present on `email_sent`
+ *  events whose source row is readable. */
+export type TimelineEmail = {
+  /** outbound_emails.id — the source row a resend copies/links to. */
+  id: string
+  operatorId: string
+  toAddress: string
+  subject: string
+  bodyHtml: string
+  bodyText: string
+  templateKind: string
+  locale: string
+  /** Set when this email was itself a resend of another row. */
+  resentFromId: string | null
+}
+
 export type TimelineEvent = {
   /** Stable id for React keys; not necessarily a uuid. */
   id: string
@@ -1340,6 +1357,8 @@ export type TimelineEvent = {
   detail?: string | null
   /** Optional actor kind for badge colouring. */
   actorKind?: string | null
+  /** Present on `email_sent` events: the source row for preview + resend. */
+  email?: TimelineEmail | null
 }
 
 type AuditLogRowRaw = {
@@ -1362,11 +1381,17 @@ type PaymentRowRaw = {
 
 type OutboundEmailRowRaw = {
   id: string
+  operator_id: string
   template_kind: string
+  locale: string | null
   status: string
   created_at: string
   sent_at: string | null
   to_address: string | null
+  subject: string | null
+  body_html: string | null
+  body_text: string | null
+  resent_from_id: string | null
 }
 
 type StageRow = { id: string; code: string; label: string | null }
@@ -1505,7 +1530,10 @@ export async function fetchBookingTimeline(
       .limit(20),
     supabase
       .from('outbound_emails')
-      .select('id, template_kind, status, created_at, sent_at, to_address')
+      .select(
+        'id, operator_id, template_kind, locale, status, created_at, sent_at, ' +
+          'to_address, subject, body_html, body_text, resent_from_id',
+      )
       .eq('related_booking_id', bookingId)
       .order('created_at', { ascending: true })
       .limit(50),
@@ -1584,9 +1612,10 @@ export async function fetchBookingTimeline(
     }
   }
 
-  // 3) outbound_emails → email_sent event
+  // 3) outbound_emails → email_sent event. Carries the row payload so the
+  // timeline can preview the body and re-send it in place (landr-33r3).
   if (!emailsRes.error && emailsRes.data) {
-    for (const e of emailsRes.data as OutboundEmailRowRaw[]) {
+    for (const e of emailsRes.data as unknown as OutboundEmailRowRaw[]) {
       const occurredAt = e.sent_at ?? e.created_at
       events.push({
         id: `email-${e.id}`,
@@ -1599,6 +1628,17 @@ export async function fetchBookingTimeline(
             : e.status === 'failed'
               ? 'Failed to send'
               : 'Queued',
+        email: {
+          id: e.id,
+          operatorId: e.operator_id,
+          toAddress: e.to_address ?? '',
+          subject: e.subject ?? '',
+          bodyHtml: e.body_html ?? '',
+          bodyText: e.body_text ?? '',
+          templateKind: e.template_kind,
+          locale: e.locale ?? '',
+          resentFromId: e.resent_from_id ?? null,
+        },
       })
     }
   }
@@ -1651,6 +1691,9 @@ export async function resendConfirmation(
 export type ConfirmationStatus = {
   last_sent_at: string | null
   has_material_changes: boolean
+  /** True once a real booking_confirmation has gone out for this booking.
+   *  Drives the Resend-Confirmation button visibility (landr-tf39). */
+  has_prior_confirmation: boolean
 }
 
 export async function getConfirmationStatus(
