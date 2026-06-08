@@ -319,6 +319,8 @@ export const t = {
     feedbackInbox: 'Feedback inbox',
     // landr-a99u.6 — /release promotion console (staff-only).
     release: 'Release',
+    // landr-a4pl.2 — /invoicing: Holded invoice transfer status + Sync-now.
+    invoicing: 'Invoicing',
   },
   // landr-aref — /audit route strings (audit_log viewer).
   audit: {
@@ -622,6 +624,60 @@ export const t = {
     columnBookings: 'Bookings',
     operatorTotalRow: 'Total',
     generatedAt: (iso: string) => `As of ${new Date(iso).toLocaleString('de-DE')}`,
+  },
+  // landr-a4pl.2 — /invoicing: Holded invoice transfer status + manual Sync-now.
+  invoicing: {
+    title: 'Invoicing',
+    subtitle:
+      'Holded invoice transfer status for finalised bookings. Sync due invoices manually and retry any that failed.',
+    loading: 'Loading invoices…',
+    errorTitle: 'Failed to load invoices',
+    empty: 'No invoices to show in this bucket.',
+    emptyAll: 'No finalised bookings have been queued for Holded yet.',
+    // Bucket tab labels (badges show the summary count).
+    bucketTransferred: 'Transferred',
+    bucketPending: 'Pending',
+    bucketFailed: 'Failed',
+    bucketBlocked: 'Blocked',
+    // Pending sub-flags (by age_days).
+    flagDueSoon: 'Due soon',
+    flagOverdue: 'Overdue',
+    // Table columns.
+    columnBookingRef: 'Booking',
+    columnCustomer: 'Customer',
+    columnFinalised: 'Finalised',
+    columnAmount: 'Amount',
+    columnStatus: 'Status',
+    columnAttempts: 'Attempts',
+    columnError: 'Last error',
+    columnHoldedRef: 'Holded ref',
+    columnActions: '',
+    attempts: (n: number, max: number) => `${n}/${max}`,
+    // Status badge labels (raw status → human).
+    statusPending: 'Pending',
+    statusInFlight: 'In flight',
+    statusSucceeded: 'Transferred',
+    statusFailed: 'Failed',
+    statusBlocked: 'Blocked',
+    // Sync button + outcomes.
+    syncButton: 'Sync due invoices to Holded',
+    syncing: 'Syncing…',
+    retry: 'Retry',
+    retryAria: (ref: string) => `Retry Holded sync for booking ${ref}`,
+    openBookingAria: (ref: string) => `Open booking ${ref}`,
+    // Result toast: "3 transferred, 1 failed, 2 still pending".
+    syncResult: (
+      succeeded: number,
+      failed: number,
+      remainingPending: number,
+    ) =>
+      `${succeeded} transferred, ${failed} failed, ${remainingPending} still pending`,
+    syncError: 'Sync failed',
+    // Holded-not-connected state.
+    notConnectedTitle: 'Holded not connected',
+    notConnectedHint:
+      'Connect this operator’s Holded API key to transfer invoices.',
+    connectHolded: 'Connect Holded',
   },
   // landr-wwhn.28 — /feedback-inbox: cross-operator triage INBOX (STAFF-ONLY).
   feedbackInbox: {

@@ -59,6 +59,8 @@ import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
 import { Contacts } from '@/routes/Contacts'
 import { Dashboard } from '@/routes/Dashboard'
+// landr-a4pl.2 — /invoicing: Holded invoice transfer status + manual Sync-now.
+import { Invoicing } from '@/routes/Invoicing'
 import { GeneralApprovals } from '@/routes/GeneralApprovals'
 import { NotFound } from '@/routes/NotFound'
 import { Login } from '@/routes/Login'
@@ -266,6 +268,10 @@ function App() {
               <Route path="/analytics" element={gatedRoute('/analytics', <Analytics />)} />
               <Route path="/contacts" element={gatedRoute('/contacts', <Contacts />)} />
               <Route path="/reporting" element={gatedRoute('/reporting', <Reporting />)} />
+              {/* landr-a4pl.2 — Invoicing (Holded transfer status + manual
+                  Sync-now). Operator-rare finance surface, ungated (operational
+                  tooling, not in the feature registry — like /audit and /trash). */}
+              <Route path="/invoicing" element={<Invoicing />} />
               {/* landr-aref — /audit (audit_log viewer). Tenant-scoped via
                   RLS on audit_log; landr staff see cross-tenant rows for
                   fraud/dispute investigation per the existing policy. */}

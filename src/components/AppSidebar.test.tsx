@@ -143,6 +143,8 @@ describe('AppSidebar (landr-sydf)', () => {
       '/calendar',
       '/contacts',
       '/reporting',
+      // landr-a4pl.2 — Invoicing (Holded transfer status) primary nav entry.
+      '/invoicing',
       '/approvals/general',
       // landr-gka7 — Account + Settings top-level entries now point at
       // the first sub-section of each group (via landingPathFor) so the
