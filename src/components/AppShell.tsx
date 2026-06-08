@@ -91,7 +91,13 @@ function AppShellInner({ children }: { children: ReactNode }) {
           <div className="min-w-0 flex-1">
             <PageTitleDisplay />
           </div>
-          <div className="flex items-center gap-0.5 sm:gap-1">
+          {/* landr-92mt — the action cluster must NEVER shrink or clip: the
+              parent SidebarInset is overflow-x:clip, so without shrink-0 the
+              icons got squished/cut off the right edge on portrait phones
+              (UserMenu/bells disappeared; they reappeared in landscape where
+              there's room). shrink-0 forces the flex-1 title to absorb all
+              the shrinking instead, so every action stays on-screen. */}
+          <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
             {/* landr-hisw — deploy tier badge as env-switcher dropdown
                 (DEV/STAGING/PROD pill; shows on prod too so you can jump
                 back; nothing when VITE_DEPLOY_TIER is unset). Clicking the
@@ -115,7 +121,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
                 the topbar right-cluster so it's reachable from every
                 protected route without eating FAB real estate.
                 landr-3qkr.7 — hidden below md; surfaced via TopbarMoreMenu. */}
-            <ReportFab className="hidden md:flex" />
+            <ReportFab className="hidden min-[384px]:flex" />
             {/* landr-40x0 — recent-errors history. Badge shows capture count;
                 dropdown lists errors with Copy + Report per row. Sits between
                 the feedback button and the notifications bell so error-capture
@@ -126,7 +132,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
                 quick-actions (feedback · errors · notifications · theme · account). */}
             <NotificationsBell />
             {/* landr-3qkr.7 — hidden below md; surfaced via TopbarMoreMenu. */}
-            <ThemeToggle className="hidden md:flex" />
+            <ThemeToggle className="hidden min-[384px]:flex" />
             <UserMenu />
           </div>
         </header>
