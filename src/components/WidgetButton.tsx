@@ -1,28 +1,38 @@
 /**
- * landr-xen4 — top-bar "Open booking widget" quick-action.
+ * landr-xen4 → landr-aoak.3 — top-bar "new booking (staff)" quick-action.
  *
- * One-click shortcut that opens the LIVE booking widget for the CURRENT
- * operator scope in a new tab. Always uses the env-matched host (dev →
- * bw-dev.landr.de, staging → bw-staging.landr.de, prod → bw.landr.de)
- * with the operator's real widget_token — preventing the real incident where
- * staff opened bw.landr.de with a dev-only token and got a CORS error.
+ * Originally a one-click shortcut that opened the LIVE public booking widget
+ * in a NEW TAB. landr-aoak.3 repurposes it as the STAFF-MODE booking entry:
+ * clicking it opens a large modal (full-screen on mobile per landr-3qkr) that
+ * embeds the booking widget in an <iframe> in staff/agent mode, so the
+ * operator can book on a customer's behalf — with the operator-only powers
+ * (force-book a full/blocked day, price override) the widget gates behind a
+ * valid signed staff session. See StaffWidgetModal for the mint + postMessage
+ * + completion wiring.
  *
- * Visibility rules (AND-gated):
- *   1. The current operator's effective entitlements include `embed`
- *      (mirrors the /settings/embed gate — operators without embed can't
- *      sensibly open their widget).
+ * The env-matched host logic is unchanged (dev → bw-dev.landr.de, staging →
+ * bw-staging.landr.de, prod → bw.landr.de): the iframe + the staff-init
+ * postMessage targetOrigin + the completion-message origin check all derive
+ * from the SAME EmbedEnv → host map, so the wrong-env/token CORS incident the
+ * original button guarded against cannot recur.
+ *
+ * Visibility rules (AND-gated, UNCHANGED from landr-xen4):
+ *   1. The current operator's effective entitlements include `embed`.
  *   2. The operator's widget_token has loaded and is non-null.
  *      While loading or when absent, the button is simply hidden.
  */
 
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ExternalLinkIcon } from 'lucide-react'
+import { PlusIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { buildWidgetUrl, type EmbedEnv } from '@/lib/embed-hosts'
+import { type EmbedEnv } from '@/lib/embed-hosts'
 import { getTier } from '@/lib/tier'
 import { useOperator } from '@/lib/operator'
 import { useEntitlements } from '@/lib/entitlements'
 import { fetchWidgetToken } from '@/lib/shortcode'
+import { StaffWidgetModal } from '@/components/StaffWidgetModal'
+import { t } from '@/lib/strings'
 
 /** Map dashboard deploy tier → widget EmbedEnv. */
 function tierToEmbedEnv(): EmbedEnv {
@@ -36,6 +46,7 @@ function tierToEmbedEnv(): EmbedEnv {
 export function WidgetButton() {
   const { currentOperatorId } = useOperator()
   const { isEnabled, isLoading: entitlementsLoading } = useEntitlements()
+  const [open, setOpen] = useState(false)
 
   const tokenQuery = useQuery<string | null>({
     queryKey: ['operator-widget-token', currentOperatorId],
@@ -51,27 +62,30 @@ export function WidgetButton() {
   if (loading) return null
   if (!embedEnabled) return null
   if (!widgetToken) return null
+  if (!currentOperatorId) return null
 
   const env = tierToEmbedEnv()
-  const url = buildWidgetUrl(env, widgetToken)
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="size-8"
-      asChild
-      data-testid="widget-button"
-    >
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Open booking widget"
-        title="Open booking widget"
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-8"
+        onClick={() => setOpen(true)}
+        aria-label={t.staffWidget.openLabel}
+        title={t.staffWidget.openTitle}
+        data-testid="widget-button"
       >
-        <ExternalLinkIcon className="size-4" />
-      </a>
-    </Button>
+        <PlusIcon className="size-4" />
+      </Button>
+      <StaffWidgetModal
+        operatorId={currentOperatorId}
+        widgetToken={widgetToken}
+        env={env}
+        open={open}
+        onOpenChange={setOpen}
+      />
+    </>
   )
 }

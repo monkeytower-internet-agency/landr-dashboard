@@ -4127,4 +4127,26 @@ export const t = {
     copiedToast: 'Error details copied.',
     copyFailedToast: 'Could not copy to clipboard.',
   },
+  // landr-aoak.3 — staff-mode booking widget modal. The topbar WidgetButton
+  // mints a staff session and embeds the booking widget in an iframe so the
+  // operator can book on the customer's behalf (force-book full days, price
+  // override) without leaving the dashboard.
+  staffWidget: {
+    // WidgetButton trigger (icon button) — replaces the old "open in new tab".
+    openLabel: 'New booking (staff)',
+    openTitle: 'Create a booking on behalf of a customer',
+    // Modal chrome.
+    dialogTitle: 'New booking',
+    dialogDescription:
+      'Book on behalf of a customer. Operator overrides (force-book a full day, price override) are available in this staff session.',
+    closeLabel: 'Close booking widget',
+    iframeTitle: 'Booking widget (staff mode)',
+    // Mint failure (e.g. 503 session_signing_unavailable, or 403 membership).
+    mintError: (msg: string): string =>
+      `Couldn't start a staff booking session: ${msg}`,
+    // Fallback path when the widget cannot be framed (X-Frame-Options/CSP).
+    framedBlockedFallback: 'Opening the booking widget in a new tab…',
+    // Completion toast after the widget posts landr:booking-created.
+    createdToast: 'Booking created. Opening it now…',
+  },
 } as const
