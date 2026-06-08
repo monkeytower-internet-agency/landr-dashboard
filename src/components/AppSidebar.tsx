@@ -14,6 +14,7 @@ import {
   MousePointerClickIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
+  ReceiptTextIcon,
   RocketIcon,
   ScrollTextIcon,
   SettingsIcon,
@@ -128,6 +129,15 @@ const primaryItems: NavItem[] = [
     to: '/reporting',
     label: t.nav.reporting,
     icon: ChartAreaIcon,
+    exact: false,
+  },
+  // landr-a4pl.2 — Invoicing (Holded transfer status + manual Sync-now).
+  // Finance surface; sits after Reporting in the primary cluster. Ungated
+  // (featureForRoute returns null), like Audit/Trash.
+  {
+    to: '/invoicing',
+    label: t.nav.invoicing,
+    icon: ReceiptTextIcon,
     exact: false,
   },
   {
