@@ -16,7 +16,6 @@ import { OperatorSwitcher } from '@/components/OperatorSwitcher'
 import { UserMenu } from '@/components/UserMenu'
 import { ViewAsBanner } from '@/components/ViewAsBanner'
 import { ViewAsOperatorPicker } from '@/components/ViewAsOperatorPicker'
-import { QuickCaptureFab } from '@/components/QuickCaptureFab'
 import { ReportFab } from '@/components/ReportFab'
 import { TierBadge } from '@/components/TierBadge'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -26,7 +25,6 @@ import { TopbarMoreMenu } from '@/components/topbar/TopbarMoreMenu'
 import { CommandPaletteProvider } from '@/lib/command-palette-context'
 import { KeyboardShortcutsHelpProvider } from '@/lib/keyboard-shortcuts-help-context'
 import { PageTitleProvider } from '@/lib/page-title'
-import { BulkToolbarProvider } from '@/lib/bulk-toolbar-context'
 import { ReportFabProvider } from '@/lib/report-fab-context'
 import { SidebarModeProvider } from '@/lib/sidebar-mode-context'
 import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
@@ -105,11 +103,14 @@ function AppShellInner({ children }: { children: ReactNode }) {
                 dashboard. showProd ensures the chip is visible on prod;
                 switcher enables the dropdown behavior. */}
             <TierBadge switcher showProd isStaff={effectiveIsStaff} />
-            {/* landr-xen4 — one-click "open booking widget" topbar action.
-                Renders only when the embed feature is enabled AND the
-                operator's widget_token has loaded. Always uses the
-                env-matched widget host to prevent the wrong-env/token CORS
-                incident (staff opening bw.landr.de with a dev token). */}
+            {/* landr-xen4 → landr-aoak.3 — "new booking (staff)" topbar
+                action. Opens a modal embedding the booking widget in an
+                iframe in STAFF mode (book on a customer's behalf; force-book
+                + price override). Renders only when the embed feature is
+                enabled AND the operator's widget_token has loaded. The iframe,
+                the staff-init postMessage targetOrigin, and the completion
+                origin-check all derive from the same env-matched widget host,
+                so the wrong-env/token CORS incident cannot recur. */}
             <WidgetButton />
             {/* landr-3qkr.7 — overflow menu: below md, ThemeToggle + ReportFab
                 collapse into this single ellipsis trigger to reclaim ~64px in
@@ -152,10 +153,9 @@ function AppShellInner({ children }: { children: ReactNode }) {
           {children}
         </main>
       </SidebarInset>
-      {/* landr-f18d — Quick capture FAB. Bottom-right, mounted at the
-          shell level so it's reachable from every protected route (the
-          common operator use case is "phone rings while I'm on /calendar"). */}
-      <QuickCaptureFab />
+      {/* landr-aoak.3 — the Quick-capture FAB (landr-f18d) was removed; new
+          bookings now go through the staff-mode booking-widget modal opened
+          from the topbar WidgetButton above. */}
       {/* landr-wmsc — global Cmd/Ctrl+K palette. Mounted once at the
           shell level so the hot-key listener (installed by the
           CommandPaletteProvider) covers every protected route. */}
@@ -179,21 +179,15 @@ function AppShellInner({ children }: { children: ReactNode }) {
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <ReportFabProvider>
-      {/* landr-3qkr.7 — BulkToolbarProvider lets BulkActionToolbar signal
-          its active state up to QuickCaptureFab (which is mounted outside the
-          route tree). Both components call useBulkToolbar(); the context
-          avoids prop-threading through the router → AppShell boundary. */}
-      <BulkToolbarProvider>
-        <SidebarModeProvider>
-          <PageTitleProvider>
-            <CommandPaletteProvider>
-              <KeyboardShortcutsHelpProvider>
-                <AppShellInner>{children}</AppShellInner>
-              </KeyboardShortcutsHelpProvider>
-            </CommandPaletteProvider>
-          </PageTitleProvider>
-        </SidebarModeProvider>
-      </BulkToolbarProvider>
+      <SidebarModeProvider>
+        <PageTitleProvider>
+          <CommandPaletteProvider>
+            <KeyboardShortcutsHelpProvider>
+              <AppShellInner>{children}</AppShellInner>
+            </KeyboardShortcutsHelpProvider>
+          </CommandPaletteProvider>
+        </PageTitleProvider>
+      </SidebarModeProvider>
     </ReportFabProvider>
   )
 }
