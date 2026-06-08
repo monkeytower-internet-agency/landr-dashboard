@@ -186,6 +186,37 @@ export const BOOKING_FIELDS: readonly ViewField[] = [
     filterable: true,
     sortable: false,
   },
+  // landr-a4pl.3 — Holded invoice transfer state. Derived from the latest
+  // external_sync_log row per booking (fetched in bookings.ts SELECT). The
+  // field is an enum so operators can filter "show me all failed transfers"
+  // or group by transfer state in a single click.
+  {
+    key: 'holded_status',
+    label: 'Holded status',
+    type: 'enum',
+    filterable: true,
+    sortable: true,
+    groupable: true,
+    enumValues: ['transferred', 'pending', 'failed', 'blocked', 'none'],
+    enumLabels: {
+      transferred: 'Transferred',
+      pending: 'Pending',
+      failed: 'Failed',
+      blocked: 'Blocked',
+      none: 'None',
+    },
+  },
+  // landr-a4pl.3 — outstanding balance on the booking. The balance_due
+  // column is already fetched in the bookings SELECT; this entry registers
+  // it in the Views registry so operators can filter (e.g. balance_due > 0)
+  // and sort by outstanding amount. Numeric operators: gt, lt, gte, lte.
+  {
+    key: 'balance_due',
+    label: 'Balance due',
+    type: 'number',
+    filterable: true,
+    sortable: true,
+  },
 ] as const
 
 const FIELDS_BY_ENTITY: Record<string, readonly ViewField[]> = {
