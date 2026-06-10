@@ -16,6 +16,17 @@ export type BookingSemanticState =
   | 'cancelled'
   | 'no_show'
 
+// landr-a4pl.3 — derived per-booking Holded transfer status for Views.
+// Maps the latest external_sync_log.status for action='invoice_push' /
+// external_target='holded' onto a UI-facing 5-value enum:
+//   succeeded       → 'transferred'
+//   pending         → 'pending'
+//   in_flight       → 'pending'  (in transit; still counts as pending to the operator)
+//   failed          → 'failed'
+//   blocked_on_human→ 'blocked'
+//   no row          → 'none'
+export type HoldedStatus = 'transferred' | 'pending' | 'failed' | 'blocked' | 'none'
+
 // free-text in booking_lifecycle_stages.code; operator-customizable.
 // These three are the seeded defaults for Para42; other operators
 // may have different codes.
@@ -130,6 +141,11 @@ export type BookingRow = {
   // it. The Supabase embed filters out soft-deleted parent tags so this
   // array only ever contains active labels.
   tags?: BookingTagRef[]
+  // landr-a4pl.3 — derived from the latest external_sync_log row for this
+  // booking (action='invoice_push', external_target='holded'). Optional so
+  // existing fixtures / mocks don't have to populate it; extractors default
+  // to 'none' when absent.
+  holded_status?: HoldedStatus
 }
 
 // landr-iz58 — `tags` embed projects operator_tags through booking_tags.
@@ -137,6 +153,12 @@ export type BookingRow = {
 // PostgREST without an inner-join; instead we map the result client-side
 // in fetchBookings + drop rows where the operator_tags side is null
 // (which happens when the tag was soft-deleted or hard-deleted).
+//
+// landr-a4pl.3 — `holded_sync:external_sync_log` embeds the latest
+// invoice_push rows so we can derive holded_status client-side.
+// PostgREST embeds don't support LIMIT 1 per-row; we embed up to 5 rows
+// (Holded retries up to max_attempts times) ordered by created_at desc
+// and pick the first in normaliseBookingRow.
 const SELECT = `
   id,
   created_at,
@@ -152,17 +174,54 @@ const SELECT = `
   customer:contacts!inner ( id, first_name, last_name, email, phone ),
   items:booking_products ( id, date_range_start, date_range_end, selected_days, products ( id, name, product_kind, service_time_shape ) ),
   participants:booking_participants ( id, pickup_location:locations!pickup_location_id ( id, name ) ),
-  booking_tags ( operator_tags ( id, name, color, deleted_at ) )
+  booking_tags ( operator_tags ( id, name, color, deleted_at ) ),
+  holded_sync:external_sync_log ( status, created_at )
 `
 
 type RawBookingTagEmbed = {
   operator_tags: { id: string; name: string; color: string; deleted_at: string | null } | null
 }
-type RawBookingRow = Omit<BookingRow, 'tags'> & {
-  booking_tags?: RawBookingTagEmbed[] | null
+
+// landr-a4pl.3 — raw shape of the external_sync_log embed rows.
+// status mirrors public.external_sync_status enum values.
+type RawHoldedSyncRow = {
+  status: 'pending' | 'in_flight' | 'succeeded' | 'failed' | 'blocked_on_human'
+  created_at: string
 }
 
-function flattenTags(raw: RawBookingRow): BookingRow {
+type RawBookingRow = Omit<BookingRow, 'tags' | 'holded_status'> & {
+  booking_tags?: RawBookingTagEmbed[] | null
+  // landr-a4pl.3 — all embed rows returned by PostgREST; empty array when
+  // the booking has no external_sync_log entry.
+  holded_sync?: RawHoldedSyncRow[] | null
+}
+
+/** landr-a4pl.3 — derive HoldedStatus from the latest external_sync_log row.
+ *  PostgREST returns the embed rows in insertion order; we find the most
+ *  recent one by created_at then map the DB status to the UI enum. */
+function deriveHoldedStatus(rows: RawHoldedSyncRow[] | null | undefined): HoldedStatus {
+  if (!rows || rows.length === 0) return 'none'
+  // Find the latest row by created_at (lexicographic ISO string compare is safe).
+  let latest = rows[0]
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i].created_at > latest.created_at) latest = rows[i]
+  }
+  switch (latest.status) {
+    case 'succeeded':
+      return 'transferred'
+    case 'pending':
+    case 'in_flight':
+      return 'pending'
+    case 'failed':
+      return 'failed'
+    case 'blocked_on_human':
+      return 'blocked'
+    default:
+      return 'none'
+  }
+}
+
+function normaliseBookingRow(raw: RawBookingRow): BookingRow {
   const tags: BookingTagRef[] = []
   for (const wrapper of raw.booking_tags ?? []) {
     const ot = wrapper.operator_tags
@@ -170,9 +229,14 @@ function flattenTags(raw: RawBookingRow): BookingRow {
     if (ot.deleted_at) continue // tag was soft-deleted
     tags.push({ id: ot.id, name: ot.name, color: ot.color })
   }
-  const { booking_tags: _omit, ...rest } = raw
-  return { ...rest, tags }
+  const holded_status = deriveHoldedStatus(raw.holded_sync)
+  const { booking_tags: _omitTags, holded_sync: _omitSync, ...rest } = raw
+  return { ...rest, tags, holded_status }
 }
+
+// Keep backward-compatible alias — previously callers inside this file used
+// flattenTags. All internal call sites updated to normaliseBookingRow below.
+const flattenTags = normaliseBookingRow
 
 /** Convenience helper — falls back to null safely. */
 export function stageCode(row: BookingRow): string | null {

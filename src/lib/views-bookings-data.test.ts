@@ -1,9 +1,10 @@
 // landr-9kbl — pure-pipe tests for the shared Views data helpers.
 // The React Query hook (useViewBookings) is exercised through ViewPage's
 // integration tests; here we cover the filter + sort logic in isolation.
+// landr-a4pl.3 — extended with holded_status + balance_due filter tests.
 
 import { describe, expect, it } from 'vitest'
-import type { BookingRow } from '@/lib/bookings'
+import type { BookingRow, HoldedStatus } from '@/lib/bookings'
 import {
   applyView,
   applyViewSort,
@@ -447,5 +448,78 @@ describe('applyView / matchesViewFilters — weekStartsOn (landr-m4zq)', () => {
     ).toBe(true)
     const config = { filters: [thisWeekFilter] }
     expect(applyView([rowOnSunday24()], config, 'booking', thursday)).toHaveLength(1)
+  })
+})
+
+// landr-a4pl.3 — holded_status + balance_due filter tests
+describe('matchesViewFilters — holded_status (landr-a4pl.3)', () => {
+  function rowWithHolded(status?: HoldedStatus): BookingRow {
+    return row({ holded_status: status })
+  }
+
+  it('eq filter matches the exact holded_status value', () => {
+    const f: Filter = { field: 'holded_status', op: 'eq', values: ['failed'] }
+    expect(matchesViewFilters(rowWithHolded('failed'), [f])).toBe(true)
+    expect(matchesViewFilters(rowWithHolded('pending'), [f])).toBe(false)
+    expect(matchesViewFilters(rowWithHolded('transferred'), [f])).toBe(false)
+  })
+
+  it('in filter matches when holded_status is any of the values', () => {
+    const f: Filter = { field: 'holded_status', op: 'in', values: ['pending', 'failed'] }
+    expect(matchesViewFilters(rowWithHolded('pending'), [f])).toBe(true)
+    expect(matchesViewFilters(rowWithHolded('failed'), [f])).toBe(true)
+    expect(matchesViewFilters(rowWithHolded('transferred'), [f])).toBe(false)
+    expect(matchesViewFilters(rowWithHolded('blocked'), [f])).toBe(false)
+  })
+
+  it('defaults to "none" for rows with no holded_status field', () => {
+    const f: Filter = { field: 'holded_status', op: 'eq', values: ['none'] }
+    // No holded_status on the row — should still match 'none'.
+    expect(matchesViewFilters(row(), [f])).toBe(true)
+  })
+
+  it('rows with holded_status=none do NOT match a pending/failed filter', () => {
+    const f: Filter = { field: 'holded_status', op: 'in', values: ['pending', 'failed'] }
+    expect(matchesViewFilters(rowWithHolded('none'), [f])).toBe(false)
+    expect(matchesViewFilters(row(), [f])).toBe(false)
+  })
+
+  it('eq filter for blocked matches', () => {
+    const f: Filter = { field: 'holded_status', op: 'eq', values: ['blocked'] }
+    expect(matchesViewFilters(rowWithHolded('blocked'), [f])).toBe(true)
+    expect(matchesViewFilters(rowWithHolded('failed'), [f])).toBe(false)
+  })
+})
+
+describe('matchesViewFilters — balance_due (landr-a4pl.3)', () => {
+  it('gt 0 matches rows with a positive balance', () => {
+    const f: Filter = { field: 'balance_due', op: 'gt', values: [0] }
+    expect(matchesViewFilters(row({ balance_due: 150 }), [f])).toBe(true)
+    expect(matchesViewFilters(row({ balance_due: 0 }), [f])).toBe(false)
+    expect(matchesViewFilters(row({ balance_due: -1 }), [f])).toBe(false)
+  })
+
+  it('lt filter matches rows below the threshold', () => {
+    const f: Filter = { field: 'balance_due', op: 'lt', values: [100] }
+    expect(matchesViewFilters(row({ balance_due: 50 }), [f])).toBe(true)
+    expect(matchesViewFilters(row({ balance_due: 100 }), [f])).toBe(false)
+    expect(matchesViewFilters(row({ balance_due: 200 }), [f])).toBe(false)
+  })
+
+  it('gte / lte filters work', () => {
+    const gte: Filter = { field: 'balance_due', op: 'gte', values: [100] }
+    const lte: Filter = { field: 'balance_due', op: 'lte', values: [100] }
+    expect(matchesViewFilters(row({ balance_due: 100 }), [gte])).toBe(true)
+    expect(matchesViewFilters(row({ balance_due: 99 }), [gte])).toBe(false)
+    expect(matchesViewFilters(row({ balance_due: 100 }), [lte])).toBe(true)
+    expect(matchesViewFilters(row({ balance_due: 101 }), [lte])).toBe(false)
+  })
+
+  it('falls back to gross_total when balance_due is absent', () => {
+    // Row without balance_due — extractor should fall back to gross_total=100
+    const baseRow = row({ gross_total: 100 })
+    const { balance_due: _, ...rowNoBalance } = baseRow
+    const f: Filter = { field: 'balance_due', op: 'gt', values: [0] }
+    expect(matchesViewFilters(rowNoBalance as BookingRow, [f])).toBe(true)
   })
 })

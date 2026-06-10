@@ -34,16 +34,19 @@ export function TopbarMoreMenu() {
   const { setOpen: openReportFab } = useReportFab()
 
   return (
-    // md:hidden — only rendered below the md breakpoint. The CSS hides it on
-    // desktop; the individual ThemeToggle + ReportFab carry hidden md:flex so
-    // they appear on desktop and vanish on mobile.
+    // landr-92mt — only rendered on the NARROWEST phones (<384px). Above that
+    // the topbar fits every action inline, so ThemeToggle + ReportFab show
+    // directly (they carry `hidden min-[384px]:flex`) and this overflow menu
+    // hides. Previously this collapsed everything below md (768px), so even
+    // roomy 390-430px phones hid icons behind the ⋯ — the user wants them
+    // visible. Only sub-384 (SE/older) still folds them in here.
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
           size="icon"
           aria-label="More options"
-          className="md:hidden"
+          className="min-[384px]:hidden"
           data-testid="topbar-more-menu-trigger"
         >
           <MoreHorizontalIcon className="size-4" aria-hidden />

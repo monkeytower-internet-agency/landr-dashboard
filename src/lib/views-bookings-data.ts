@@ -91,6 +91,33 @@ function extractor(fieldKey: string): FieldExtract | null {
         kind: 'multi',
         get: (r) => (r.tags ?? []).map((tag) => tag.id),
       }
+    case 'holded_status':
+      // landr-a4pl.3 — Holded transfer state (derived enum; see bookings.ts).
+      // Defaults to 'none' when the field is absent so legacy rows (before
+      // the external_sync_log embed was added to the SELECT) don't break
+      // existing views.
+      return {
+        kind: 'scalar',
+        get: (r) => r.holded_status ?? 'none',
+      }
+    case 'balance_due': {
+      // landr-a4pl.3 — outstanding balance; already present on BookingRow.
+      // Falls back to gross_total for pre-migration rows where balance_due
+      // may be absent (same logic as balanceDueOf in bookings.ts).
+      return {
+        kind: 'scalar',
+        get: (r) => {
+          const raw = r.balance_due
+          if (raw != null) {
+            const n = typeof raw === 'number' ? raw : Number(raw)
+            if (Number.isFinite(n)) return n
+          }
+          const gross =
+            typeof r.gross_total === 'number' ? r.gross_total : Number(r.gross_total)
+          return Number.isFinite(gross) ? gross : null
+        },
+      }
+    }
     default:
       return null
   }
