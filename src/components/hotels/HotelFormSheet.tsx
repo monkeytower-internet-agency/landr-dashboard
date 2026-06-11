@@ -31,7 +31,7 @@ import {
   updateHotel,
   type Hotel,
   type HotelFormValues,
-  type PlaceDetails,
+  type PlaceSearchResult,
 } from '@/lib/hotels'
 import { t } from '@/lib/strings'
 
@@ -109,15 +109,15 @@ function HotelFormSheetBody({ operatorId, editTarget, onClose }: BodyProps) {
     },
   })
 
-  function handlePlaceSelect(details: PlaceDetails) {
-    // Pre-fill fields from Google Places. Only overwrite a field if the place
-    // provides a value — never blank out something the user already typed.
-    if (details.name) form.setValue('name', details.name, { shouldValidate: true })
-    if (details.address) form.setValue('address', details.address, { shouldValidate: true })
-    if (details.phone) form.setValue('phone', details.phone, { shouldValidate: true })
-    if (details.website) form.setValue('website', details.website, { shouldValidate: true })
-    if (details.mapsLink) form.setValue('maps_link', details.mapsLink, { shouldValidate: true })
-    if (details.timezone) form.setValue('timezone', details.timezone, { shouldValidate: true })
+  function handlePlaceSelect(result: PlaceSearchResult) {
+    // Pre-fill fields from Google Places Text Search. Only overwrite a field if
+    // the place provides a value — never blank out something the user already typed.
+    if (result.name) form.setValue('name', result.name, { shouldValidate: true })
+    if (result.address) form.setValue('address', result.address, { shouldValidate: true })
+    if (result.phone) form.setValue('phone', result.phone, { shouldValidate: true })
+    if (result.website) form.setValue('website', result.website, { shouldValidate: true })
+    if (result.mapsLink) form.setValue('maps_link', result.mapsLink, { shouldValidate: true })
+    if (result.timezone) form.setValue('timezone', result.timezone, { shouldValidate: true })
     // NOTE: email (booking-confirmation) and contact_email are intentionally
     // NOT pre-filled — Google gives a general contact, not the reservations inbox.
     setAutofillBanner('filled')

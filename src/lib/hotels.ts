@@ -138,6 +138,19 @@ export type PlaceDetails = {
   timezone: string | null
 }
 
+/** One result from the Places Text Search (POST /v1/places:searchText).
+ *  Carries everything needed to pre-fill the hotel form in a single API call
+ *  — no second "details" round-trip required. */
+export type PlaceSearchResult = {
+  placeId: string
+  name: string
+  address: string | null
+  phone: string | null
+  website: string | null
+  mapsLink: string | null
+  timezone: string | null
+}
+
 /** Thrown when the backend reports { configured: false }. */
 export class PlacesNotConfiguredError extends Error {
   constructor() {
@@ -207,4 +220,42 @@ export async function fetchPlaceDetails(
     mapsLink: data.mapsLink ?? null,
     timezone: data.timezone ?? null,
   }
+}
+
+// Raw shape returned by GET /hotel-places/search
+type SearchRaw = {
+  configured?: false
+  detail?: string
+  results?: Array<{
+    place_id: string
+    name: string
+    address: string | null
+    phone: string | null
+    website: string | null
+    maps_link: string | null
+    timezone: string | null
+  }>
+}
+
+/** One-shot text search: fires on ENTER, returns up to 10 results.
+ *  No session token — a single billable request replaces per-keystroke calls. */
+export async function fetchHotelPlaceSearch(
+  operatorId: string,
+  query: string,
+): Promise<PlaceSearchResult[]> {
+  const params = new URLSearchParams({ q: query })
+  const data = await placesApi<SearchRaw>(
+    'GET',
+    `/api/staff/operators/${operatorId}/hotel-places/search?${params}`,
+  )
+  if (data.configured === false) throw new PlacesNotConfiguredError()
+  return (data.results ?? []).map((r) => ({
+    placeId: r.place_id,
+    name: r.name,
+    address: r.address,
+    phone: r.phone,
+    website: r.website,
+    mapsLink: r.maps_link,
+    timezone: r.timezone,
+  }))
 }
