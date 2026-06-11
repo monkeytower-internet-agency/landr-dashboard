@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatTime, formatTimeRange } from './time-format'
+import { formatTime, formatTimeRange, formatDate, formatDateTime } from './time-format'
 
 describe('formatTime', () => {
   it('renders 24h with hourCycle h23 when hour12=false', () => {
@@ -65,5 +65,85 @@ describe('formatTimeRange', () => {
     const [left, right] = out.split('–')
     expect(left.toLowerCase()).toMatch(/a\.?m/)
     expect(right.toLowerCase()).toMatch(/p\.?m/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// formatDate (landr-v9e4.4)
+// ---------------------------------------------------------------------------
+
+describe('formatDate', () => {
+  it('returns "—" for null', () => {
+    expect(formatDate(null)).toBe('—')
+  })
+
+  it('returns "—" for undefined', () => {
+    expect(formatDate(undefined)).toBe('—')
+  })
+
+  it('returns "—" for empty string', () => {
+    expect(formatDate('')).toBe('—')
+  })
+
+  it('returns the input verbatim for an unparseable string', () => {
+    expect(formatDate('not-a-date')).toBe('not-a-date')
+  })
+
+  it('formats a valid ISO date string (dateStyle:medium en-IE)', () => {
+    const out = formatDate('2026-05-10T09:00:00.000Z')
+    // Locale-dependent output; assert it's a non-empty, non-fallback string
+    // and contains the year so we know it rendered correctly.
+    expect(out).not.toBe('—')
+    expect(out).toContain('2026')
+  })
+
+  it('accepts a custom fallback', () => {
+    expect(formatDate(null, 'N/A')).toBe('N/A')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// formatDateTime (landr-v9e4.4)
+// ---------------------------------------------------------------------------
+
+describe('formatDateTime', () => {
+  it('returns "—" for null', () => {
+    expect(formatDateTime(null)).toBe('—')
+  })
+
+  it('returns "—" for undefined', () => {
+    expect(formatDateTime(undefined)).toBe('—')
+  })
+
+  it('returns the input verbatim for an unparseable string', () => {
+    expect(formatDateTime('not-a-date')).toBe('not-a-date')
+  })
+
+  it('formats a valid ISO timestamp in 24h mode (h23)', () => {
+    const out = formatDateTime('2026-05-10T14:30:00.000Z', { hour12: false })
+    expect(out).not.toBe('—')
+    expect(out).toContain('2026')
+    // 24h mode: no am/pm marker
+    expect(out.toLowerCase()).not.toMatch(/[ap]\.?m/)
+  })
+
+  it('formats a valid ISO timestamp in 12h mode (h12)', () => {
+    const out = formatDateTime('2026-05-10T14:30:00.000Z', { hour12: true })
+    expect(out).not.toBe('—')
+    expect(out).toContain('2026')
+    // 12h mode: contains am/pm marker
+    expect(out.toLowerCase()).toMatch(/[ap]\.?m/)
+  })
+
+  it('defaults to 24h (h23) when opts is omitted', () => {
+    const out24 = formatDateTime('2026-05-10T14:30:00.000Z', { hour12: false })
+    const outDefault = formatDateTime('2026-05-10T14:30:00.000Z')
+    expect(outDefault).toBe(out24)
+  })
+
+  it('h12 and h23 produce different strings for non-midnight timestamps', () => {
+    const h12 = formatDateTime('2026-05-10T14:30:00.000Z', { hour12: true })
+    const h23 = formatDateTime('2026-05-10T14:30:00.000Z', { hour12: false })
+    expect(h12).not.toBe(h23)
   })
 })

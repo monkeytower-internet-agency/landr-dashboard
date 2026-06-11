@@ -2,6 +2,8 @@ import type { QueryClient } from '@tanstack/react-query'
 
 import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api-client'
+import { getCurrencyFormatter } from '@/lib/format-currency'
+import { formatDateTime } from '@/lib/time-format'
 // landr-g2m5 — single source of truth for the product_kind enum lives in
 // lib/products.ts. Re-export here so existing `from '@/lib/bookings'`
 // consumers keep compiling without changes.
@@ -329,18 +331,14 @@ export function productDisplay(row: BookingRow): string {
   return `${named[0]} +${named.length - 1}`
 }
 
-const numberFormatCache = new Map<string, Intl.NumberFormat>()
+/**
+ * Returns a cached `Intl.NumberFormat` for the given currency.
+ * Re-exported from `@/lib/format-currency` for backward compatibility with
+ * call sites that need the formatter object directly (e.g. BookingPayments).
+ * New call sites should prefer `formatCurrency` from `@/lib/format-currency`.
+ */
 export function numberFormatter(currency: string): Intl.NumberFormat {
-  const key = currency || 'EUR'
-  let fmt = numberFormatCache.get(key)
-  if (!fmt) {
-    fmt = new Intl.NumberFormat('en-IE', {
-      style: 'currency',
-      currency: key,
-    })
-    numberFormatCache.set(key, fmt)
-  }
-  return fmt
+  return getCurrencyFormatter(currency)
 }
 
 export function priceDisplay(row: BookingRow): string {
@@ -351,7 +349,7 @@ export function priceDisplay(row: BookingRow): string {
   // billed.
   const raw = effectiveGrossOf(row)
   if (!Number.isFinite(raw)) return '—'
-  return numberFormatter(row.currency || 'EUR').format(raw)
+  return getCurrencyFormatter(row.currency || 'EUR').format(raw)
 }
 
 /** Numeric "effective gross" — the override when set, else gross_total.
@@ -377,34 +375,13 @@ export function hasPriceOverride(row: BookingRow): boolean {
 }
 
 // landr-f1s — date + time-of-day display. Hour cycle follows the operator's
-// time_format_24h preference (passed by the caller via opts.hour12). Cached
-// per cycle to match the previous module-level singleton.
-// NOTE: Intl.DateTimeFormat forbids mixing dateStyle/timeStyle with the
-// per-component options (year, hour, minute, …); we use the per-component
-// form so hourCycle takes effect.
-const _dateTimeFormatters: Record<'h12' | 'h23', Intl.DateTimeFormat> = {
-  h12: new Intl.DateTimeFormat('en-IE', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h12',
-  }),
-  h23: new Intl.DateTimeFormat('en-IE', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }),
-}
-
+/**
+ * Format a booking ISO timestamp as a localised date+time string.
+ * Re-exported from `@/lib/time-format` (formatDateTime) — consolidated as
+ * part of landr-v9e4.4. The signature is unchanged for backward compat.
+ */
 export function dateDisplay(iso: string, opts?: { hour12?: boolean }): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return _dateTimeFormatters[opts?.hour12 ? 'h12' : 'h23'].format(d)
+  return formatDateTime(iso, opts)
 }
 
 // ----- Service date helpers (landr-04ec) ----------------------------------

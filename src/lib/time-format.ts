@@ -1,12 +1,11 @@
 /**
- * Time-of-day formatting helpers (landr-f1s).
+ * Time-of-day, date, and date+time formatting helpers.
  *
- * Single source of truth for rendering times in the dashboard. Reads the
- * operator's `time_format_24h` preference and produces 24h ('h23') or 12h
- * with AM/PM ('h12') output via `Intl.DateTimeFormat`.
+ * Single source of truth for rendering times, dates, and datetimes in the
+ * dashboard (landr-f1s, landr-v9e4.4).
  *
- * All call sites in this app should go through `formatTime` / `formatTimeRange`
- * rather than ad-hoc `toLocaleTimeString` or hard-coded `HH:mm` strings.
+ * All call sites should go through the helpers exported here rather than
+ * constructing ad-hoc `Intl.DateTimeFormat` / `toLocaleTimeString` instances.
  */
 
 export type TimeFormatOpts = {
@@ -49,6 +48,82 @@ export function formatTimeRange(
 ): string {
   return `${formatTime(start, opts)}–${formatTime(end, opts)}`
 }
+
+// ---------------------------------------------------------------------------
+// Date-only formatter (landr-v9e4.4)
+// ---------------------------------------------------------------------------
+
+const _dateFormatter = new Intl.DateTimeFormat('en-IE', { dateStyle: 'medium' })
+
+/**
+ * Format an ISO date/timestamp string as a medium-style date (e.g. "10 May 2026").
+ * Returns `fallback` (default `'—'`) for null/undefined input, and the
+ * original string verbatim when it can't be parsed as a valid date.
+ *
+ * Consolidated from the byte-identical `contactDate` (contacts.ts) and
+ * `staffDate` (staff.ts) helpers.
+ */
+export function formatDate(
+  iso: string | null | undefined,
+  fallback = '—',
+): string {
+  if (!iso) return fallback
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return _dateFormatter.format(d)
+}
+
+// ---------------------------------------------------------------------------
+// Date+time formatter — h12/h23 pair (landr-v9e4.4)
+// ---------------------------------------------------------------------------
+
+// NOTE: Intl.DateTimeFormat forbids mixing dateStyle/timeStyle with the
+// per-component options (year, hour, minute, …); we use the per-component
+// form so hourCycle takes effect.
+const _dateTimeFormatters: Record<'h12' | 'h23', Intl.DateTimeFormat> = {
+  h12: new Intl.DateTimeFormat('en-IE', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h12',
+  }),
+  h23: new Intl.DateTimeFormat('en-IE', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }),
+}
+
+/**
+ * Format an ISO timestamp as a localised date+time string.
+ *
+ * `opts.hour12 = true`  → 12h with AM/PM ('h12')
+ * `opts.hour12 = false` → 24h ('h23')  ← default
+ *
+ * Returns the original string verbatim when it can't be parsed.
+ * Returns `'—'` for null/undefined input.
+ *
+ * Consolidated from the char-for-char identical `dateDisplay` (bookings.ts)
+ * and `contactDateTime` (contacts.ts) helpers.
+ */
+export function formatDateTime(
+  iso: string | null | undefined,
+  opts?: { hour12?: boolean },
+): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return _dateTimeFormatters[opts?.hour12 ? 'h12' : 'h23'].format(d)
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
 
 function toDate(value: Date | string): Date | null {
   if (value instanceof Date) {
