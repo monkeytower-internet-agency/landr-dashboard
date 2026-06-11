@@ -418,6 +418,9 @@ export const t = {
       // sign-in). landr-genericity-northstar.
       providers: 'Providers',
       pickupLocations: 'Pickup locations',
+      // landr-cyoi — Hotels as a first-class settings entity (separate from
+      // generic pickup locations; carry address/email/phone/maps_link).
+      hotels: 'Hotels',
       products: 'Products',
       // landr-up1b — nested product categories (the operator-owned
       // product_groups tree). Sits right after Products in the IA.
@@ -488,6 +491,8 @@ export const t = {
       providers:
         'Manage the people who deliver your service (instructors, pilots, drivers) and assign them to booking days.',
       pickupLocations: 'Manage pickup sites and sub-points for bookings.',
+      // landr-cyoi — Hotels settings section subtitle.
+      hotels: 'Manage your accommodation partners and their contact details.',
       products: 'Configure bookable products and their availability rules.',
       categories:
         'Organise products into a nested category tree. Drag-free reparenting, rename, and reorder.',
@@ -2855,6 +2860,60 @@ export const t = {
     roleTypeManagerToastDeleted: 'Type deleted.',
     roleTypeManagerToastError: 'Could not save type.',
     roleTypeManagerEditAffordanceAria: 'Manage pickup location types',
+    // landr-cyoi — hotel rows are read-only in the pickup list; they are
+    // managed under Settings → Hotels.
+    managedUnderHotels: 'Managed under Hotels',
+  },
+  // landr-cyoi — Hotels as a first-class settings entity (separate from the
+  // generic pickup-locations editor). Hotels carry required address/email/
+  // phone and an optional Google Maps link; a hotel with no email surfaces a
+  // missing-email error so booking confirmations don't silently drop.
+  hotels: {
+    title: 'Hotels',
+    subtitle: 'Manage your accommodation partners and their contact details.',
+    addHotel: 'Add hotel',
+    loading: 'Loading hotels…',
+    error: 'Failed to load hotels.',
+    empty: 'No hotels yet. Add one to get started.',
+
+    columnName: 'Name',
+    columnEmail: 'Email',
+    columnAddress: 'Address',
+    columnPhone: 'Phone',
+    columnActions: 'Actions',
+    actionEdit: 'Edit',
+    actionDelete: 'Delete',
+    missingEmail: 'Missing email',
+
+    fieldName: 'Name',
+    fieldEmail: 'Contact email',
+    fieldAddress: 'Address',
+    fieldPhone: 'Phone',
+    fieldMapsLink: 'Google Maps link (optional)',
+
+    formCreateTitle: 'Add hotel',
+    formEditTitle: 'Edit hotel',
+    formDescription:
+      'Hotels appear in the pickup-location list automatically. The contact email is required so booking confirmations can reach the hotel.',
+
+    create: 'Add hotel',
+    creating: 'Adding…',
+    save: 'Save changes',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+
+    toastCreated: 'Hotel added.',
+    toastUpdated: 'Hotel updated.',
+    toastError: 'Action failed.',
+
+    deleteTitle: 'Delete hotel?',
+    deleteConfirm: 'Delete',
+    deleteWarning:
+      'This soft-deletes the hotel. It disappears from the list immediately and stops being offered as a pickup point. This action can be reversed from the database.',
+    toastDeleted: 'Hotel deleted.',
+
+    filterPlaceholder: 'Search hotels…',
+    matches: (n: number, total: number) => `${n} / ${total}`,
   },
   // landr-funh — delivery roster (Settings → Providers) + per-booking-day
   // assignment picker (BookingDetailSheet).

@@ -23,15 +23,30 @@ type Props = {
 
 // landr-3qkr.2 — shared edit/delete action cluster, reused by the desktop
 // actions column and the mobile card.
+//
+// landr-cyoi — hotel rows are READ-ONLY here: a hotel is a first-class entity
+// managed under Settings → Hotels, so this page renders a "Managed under
+// Hotels" affordance instead of the Edit/Delete buttons for those rows.
 function LocationRowActions({
   row,
+  isHotel,
   onEdit,
   onDelete,
 }: {
   row: Location
+  isHotel: boolean
   onEdit: (row: Location) => void
   onDelete: (row: Location) => void
 }) {
+  if (isHotel) {
+    return (
+      <div className="flex items-center justify-end">
+        <span className="text-muted-foreground text-xs italic">
+          {t.pickupLocations.managedUnderHotels}
+        </span>
+      </div>
+    )
+  }
   return (
     <div className="flex items-center justify-end gap-1">
       <Button
@@ -157,6 +172,7 @@ export function LocationsTable({ rows, roleTypes, onEdit, onDelete }: Props) {
         cell: ({ row }) => (
           <LocationRowActions
             row={row.original}
+            isHotel={roleTypeOf(row.original)?.code === 'hotel'}
             onEdit={onEdit}
             onDelete={onDelete}
           />
@@ -206,7 +222,12 @@ export function LocationsTable({ rows, roleTypes, onEdit, onDelete }: Props) {
           </div>
         ) : null}
         <div className="flex justify-end">
-          <LocationRowActions row={loc} onEdit={onEdit} onDelete={onDelete} />
+          <LocationRowActions
+            row={loc}
+            isHotel={rt?.code === 'hotel'}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
         </div>
       </div>
     )

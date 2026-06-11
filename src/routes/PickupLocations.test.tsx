@@ -251,28 +251,33 @@ describe('PickupLocations route', () => {
   })
 
   it('opens edit sheet and updates an existing location', async () => {
-    mock.state.locations = [makeLocation()]
+    // landr-cyoi — hotel rows are read-only in the pickup list (managed under
+    // Settings → Hotels). Use a basic (non-hotel) location so the Edit
+    // affordance is present.
+    mock.state.locations = [
+      makeLocation({ name: 'Beach Point', role_type_id: null, email: null }),
+    ]
     mock.state.roleTypes = [makeRoleType()]
     const user = userEvent.setup()
     render(<PickupLocations />)
 
-    await screen.findByText('Hotel Sol')
+    await screen.findByText('Beach Point')
     await user.click(
-      screen.getByRole('button', { name: /Edit — Hotel Sol/i }),
+      screen.getByRole('button', { name: /Edit — Beach Point/i }),
     )
 
     const dialog = await screen.findByRole('dialog')
     const nameInput = within(dialog).getByLabelText(/^Name$/i) as HTMLInputElement
-    expect(nameInput.value).toBe('Hotel Sol')
+    expect(nameInput.value).toBe('Beach Point')
 
     await user.clear(nameInput)
-    await user.type(nameInput, 'Hotel Updated')
+    await user.type(nameInput, 'Beach Updated')
     await user.click(within(dialog).getByRole('button', { name: /save changes/i }))
 
     await waitFor(() => {
       expect(mock.state.lastPatch).not.toBeNull()
     })
-    expect(mock.state.lastPatch?.payload).toMatchObject({ name: 'Hotel Updated' })
+    expect(mock.state.lastPatch?.payload).toMatchObject({ name: 'Beach Updated' })
     await waitFor(() => {
       expect(toastCalls.success.length).toBeGreaterThan(0)
     })
@@ -286,14 +291,18 @@ describe('PickupLocations route', () => {
   })
 
   it('deletes a location after confirming the dialog', async () => {
-    mock.state.locations = [makeLocation()]
+    // landr-cyoi — hotel rows are read-only; use a basic location so the
+    // Delete affordance is present.
+    mock.state.locations = [
+      makeLocation({ name: 'Beach Point', role_type_id: null, email: null }),
+    ]
     mock.state.roleTypes = [makeRoleType()]
     const user = userEvent.setup()
     render(<PickupLocations />)
 
-    await screen.findByText('Hotel Sol')
+    await screen.findByText('Beach Point')
     await user.click(
-      screen.getByRole('button', { name: /Delete — Hotel Sol/i }),
+      screen.getByRole('button', { name: /Delete — Beach Point/i }),
     )
 
     const alertDialog = await screen.findByRole('alertdialog')
@@ -322,5 +331,77 @@ describe('PickupLocations route', () => {
       }),
       expect.any(Function),
     )
+  })
+
+  // landr-cyoi — the basic pickup-location form no longer carries an email
+  // field (email belongs to hotels, managed under Settings → Hotels).
+  it('basic location form has no email field', async () => {
+    mock.state.roleTypes = [makeRoleType()]
+    const user = userEvent.setup()
+    render(<PickupLocations />)
+
+    await user.click(
+      await screen.findByRole('button', { name: /add location/i }),
+    )
+    const dialog = await screen.findByRole('dialog')
+    expect(
+      within(dialog).queryByLabelText(/contact email/i),
+    ).not.toBeInTheDocument()
+    expect(within(dialog).queryByLabelText(/email/i)).not.toBeInTheDocument()
+  })
+
+  // landr-cyoi — 'hotel' is filtered out of the role-type dropdown so a basic
+  // pickup location can't be tagged as a hotel from this editor.
+  it('role-type dropdown does not include the hotel option', async () => {
+    mock.state.roleTypes = [
+      makeRoleType({ id: 'rt-hotel', code: 'hotel', label: 'Hotel' }),
+      makeRoleType({ id: 'rt-port', code: 'port', label: 'Port' }),
+    ]
+    const user = userEvent.setup()
+    render(<PickupLocations />)
+
+    await user.click(
+      await screen.findByRole('button', { name: /add location/i }),
+    )
+    const dialog = await screen.findByRole('dialog')
+    expect(
+      within(dialog).queryByRole('option', { name: 'Hotel' }),
+    ).not.toBeInTheDocument()
+    expect(
+      within(dialog).getByRole('option', { name: 'Port' }),
+    ).toBeInTheDocument()
+  })
+
+  // landr-cyoi — hotel rows surface read-only ("Managed under Hotels") with no
+  // Edit/Delete affordance; basic rows keep their Edit/Delete buttons.
+  it('renders hotel rows read-only and basic rows editable', async () => {
+    mock.state.locations = [
+      makeLocation({ id: 'loc-1', name: 'Hotel Sol', role_type_id: 'rt-hotel' }),
+      makeLocation({
+        id: 'loc-2',
+        name: 'Beach Point',
+        role_type_id: null,
+        email: null,
+      }),
+    ]
+    mock.state.roleTypes = [makeRoleType()]
+    render(<PickupLocations />)
+
+    await screen.findByText('Hotel Sol')
+    // The hotel row shows the read-only affordance and no Edit/Delete.
+    expect(screen.getAllByText(/managed under hotels/i).length).toBeGreaterThan(0)
+    expect(
+      screen.queryByRole('button', { name: /Edit — Hotel Sol/i }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Delete — Hotel Sol/i }),
+    ).not.toBeInTheDocument()
+    // The basic row keeps Edit + Delete.
+    expect(
+      screen.getByRole('button', { name: /Edit — Beach Point/i }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Delete — Beach Point/i }),
+    ).toBeInTheDocument()
   })
 })
