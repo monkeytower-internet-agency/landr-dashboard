@@ -3795,6 +3795,14 @@ export const t = {
       dismiss: 'Dismiss',
     },
   },
+
+  // landr-y5si — config-health banners: operator misconfiguration warnings
+  // rendered at the top of the main dashboard layout.
+  configHealth: {
+    dismiss: 'Dismiss',
+    fetchError: 'Failed to check configuration health.',
+    goToSetting: 'Fix',
+  },
   schedule: {
     title: 'Schedule',
     description:
