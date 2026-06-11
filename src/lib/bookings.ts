@@ -103,6 +103,14 @@ export type BookingRow = {
   // type so existing fixtures / mocks don't have to populate it; SELECT
   // adds the column unconditionally.
   balance_due?: number | string | null
+  // landr-39he — operator-collected subtotal (excludes paid_to=hotel lines).
+  // Stamped at booking submit by the API. For pure-operator bookings this
+  // equals gross_total. For mixed operator+hotel bookings this is the
+  // operator-side slice that balance_due is derived from (server trigger
+  // uses COALESCE(override, operator_gross_total, gross_total)). Optional
+  // on the type so legacy fixtures / mocks don't have to populate it;
+  // balanceDueOf falls back gracefully when null/absent.
+  operator_gross_total?: number | string | null
   // landr-puix — manual price override applied by an operator via
   // POST /api/staff/operators/{op}/bookings/{id}/price-override. When
   // non-null the dashboard surfaces it in place of gross_total (italic +
@@ -1057,13 +1065,29 @@ export function canRefundPayment(p: BookingPaymentRow): boolean {
   return refundableRemainingOf(p) > 0
 }
 
-/** Numeric balance_due, falling back to gross_total when the column is
- *  missing (legacy fixtures / mocks). Returns null only when neither
- *  field parses as a finite number. */
+/** Numeric balance_due, falling back through the operator subtotal then
+ *  gross_total when the column is missing (legacy fixtures / mocks).
+ *
+ *  Fallback chain mirrors the server trigger (landr-39he):
+ *    balance_due ?? operator_gross_total ?? gross_total
+ *
+ *  For hotel-branch mixed bookings operator_gross_total is the
+ *  operator-collected slice; gross_total includes the hotel portion and
+ *  must NOT be used as the balance fallback. Legacy rows where
+ *  operator_gross_total is null/absent fall through safely to gross_total.
+ *
+ *  Returns null only when no field parses as a finite number. */
 export function balanceDueOf(row: BookingRow): number | null {
   const raw = row.balance_due
   if (raw != null) {
     const n = typeof raw === 'number' ? raw : Number(raw)
+    if (Number.isFinite(n)) return n
+  }
+  // landr-gqq0 — prefer operator_gross_total over gross_total so hotel-branch
+  // bookings don't overstate the balance due.
+  const opRaw = row.operator_gross_total
+  if (opRaw != null) {
+    const n = typeof opRaw === 'number' ? opRaw : Number(opRaw)
     if (Number.isFinite(n)) return n
   }
   const gross =
