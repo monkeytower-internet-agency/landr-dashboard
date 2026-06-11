@@ -19,9 +19,6 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { type TicketRow, type TicketStatus } from '@/lib/tickets'
 
-// Re-export for callers that want to use the view-layer item vocabulary.
-export type TicketItem = TicketRow
-
 // ---- Area / label filter ---------------------------------------------------
 //
 // The filter chip uses the canonical area values from the labels migration

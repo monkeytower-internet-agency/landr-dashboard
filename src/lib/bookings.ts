@@ -27,16 +27,6 @@ export type BookingSemanticState =
 //   no row          → 'none'
 export type HoldedStatus = 'transferred' | 'pending' | 'failed' | 'blocked' | 'none'
 
-// free-text in booking_lifecycle_stages.code; operator-customizable.
-// These three are the seeded defaults for Para42; other operators
-// may have different codes.
-export type BookingStageCode =
-  | 'awaiting_general_approval'
-  | 'awaiting_secondary_approval'
-  | 'awaiting_hotel_approval'
-  | 'awaiting_payment'
-  | (string & {})
-
 // Mirrors public.service_time_shape enum. NULL for non-service products.
 export type ServiceTimeShape =
   | 'single_date'
@@ -657,13 +647,6 @@ export function bookingsToCalendarEvents(
   return out
 }
 
-// Color tokens (mapped to shadcn/ui theme tokens via CSS classes in
-// BookingsCalendar.tsx). Returned as a string key the component maps to a
-// className. Kept here so tests can assert against the mapping directly.
-export function colorKeyForBooking(row: BookingRow): BookingSemanticState {
-  return row.current_semantic_state
-}
-
 // Persist a calendar drag-to-reschedule. Routes through FastAPI's
 // PATCH /bookings/{id}/products/{lineId} because date changes re-run
 // the pricing engine (see write-routing-convention memory). Callers
@@ -827,23 +810,11 @@ async function postApprovalDecision(args: {
 
 // ----- Edit / cancel mutations --------------------------------------------
 
-export type BookingPatch = {
-  customer_contact_id?: string
-}
-
 export type BookingProductPatch = {
   date_range_start?: string | null
   date_range_end?: string | null
   selected_days?: string[]
   quantity?: number
-}
-
-/** PATCH /api/staff/bookings/{id} — booking-level fields. */
-export async function patchBooking(
-  bookingId: string,
-  patch: BookingPatch,
-): Promise<void> {
-  await api<unknown>('PATCH', `/api/staff/bookings/${bookingId}`, patch)
 }
 
 /** PATCH /api/staff/bookings/{id}/products/{lineId} — re-runs pricing. */

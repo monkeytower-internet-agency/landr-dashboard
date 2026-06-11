@@ -21,12 +21,6 @@ export const PROVIDERS: ReadonlyArray<ProviderConfig> = [
   // { id: 'github', label: 'GitHub', logoSrc: '/github-logo.svg' }, // landr-4im follow-up
 ]
 
-export function getProvider(id: ProviderId): ProviderConfig {
-  const found = PROVIDERS.find((p) => p.id === id)
-  if (!found) throw new Error(`Unknown provider id: ${id}`)
-  return found
-}
-
 /**
  * Kick off OAuth sign-in. Supabase redirects to the provider, then back to
  * `/auth/callback` where AuthCallback exchanges the PKCE code for a session.

@@ -309,11 +309,8 @@ export async function fetchContactAuditLog(
  * Wraps the `gdpr_erase_contact(p_contact_id, p_jurisdiction_note)` plpgsql
  * function (Decision #69, 5-step PII scrub).
  *
- * landr-mk8o — the RPC now resolves auth.uid() → public.users.id
- * server-side, so the caller no longer passes a user id. Removed the
- * client-side currentPublicUserId() bridge; the SECURITY DEFINER body
- * reads the session's auth.uid directly and raises if it has no
- * matching public.users row.
+ * landr-mk8o — the RPC resolves auth.uid() → public.users.id server-side
+ * (SECURITY DEFINER body). The caller passes no user id.
  *
  * Idempotent server-side: a second call is a no-op once gdpr_erased_at is set.
  */

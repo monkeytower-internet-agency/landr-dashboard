@@ -224,9 +224,6 @@ export type TicketCreate = {
 // Lives here (not in the .tsx) so it can be unit-tested without mounting the
 // component and so it doesn't trip react-refresh/only-export-components.
 
-/** @deprecated Use resolveTicketType(impact) — single-arg form (landr-wwhn.29). */
-export type ReporterToggle = 'problem' | 'idea'
-
 /**
  * Derive the DB ticket_type from the reporter's perceived_impact.
  * tickets.type is internal; staff retype during triage. This provides a
