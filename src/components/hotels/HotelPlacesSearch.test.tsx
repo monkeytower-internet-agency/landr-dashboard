@@ -12,7 +12,7 @@
  * vi.useFakeTimers() with user.type() causes deadlocks. Instead we use real
  * timers throughout and rely on waitFor() + the fact that our mock resolvers
  * return synchronously (Promise.resolve). For the debounce specifically,
- * we type slowly enough via userEvent's `delay` option so the 300 ms window
+ * we type slowly enough via userEvent's `delay` option so the 500 ms window
  * expires on its own, or we bypass it by directly setting state via fireEvent.
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -93,7 +93,7 @@ describe('HotelPlacesSearch', () => {
     typeIntoInput(input, 'Hot')
 
     // waitFor polls until either the listbox appears or the timeout expires.
-    // The debounce is 300 ms; waitFor default timeout is 1000 ms — plenty.
+    // The debounce is 500 ms; the waitFor timeout below is 2000 ms — plenty.
     await waitFor(() => {
       expect(screen.getByRole('listbox', { name: /place suggestions/i })).toBeInTheDocument()
     }, { timeout: 2000 })
@@ -258,5 +258,42 @@ describe('HotelFormSheet — Google Places integration', () => {
     await userEvent.clear(nameInput)
     await userEvent.type(nameInput, 'My Custom Hotel')
     expect(nameInput).toHaveValue('My Custom Hotel')
+  })
+})
+
+describe('HotelPlacesSearch — typing & search UX', () => {
+  it('Enter searches the current input immediately', async () => {
+    const ac = vi
+      .spyOn(hotelsLib, 'fetchPlaceAutocomplete')
+      .mockResolvedValue(PREDICTIONS)
+
+    renderSearch()
+    const input = screen.getByRole('textbox', { name: /search on google/i })
+    typeIntoInput(input, 'Hotel Sol')
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(
+      () =>
+        expect(ac).toHaveBeenCalledWith('op-1', 'Hotel Sol', expect.any(String)),
+      { timeout: 2000 },
+    )
+  })
+
+  it('keeps the input usable (not disabled) while the autocomplete is fetching', async () => {
+    // A never-resolving promise keeps the query in-flight. The bug disabled the
+    // input on isSearching, blocking typing mid-search; it must stay enabled.
+    vi.spyOn(hotelsLib, 'fetchPlaceAutocomplete').mockReturnValue(
+      new Promise<hotelsLib.PlacePrediction[]>(() => {}),
+    )
+
+    renderSearch()
+    const input = screen.getByRole('textbox', { name: /search on google/i })
+    typeIntoInput(input, 'Hotel')
+
+    await waitFor(
+      () => expect(hotelsLib.fetchPlaceAutocomplete).toHaveBeenCalled(),
+      { timeout: 2000 },
+    )
+    expect(input).not.toBeDisabled()
   })
 })

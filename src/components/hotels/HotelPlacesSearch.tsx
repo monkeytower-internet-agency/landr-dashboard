@@ -46,7 +46,10 @@ export function HotelPlacesSearch({ operatorId, disabled, onSelect }: Props) {
   const [fetchingDetail, setFetchingDetail] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Debounce: 300 ms, min 3 chars
+  // Debounce: 500 ms (waits for a typing pause so it never fires mid-word),
+  // min 3 chars. Pressing Enter searches immediately (see onKeyDown). The
+  // input is NEVER disabled while the autocomplete fetches — searching happens
+  // in the background so typing is uninterrupted.
   useEffect(() => {
     const trimmed = inputValue.trim()
     if (trimmed.length < 3) {
@@ -61,7 +64,7 @@ export function HotelPlacesSearch({ operatorId, disabled, onSelect }: Props) {
     const timer = window.setTimeout(() => {
       setDebouncedQuery(trimmed)
       setUserDismissed(false)
-    }, 300)
+    }, 500)
     return () => window.clearTimeout(timer)
   }, [inputValue])
 
@@ -148,12 +151,26 @@ export function HotelPlacesSearch({ operatorId, disabled, onSelect }: Props) {
             setInputValue(e.target.value)
             setUserDismissed(false)
           }}
+          onKeyDown={(e) => {
+            // Enter searches the current input immediately (don't wait out the
+            // debounce) and must NOT submit the surrounding hotel form.
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              const trimmed = inputValue.trim()
+              if (trimmed.length >= 3) {
+                setDebouncedQuery(trimmed)
+                setUserDismissed(false)
+              }
+            }
+          }}
           onFocus={() => setUserDismissed(false)}
           placeholder={t.hotels.placesSearchPlaceholder}
           aria-label={t.hotels.placesSearchLabel}
           aria-autocomplete="list"
           aria-expanded={showDropdown}
-          disabled={disabled || isSearching}
+          // Only blocked briefly while filling the form after a pick — NEVER
+          // while the autocomplete fetches, so typing is never interrupted.
+          disabled={disabled || fetchingDetail}
           autoComplete="off"
           className="pl-9"
         />
