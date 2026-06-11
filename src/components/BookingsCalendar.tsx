@@ -15,13 +15,6 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import {
   bookingsToCalendarEvents,
@@ -30,10 +23,12 @@ import {
   type BookingRow,
   type BookingSemanticState,
 } from '@/lib/bookings'
+import type { DayRosterEntry } from '@/lib/day-roster'
 import {
-  groupRosterByBooking,
-  type DayRosterEntry,
-} from '@/lib/day-roster'
+  DayCellRoster,
+  DayRosterPanel,
+  formatRosterDate,
+} from '@/components/shared/DayRosterComponents'
 import { fetchAvailability, type AvailabilityRow } from '@/lib/availability'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { t } from '@/lib/strings'
@@ -617,147 +612,9 @@ export function BookingsCalendar({
   )
 }
 
-// ---------------------------------------------------------------------------
-// landr-sr69 — DayCellRoster: compact per-day flying roster inside a month
-// grid day cell. Shows the first ROSTER_CELL_LIMIT names + a '+N more'
-// affordance, then the whole block is a single button that opens the day
-// roster panel. Kept compact (text-[10px], truncate, no wrap) so a 20-pilot
-// day stays inside the cell without overflowing.
-
-const ROSTER_CELL_LIMIT = 3
-
-type DayCellRosterProps = {
-  iso: string
-  dayNumberText: string
-  entries: DayRosterEntry[]
-  onOpen: () => void
-}
-
-function DayCellRoster({ iso, dayNumberText, entries, onOpen }: DayCellRosterProps) {
-  // Distinct participant names for the compact preview — the same pilot can
-  // fly more than one booking that day; we de-dupe for the cell summary but
-  // the panel still shows the full per-booking breakdown.
-  const names = useMemo(() => {
-    const seen = new Set<string>()
-    const out: string[] = []
-    for (const e of entries) {
-      if (seen.has(e.participantName)) continue
-      seen.add(e.participantName)
-      out.push(e.participantName)
-    }
-    return out
-  }, [entries])
-
-  const shown = names.slice(0, ROSTER_CELL_LIMIT)
-  const overflow = names.length - shown.length
-
-  return (
-    <button
-      type="button"
-      data-testid="calendar-day-roster"
-      data-date={iso}
-      data-count={names.length}
-      aria-label={t.calendar.roster.dayCellAria(names.length, dayNumberText)}
-      onClick={(e) => {
-        e.stopPropagation()
-        onOpen()
-      }}
-      className="mt-0.5 flex w-full flex-col items-start gap-px overflow-hidden rounded-sm text-left transition-colors hover:bg-accent/40"
-    >
-      {shown.map((name, i) => (
-        <span
-          key={i}
-          data-testid="calendar-day-roster-name"
-          className="block w-full truncate text-[10px] leading-tight text-foreground/80"
-        >
-          {name}
-        </span>
-      ))}
-      {overflow > 0 ? (
-        <span
-          data-testid="calendar-day-roster-more"
-          className="block text-[10px] font-medium leading-tight text-muted-foreground"
-        >
-          {t.calendar.roster.moreCount(overflow)}
-        </span>
-      ) : null}
-    </button>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// landr-sr69 — DayRosterPanel: the full per-day flying roster, grouped by
-// booking. Each booking heading is a button that opens that booking's detail
-// sheet (via the parent's onEventClick), and lists its flying participants.
-
-type DayRosterPanelProps = {
-  iso: string | null
-  entries: DayRosterEntry[]
-  onClose: () => void
-  onOpenBooking: (bookingId: string) => void
-}
-
-function DayRosterPanel({
-  iso,
-  entries,
-  onClose,
-  onOpenBooking,
-}: DayRosterPanelProps) {
-  const groups = useMemo(() => groupRosterByBooking(entries), [entries])
-  // Total flying slots that day (sum across bookings) — a pilot flying two
-  // bookings counts twice here, matching "N pilots flying" intent at the
-  // booking level.
-  const total = entries.length
-  const dateLabel = iso ? formatAgendaDate(iso) : ''
-
-  return (
-    <Dialog open={iso !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className="max-w-md"
-        data-testid="calendar-day-roster-panel"
-        data-date={iso ?? undefined}
-      >
-        <DialogHeader>
-          <DialogTitle>{dateLabel}</DialogTitle>
-          <DialogDescription>
-            {total > 0
-              ? t.calendar.roster.panelHeading(total)
-              : t.calendar.roster.panelEmpty}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
-          {groups.map((group) => (
-            <div
-              key={group.bookingId}
-              data-testid="roster-booking-group"
-              data-booking-id={group.bookingId}
-            >
-              <button
-                type="button"
-                data-testid="roster-booking-link"
-                onClick={() => onOpenBooking(group.bookingId)}
-                className="mb-1 inline-flex items-center gap-1 rounded-sm font-mono text-xs font-semibold text-primary hover:underline"
-              >
-                {group.bookingRef}
-              </button>
-              <ul className="flex flex-col gap-0.5 pl-1">
-                {group.participantNames.map((name, i) => (
-                  <li
-                    key={i}
-                    data-testid="roster-participant-name"
-                    className="text-sm"
-                  >
-                    {name}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
+// DayCellRoster and DayRosterPanel are imported from
+// @/components/shared/DayRosterComponents (shared with CalendarLayout
+// daily-roster mode via landr-21x1 extraction).
 
 // ---------------------------------------------------------------------------
 // landr-3qkr.5 — AgendaList: chronological, day-grouped list of bookings.
@@ -767,20 +624,8 @@ function DayRosterPanel({
 // BookingRow — identical to the calendar grid's click behaviour so the
 // parent's detail sheet flow is unchanged.
 
-const _agendaDateFormatter = new Intl.DateTimeFormat('en-IE', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-})
-
-function formatAgendaDate(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
-  if (!m) return iso
-  const [, y, mo, d] = m
-  const date = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d), 12))
-  return _agendaDateFormatter.format(date)
-}
+// landr-21x1 — date formatting delegated to the shared formatRosterDate
+// (same locale/format; avoids two Intl.DateTimeFormat instances).
 
 type AgendaListProps = {
   events: BookingCalendarEvent[]
@@ -872,7 +717,7 @@ function AgendaDay({
   onEventClick,
   onCustomerClick,
 }: AgendaDayProps) {
-  const dateLabel = dateKey ? formatAgendaDate(dateKey) : t.calendar.agendaNoDate
+  const dateLabel = dateKey ? formatRosterDate(dateKey) : t.calendar.agendaNoDate
   return (
     <div data-testid={`agenda-day-${dateKey ?? 'no-date'}`}>
       <div className="bg-muted/40 border-t px-3 py-1.5 text-xs font-semibold text-muted-foreground">
