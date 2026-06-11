@@ -157,13 +157,30 @@ type DetailsRaw = {
   detail?: string
 } & Partial<PlaceDetails>
 
+// api() throws on any non-2xx BEFORE exposing the body, so the backend's real
+// HTTP 503 {configured:false, detail:"...not configured"} arrives as a plain
+// Error carrying that detail. Translate it to the typed not-configured signal
+// so the Hotels form degrades to the quiet hint instead of failing silently.
+// (The data.configured===false checks below only fire on a 200 body, which the
+// backend never returns — kept as belt-and-suspenders.)
+async function placesApi<T>(method: 'GET', path: string): Promise<T> {
+  try {
+    return await api<T>(method, path)
+  } catch (err) {
+    if (err instanceof Error && /not configured/i.test(err.message)) {
+      throw new PlacesNotConfiguredError()
+    }
+    throw err
+  }
+}
+
 export async function fetchPlaceAutocomplete(
   operatorId: string,
   query: string,
   sessionToken: string,
 ): Promise<PlacePrediction[]> {
   const params = new URLSearchParams({ q: query, session_token: sessionToken })
-  const data = await api<AutocompleteRaw>(
+  const data = await placesApi<AutocompleteRaw>(
     'GET',
     `/api/staff/operators/${operatorId}/hotel-places/autocomplete?${params}`,
   )
@@ -177,7 +194,7 @@ export async function fetchPlaceDetails(
   sessionToken: string,
 ): Promise<PlaceDetails> {
   const params = new URLSearchParams({ session_token: sessionToken })
-  const data = await api<DetailsRaw>(
+  const data = await placesApi<DetailsRaw>(
     'GET',
     `/api/staff/operators/${operatorId}/hotel-places/details/${encodeURIComponent(placeId)}?${params}`,
   )
