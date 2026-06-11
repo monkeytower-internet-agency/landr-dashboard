@@ -7,7 +7,6 @@ import {
   useNavigate,
   useSearchParams,
 } from 'react-router-dom'
-import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -16,8 +15,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { FormErrorAlert } from '@/components/ui/FormErrorAlert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/ui/PasswordInput'
 import { ContinueWithProvider } from '@/components/ContinueWithProvider'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
@@ -94,22 +95,11 @@ export function Login() {
               <p className="mt-0.5 text-xs">{t.auth.emailInUseBody}</p>
             </div>
           ) : null}
-          {queryError === 'unknown' ? (
-            <div
-              role="alert"
-              className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-destructive text-sm"
-            >
-              {t.auth.oauthUnknownError}
-            </div>
-          ) : null}
-          {oauthError ? (
-            <div
-              role="alert"
-              className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-destructive text-sm"
-            >
-              {oauthError}
-            </div>
-          ) : null}
+          <FormErrorAlert
+            message={queryError === 'unknown' ? t.auth.oauthUnknownError : null}
+            className="mb-4"
+          />
+          <FormErrorAlert message={oauthError} className="mb-4" />
 
           <div className="flex flex-col gap-3">
             <ContinueWithProvider
@@ -160,30 +150,19 @@ export function Login() {
                   {t.auth.forgotLink}
                 </Link>
               </div>
-              <div className="relative">
-                <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  placeholder={t.auth.passwordPlaceholder}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  aria-invalid={passwordError ? true : undefined}
-                  aria-describedby={passwordError ? 'password-error' : undefined}
-                  disabled={submitting}
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  onClick={() => setShowPassword((v) => !v)}
-                  disabled={submitting}
-                  className="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
+              <PasswordInput
+                id="password"
+                name="password"
+                autoComplete="current-password"
+                placeholder={t.auth.passwordPlaceholder}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                aria-invalid={passwordError ? true : undefined}
+                aria-describedby={passwordError ? 'password-error' : undefined}
+                disabled={submitting}
+                show={showPassword}
+                onToggleShow={() => setShowPassword((v) => !v)}
+              />
               {passwordError ? (
                 <p
                   id="password-error"
@@ -195,14 +174,7 @@ export function Login() {
               ) : null}
             </div>
 
-            {submitError ? (
-              <div
-                role="alert"
-                className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-destructive text-sm"
-              >
-                {submitError}
-              </div>
-            ) : null}
+            <FormErrorAlert message={submitError} />
 
             <Button type="submit" disabled={submitting}>
               {submitting ? t.auth.submitting : t.auth.submit}
