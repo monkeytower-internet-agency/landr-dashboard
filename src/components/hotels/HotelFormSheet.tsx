@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -21,6 +22,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { TimezonePicker } from '@/components/ui/timezone-picker'
 import {
   createHotel,
   hotelFormSchema,
@@ -45,7 +47,7 @@ export function HotelFormSheet({
 }: Props) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-md">
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         {open ? (
           <HotelFormSheetBody
             key={editTarget?.id ?? 'create'}
@@ -76,6 +78,11 @@ function HotelFormSheetBody({ operatorId, editTarget, onClose }: BodyProps) {
       address: editTarget?.address ?? '',
       phone: editTarget?.phone ?? '',
       maps_link: editTarget?.maps_link ?? '',
+      website: editTarget?.website ?? '',
+      contact_email: editTarget?.contact_email ?? '',
+      checkin_time: editTarget?.checkin_time ?? '',
+      checkout_time: editTarget?.checkout_time ?? '',
+      timezone: editTarget?.timezone ?? '',
     },
   })
 
@@ -150,6 +157,27 @@ function HotelFormSheetBody({ operatorId, editTarget, onClose }: BodyProps) {
                     {...field}
                   />
                 </FormControl>
+                <FormDescription>{t.hotels.fieldEmailHint}</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="contact_email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t.hotels.fieldContactEmail}</FormLabel>
+                <FormControl>
+                  <Input
+                    type="email"
+                    placeholder="info@hotel.example"
+                    disabled={mutation.isPending}
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>{t.hotels.fieldContactEmailHint}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -205,6 +233,84 @@ function HotelFormSheetBody({ operatorId, editTarget, onClose }: BodyProps) {
                     {...field}
                   />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="website"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t.hotels.fieldWebsite}</FormLabel>
+                <FormControl>
+                  <Input
+                    type="url"
+                    placeholder="https://www.hotel.example"
+                    disabled={mutation.isPending}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="checkin_time"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t.hotels.fieldCheckinTime}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="time"
+                      disabled={mutation.isPending}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="checkout_time"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t.hotels.fieldCheckoutTime}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="time"
+                      disabled={mutation.isPending}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="timezone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t.hotels.fieldTimezone}</FormLabel>
+                <FormControl>
+                  <TimezonePicker
+                    id={field.name}
+                    value={field.value}
+                    onChange={field.onChange}
+                    disabled={mutation.isPending}
+                    placeholder="Inherit operator timezone"
+                  />
+                </FormControl>
+                <FormDescription>{t.hotels.fieldTimezoneHint}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}

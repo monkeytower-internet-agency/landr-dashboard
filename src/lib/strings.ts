@@ -2886,15 +2886,26 @@ export const t = {
     missingEmail: 'Missing email',
 
     fieldName: 'Name',
-    fieldEmail: 'Contact email',
+    fieldEmail: 'Booking-confirmation email',
+    fieldEmailHint:
+      'This address receives booking confirmations sent to the hotel.',
+    fieldContactEmail: 'General contact email (optional)',
+    fieldContactEmailHint:
+      'Public / website contact address — separate from the booking email.',
     fieldAddress: 'Address',
     fieldPhone: 'Phone',
     fieldMapsLink: 'Google Maps link (optional)',
+    fieldWebsite: 'Website (optional)',
+    fieldCheckinTime: 'Check-in time (optional)',
+    fieldCheckoutTime: 'Check-out time (optional)',
+    fieldTimezone: 'Hotel timezone (optional)',
+    fieldTimezoneHint:
+      'IANA timezone used in booking confirmations and calendar events. Leave blank to inherit the operator timezone.',
 
     formCreateTitle: 'Add hotel',
     formEditTitle: 'Edit hotel',
     formDescription:
-      'Hotels appear in the pickup-location list automatically. The contact email is required so booking confirmations can reach the hotel.',
+      'Hotels appear in the pickup-location list automatically. The booking-confirmation email is required so guests receive their booking details.',
 
     create: 'Add hotel',
     creating: 'Adding…',
