@@ -64,7 +64,18 @@ export function Step6Gmail({ operatorId, onAdvance, onBack }: Props) {
             size="sm"
             variant="outline"
             onClick={() => {
-              popupRef.current = window.open('about:blank', '_blank', 'noopener,noreferrer')
+              // landr-tq28: NEVER pass 'noopener' here — by spec it makes
+              // window.open() return null, so popupRef stays empty, the
+              // onSuccess fallback navigates the DASHBOARD tab to Google, and
+              // the popup sits on about:blank. We need the handle to route the
+              // OAuth flow into the popup. Opened synchronously in the click
+              // handler so popup blockers allow it; null (blocked) keeps the
+              // same-tab fallback. Mirrors IntegrationsGmailSettings.tsx.
+              popupRef.current = window.open(
+                'about:blank',
+                '_blank',
+                'popup,width=620,height=720',
+              )
               connectMutation.mutate()
             }}
             disabled={connectMutation.isPending || isLoading}
