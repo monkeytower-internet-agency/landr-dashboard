@@ -458,7 +458,7 @@ function EmailLogDrawer({
                   title={t.emailLog.fieldBodyHtmlTitle}
                   srcDoc={row.body_html}
                   sandbox=""
-                  className="h-72 w-full rounded-md border bg-background"
+                  className="h-72 w-full rounded-md border bg-white"
                 />
               </section>
 
