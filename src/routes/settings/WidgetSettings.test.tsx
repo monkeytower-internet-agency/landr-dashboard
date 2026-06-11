@@ -103,6 +103,10 @@ function makeOperator(overrides = {}) {
     widget_tile_aspect: null,
     widget_tile_scrim: null,
     widget_tile_hover: null,
+    // landr-ylvp — widget text card moved here from Brand.
+    widget_headline: null,
+    widget_description: null,
+    widget_footer: null,
     ...overrides,
   }
 }
@@ -153,7 +157,11 @@ describe('WidgetSettings — layout variant picker', () => {
     expect(auroraCard.getAttribute('aria-checked')).toBe('true')
     expect(screen.getByTestId('widget-variant-summit').getAttribute('aria-checked')).toBe('false')
     // Default hint only shows while the operator hasn't picked explicitly.
-    expect(screen.getByText(/default/i)).toBeTruthy()
+    // landr-ylvp — scope to the variant card: the moved widget-text card also
+    // contains the word "default" ("Empty by default"), so a loose /default/i
+    // now matches multiple nodes. Assert the specific variant-hint copy inside
+    // the aurora card instead.
+    expect(auroraCard.textContent).toMatch(/default/i)
   })
 
   it('seeds the selected card from a persisted widget_variant', async () => {
@@ -444,5 +452,76 @@ describe('WidgetSettings — preview widget link', () => {
     expect(href).toContain('variant=summit')
     expect(href).toContain('tok_widget_abc')
     expect(anchor.getAttribute('target')).toBe('_blank')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Booking widget text (landr-nils) — moved here from BrandingSettings by
+// landr-ylvp (it's the copy shown IN the widget, so it lives with the widget
+// presentation now). Same patchOperator save path + null-clear semantics.
+// ---------------------------------------------------------------------------
+
+describe('WidgetSettings — booking widget text (landr-nils)', () => {
+  it('seeds the headline / description / footer fields from the operator', async () => {
+    fetchOperatorMock.mockResolvedValue(
+      makeOperator({
+        widget_headline: 'Book with us',
+        widget_description: 'Subject to our terms.',
+        widget_footer: '© Para42',
+      }),
+    )
+    render(<WidgetSettings />)
+
+    expect(
+      await screen.findByDisplayValue('Book with us'),
+    ).toBeTruthy()
+    expect(screen.getByDisplayValue('Subject to our terms.')).toBeTruthy()
+    expect(screen.getByDisplayValue('© Para42')).toBeTruthy()
+  })
+
+  it('save is disabled until a field changes, then PATCHes the widget text', async () => {
+    const user = userEvent.setup()
+    patchOperatorMock.mockResolvedValue(makeOperator())
+    render(<WidgetSettings />)
+
+    const saveBtn = await screen.findByTestId('widget-text-save')
+    // Nothing changed yet → disabled.
+    expect(saveBtn).toBeDisabled()
+
+    const headline = screen.getByLabelText('Headline')
+    await user.type(headline, 'Book with us')
+    expect(saveBtn).toBeEnabled()
+    await user.click(saveBtn)
+
+    await waitFor(() =>
+      expect(patchOperatorMock).toHaveBeenCalledWith(
+        'op-1',
+        expect.objectContaining({
+          widget_headline: 'Book with us',
+          widget_description: null,
+          widget_footer: null,
+        }),
+      ),
+    )
+  })
+
+  it('clearing a stored field PATCHes null (intentional clear)', async () => {
+    const user = userEvent.setup()
+    fetchOperatorMock.mockResolvedValue(
+      makeOperator({ widget_headline: 'Book with us' }),
+    )
+    patchOperatorMock.mockResolvedValue(makeOperator())
+    render(<WidgetSettings />)
+
+    const headline = await screen.findByDisplayValue('Book with us')
+    await user.clear(headline)
+    await user.click(screen.getByTestId('widget-text-save'))
+
+    await waitFor(() =>
+      expect(patchOperatorMock).toHaveBeenCalledWith(
+        'op-1',
+        expect.objectContaining({ widget_headline: null }),
+      ),
+    )
   })
 })

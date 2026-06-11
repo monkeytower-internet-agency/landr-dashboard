@@ -17,6 +17,12 @@
 //                               (uppercase / lowercase / capitalize).
 //                               NULL = render as entered.
 //
+// landr-ylvp — also owns the booking-widget text card (widget_headline /
+// widget_description / widget_footer), moved here from Brand: it is the copy
+// shown IN the widget, so it belongs with the widget's presentation. Unlike
+// the four controls above (each saves on change), the text card batches all
+// three fields behind an explicit Save button (empty = NULL clears the field).
+//
 // Each save is optimistic-feeling (toast on success, toast on error, refetch
 // on settle via invalidate) and never silent. The ?variant= URL param still
 // overrides widget_variant at preview time (widget side, landr-jb1k.2).
@@ -28,7 +34,9 @@ import { toast } from 'sonner'
 import { CheckIcon, ExternalLinkIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Card,
   CardContent,
@@ -209,6 +217,11 @@ export function WidgetSettings() {
               ta: operator.widget_tile_aspect,
               ts: operator.widget_tile_scrim,
               th: operator.widget_tile_hover,
+              // landr-ylvp — widget text card moved here from Brand; re-seed
+              // when any of the headline/description/footer change.
+              wh: operator.widget_headline,
+              wd: operator.widget_description,
+              wf: operator.widget_footer,
             })}
             operator={operator}
             operatorId={operatorId}
@@ -258,6 +271,18 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
   const [tileHover, setTileHover] = useState<TileHover | null>(
     operator.widget_tile_hover ?? null,
   )
+
+  // ── widget embed text state (landr-nils; moved here from Brand by
+  // landr-ylvp — it's the copy shown IN the widget, alongside layout). ──
+  const [headline, setHeadline] = useState(operator.widget_headline ?? '')
+  const [description, setDescription] = useState(
+    operator.widget_description ?? '',
+  )
+  const [footer, setFooter] = useState(operator.widget_footer ?? '')
+  const widgetTextDirty =
+    headline.trim() !== (operator.widget_headline ?? '') ||
+    description.trim() !== (operator.widget_description ?? '') ||
+    footer.trim() !== (operator.widget_footer ?? '')
 
   // Self-hosted showcase fonts (GDPR — no Google CDN) are pulled in lazily
   // only once this section mounts, so the rest of the dashboard never pays
@@ -330,6 +355,24 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
   function selectTileHover(next: TileHover | null) {
     setTileHover(next)
     save({ widget_tile_hover: next }, t.settings.widgetTileHoverToastSaved)
+  }
+
+  // ── widget embed text save (landr-nils; moved from Brand by landr-ylvp) ──
+  // Same save path as before: empty string clears the field (sends null) — an
+  // intentional clear the API preserves via exclude_unset.
+  function handleWidgetTextSave() {
+    const trimOrNull = (s: string) => {
+      const v = s.trim()
+      return v.length > 0 ? v : null
+    }
+    save(
+      {
+        widget_headline: trimOrNull(headline),
+        widget_description: trimOrNull(description),
+        widget_footer: trimOrNull(footer),
+      },
+      t.settings.widgetTextToastSaved,
+    )
   }
 
   const saving = patchMutation.isPending
@@ -692,6 +735,77 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
                 </option>
               ))}
             </NativeSelect>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Booking widget text (landr-nils; moved here from Brand by
+          landr-ylvp — headline/description/footer shown around the widget) ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.settings.widgetTextSectionTitle}</CardTitle>
+          <CardDescription>{t.settings.widgetTextSectionDesc}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="widget-headline">
+              {t.settings.widgetHeadlineLabel}
+            </Label>
+            <Input
+              id="widget-headline"
+              value={headline}
+              maxLength={200}
+              placeholder={t.settings.widgetHeadlinePlaceholder}
+              onChange={(e) => setHeadline(e.target.value)}
+            />
+            <p className="text-muted-foreground text-xs">
+              {t.settings.widgetHeadlineHint}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="widget-description">
+              {t.settings.widgetDescriptionLabel}
+            </Label>
+            <Textarea
+              id="widget-description"
+              value={description}
+              maxLength={2000}
+              rows={3}
+              placeholder={t.settings.widgetDescriptionPlaceholder}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+            <p className="text-muted-foreground text-xs">
+              {t.settings.widgetDescriptionHint}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="widget-footer">
+              {t.settings.widgetFooterLabel}
+            </Label>
+            <Textarea
+              id="widget-footer"
+              value={footer}
+              maxLength={2000}
+              rows={3}
+              placeholder={t.settings.widgetFooterPlaceholder}
+              onChange={(e) => setFooter(e.target.value)}
+            />
+            <p className="text-muted-foreground text-xs">
+              {t.settings.widgetFooterHint}
+            </p>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="button"
+              onClick={handleWidgetTextSave}
+              disabled={!widgetTextDirty || saving}
+              data-testid="widget-text-save"
+            >
+              {saving ? t.settings.saving : t.settings.save}
+            </Button>
           </div>
         </CardContent>
       </Card>

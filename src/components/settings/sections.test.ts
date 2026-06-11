@@ -27,12 +27,12 @@ describe('SETTINGS_SECTIONS', () => {
     expect(entry?.label).toBe('Schedule')
   })
 
-  // landr-yp8x — Branding section drives the embedded booking widget's
-  // logo + primary colour.
-  it('includes a Branding entry at /settings/branding', () => {
+  // landr-yp8x — Brand section drives the embedded booking widget's
+  // logo + colours. landr-ylvp — renamed Branding → Brand.
+  it('includes a Brand entry at /settings/branding', () => {
     const entry = SETTINGS_SECTIONS.find((s) => s.to === '/settings/branding')
     expect(entry).toBeDefined()
-    expect(entry?.label).toBe('Branding')
+    expect(entry?.label).toBe('Brand')
   })
 
   // landr-jb1k — Booking widget section drives the embedded widget's
