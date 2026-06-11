@@ -298,9 +298,10 @@ describe('SettingsLayout', () => {
     // landr-jb1k — Booking widget configurator joined Settings → 23 sections.
     // landr-cyoi — Hotels (first-class accommodation entity) joined Settings
     // after Pickup locations → 24 sections.
+    // landr-atwy — Account link prompt opt-in joined Settings → 25 sections.
     const nav = screen.getByRole('navigation', { name: /settings sections/i })
     const links = nav.querySelectorAll('a')
-    expect(links).toHaveLength(24)
+    expect(links).toHaveLength(25)
     expect(nav).toHaveTextContent(/calendar & display/i)
     expect(nav).toHaveTextContent(/display preferences/i)
     expect(nav).toHaveTextContent(/branding/i)
@@ -443,11 +444,12 @@ describe('SettingsLayout', () => {
   it('renders mobile-nav: sub-sidebar links remain accessible in scrollable strip (landr-3qkr.4)', () => {
     renderSettingsTree('/settings/team')
     const nav = screen.getByRole('navigation', { name: /settings sections/i })
-    // All 24 links must be in the DOM (the chip strip doesn't clip DOM nodes,
+    // All 25 links must be in the DOM (the chip strip doesn't clip DOM nodes,
     // only overflows visually). If the count grows in future, extend the
     // existing "renders the Settings sub-sidebar" test comment chain first.
     // landr-cyoi — Hotels joined Settings → 24 links.
-    expect(nav.querySelectorAll('a')).toHaveLength(24)
+    // landr-atwy — Account link prompt joined Settings → 25 links.
+    expect(nav.querySelectorAll('a')).toHaveLength(25)
     // The <ul> must have the overflow-x-auto class (applied on mobile, stripped
     // on md+). We assert the class is present in the rendered markup so a
     // future refactor of the chip-strip doesn't silently remove mobile scroll.

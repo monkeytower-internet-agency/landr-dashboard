@@ -132,7 +132,9 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // style) joined the SETTINGS group between Branding and Weather.
   // landr-cyoi — Hotels joined the SETTINGS group directly after Pickup
   // locations (first-class accommodation entity; a hotel is also a pickup).
-  it('settings group contains the twenty-four program subsections', () => {
+  // landr-atwy — Account link prompt opt-in added after Webhooks
+  // (per-operator toggle for the post-booking mobile app link prompt).
+  it('settings group contains the twenty-five program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -176,6 +178,9 @@ describe('account/settings grouping (landr-fzcg)', () => {
       // landr-ah9u — Settings → Webhooks: operator-managed event
       // subscriptions (v1 localStorage; v2 server-delivered).
       '/settings/webhooks',
+      // landr-atwy — Settings → Account link prompt: per-operator opt-in
+      // for the post-booking "Track in LANDR app" customer prompt.
+      '/settings/account-link',
     ])
   })
 

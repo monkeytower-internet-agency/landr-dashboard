@@ -173,6 +173,11 @@ export const OperatorSettingsSchema = z.object({
     })
     .nullable()
     .optional(),
+  // landr-atwy — per-operator opt-in toggle for the post-booking
+  // "Track this booking in the LANDR app" account-link prompt. OFF by
+  // default for privacy; operator enables here once magic-link email
+  // (landr-16u9) is confirmed working in production.
+  offer_account_link: z.boolean().nullable().optional(),
   // landr-c3t — embedded subscription_package (read-only on Settings; the
   // GET returns it via PostgREST FK join). Drives the disabled-on UX for
   // free-tier operators so they can't opt out of teasers.
