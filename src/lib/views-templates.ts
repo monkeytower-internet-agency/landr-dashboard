@@ -184,6 +184,22 @@ export const VIEW_TEMPLATES: ViewTemplate[] = [
       sort: [{ source: 'system', key: 'date_range_start', dir: 'desc' }],
     },
   },
+  {
+    // landr-21x1 — daily flying roster in a saved View.
+    key: 'daily-roster',
+    name: 'Daily roster',
+    description:
+      'Flying participants rostered by day. Month calendar showing who flies each day.',
+    entity_type: 'booking',
+    config: {
+      layout: 'calendar',
+      filters: [],
+      sort: [],
+      calendarConfig: {
+        mode: 'daily-roster',
+      },
+    },
+  },
   // landr-wwhn.17 — ticket board template views.
   {
     key: 'my-open-tickets',
