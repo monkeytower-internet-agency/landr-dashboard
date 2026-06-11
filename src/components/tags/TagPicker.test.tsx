@@ -12,6 +12,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
 vi.mock('@/lib/tags', async (importActual) => {
   const actual = await importActual<typeof import('@/lib/tags')>()
@@ -21,6 +22,14 @@ vi.mock('@/lib/tags', async (importActual) => {
     createTag: vi.fn(),
   }
 })
+
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+  Toaster: () => null,
+}))
 
 import { TagPicker } from './TagPicker'
 import { createTag, fetchTags, type Tag } from '@/lib/tags'
@@ -56,6 +65,7 @@ function renderWithClient(ui: React.ReactElement) {
 beforeEach(() => {
   vi.mocked(fetchTags).mockResolvedValue(TAGS)
   vi.mocked(createTag).mockReset()
+  vi.mocked(toast.error).mockReset()
 })
 
 describe('TagPicker', () => {
@@ -169,5 +179,32 @@ describe('TagPicker', () => {
     await waitFor(() => {
       expect(createTag).toHaveBeenCalled()
     })
+  })
+
+  it('shows a toast error when tag creation fails', async () => {
+    const onChange = vi.fn()
+    vi.mocked(createTag).mockRejectedValue(new Error('Permission denied'))
+    renderWithClient(
+      <TagPicker
+        operatorId={OP_ID}
+        selectedIds={[]}
+        onChange={onChange}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('tag-picker-trigger'))
+    await screen.findByTestId('tag-picker-option-t1')
+    fireEvent.change(screen.getByTestId('tag-picker-search'), {
+      target: { value: 'Fail tag' },
+    })
+    const createBtn = await screen.findByTestId('tag-picker-create')
+    fireEvent.click(createBtn)
+    await waitFor(() => {
+      expect(vi.mocked(toast.error)).toHaveBeenCalledWith(
+        'Could not create tag.',
+        expect.objectContaining({ description: 'Permission denied' }),
+      )
+    })
+    // onChange must NOT be called when creation fails.
+    expect(onChange).not.toHaveBeenCalled()
   })
 })
