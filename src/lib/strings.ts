@@ -395,7 +395,8 @@ export const t = {
       // product_groups tree). Sits right after Products in the IA.
       categories: 'Categories',
       // landr-up1b — booking-widget embed/shortcode generator.
-      embed: 'Embed widget',
+      // landr-ylvp — renamed Embed widget → Embed code (how you install it).
+      embed: 'Embed code',
       // landr-znzz.5 — generic per-operator offers/upsells shown in the
       // AFTER phase of the customer event page.
       offers: 'Upsells & offers',
@@ -418,9 +419,12 @@ export const t = {
       // read-only agent-earnings report.
       commissions: 'Commissions',
       // landr-yp8x — operator branding shown in the embedded booking widget.
-      branding: 'Branding',
+      // landr-ylvp — renamed Branding → Brand (who you are: logo + colours).
+      branding: 'Brand',
       // landr-jb1k — booking-widget presentation: showcased layout variant,
       // category grid columns, and title typography.
+      // landr-ylvp — now also owns the booking-widget text card (what
+      // customers see), moved here from Brand.
       widget: 'Booking widget',
       // landr-znzz.7 — optional weather forecast hint for the conditions verdict.
       weather: 'Weather',
@@ -467,6 +471,7 @@ export const t = {
       products: 'Configure bookable products and their availability rules.',
       categories:
         'Organise products into a nested category tree. Drag-free reparenting, rename, and reorder.',
+      // landr-ylvp — Embed code: how you install the widget.
       embed:
         'Generate the [landr_booking] shortcode/iframe to embed your booking widget on any website.',
       offers:
@@ -493,10 +498,13 @@ export const t = {
       // landr-9n0l — commission scheme editor + agent-earnings report.
       commissions:
         'Commission schemes for agents, providers, and the platform, plus per-agent earnings.',
+      // landr-ylvp — Brand: who you are (logo + colours only). Widget text
+      // moved to the Booking widget section.
       branding: 'Apply your logo and brand theme (3 colours + dark mode) to the booking widget.',
       // landr-jb1k — booking-widget layout/density/title style.
+      // landr-ylvp — also owns the widget text (headline/description/footer).
       widget:
-        'Choose the showcased layout, category grid columns, and title typography for your booking widget.',
+        'Choose the layout, grid columns, title typography, and the headline, description, and footer text shown around your booking widget.',
       // landr-znzz.7 — optional weather forecast hint for the conditions verdict.
       weather:
         'Opt in to a weather forecast hint shown next to the conditions chips when setting daily updates.',
@@ -2433,7 +2441,8 @@ export const t = {
 
     // landr-yp8x — operator branding (logo + primary colour).
     // landr-znzz.11 — extended to full 3-colour semantic theme + dark logo.
-    sectionBranding: 'Branding',
+    // landr-ylvp — page H1 renamed Branding → Brand to match the section label.
+    sectionBranding: 'Brand',
     fieldLogo: 'Logo (light)',
     fieldLogoHint:
       'Square PNG or SVG works best (max 2 MB). Shown at the top of every booking step.',

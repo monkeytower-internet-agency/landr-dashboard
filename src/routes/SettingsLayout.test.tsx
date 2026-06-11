@@ -304,7 +304,8 @@ describe('SettingsLayout', () => {
     expect(links).toHaveLength(25)
     expect(nav).toHaveTextContent(/calendar & display/i)
     expect(nav).toHaveTextContent(/display preferences/i)
-    expect(nav).toHaveTextContent(/branding/i)
+    // landr-ylvp — section renamed Branding → Brand.
+    expect(nav).toHaveTextContent(/brand/i)
     expect(nav).toHaveTextContent(/booking widget/i)
     expect(nav).toHaveTextContent(/weather/i)
     expect(nav).toHaveTextContent(/team/i)
