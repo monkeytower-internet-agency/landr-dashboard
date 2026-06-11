@@ -116,3 +116,78 @@ export async function deleteHotel(
 ): Promise<void> {
   await api<void>('DELETE', `/api/staff/operators/${operatorId}/hotels/${hotelId}`)
 }
+
+// ── Google Places autofill ────────────────────────────────────────────────────
+// Uses the backend proxy so the API key never reaches the browser.
+// When the key is not configured the API returns HTTP 503 with
+// { configured: false, detail: "..." }; callers receive PlacesNotConfigured.
+
+export type PlacePrediction = {
+  placeId: string
+  mainText: string
+  secondaryText: string
+}
+
+export type PlaceDetails = {
+  name: string
+  address: string | null
+  phone: string | null
+  website: string | null
+  mapsLink: string | null
+  /** IANA timezone string derived from lat/lng via tzlookup, or null. */
+  timezone: string | null
+}
+
+/** Thrown when the backend reports { configured: false }. */
+export class PlacesNotConfiguredError extends Error {
+  constructor() {
+    super('Google Places lookup is not configured.')
+    this.name = 'PlacesNotConfiguredError'
+  }
+}
+
+type AutocompleteRaw = {
+  configured?: false
+  detail?: string
+  suggestions?: PlacePrediction[]
+}
+
+type DetailsRaw = {
+  configured?: false
+  detail?: string
+} & Partial<PlaceDetails>
+
+export async function fetchPlaceAutocomplete(
+  operatorId: string,
+  query: string,
+  sessionToken: string,
+): Promise<PlacePrediction[]> {
+  const params = new URLSearchParams({ q: query, session_token: sessionToken })
+  const data = await api<AutocompleteRaw>(
+    'GET',
+    `/api/staff/operators/${operatorId}/hotel-places/autocomplete?${params}`,
+  )
+  if (data.configured === false) throw new PlacesNotConfiguredError()
+  return data.suggestions ?? []
+}
+
+export async function fetchPlaceDetails(
+  operatorId: string,
+  placeId: string,
+  sessionToken: string,
+): Promise<PlaceDetails> {
+  const params = new URLSearchParams({ session_token: sessionToken })
+  const data = await api<DetailsRaw>(
+    'GET',
+    `/api/staff/operators/${operatorId}/hotel-places/details/${encodeURIComponent(placeId)}?${params}`,
+  )
+  if (data.configured === false) throw new PlacesNotConfiguredError()
+  return {
+    name: data.name ?? '',
+    address: data.address ?? null,
+    phone: data.phone ?? null,
+    website: data.website ?? null,
+    mapsLink: data.mapsLink ?? null,
+    timezone: data.timezone ?? null,
+  }
+}

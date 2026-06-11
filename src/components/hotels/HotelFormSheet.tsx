@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -23,12 +24,14 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { TimezonePicker } from '@/components/ui/timezone-picker'
+import { HotelPlacesSearch } from '@/components/hotels/HotelPlacesSearch'
 import {
   createHotel,
   hotelFormSchema,
   updateHotel,
   type Hotel,
   type HotelFormValues,
+  type PlaceDetails,
 } from '@/lib/hotels'
 import { t } from '@/lib/strings'
 
@@ -69,6 +72,7 @@ type BodyProps = {
 
 function HotelFormSheetBody({ operatorId, editTarget, onClose }: BodyProps) {
   const queryClient = useQueryClient()
+  const [autofillBanner, setAutofillBanner] = useState<'filled' | null>(null)
 
   const form = useForm<HotelFormValues>({
     resolver: zodResolver(hotelFormSchema),
@@ -105,6 +109,20 @@ function HotelFormSheetBody({ operatorId, editTarget, onClose }: BodyProps) {
     },
   })
 
+  function handlePlaceSelect(details: PlaceDetails) {
+    // Pre-fill fields from Google Places. Only overwrite a field if the place
+    // provides a value — never blank out something the user already typed.
+    if (details.name) form.setValue('name', details.name, { shouldValidate: true })
+    if (details.address) form.setValue('address', details.address, { shouldValidate: true })
+    if (details.phone) form.setValue('phone', details.phone, { shouldValidate: true })
+    if (details.website) form.setValue('website', details.website, { shouldValidate: true })
+    if (details.mapsLink) form.setValue('maps_link', details.mapsLink, { shouldValidate: true })
+    if (details.timezone) form.setValue('timezone', details.timezone, { shouldValidate: true })
+    // NOTE: email (booking-confirmation) and contact_email are intentionally
+    // NOT pre-filled — Google gives a general contact, not the reservations inbox.
+    setAutofillBanner('filled')
+  }
+
   function handleSubmit(values: HotelFormValues) {
     mutation.mutate(values)
   }
@@ -125,6 +143,27 @@ function HotelFormSheetBody({ operatorId, editTarget, onClose }: BodyProps) {
             editTarget ? t.hotels.formEditTitle : t.hotels.formCreateTitle
           }
         >
+          {/* Google Places search — sits above the Name field; only shown
+              when creating or when editing without data filled in yet.
+              The form still works 100% without it. */}
+          <div className="space-y-1">
+            <p className="text-sm font-medium">{t.hotels.placesSearchLabel}</p>
+            <HotelPlacesSearch
+              operatorId={operatorId}
+              disabled={mutation.isPending}
+              onSelect={handlePlaceSelect}
+            />
+          </div>
+
+          {autofillBanner === 'filled' && (
+            <p
+              className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground"
+              data-testid="places-autofill-banner"
+            >
+              {t.hotels.placesAutofilled}
+            </p>
+          )}
+
           <FormField
             control={form.control}
             name="name"

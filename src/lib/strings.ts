@@ -2833,6 +2833,15 @@ export const t = {
 
     filterPlaceholder: 'Search hotels…',
     matches: (n: number, total: number) => `${n} / ${total}`,
+
+    // Google Places autofill
+    placesSearchLabel: 'Search on Google',
+    placesSearchPlaceholder: 'Type hotel name to search…',
+    placesSearching: 'Searching…',
+    placesNoResults: 'No results found.',
+    placesNotConfigured: 'Google lookup is not set up yet — fill in fields manually.',
+    placesAutofilled: 'Fields pre-filled from Google Places. Edit as needed.',
+    placesError: 'Google lookup failed — fill in fields manually.',
   },
   // landr-funh — delivery roster (Settings → Providers) + per-booking-day
   // assignment picker (BookingDetailSheet).
