@@ -14,7 +14,6 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   useReactTable,
-  type ColumnDef,
   type Row,
   type SortingState,
 } from '@tanstack/react-table'
@@ -23,11 +22,12 @@ import { DownloadIcon, PartyPopperIcon } from 'lucide-react'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { BulkActionToolbar } from '@/components/BulkActionToolbar'
 import { DataTable } from '@/components/DataTable'
-import { selectColumn } from '@/components/data-table-select'
 import { EmptyState } from '@/components/EmptyState'
 import { SkeletonTableRows } from '@/components/SkeletonTableRows'
 import { ApprovalRowContextMenu } from '@/components/approvals/ApprovalRowContextMenu'
 import { ApprovalsFilters } from '@/components/approvals/ApprovalsFilters'
+import { ApprovalRowDecisionButtons } from '@/components/approvals/ApprovalRowDecisionButtons'
+import { buildGeneralApprovalsColumns } from '@/components/approvals/generalApprovalsColumns'
 import { StageChip } from '@/components/approvals/StageChip'
 import {
   AlertDialog,
@@ -48,7 +48,6 @@ import {
   activityDateDisplay,
   bulkSendReminder,
   customerDisplay,
-  dateDisplay,
   fetchPendingGeneralApprovals,
   firstActivityDate,
   invalidateBookingCaches,
@@ -165,85 +164,14 @@ export function GeneralApprovals() {
     { id: 'created_at', desc: true },
   ])
 
-  const columns = useMemo<ColumnDef<BookingRow>[]>(
-    () => [
-      // landr-lbbj / landr-3qkr.2 — bulk-select column via the shared
-      // selectColumn factory. Header checkbox toggles ALL currently-visible
-      // (filtered+sorted) rows; row checkbox toggles that single id.
-      selectColumn<BookingRow>({
+  const columns = useMemo(
+    () =>
+      buildGeneralApprovalsColumns({
+        hour12,
         selectedIds,
         setSelectedIds,
-        testIdPrefix: 'approvals',
+        onDecide: openDialog,
       }),
-      {
-        id: 'created_at',
-        accessorKey: 'created_at',
-        header: t.generalApprovals.columnDate,
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap">
-            {dateDisplay(row.original.created_at, { hour12 })}
-          </span>
-        ),
-        sortingFn: 'datetime',
-      },
-      {
-        // Sortable by the ISO date string — lexicographic compare on
-        // YYYY-MM-DD matches calendar order. Bookings with no activity
-        // date sort to the end via sortUndefined.
-        id: 'activity_date',
-        accessorFn: (row) => firstActivityDate(row),
-        sortUndefined: 'last',
-        header: t.generalApprovals.columnActivityDate,
-        cell: ({ row }) => {
-          const display = activityDateDisplay(row.original)
-          if (!display) {
-            return <span className="text-muted-foreground text-xs">—</span>
-          }
-          return <span className="whitespace-nowrap">{display}</span>
-        },
-      },
-      {
-        // landr-qmdo — color-coded "Awaiting X" chip showing which actor
-        // needs to act next. Sortable by stage code so the operator can
-        // batch-process "all the Hotel ones" without leaving the queue.
-        id: 'stage',
-        header: t.generalApprovals.columnStage,
-        accessorFn: (row) => row.current_stage?.code ?? '',
-        cell: ({ row }) => <StageChip code={row.original.current_stage?.code} />,
-      },
-      {
-        id: 'customer',
-        header: t.generalApprovals.columnCustomer,
-        accessorFn: (row) => customerDisplay(row),
-        cell: ({ getValue }) => (
-          <span className="truncate">{getValue<string>()}</span>
-        ),
-      },
-      {
-        id: 'product',
-        header: t.generalApprovals.columnProduct,
-        accessorFn: (row) => productDisplay(row),
-        cell: ({ getValue }) => (
-          <span className="truncate">{getValue<string>()}</span>
-        ),
-      },
-      {
-        id: 'price',
-        header: t.generalApprovals.columnPrice,
-        accessorFn: (row) => Number(row.gross_total) || 0,
-        cell: ({ row }) => (
-          <span className="font-medium">{priceDisplay(row.original)}</span>
-        ),
-      },
-      {
-        id: 'actions',
-        header: t.generalApprovals.columnActions,
-        enableSorting: false,
-        cell: ({ row }) => (
-          <ApprovalRowDecisionButtons row={row.original} onDecide={openDialog} />
-        ),
-      },
-    ],
     [hour12, selectedIds],
   )
 
@@ -651,42 +579,6 @@ export function GeneralApprovals() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-  )
-}
-
-// landr-3qkr.2 — the inline Approve / Reject button cluster, shared by the
-// desktop actions column and the mobile card so the decision wiring stays
-// in one place. stopPropagation keeps the buttons from also opening the
-// detail sheet underneath the row/card.
-function ApprovalRowDecisionButtons({
-  row,
-  onDecide,
-}: {
-  row: BookingRow
-  onDecide: (row: BookingRow, decision: ApprovalDecision) => void
-}) {
-  return (
-    <div
-      className="flex items-center gap-2"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <Button
-        size="sm"
-        variant="default"
-        onClick={() => onDecide(row, 'approve')}
-        aria-label={`${t.generalApprovals.actionApprove} booking ${row.id}`}
-      >
-        {t.generalApprovals.actionApprove}
-      </Button>
-      <Button
-        size="sm"
-        variant="destructive"
-        onClick={() => onDecide(row, 'reject')}
-        aria-label={`${t.generalApprovals.actionReject} booking ${row.id}`}
-      >
-        {t.generalApprovals.actionReject}
-      </Button>
     </div>
   )
 }
