@@ -55,10 +55,6 @@ export function approvalsStorageKey(userId: string): string {
   return `landr.dashboard.approvalsFilters.${userId}`
 }
 
-export function isEmptyApprovalsFilters(f: ApprovalsFilters): boolean {
-  return FILTER_KEYS.every((k) => f[k].length === 0)
-}
-
 export function activeApprovalsFilterCount(f: ApprovalsFilters): number {
   return FILTER_KEYS.reduce((sum, k) => sum + f[k].length, 0)
 }

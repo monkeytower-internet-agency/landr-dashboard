@@ -60,7 +60,6 @@ export type VoucherInput = {
 /** Partial edit. used_count is intentionally absent — read-only here. */
 export type VoucherPatch = Partial<VoucherInput>
 
-export const VOUCHER_KINDS: readonly VoucherKind[] = ['percent', 'flat']
 export const VOUCHER_SCOPES: readonly VoucherScope[] = [
   'booking',
   'subscription',

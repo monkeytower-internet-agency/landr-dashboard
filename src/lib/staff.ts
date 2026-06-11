@@ -41,8 +41,6 @@ export const STAFF_ROLE_OPTIONS = [
   'readonly',
 ] as const
 
-export type StaffRoleOption = (typeof STAFF_ROLE_OPTIONS)[number]
-
 const STAFF_SELECT = `
   id,
   operator_id,

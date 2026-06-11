@@ -37,7 +37,6 @@ export const RETRIEVE_STATES = [
   'driver_assigned',
   'collected',
 ] as const
-export type RetrieveState = (typeof RETRIEVE_STATES)[number]
 
 export type Checkin = {
   id: string
