@@ -19,6 +19,11 @@ type HotelFixture = {
   address: string | null
   phone: string | null
   maps_link: string | null
+  website: string | null
+  contact_email: string | null
+  checkin_time: string | null
+  checkout_time: string | null
+  timezone: string | null
   missing_email: boolean
   created_at: string
   updated_at: string
@@ -54,6 +59,11 @@ vi.mock('@/lib/hotels', async (importOriginal) => {
         address: (body.address as string | null) ?? null,
         phone: (body.phone as string | null) ?? null,
         maps_link: (body.maps_link as string | null) || null,
+        website: (body.website as string | null) || null,
+        contact_email: (body.contact_email as string | null) || null,
+        checkin_time: (body.checkin_time as string | null) || null,
+        checkout_time: (body.checkout_time as string | null) || null,
+        timezone: (body.timezone as string | null) || null,
         missing_email: !body.email,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -146,6 +156,11 @@ function makeHotel(overrides: Partial<HotelFixture> = {}): HotelFixture {
     address: 'Calle del Mar 12',
     phone: '+34 600 000 000',
     maps_link: 'https://maps.google.com/sol',
+    website: null,
+    contact_email: null,
+    checkin_time: null,
+    checkout_time: null,
+    timezone: null,
     missing_email: false,
     created_at: '2026-06-11T10:00:00.000Z',
     updated_at: '2026-06-11T10:00:00.000Z',
@@ -222,9 +237,21 @@ describe('Hotels route', () => {
       /^Name$/i,
     ) as HTMLInputElement
     expect(nameInput.value).toBe('')
+    // booking-confirmation email (required)
     expect(
-      (within(dialog).getByLabelText(/contact email/i) as HTMLInputElement)
-        .value,
+      (
+        within(dialog).getByLabelText(
+          /booking-confirmation email/i,
+        ) as HTMLInputElement
+      ).value,
+    ).toBe('')
+    // general contact email (optional, new field)
+    expect(
+      (
+        within(dialog).getByLabelText(
+          /general contact email/i,
+        ) as HTMLInputElement
+      ).value,
     ).toBe('')
   })
 
@@ -238,7 +265,7 @@ describe('Hotels route', () => {
     const dialog = await screen.findByRole('dialog')
     await user.type(within(dialog).getByLabelText(/^Name$/i), 'Hotel Sol')
     await user.type(
-      within(dialog).getByLabelText(/contact email/i),
+      within(dialog).getByLabelText(/booking-confirmation email/i),
       'reception@hotel-sol.example',
     )
     await user.type(
@@ -295,7 +322,7 @@ describe('Hotels route', () => {
     })
   })
 
-  it('validates required fields and email format', async () => {
+  it('validates required fields and booking-email format', async () => {
     const user = userEvent.setup()
     render(<Hotels />)
 
@@ -313,10 +340,10 @@ describe('Hotels route', () => {
     expect(within(dialog).getByText(/phone is required/i)).toBeInTheDocument()
     expect(mock.state.lastPost).toBeNull()
 
-    // Invalid email -> rejected.
+    // Invalid booking email -> rejected.
     await user.type(within(dialog).getByLabelText(/^Name$/i), 'Hotel Sol')
     await user.type(
-      within(dialog).getByLabelText(/contact email/i),
+      within(dialog).getByLabelText(/booking-confirmation email/i),
       'not-an-email',
     )
     await user.type(within(dialog).getByLabelText(/^Address$/i), 'Some street')
@@ -340,7 +367,7 @@ describe('Hotels route', () => {
     const dialog = await screen.findByRole('dialog')
     await user.type(within(dialog).getByLabelText(/^Name$/i), 'Hotel Sol')
     await user.type(
-      within(dialog).getByLabelText(/contact email/i),
+      within(dialog).getByLabelText(/booking-confirmation email/i),
       'reception@hotel-sol.example',
     )
     await user.type(within(dialog).getByLabelText(/^Address$/i), 'Calle 12')
@@ -408,5 +435,107 @@ describe('Hotels route', () => {
       }),
       expect.any(Function),
     )
+  })
+
+  it('creates a hotel with website and general contact email', async () => {
+    const user = userEvent.setup()
+    render(<Hotels />)
+
+    await user.click(
+      await screen.findByRole('button', { name: /add hotel/i }),
+    )
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByLabelText(/^Name$/i), 'Hotel Luna')
+    await user.type(
+      within(dialog).getByLabelText(/booking-confirmation email/i),
+      'bookings@hotel-luna.example',
+    )
+    await user.type(within(dialog).getByLabelText(/^Address$/i), 'Avenida Luna 9')
+    await user.type(within(dialog).getByLabelText(/^Phone$/i), '+34 611 111 111')
+    // optional new fields
+    await user.type(
+      within(dialog).getByLabelText(/general contact email/i),
+      'info@hotel-luna.example',
+    )
+    await user.type(
+      within(dialog).getByLabelText(/website/i),
+      'https://hotel-luna.example',
+    )
+    await user.click(
+      within(dialog).getByRole('button', { name: /^Add hotel$/i }),
+    )
+
+    await waitFor(() => {
+      expect(mock.state.lastPost).not.toBeNull()
+    })
+    expect(mock.state.lastPost).toMatchObject({
+      email: 'bookings@hotel-luna.example',
+      contact_email: 'info@hotel-luna.example',
+      website: 'https://hotel-luna.example',
+    })
+    await waitFor(() => {
+      expect(toastCalls.success.length).toBeGreaterThan(0)
+    })
+  })
+
+  it('edit sheet prefills new v2 fields', async () => {
+    mock.state.hotels = [
+      makeHotel({
+        website: 'https://hotel-sol.example',
+        contact_email: 'info@hotel-sol.example',
+        checkin_time: '14:00',
+        checkout_time: '11:00',
+        timezone: 'Atlantic/Canary',
+      }),
+    ]
+    const user = userEvent.setup()
+    render(<Hotels />)
+
+    await screen.findByText('Hotel Sol')
+    await user.click(screen.getByRole('button', { name: /Edit — Hotel Sol/i }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(
+      (
+        within(dialog).getByLabelText(/general contact email/i) as HTMLInputElement
+      ).value,
+    ).toBe('info@hotel-sol.example')
+    expect(
+      (within(dialog).getByLabelText(/website/i) as HTMLInputElement).value,
+    ).toBe('https://hotel-sol.example')
+    expect(
+      (within(dialog).getByLabelText(/check-in time/i) as HTMLInputElement).value,
+    ).toBe('14:00')
+    expect(
+      (within(dialog).getByLabelText(/check-out time/i) as HTMLInputElement).value,
+    ).toBe('11:00')
+  })
+
+  it('rejects an invalid general contact email format', async () => {
+    const user = userEvent.setup()
+    render(<Hotels />)
+
+    await user.click(
+      await screen.findByRole('button', { name: /add hotel/i }),
+    )
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByLabelText(/^Name$/i), 'Hotel Sol')
+    await user.type(
+      within(dialog).getByLabelText(/booking-confirmation email/i),
+      'reception@hotel-sol.example',
+    )
+    await user.type(within(dialog).getByLabelText(/^Address$/i), 'Calle 12')
+    await user.type(within(dialog).getByLabelText(/^Phone$/i), '+34 600')
+    await user.type(
+      within(dialog).getByLabelText(/general contact email/i),
+      'not-an-email',
+    )
+    await user.click(
+      within(dialog).getByRole('button', { name: /^Add hotel$/i }),
+    )
+    expect(
+      await within(dialog).findByText(/enter a valid email address/i),
+    ).toBeInTheDocument()
+    expect(mock.state.lastPost).toBeNull()
   })
 })
