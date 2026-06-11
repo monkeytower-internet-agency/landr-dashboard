@@ -87,24 +87,16 @@ function LocationFormSheetBody({
 }: BodyProps) {
   const queryClient = useQueryClient()
 
-  const isHotelLike = (roleTypeId: string | null) => {
-    if (!roleTypeId) return false
-    const rt = roleTypes.find((r) => r.id === roleTypeId)
-    return rt?.code === 'hotel'
-  }
-
   const form = useForm<LocationFormValues>({
     resolver: zodResolver(locationFormSchema),
     defaultValues: {
       name: editTarget?.name ?? '',
       role_type_id: (editTarget as (Location & { role_type_id?: string | null }) | null)?.role_type_id ?? null,
       parent_id: editTarget?.parent_id ?? null,
-      email: editTarget?.email ?? '',
     },
   })
 
   const watchedParentId = form.watch('parent_id')
-  const watchedRoleTypeId = form.watch('role_type_id')
 
   // Site-level locations only (no parent) are eligible as parents for sub-points.
   const siteLocations = locations.filter(
@@ -148,11 +140,6 @@ function LocationFormSheetBody({
     mutation.mutate(values)
   }
 
-  const hotelLike = isHotelLike(watchedRoleTypeId)
-  const emailLabel = hotelLike
-    ? t.pickupLocations.fieldEmailHotel
-    : t.pickupLocations.fieldEmail
-
   return (
     <>
       <SheetHeader>
@@ -175,28 +162,8 @@ function LocationFormSheetBody({
               : t.pickupLocations.formCreateTitle
           }
         >
-          {hotelLike && (
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{emailLabel}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="email"
-                      placeholder="contact@hotel.example"
-                      disabled={mutation.isPending}
-                      {...field}
-                      value={field.value ?? ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
-
+          {/* landr-cyoi — the basic pickup-location form no longer carries an
+              email field. Email belongs to hotels (Settings → Hotels). */}
           <FormField
             control={form.control}
             name="name"
@@ -233,11 +200,17 @@ function LocationFormSheetBody({
                       <option value="">
                         {t.pickupLocations.fieldRoleTypeNone}
                       </option>
-                      {roleTypes.map((rt) => (
-                        <option key={rt.id} value={rt.id}>
-                          {rt.label}
-                        </option>
-                      ))}
+                      {/* landr-cyoi — 'hotel' is no longer a selectable type
+                          here. Hotels are created/edited under Settings →
+                          Hotels; a basic pickup location can't be tagged as
+                          a hotel from this editor. */}
+                      {roleTypes
+                        .filter((rt) => rt.code !== 'hotel')
+                        .map((rt) => (
+                          <option key={rt.id} value={rt.id}>
+                            {rt.label}
+                          </option>
+                        ))}
                     </NativeSelect>
                   </FormControl>
                   <EditTaxonomyButton
@@ -295,28 +268,6 @@ function LocationFormSheetBody({
             }
             return null
           })()}
-
-          {!hotelLike && (
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{emailLabel}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="email"
-                      placeholder="contact@location.example"
-                      disabled={mutation.isPending}
-                      {...field}
-                      value={field.value ?? ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
         </form>
       </Form>
       <SheetFooter>

@@ -130,7 +130,9 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // landr-znzz.7 — Weather (opt-in forecast hint) added after Branding.
   // landr-jb1k — Booking widget (layout variant + category columns + title
   // style) joined the SETTINGS group between Branding and Weather.
-  it('settings group contains the twenty-three program subsections', () => {
+  // landr-cyoi — Hotels joined the SETTINGS group directly after Pickup
+  // locations (first-class accommodation entity; a hotel is also a pickup).
+  it('settings group contains the twenty-four program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -144,6 +146,10 @@ describe('account/settings grouping (landr-fzcg)', () => {
       // landr-funh — Settings → Providers: operational delivery roster.
       '/settings/providers',
       '/settings/pickup-locations',
+      // landr-cyoi — Settings → Hotels: first-class accommodation entity
+      // (required address/email/phone + maps link). Sits right after Pickup
+      // locations because a hotel is also a pickup point.
+      '/settings/hotels',
       '/settings/products',
       // landr-up1b — nested category tree editor + booking-widget embed
       // generator, grouped right after Products.
@@ -171,6 +177,14 @@ describe('account/settings grouping (landr-fzcg)', () => {
       // subscriptions (v1 localStorage; v2 server-delivered).
       '/settings/webhooks',
     ])
+  })
+
+  // landr-cyoi — pin the Hotels entry shape (first-class accommodation
+  // entity; sits right after Pickup locations).
+  it('includes a Hotels entry at /settings/hotels', () => {
+    const entry = SETTINGS_SECTIONS.find((s) => s.to === '/settings/hotels')
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Hotels')
   })
 
   // landr-r87i — pin the Operations entry shape.

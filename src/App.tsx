@@ -71,6 +71,7 @@ import { Schedule } from '@/routes/Schedule'
 import { Staff } from '@/routes/Staff'
 import { EmailTemplates } from '@/routes/EmailTemplates'
 import { PickupLocations } from '@/routes/PickupLocations'
+import { Hotels } from '@/routes/Hotels'
 import { Providers } from '@/routes/Providers'
 import { SettingsLayout } from '@/routes/SettingsLayout'
 import { landingPathFor } from '@/components/settings/sections'
@@ -347,6 +348,10 @@ function App() {
                 <Route path="team" element={gatedSection('/settings/team', <Staff />)} />
                 <Route path="providers" element={gatedSection('/settings/providers', <Providers />)} />
                 <Route path="pickup-locations" element={gatedSection('/settings/pickup-locations', <PickupLocations />)} />
+                {/* landr-cyoi — Hotels as a first-class settings entity
+                    (separate from generic pickup locations). Sits right after
+                    Pickup locations in the IA. */}
+                <Route path="hotels" element={gatedSection('/settings/hotels', <Hotels />)} />
                 {/* landr-sydf — Products lives under Settings now (operators
                     edit rarely, not daily). The :productId variant preserves
                     the landr-i018 deep-link contract used by the PricingSettings

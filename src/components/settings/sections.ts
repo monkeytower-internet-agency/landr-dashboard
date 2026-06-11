@@ -1,5 +1,6 @@
 import {
   BanknoteIcon,
+  BedIcon,
   BellIcon,
   BuildingIcon,
   CalendarClockIcon,
@@ -163,6 +164,14 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/pickup-locations',
     label: t.settingsHub.sections.pickupLocations,
     icon: MapPinIcon,
+  },
+  // landr-cyoi — Hotels as a first-class settings entity (separate from
+  // generic pickup locations; required address/email/phone + maps link). Sits
+  // directly after Pickup locations because a hotel is also a pickup point.
+  {
+    to: '/settings/hotels',
+    label: t.settingsHub.sections.hotels,
+    icon: BedIcon,
   },
   {
     to: '/settings/products',
