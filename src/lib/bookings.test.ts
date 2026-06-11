@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  balanceDueOf,
   canMarkAsNoShow,
   effectiveGrossOf,
   hasPriceOverride,
@@ -313,5 +314,60 @@ describe('canMarkAsNoShow (landr-v9e4.2)', () => {
     const nextDayStr = toDateOnlyIso(nextDayDate)
     const bookingOnNextLocalDay = noShowRow(nextDayStr)
     expect(canMarkAsNoShow(bookingOnNextLocalDay, someDate)).toBe(false)
+  })
+})
+
+// landr-gqq0 — balanceDueOf fallback chain
+describe('balanceDueOf (landr-gqq0)', () => {
+  function baseRow(overrides: Partial<BookingRow> = {}): BookingRow {
+    return {
+      id: 'b-1',
+      created_at: '2026-01-01T00:00:00.000Z',
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_payment' },
+      gross_total: 1500,
+      currency: 'EUR',
+      customer: null,
+      items: [],
+      ...overrides,
+    }
+  }
+
+  it('returns balance_due directly when present', () => {
+    const r = baseRow({ balance_due: 380, gross_total: 1500 })
+    expect(balanceDueOf(r)).toBe(380)
+  })
+
+  it('hotel-branch mixed booking: falls back to operator_gross_total, not gross_total', () => {
+    // gross_total = 1500 (operator 380 + hotel 1120); operator_gross_total = 380
+    const r = baseRow({ gross_total: 1500, operator_gross_total: 380 })
+    expect(balanceDueOf(r)).toBe(380)
+  })
+
+  it('operator-only booking: falls back to gross_total when operator_gross_total equals it', () => {
+    // Pure-operator: operator_gross_total == gross_total — result is the same either way
+    const r = baseRow({ gross_total: 200, operator_gross_total: 200 })
+    expect(balanceDueOf(r)).toBe(200)
+  })
+
+  it('legacy row (operator_gross_total absent): falls through to gross_total safely', () => {
+    const r = baseRow({ gross_total: 250 })
+    // operator_gross_total not set at all
+    expect(balanceDueOf(r)).toBe(250)
+  })
+
+  it('legacy row (operator_gross_total null): falls through to gross_total safely', () => {
+    const r = baseRow({ gross_total: 300, operator_gross_total: null })
+    expect(balanceDueOf(r)).toBe(300)
+  })
+
+  it('accepts string values for all numeric fields (REST returns strings)', () => {
+    const r = baseRow({ gross_total: '1500', operator_gross_total: '380' })
+    expect(balanceDueOf(r)).toBe(380)
+  })
+
+  it('returns null when no field parses as finite number', () => {
+    const r = baseRow({ gross_total: NaN, operator_gross_total: null })
+    expect(balanceDueOf(r)).toBeNull()
   })
 })
