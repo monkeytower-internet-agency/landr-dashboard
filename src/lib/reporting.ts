@@ -22,6 +22,7 @@ import {
   downloadCsvString,
   rowsToCsv as rowsToCsvShared,
 } from '@/lib/csv-export'
+import { getCurrencyFormatter } from '@/lib/format-currency'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -339,18 +340,17 @@ export function downloadCsv(filename: string, csv: string): string {
 // Formatting helpers
 // ---------------------------------------------------------------------------
 
-const currencyFormatterCache = new Map<string, Intl.NumberFormat>()
+/**
+ * Format a numeric amount as a localised currency string (en-IE locale).
+ * Delegates to the shared `format-currency` helper (landr-v9e4.4).
+ * Callers that previously passed a required `currency` arg still work;
+ * the new underlying helper defaults to 'EUR' when omitted.
+ */
 export function formatCurrency(amount: number, currency: string): string {
-  const key = currency || 'EUR'
-  let fmt = currencyFormatterCache.get(key)
-  if (!fmt) {
-    fmt = new Intl.NumberFormat('en-IE', { style: 'currency', currency: key })
-    currencyFormatterCache.set(key, fmt)
-  }
-  return fmt.format(amount)
+  return getCurrencyFormatter(currency).format(amount)
 }
 
-const numberFormatter = new Intl.NumberFormat('en-IE')
+const _countFormatter = new Intl.NumberFormat('en-IE')
 export function formatCount(n: number): string {
-  return numberFormatter.format(n)
+  return _countFormatter.format(n)
 }

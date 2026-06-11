@@ -64,6 +64,7 @@ import {
 import { groupRows, useGroupCollapse } from '@/lib/views-group-by'
 import type { BookingItem } from '@/lib/views-bookings-data'
 import { t } from '@/lib/strings'
+import { getCurrencyFormatter } from '@/lib/format-currency'
 
 type SortEntry = { source: 'system' | 'custom'; key: string; dir: 'asc' | 'desc' }
 
@@ -526,16 +527,10 @@ function renderCell(item: BookingItem, field: ViewField): React.ReactNode {
 // ---------------------------------------------------------------------------
 // Formatters
 
-const moneyFormatters = new Map<string, Intl.NumberFormat>()
 function formatMoney(value: string | number, currency: string): string {
   const n = typeof value === 'number' ? value : Number(value)
   if (!Number.isFinite(n)) return t.views.table.moneyFallback
-  let fmt = moneyFormatters.get(currency)
-  if (!fmt) {
-    fmt = new Intl.NumberFormat('en-IE', { style: 'currency', currency })
-    moneyFormatters.set(currency, fmt)
-  }
-  return fmt.format(n)
+  return getCurrencyFormatter(currency).format(n)
 }
 
 const _dayFormatter = new Intl.DateTimeFormat('en-IE', {
