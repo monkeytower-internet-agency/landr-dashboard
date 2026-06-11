@@ -101,7 +101,10 @@ export function HotelsTable({ rows, onEdit, onDelete }: Props) {
           row.original.missing_email ? (
             <MissingEmailBadge />
           ) : (
-            <span className="text-muted-foreground text-sm">
+            <span
+              className="text-muted-foreground block max-w-[220px] truncate text-sm"
+              title={row.original.email ?? undefined}
+            >
               {row.original.email}
             </span>
           ),
@@ -112,7 +115,10 @@ export function HotelsTable({ rows, onEdit, onDelete }: Props) {
         header: t.hotels.columnAddress,
         cell: ({ row }) =>
           row.original.address ? (
-            <span className="text-muted-foreground text-sm">
+            <span
+              className="text-muted-foreground block max-w-[260px] truncate text-sm"
+              title={row.original.address}
+            >
               {row.original.address}
             </span>
           ) : null,
