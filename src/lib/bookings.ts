@@ -884,7 +884,7 @@ export async function markBookingAsNoShow(
 export function canMarkAsNoShow(row: BookingRow, today?: Date): boolean {
   if (stageCode(row) === 'no_show') return false
   if (row.current_semantic_state === 'cancelled') return false
-  const todayIso = (today ?? new Date()).toISOString().slice(0, 10)
+  const todayIso = toDateOnlyIso(today ?? new Date())
   for (const item of row.items) {
     if (item.date_range_start && item.date_range_start <= todayIso) {
       return true
