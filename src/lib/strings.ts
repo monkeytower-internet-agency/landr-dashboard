@@ -2834,9 +2834,10 @@ export const t = {
     filterPlaceholder: 'Search hotels…',
     matches: (n: number, total: number) => `${n} / ${total}`,
 
-    // Google Places autofill
+    // Google Places text-search autofill (ENTER-only, top-10 results)
     placesSearchLabel: 'Search on Google',
-    placesSearchPlaceholder: 'Type hotel name to search…',
+    placesSearchPlaceholder: 'Type hotel name, then press Enter…',
+    placesSearchButton: 'Search',
     placesSearching: 'Searching…',
     placesNoResults: 'No results found.',
     placesNotConfigured: 'Google lookup is not set up yet — fill in fields manually.',

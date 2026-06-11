@@ -1,19 +1,13 @@
 /**
- * Tests for HotelPlacesSearch and its integration with HotelFormSheet.
+ * Tests for HotelPlacesSearch (ENTER-only text search) and its integration
+ * with HotelFormSheet.
  *
- * The backend API (/hotel-places/*) is mocked at the module level so no
- * network is required. Tests cover:
- *  1. Autocomplete dropdown renders predictions on successful response.
- *  2. Selecting a prediction pre-fills the parent form fields.
- *  3. { configured: false } response shows the not-configured hint and
- *     leaves manual entry fully working (form submits its default data).
- *
- * Timer note: userEvent v14 manages its own internal async I/O; mixing
- * vi.useFakeTimers() with user.type() causes deadlocks. Instead we use real
- * timers throughout and rely on waitFor() + the fact that our mock resolvers
- * return synchronously (Promise.resolve). For the debounce specifically,
- * we type slowly enough via userEvent's `delay` option so the 300 ms window
- * expires on its own, or we bypass it by directly setting state via fireEvent.
+ * Key behaviours under test:
+ *  1. Typing alone does NOT trigger any API call — only Enter / Search button does.
+ *  2. Search fires on Enter and on button click; top results render.
+ *  3. Picking a result calls onSelect directly (no details round-trip).
+ *  4. { configured: false } / PlacesNotConfiguredError shows the hint; manual entry works.
+ *  5. The input is never disabled while typing — only the Search button reflects loading.
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -49,26 +43,28 @@ function renderSearch(
   return { onSelect, client, ...result }
 }
 
-/** Fire a native input event to set the input value, bypassing debounce timing. */
-function typeIntoInput(input: HTMLElement, value: string) {
-  fireEvent.change(input, { target: { value } })
-}
-
 // ── shared fixtures ────────────────────────────────────────────────────────
 
-const PREDICTIONS: hotelsLib.PlacePrediction[] = [
-  { placeId: 'place-1', mainText: 'Hotel Sol', secondaryText: 'Fuerteventura, Spain' },
-  { placeId: 'place-2', mainText: 'Hotel Luna', secondaryText: 'Gran Canaria, Spain' },
+const RESULTS: hotelsLib.PlaceSearchResult[] = [
+  {
+    placeId: 'place-1',
+    name: 'Fonda Central',
+    address: 'Calle Mayor 1, Adeje, Tenerife, Spain',
+    phone: '+34 922 000 001',
+    website: 'https://www.fondacentral.example',
+    mapsLink: 'https://maps.google.com/fonda-central',
+    timezone: 'Atlantic/Canary',
+  },
+  {
+    placeId: 'place-2',
+    name: 'Hotel Sol',
+    address: 'Avenida del Mar 12, 35660, Corralejo',
+    phone: '+34 928 000 002',
+    website: 'https://www.hotel-sol.example',
+    mapsLink: 'https://maps.google.com/hotel-sol',
+    timezone: 'Atlantic/Canary',
+  },
 ]
-
-const DETAILS: hotelsLib.PlaceDetails = {
-  name: 'Hotel Sol',
-  address: 'Calle del Mar 12, 35660',
-  phone: '+34 600 000 000',
-  website: 'https://www.hotel-sol.example',
-  mapsLink: 'https://maps.google.com/sol',
-  timezone: 'Atlantic/Canary',
-}
 
 beforeEach(() => {
   vi.restoreAllMocks()
@@ -77,102 +73,172 @@ beforeEach(() => {
 // ── tests ──────────────────────────────────────────────────────────────────
 
 describe('HotelPlacesSearch', () => {
-  it('renders a search input', () => {
+  it('renders a search input and Search button', () => {
     renderSearch()
     expect(screen.getByRole('textbox', { name: /search on google/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /search/i })).toBeInTheDocument()
   })
 
-  it('shows autocomplete predictions after debounce fires', async () => {
-    vi.spyOn(hotelsLib, 'fetchPlaceAutocomplete').mockResolvedValue(PREDICTIONS)
+  it('does NOT call the API while typing — only on Enter', async () => {
+    const spy = vi.spyOn(hotelsLib, 'fetchHotelPlaceSearch').mockResolvedValue(RESULTS)
 
     renderSearch()
     const input = screen.getByRole('textbox', { name: /search on google/i })
 
-    // type ≥3 chars to pass the debounce guard; use fireEvent so there are no
-    // timer conflicts — the debounce timeout runs in real time via jsdom.
-    typeIntoInput(input, 'Hot')
+    // Type characters — API must NOT be called
+    fireEvent.change(input, { target: { value: 'F' } })
+    fireEvent.change(input, { target: { value: 'Fo' } })
+    fireEvent.change(input, { target: { value: 'Fon' } })
+    fireEvent.change(input, { target: { value: 'Fond' } })
 
-    // waitFor polls until either the listbox appears or the timeout expires.
-    // The debounce is 300 ms; waitFor default timeout is 1000 ms — plenty.
+    // Wait a bit to be sure no debounce fires
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 400))
+    })
+
+    expect(spy).not.toHaveBeenCalled()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('does NOT call the API while typing — only on Search button click', async () => {
+    const spy = vi.spyOn(hotelsLib, 'fetchHotelPlaceSearch').mockResolvedValue(RESULTS)
+
+    renderSearch()
+    const input = screen.getByRole('textbox', { name: /search on google/i })
+
+    fireEvent.change(input, { target: { value: 'Fonda Central' } })
+
+    // Wait — still no call
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 200))
+    })
+    expect(spy).not.toHaveBeenCalled()
+
+    // Now click Search
+    fireEvent.click(screen.getByRole('button', { name: /search/i }))
+
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalledWith('op-1', 'Fonda Central')
+    }, { timeout: 2000 })
+  })
+
+  it('fires search on Enter keypress and renders top results', async () => {
+    vi.spyOn(hotelsLib, 'fetchHotelPlaceSearch').mockResolvedValue(RESULTS)
+
+    renderSearch()
+    const input = screen.getByRole('textbox', { name: /search on google/i })
+
+    fireEvent.change(input, { target: { value: 'Fonda Central' } })
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
+
     await waitFor(() => {
       expect(screen.getByRole('listbox', { name: /place suggestions/i })).toBeInTheDocument()
     }, { timeout: 2000 })
 
-    expect(hotelsLib.fetchPlaceAutocomplete).toHaveBeenCalledWith(
-      'op-1',
-      'Hot',
-      expect.any(String),
-    )
+    expect(hotelsLib.fetchHotelPlaceSearch).toHaveBeenCalledWith('op-1', 'Fonda Central')
 
     const listbox = screen.getByRole('listbox')
+    expect(within(listbox).getByText('Fonda Central')).toBeInTheDocument()
     expect(within(listbox).getByText('Hotel Sol')).toBeInTheDocument()
-    expect(within(listbox).getByText('Hotel Luna')).toBeInTheDocument()
   })
 
-  it('calls onSelect with PlaceDetails when a prediction is clicked', async () => {
-    vi.spyOn(hotelsLib, 'fetchPlaceAutocomplete').mockResolvedValue(PREDICTIONS)
-    vi.spyOn(hotelsLib, 'fetchPlaceDetails').mockResolvedValue(DETAILS)
+  it('shows address as secondary text in results', async () => {
+    vi.spyOn(hotelsLib, 'fetchHotelPlaceSearch').mockResolvedValue(RESULTS)
+
+    renderSearch()
+    const input = screen.getByRole('textbox', { name: /search on google/i })
+    fireEvent.change(input, { target: { value: 'Fonda' } })
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
+
+    await waitFor(() =>
+      expect(screen.getByRole('listbox')).toBeInTheDocument(),
+    { timeout: 2000 })
+
+    expect(screen.getByText('Calle Mayor 1, Adeje, Tenerife, Spain')).toBeInTheDocument()
+  })
+
+  it('calls onSelect with PlaceSearchResult directly when a result is picked (no details call)', async () => {
+    vi.spyOn(hotelsLib, 'fetchHotelPlaceSearch').mockResolvedValue(RESULTS)
+    // Ensure fetchPlaceDetails is NOT called
+    const detailsSpy = vi.spyOn(hotelsLib, 'fetchPlaceDetails')
 
     const { onSelect } = renderSearch()
     const input = screen.getByRole('textbox', { name: /search on google/i })
 
-    typeIntoInput(input, 'Hot')
+    fireEvent.change(input, { target: { value: 'Fonda Central' } })
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
 
     await waitFor(() =>
       expect(screen.getByRole('listbox')).toBeInTheDocument(),
     { timeout: 2000 })
 
     const listbox = screen.getByRole('listbox')
-    const firstItem = within(listbox).getByText('Hotel Sol').closest<HTMLElement>('[role="option"]')!
+    const firstItem = within(listbox).getByText('Fonda Central').closest<HTMLElement>('[role="option"]')!
 
     await act(async () => {
       firstItem.click()
     })
 
-    await waitFor(() => {
-      expect(hotelsLib.fetchPlaceDetails).toHaveBeenCalledWith(
-        'op-1',
-        'place-1',
-        expect.any(String),
-      )
-    })
+    // onSelect called immediately with the full result
+    expect(onSelect).toHaveBeenCalledWith(RESULTS[0])
+    // No details round-trip
+    expect(detailsSpy).not.toHaveBeenCalled()
+  })
 
-    await waitFor(() => {
-      expect(onSelect).toHaveBeenCalledWith(DETAILS)
-    })
+  it('input stays enabled while typing and during search', async () => {
+    vi.spyOn(hotelsLib, 'fetchHotelPlaceSearch').mockResolvedValue(RESULTS)
+
+    renderSearch()
+    const input = screen.getByRole('textbox', { name: /search on google/i })
+
+    // While typing
+    fireEvent.change(input, { target: { value: 'Fonda' } })
+    expect(input).not.toBeDisabled()
+
+    // After submitting (while loading)
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
+    expect(input).not.toBeDisabled()
+
+    // After results arrive
+    await waitFor(() =>
+      expect(screen.getByRole('listbox')).toBeInTheDocument(),
+    { timeout: 2000 })
+    expect(input).not.toBeDisabled()
   })
 
   it('shows the not-configured hint when the API returns PlacesNotConfiguredError', async () => {
-    vi.spyOn(hotelsLib, 'fetchPlaceAutocomplete').mockRejectedValue(
+    vi.spyOn(hotelsLib, 'fetchHotelPlaceSearch').mockRejectedValue(
       new PlacesNotConfiguredError(),
     )
 
     renderSearch()
     const input = screen.getByRole('textbox', { name: /search on google/i })
-    typeIntoInput(input, 'Hot')
+    fireEvent.change(input, { target: { value: 'Fonda Central' } })
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
 
     await waitFor(() => {
       expect(screen.getByTestId('places-not-configured')).toBeInTheDocument()
     }, { timeout: 2000 })
 
-    // No dropdown shown
+    // No results dropdown shown
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 
-  it('does not call the API when fewer than 3 chars are typed', async () => {
-    vi.spyOn(hotelsLib, 'fetchPlaceAutocomplete').mockResolvedValue(PREDICTIONS)
+  it('shows empty-results message when search returns no matches', async () => {
+    vi.spyOn(hotelsLib, 'fetchHotelPlaceSearch').mockResolvedValue([])
 
     renderSearch()
     const input = screen.getByRole('textbox', { name: /search on google/i })
-    typeIntoInput(input, 'Ho')
+    fireEvent.change(input, { target: { value: 'xyzzy nonexistent hotel' } })
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
 
-    // Give the debounce time to fire if it were going to
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 400))
-    })
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    }, { timeout: 2000 })
 
-    expect(hotelsLib.fetchPlaceAutocomplete).not.toHaveBeenCalled()
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText(/no results found/i)).toBeInTheDocument()
+    }, { timeout: 2000 })
   })
 })
 
@@ -196,38 +262,39 @@ function renderFormSheet() {
 }
 
 describe('HotelFormSheet — Google Places integration', () => {
-  it('pre-fills form fields after selecting a prediction', async () => {
-    vi.spyOn(hotelsLib, 'fetchPlaceAutocomplete').mockResolvedValue(PREDICTIONS)
-    vi.spyOn(hotelsLib, 'fetchPlaceDetails').mockResolvedValue(DETAILS)
+  it('pre-fills form fields after selecting a text-search result (no details call)', async () => {
+    vi.spyOn(hotelsLib, 'fetchHotelPlaceSearch').mockResolvedValue(RESULTS)
+    const detailsSpy = vi.spyOn(hotelsLib, 'fetchPlaceDetails')
 
     renderFormSheet()
 
     const input = screen.getByRole('textbox', { name: /search on google/i })
-    typeIntoInput(input, 'Hot')
+    fireEvent.change(input, { target: { value: 'Fonda Central' } })
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
 
     await waitFor(() =>
       expect(screen.getByRole('listbox')).toBeInTheDocument(),
     { timeout: 2000 })
 
     const listbox = screen.getByRole('listbox')
-    const firstItem = within(listbox).getByText('Hotel Sol').closest<HTMLElement>('[role="option"]')!
+    const firstItem = within(listbox).getByText('Fonda Central').closest<HTMLElement>('[role="option"]')!
 
     await act(async () => {
       firstItem.click()
     })
 
+    // No details round-trip
+    expect(detailsSpy).not.toHaveBeenCalled()
+
+    // Form fields pre-filled
     await waitFor(() => {
-      expect(hotelsLib.fetchPlaceDetails).toHaveBeenCalled()
+      expect(screen.getByDisplayValue('Fonda Central')).toBeInTheDocument()
     })
 
-    await waitFor(() => {
-      expect(screen.getByDisplayValue('Hotel Sol')).toBeInTheDocument()
-    })
-
-    expect(screen.getByDisplayValue('Calle del Mar 12, 35660')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('+34 600 000 000')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('https://www.hotel-sol.example')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('https://maps.google.com/sol')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Calle Mayor 1, Adeje, Tenerife, Spain')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('+34 922 000 001')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('https://www.fondacentral.example')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('https://maps.google.com/fonda-central')).toBeInTheDocument()
 
     // Autofill banner should appear
     expect(screen.getByTestId('places-autofill-banner')).toBeInTheDocument()
@@ -240,14 +307,15 @@ describe('HotelFormSheet — Google Places integration', () => {
   })
 
   it('shows not-configured hint + manual entry still works when API not set up', async () => {
-    vi.spyOn(hotelsLib, 'fetchPlaceAutocomplete').mockRejectedValue(
+    vi.spyOn(hotelsLib, 'fetchHotelPlaceSearch').mockRejectedValue(
       new PlacesNotConfiguredError(),
     )
 
     renderFormSheet()
 
     const input = screen.getByRole('textbox', { name: /search on google/i })
-    typeIntoInput(input, 'Hot')
+    fireEvent.change(input, { target: { value: 'Fonda Central' } })
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
 
     await waitFor(() =>
       expect(screen.getByTestId('places-not-configured')).toBeInTheDocument(),
@@ -258,5 +326,25 @@ describe('HotelFormSheet — Google Places integration', () => {
     await userEvent.clear(nameInput)
     await userEvent.type(nameInput, 'My Custom Hotel')
     expect(nameInput).toHaveValue('My Custom Hotel')
+  })
+
+  it('typing alone in the search input does NOT trigger any API call', async () => {
+    const spy = vi.spyOn(hotelsLib, 'fetchHotelPlaceSearch').mockResolvedValue(RESULTS)
+
+    renderFormSheet()
+
+    const input = screen.getByRole('textbox', { name: /search on google/i })
+    fireEvent.change(input, { target: { value: 'F' } })
+    fireEvent.change(input, { target: { value: 'Fo' } })
+    fireEvent.change(input, { target: { value: 'Fon' } })
+    fireEvent.change(input, { target: { value: 'Fond' } })
+    fireEvent.change(input, { target: { value: 'Fonda' } })
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 400))
+    })
+
+    expect(spy).not.toHaveBeenCalled()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 })
