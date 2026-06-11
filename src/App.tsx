@@ -97,6 +97,7 @@ import { CategoriesSettings } from '@/routes/settings/CategoriesSettings'
 import { OffersSettings } from '@/routes/settings/OffersSettings'
 import { EmbedSettings } from '@/routes/settings/EmbedSettings'
 import { NotificationPrefsSettings } from '@/routes/settings/NotificationPrefsSettings'
+import { AccountLinkSettings } from '@/routes/settings/AccountLinkSettings'
 import { OperationsSettings } from '@/routes/settings/OperationsSettings'
 import { WebhooksSettings } from '@/routes/settings/WebhooksSettings'
 // landr-znzz.7 — Settings → Weather (opt-in forecast hint).
@@ -394,6 +395,9 @@ function App() {
                 {/* landr-ah9u — Settings → Webhooks: operator-managed event
                     subscriptions (v1 localStorage; v2 server-delivered). */}
                 <Route path="webhooks" element={gatedSection('/settings/webhooks', <WebhooksSettings />)} />
+                {/* landr-atwy — Settings → Account link prompt: per-operator
+                    opt-in for the post-booking "Track in LANDR app" prompt. */}
+                <Route path="account-link" element={<AccountLinkSettings />} />
                 {/* landr-sbhz.5 — STAFF-ONLY tier/feature editor. Not gated by
                     the tenant entitlement system (like /audit it is Landr
                     tooling); TierSettings self-redirects non-staff to home and

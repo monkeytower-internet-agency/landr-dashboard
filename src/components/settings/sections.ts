@@ -24,6 +24,7 @@ import {
   PaletteIcon,
   PlugIcon,
   SlidersHorizontalIcon,
+  SmartphoneIcon,
   SparklesIcon,
   TagIcon,
   TagsIcon,
@@ -275,6 +276,14 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/webhooks',
     label: t.settingsHub.sections.webhooks,
     icon: WebhookIcon,
+  },
+  // landr-atwy — post-booking account-link prompt opt-in. Sits after Webhooks
+  // because both are per-operator "plumbing" toggles rather than primary
+  // domain-object config surfaces.
+  {
+    to: '/settings/account-link',
+    label: t.settingsHub.sections.accountLink,
+    icon: SmartphoneIcon,
   },
 ]
 

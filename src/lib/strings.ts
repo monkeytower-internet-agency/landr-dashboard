@@ -441,6 +441,8 @@ export const t = {
       // landr-ah9u — operator webhook configuration (v1 localStorage,
       // v2 server-delivered via background worker).
       webhooks: 'Webhooks',
+      // landr-atwy — per-operator opt-in for the post-booking account-link prompt.
+      accountLink: 'Account link prompt',
       // landr-wwhn.16 — personal notification preferences (bell/email/push
       // + per-ticket overrides). Personal scope, not operator scope.
       notifications: 'Notifications',
@@ -514,6 +516,9 @@ export const t = {
       // landr-ah9u — operator webhook configuration.
       webhooks:
         'Subscribe an HTTPS endpoint to booking and payment events. Configuration is saved locally; server-side delivery ships in v2.',
+      // landr-atwy — post-booking account-link prompt opt-in.
+      accountLink:
+        'Control whether customers see a post-booking prompt to link their booking to the LANDR mobile app.',
       // landr-wwhn.16 — personal notification preferences.
       notifications:
         'Choose how you receive notifications for ticket activity — bell, email, and mobile push.',
@@ -2675,6 +2680,19 @@ export const t = {
     paymentsNothingToSave: 'Nothing to save — enter or rotate a value first.',
     paymentsSecretNeverShown:
       'For your security, saved secrets are never shown again. Enter a new value to replace one.',
+  },
+  // landr-atwy — Settings → Account link prompt
+  accountLinkSettings: {
+    cardTitle: 'App account-link prompt',
+    cardDescription:
+      'When enabled, customers see a "Track this booking in the LANDR app" prompt after completing a booking. OFF by default.',
+    enableLabel: 'Offer "Track in LANDR app" prompt to customers',
+    enableHint:
+      'Shows a post-booking prompt inviting the customer to link their booking to the LANDR mobile app. Requires magic-link email to be working in production (landr-16u9) before enabling.',
+    save: 'Save',
+    saving: 'Saving…',
+    toastSaved: 'Account-link settings saved.',
+    toastError: 'Failed to save account-link settings.',
   },
   // landr-znzz.7 — Settings → Weather
   weatherSettings: {
