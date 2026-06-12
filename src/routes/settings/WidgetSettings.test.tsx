@@ -107,6 +107,10 @@ function makeOperator(overrides = {}) {
     widget_headline: null,
     widget_description: null,
     widget_footer: null,
+    // landr-dnzd — first-page-only switches default false.
+    widget_headline_first_page_only: false,
+    widget_description_first_page_only: false,
+    widget_footer_first_page_only: false,
     ...overrides,
   }
 }
@@ -521,6 +525,77 @@ describe('WidgetSettings — booking widget text (landr-nils)', () => {
       expect(patchOperatorMock).toHaveBeenCalledWith(
         'op-1',
         expect.objectContaining({ widget_headline: null }),
+      ),
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// First-page-only switches (landr-dnzd)
+// ---------------------------------------------------------------------------
+
+describe('WidgetSettings — first-page-only switches (landr-dnzd)', () => {
+  it('renders all three first-page-only switches, defaulting to off', async () => {
+    render(<WidgetSettings />)
+    const hSwitch = await screen.findByTestId('widget-headline-first-page-only')
+    const dSwitch = screen.getByTestId('widget-description-first-page-only')
+    const fSwitch = screen.getByTestId('widget-footer-first-page-only')
+    expect(hSwitch.getAttribute('aria-checked')).toBe('false')
+    expect(dSwitch.getAttribute('aria-checked')).toBe('false')
+    expect(fSwitch.getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('seeds the switches from persisted operator values', async () => {
+    fetchOperatorMock.mockResolvedValue(
+      makeOperator({
+        widget_headline_first_page_only: true,
+        widget_description_first_page_only: false,
+        widget_footer_first_page_only: true,
+      }),
+    )
+    render(<WidgetSettings />)
+    const hSwitch = await screen.findByTestId('widget-headline-first-page-only')
+    expect(hSwitch.getAttribute('aria-checked')).toBe('true')
+    expect(
+      screen.getByTestId('widget-description-first-page-only').getAttribute('aria-checked'),
+    ).toBe('false')
+    expect(
+      screen.getByTestId('widget-footer-first-page-only').getAttribute('aria-checked'),
+    ).toBe('true')
+  })
+
+  it('toggling headline switch marks the form dirty and enables Save', async () => {
+    const user = userEvent.setup()
+    render(<WidgetSettings />)
+    const saveBtn = await screen.findByTestId('widget-text-save')
+    expect(saveBtn).toBeDisabled()
+    const hSwitch = screen.getByTestId('widget-headline-first-page-only')
+    await user.click(hSwitch)
+    expect(saveBtn).toBeEnabled()
+  })
+
+  it('saving PATCHes the three boolean keys alongside the text fields', async () => {
+    const user = userEvent.setup()
+    patchOperatorMock.mockResolvedValue(makeOperator())
+    render(<WidgetSettings />)
+
+    // Toggle headline and footer switches.
+    const hSwitch = await screen.findByTestId('widget-headline-first-page-only')
+    const fSwitch = screen.getByTestId('widget-footer-first-page-only')
+    await user.click(hSwitch)
+    await user.click(fSwitch)
+
+    const saveBtn = screen.getByTestId('widget-text-save')
+    await user.click(saveBtn)
+
+    await waitFor(() =>
+      expect(patchOperatorMock).toHaveBeenCalledWith(
+        'op-1',
+        expect.objectContaining({
+          widget_headline_first_page_only: true,
+          widget_description_first_page_only: false,
+          widget_footer_first_page_only: true,
+        }),
       ),
     )
   })
