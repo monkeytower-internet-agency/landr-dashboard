@@ -23,6 +23,7 @@ import { t } from '@/lib/strings'
 import { cn } from '@/lib/utils'
 import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { contactDateTime } from '@/lib/contacts'
+import { buildPreviewSrcDoc } from '@/lib/emailPreview'
 import { useIsMobile } from '@/hooks/use-mobile'
 import {
   mobileSheetContent,
@@ -456,9 +457,10 @@ function EmailLogDrawer({
                 </h3>
                 <iframe
                   title={t.emailLog.fieldBodyHtmlTitle}
-                  srcDoc={row.body_html}
+                  srcDoc={buildPreviewSrcDoc(row.body_html)}
                   sandbox=""
                   className="h-72 w-full rounded-md border bg-white"
+                  style={{ colorScheme: 'light' }}
                 />
               </section>
 

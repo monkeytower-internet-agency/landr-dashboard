@@ -138,8 +138,11 @@ function emailRow(overrides: Record<string, unknown> = {}) {
     sent_at: '2026-05-17T10:05:00.000Z',
     to_address: 'a@b.test',
     subject: 'Your booking is confirmed',
+    // landr-ri8a — html and text are kept consistent (text = the html's text
+    // content) because the WYSIWYG editor now derives body_text from the rich
+    // body via getText(); a real outbound email's text mirrors its html.
     body_html: '<p>HTML body here</p>',
-    body_text: 'TEXT body here',
+    body_text: 'HTML body here',
     resent_from_id: null,
     ...overrides,
   }
@@ -306,8 +309,18 @@ describe('BookingTimeline', () => {
     ).toBeInTheDocument()
     const iframe = within(preview).getByTestId('timeline-email-iframe')
     expect(iframe).toHaveAttribute('sandbox', '')
-    expect(iframe).toHaveAttribute('srcdoc', '<p>HTML body here</p>')
-    expect(within(preview).getByText('TEXT body here')).toBeInTheDocument()
+    // landr-ri8a — the body is wrapped via buildPreviewSrcDoc so the
+    // light-themed email renders on a forced white surface (readable in dark
+    // theme), and the iframe surface itself is bg-white (not bg-background).
+    const srcdoc = iframe.getAttribute('srcdoc') ?? ''
+    expect(srcdoc).toContain('<p>HTML body here</p>')
+    expect(srcdoc).toContain('color-scheme: light')
+    expect(srcdoc).toContain('background: #ffffff')
+    expect(iframe).toHaveClass('bg-white')
+    expect(iframe).not.toHaveClass('bg-background')
+    // The plain-text fallback section renders body_text (now consistent with
+    // the html's text content).
+    expect(within(preview).getByText('HTML body here')).toBeInTheDocument()
   })
 
   it('"Send exactly this email" posts an empty body after confirming', async () => {

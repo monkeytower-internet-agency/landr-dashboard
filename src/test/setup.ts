@@ -68,6 +68,41 @@ if (typeof window !== 'undefined') {
   if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
     Element.prototype.scrollIntoView = function () {}
   }
+  // landr-ri8a — jsdom doesn't implement Document.elementFromPoint or
+  // Range.getClientRects, which ProseMirror (the TipTap engine in the email
+  // RichTextEditor) calls from its mousedown coords handling. Without these a
+  // click inside the contenteditable throws an *uncaught* exception that fails
+  // the whole test file. Stub them so the editor mounts/edits cleanly; tests
+  // drive formatting via the toolbar, not by coordinate mapping.
+  if (typeof document !== 'undefined' && !document.elementFromPoint) {
+    document.elementFromPoint = () => null
+  }
+  if (
+    typeof Range !== 'undefined' &&
+    typeof Range.prototype.getClientRects !== 'function'
+  ) {
+    Range.prototype.getClientRects = function () {
+      return {
+        length: 0,
+        item: () => null,
+        [Symbol.iterator]: function* () {},
+      } as unknown as DOMRectList
+    }
+    Range.prototype.getBoundingClientRect = function () {
+      return {
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: 0,
+        height: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect
+    }
+  }
+
   // landr-fzcg — jsdom doesn't ship ResizeObserver; Radix's Tooltip /
   // Popper rely on it. A noop polyfill is enough — Radix doesn't act on
   // the measurements during these tests.

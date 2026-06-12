@@ -6,6 +6,12 @@
  * POSTs only the changed fields to the landr-2js5 resend endpoint. On success
  * it calls `onResent` so each caller can invalidate the right query (the email
  * log list, or a booking timeline).
+ *
+ * landr-ri8a: the body is now edited in a TipTap WYSIWYG (RichTextEditor)
+ * instead of a plain textarea. The operator formats with headings / lists /
+ * bold / links and never sees HTML. `body_html` is the editor's getHTML() and
+ * `body_text` is getText(); the raw HTML-source textarea is retained behind a
+ * collapsible "Edit HTML source" escape hatch for the rare manual-markup case.
  */
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
@@ -19,6 +25,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { RichTextEditor } from '@/components/email/RichTextEditor'
 import {
   Dialog,
   DialogContent,
@@ -57,8 +64,10 @@ export function ResendDialog({
   // Local editable copies — initialised from the source row.
   const [toAddress, setToAddress] = useState(source.to_address)
   const [subject, setSubject] = useState(source.subject)
-  const [bodyText, setBodyText] = useState(source.body_text)
+  // Body is driven by the WYSIWYG editor, which emits both serialisations.
+  // The HTML-source textarea (escape hatch) edits `bodyHtml` directly.
   const [bodyHtml, setBodyHtml] = useState(source.body_html)
+  const [bodyText, setBodyText] = useState(source.body_text)
   const [htmlExpanded, setHtmlExpanded] = useState(false)
 
   const mutation = useMutation({
@@ -83,7 +92,7 @@ export function ResendDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-md:h-dvh max-md:max-w-none max-md:rounded-none sm:max-w-lg">
+      <DialogContent className="max-md:h-dvh max-md:max-w-none max-md:rounded-none sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{t.emailLog.resendDialogTitle}</DialogTitle>
           <DialogDescription>
@@ -118,15 +127,15 @@ export function ResendDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium" htmlFor="resend-body-text">
-              {t.emailLog.resendFieldBodyText}
-            </label>
-            <Textarea
-              id="resend-body-text"
-              rows={5}
-              value={bodyText}
-              onChange={(e) => setBodyText(e.target.value)}
-              data-testid="resend-body-text"
+            <span className="text-sm font-medium">
+              {t.emailLog.resendFieldBody}
+            </span>
+            <RichTextEditor
+              initialHtml={source.body_html}
+              onChange={({ html, text }) => {
+                setBodyHtml(html)
+                setBodyText(text)
+              }}
             />
           </div>
 
