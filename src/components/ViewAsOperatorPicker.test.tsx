@@ -19,9 +19,9 @@ const { mock } = vi.hoisted(() => {
     viewAsPickerOpen: false,
     closeViewAsPicker: vi.fn(),
     staffOperators: [
-      { id: 'op-para', slug: 'para42', name: 'Para42' },
-      { id: 'op-martin', slug: 'martin-co', name: 'Martin Co' },
-      { id: 'op-slug-only', slug: 'slug-only', name: null },
+      { id: 'op-para', slug: 'para42', name: 'Para42', onboarded_at: '2026-01-01T00:00:00Z' },
+      { id: 'op-martin', slug: 'martin-co', name: 'Martin Co', onboarded_at: '2026-01-01T00:00:00Z' },
+      { id: 'op-slug-only', slug: 'slug-only', name: null, onboarded_at: '2026-01-01T00:00:00Z' },
     ] as StaffOperatorRef[],
     staffOperatorsLoading: false,
     viewAsOperator: null as StaffOperatorRef | null,
@@ -51,9 +51,9 @@ import { ViewAsOperatorPicker } from './ViewAsOperatorPicker'
 beforeEach(() => {
   mock.state.viewAsPickerOpen = false
   mock.state.staffOperators = [
-    { id: 'op-para', slug: 'para42', name: 'Para42' },
-    { id: 'op-martin', slug: 'martin-co', name: 'Martin Co' },
-    { id: 'op-slug-only', slug: 'slug-only', name: null },
+    { id: 'op-para', slug: 'para42', name: 'Para42', onboarded_at: '2026-01-01T00:00:00Z' },
+    { id: 'op-martin', slug: 'martin-co', name: 'Martin Co', onboarded_at: '2026-01-01T00:00:00Z' },
+    { id: 'op-slug-only', slug: 'slug-only', name: null, onboarded_at: '2026-01-01T00:00:00Z' },
   ]
   mock.state.staffOperatorsLoading = false
   mock.state.viewAsOperator = null
@@ -142,6 +142,7 @@ describe('ViewAsOperatorPicker', () => {
       id: 'op-martin',
       slug: 'martin-co',
       name: 'Martin Co',
+      onboarded_at: '2026-01-01T00:00:00Z',
     }
     render(<ViewAsOperatorPicker />)
     const item = await screen.findByTestId('view-as-picker-option-martin-co')

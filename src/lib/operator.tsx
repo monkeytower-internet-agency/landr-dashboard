@@ -67,10 +67,16 @@ export const DEFAULT_FIRST_DAY_OF_WEEK = 1
 // (`operators` table, RLS staff-bypass) so it stays DISTINCT from the
 // membership-scoped `operators` list above (landr-69c: never widen the
 // membership query, that leak must not return).
+//
+// landr-y7lw — `onboarded_at` is fetched so the picker can hide operators that
+// never finished onboarding. Those orphaned/incomplete rows have it NULL;
+// selecting one would drop the staff user on a dead /onboarding page. The
+// picker filters the list to onboarded_at IS NOT NULL (see staffOperators).
 export type StaffOperatorRef = {
   id: string
   slug: string
   name: string | null
+  onboarded_at: string | null
 }
 
 type OperatorContextValue = {
@@ -250,9 +256,12 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
     if (authLoading || !session) return
     let cancelled = false
     ;(async () => {
+      // landr-y7lw — fetch onboarded_at too so the picker can filter to
+      // operators that actually finished onboarding (see the staffOperators
+      // memo below).
       const { data, error } = await supabase
         .from('operators')
-        .select('id, slug, name')
+        .select('id, slug, name, onboarded_at')
         .order('slug', { ascending: true })
       if (cancelled) return
       if (error || !data) {
@@ -275,9 +284,14 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
 
   const staffOperators = useMemo<StaffOperatorRef[]>(() => {
     if (!session) return []
-    if (staffFetched?.sessionUserId === session.user.id)
-      return staffFetched.operators
-    return []
+    if (staffFetched?.sessionUserId !== session.user.id) return []
+    // landr-y7lw — hide operators that never finished onboarding. The signal
+    // for a real/usable operator is operators.onboarded_at IS NOT NULL;
+    // orphaned/incomplete rows have it null and selecting one drops the staff
+    // user on a dead /onboarding page. Filtering here also guards enterViewAs
+    // and the persisted-id resolution (both derive from staffOperators), so a
+    // stale view-as can never resolve to an un-onboarded operator.
+    return staffFetched.operators.filter((o) => o.onboarded_at != null)
   }, [session, staffFetched])
 
   const staffOperatorsLoading =
@@ -365,7 +379,11 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
         id: viewAsOperator.id,
         slug: viewAsOperator.slug,
         name: viewAsOperator.name,
-        onboarded_at: null,
+        // landr-y7lw — carry the real onboarded_at from the staff ref (the
+        // staff list is now onboarded-only, so this is always set). Previously
+        // hardcoded null, which made OnboardingGuard redirect every view-as
+        // target into the onboarding wizard.
+        onboarded_at: viewAsOperator.onboarded_at,
       }
     }
     return {

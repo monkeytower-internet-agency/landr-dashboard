@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useOperator } from '@/lib/operator'
@@ -101,6 +101,19 @@ function OnboardingInner({
 
   const [isCompleted, setIsCompleted] = useState(false)
 
+  // landr-y7lw — robustness for stale/incomplete operator contexts (notably a
+  // staff "view as" target whose row can't be loaded, or one that's already
+  // onboarded). Without these guards the wizard rendered a never-resolving
+  // loading state (effectively a blank page) when fetchOperator errored, and
+  // pointlessly walked an already-onboarded operator back through setup.
+  //
+  // We bail to the dashboard in two cases:
+  //   1. the operator fetch errored (orphaned / unresolvable context), and
+  //   2. the operator is already onboarded AND the wizard wasn't just completed
+  //      in this session (isCompleted guards the step-9 "Done" screen so the
+  //      genuine finish flow still shows its success step).
+  // The legitimate first-run flow (onboarded_at null, fetch OK) is untouched.
+
   // URL is the single source of truth for `step`. This way, in-SPA
   // navigation to `/onboarding/start?step=N` (e.g. via the resume banner's
   // <Link>) immediately changes which step is rendered — no remount needed.
@@ -167,6 +180,13 @@ function OnboardingInner({
     finishMutation.mutate()
   }
 
+  // landr-y7lw — the operator context couldn't be loaded (e.g. a stale view-as
+  // target or an orphaned operator). Redirect to the dashboard instead of
+  // hanging on a perpetual loading state (the blank page).
+  if (operatorQuery.isError) {
+    return <Navigate to="/" replace />
+  }
+
   if (operatorQuery.isLoading || !operatorQuery.data) {
     return (
       <div className="p-6 text-muted-foreground text-sm" role="status">
@@ -176,6 +196,14 @@ function OnboardingInner({
   }
 
   const operator = operatorQuery.data
+
+  // landr-y7lw — already-onboarded operators don't belong in the setup wizard.
+  // Send them to the dashboard rather than re-running onboarding. isCompleted
+  // exempts the in-session finish flow so the step-9 "Done" screen still shows
+  // after a genuine completion (markOnboarded sets onboarded_at).
+  if (operator.onboarded_at && !isCompleted) {
+    return <Navigate to="/" replace />
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-6">
