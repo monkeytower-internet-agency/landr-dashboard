@@ -324,8 +324,8 @@ describe('TicketBoardLayout — label filter bar', () => {
 // ---- operator filter bar (landr-wwhn.31) ------------------------------------
 
 const STAFF_OPERATORS = [
-  { id: 'op-a', slug: 'alpha', name: 'Alpha Travels' },
-  { id: 'op-b', slug: 'beta', name: 'Beta Outdoors' },
+  { id: 'op-a', slug: 'alpha', name: 'Alpha Travels', onboarded_at: '2026-01-01T00:00:00Z' },
+  { id: 'op-b', slug: 'beta', name: 'Beta Outdoors', onboarded_at: '2026-01-01T00:00:00Z' },
 ]
 
 /** Make useOperator return staffOperators and useEntitlements return staff. */

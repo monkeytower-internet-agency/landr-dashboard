@@ -306,8 +306,8 @@ describe('TicketBoard rendering', () => {
 // ---- operator filter (landr-wwhn.31) ----------------------------------------
 
 const STAFF_OPS = [
-  { id: 'op-alpha', slug: 'alpha', name: 'Alpha Travels' },
-  { id: 'op-beta', slug: 'beta', name: 'Beta Outdoors' },
+  { id: 'op-alpha', slug: 'alpha', name: 'Alpha Travels', onboarded_at: '2026-01-01T00:00:00Z' },
+  { id: 'op-beta', slug: 'beta', name: 'Beta Outdoors', onboarded_at: '2026-01-01T00:00:00Z' },
 ]
 
 function asStaff() {

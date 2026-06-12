@@ -463,4 +463,37 @@ describe('Onboarding wizard', () => {
     // Wizard must render step 3, not step 1.
     await screen.findByText(/step 3 of 9/i)
   })
+
+  // landr-y7lw — robustness: a stale/incomplete operator context (e.g. a staff
+  // "view as" target) must never leave the user on a blank/never-resolving
+  // page. The route redirects to the dashboard instead.
+  it('redirects to the dashboard (not a blank page) when the operator fetch errors', async () => {
+    mocks.fetchOperator.mockRejectedValue(new Error('operator not found'))
+    renderRoute('/onboarding/start?step=1')
+
+    // No wizard step renders; we land on the dashboard route.
+    await screen.findByText('Home')
+    expect(screen.queryByText(/step 1 of 9/i)).not.toBeInTheDocument()
+  })
+
+  it('redirects an already-onboarded operator to the dashboard instead of re-running setup', async () => {
+    mocks.fetchOperator.mockResolvedValue({
+      ...OPERATOR_FIXTURE,
+      onboarded_at: '2026-01-01T00:00:00.000Z',
+    })
+    renderRoute('/onboarding/start?step=1')
+
+    await screen.findByText('Home')
+    expect(screen.queryByText(/step 1 of 9/i)).not.toBeInTheDocument()
+  })
+
+  it('still renders step 1 for a genuine first-run operator (onboarded_at null, fetch OK)', async () => {
+    // Regression guard: the new redirects must not break the legitimate
+    // first-run onboarding flow.
+    mocks.fetchOperator.mockResolvedValue({ ...OPERATOR_FIXTURE, onboarded_at: null })
+    renderRoute('/onboarding/start?step=1')
+
+    await screen.findByText(/step 1 of 9/i)
+    expect(screen.queryByText('Home')).not.toBeInTheDocument()
+  })
 })
