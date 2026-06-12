@@ -5,6 +5,7 @@ import {
   render as rtlRender,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -313,6 +314,7 @@ describe('EmailLog resend dialog (landr-0xo6)', () => {
         status: 'sent',
         to_address: 'guest@example.com',
         subject: 'Booking confirmed',
+        body_html: '<p>Hello there.</p>',
         body_text: 'Hello there.',
       }),
     ])
@@ -331,7 +333,10 @@ describe('EmailLog resend dialog (landr-0xo6)', () => {
       'guest@example.com',
     )
     expect(screen.getByTestId('resend-subject')).toHaveValue('Booking confirmed')
-    expect(screen.getByTestId('resend-body-text')).toHaveValue('Hello there.')
+    // landr-ri8a — the body now loads into the TipTap WYSIWYG editor, not a
+    // plain textarea; assert the rich-text surface shows the loaded content.
+    const editor = await screen.findByTestId('rte-editor')
+    expect(within(editor).getByText('Hello there.')).toBeInTheDocument()
   })
 
   it('POSTs only changed fields', async () => {
