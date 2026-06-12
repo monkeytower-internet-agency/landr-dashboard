@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
+import { ChevronDown, ChevronRight, AlertTriangle, Sparkles } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,6 +21,7 @@ import { supabase } from '@/lib/supabase'
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
 import { contrastRatio, deriveDark, normaliseHex } from '@/lib/branding-color'
+import { suggestThemeFromLogo } from '@/lib/logo-palette'
 import { OperatorSection } from './_shared'
 
 // landr-znzz.11 — Branding settings extended from the single-colour yp8x
@@ -110,25 +111,44 @@ function guessExtension(file: File): string {
   return 'jpg'
 }
 
-/** Color picker + hex-text-input pair. */
+/**
+ * Color picker + hex-text-input pair.
+ *
+ * `value` is the source of truth (controlled). A local `text` draft lets the
+ * user type partial/invalid hex without the parent rejecting it, but it
+ * resyncs whenever the parent's `value` changes externally (cancel / re-seed /
+ * "Suggest colours") so programmatic updates are reflected in the field —
+ * landr-sl7k.
+ *
+ * `value` may be empty (''), which means "unset → auto-derived". In that case
+ * the hex input shows blank (placeholder signals the auto behaviour) and the
+ * colour swatch falls back to `placeholderColor` for display only — it does NOT
+ * count as a configured value (landr-sl7k Fix 2).
+ */
 function ColorField({
   label,
   value,
   onChange,
+  placeholderColor,
 }: {
   label: string
   value: string
   onChange: (hex: string) => void
+  /** Swatch colour shown when `value` is empty. Display-only. */
+  placeholderColor?: string
 }) {
   const [text, setText] = useState(value)
-
-  // Keep text in sync when parent resets value (e.g. cancel)
-  if (text !== value && normaliseHex(text) !== normaliseHex(value)) {
-    // Only resync when the picker value changed externally and our text
-    // doesn't already represent the same colour.
-    // We do it inline (not in useEffect) following the React controlled-input
-    // pattern — avoids the react-hooks/set-state-in-effect lint error.
+  // Track the last `value` prop we synced from, so an external change (not
+  // caused by our own onChange) re-seeds the local draft. Inline-during-render
+  // resync is the React-canonical controlled pattern (no effect, no lint).
+  const [lastValue, setLastValue] = useState(value)
+  if (value !== lastValue) {
+    setLastValue(value)
+    if (normaliseHex(text) !== normaliseHex(value)) setText(value)
   }
+
+  const swatchColor =
+    normaliseHex(value) ?? (value === '' ? placeholderColor : undefined) ?? '#000000'
 
   // landr-3qkr.4 — color picker + hex input stay in a row (the color swatch
   // is small enough); the label wraps below on very narrow widths via flex-wrap.
@@ -137,7 +157,7 @@ function ColorField({
       <input
         type="color"
         aria-label={label}
-        value={normaliseHex(value) ?? value}
+        value={swatchColor}
         onChange={(e) => {
           setText(e.target.value)
           onChange(e.target.value)
@@ -151,8 +171,9 @@ function ColorField({
           setText(e.target.value)
           const norm = normaliseHex(e.target.value)
           if (norm) onChange(norm)
+          else if (e.target.value === '') onChange('')
         }}
-        placeholder="#FF8800"
+        placeholder={placeholderColor ? `Auto (${placeholderColor})` : '#FF8800'}
         className="w-32 font-mono uppercase"
         maxLength={7}
       />
@@ -279,6 +300,10 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
   const [isUploadingLight, setIsUploadingLight] = useState(false)
   const [isUploadingDark, setIsUploadingDark] = useState(false)
 
+  // ── suggest-colours state (landr-sl7k Fix 3) ──────────────────────────────
+  const [isSuggesting, setIsSuggesting] = useState(false)
+  const [suggestError, setSuggestError] = useState<string | null>(null)
+
   // ── mutation ──────────────────────────────────────────────────────────────
   const patchMutation = useMutation({
     mutationFn: (patch: OperatorPatch) => patchOperator(operatorId, patch),
@@ -347,6 +372,28 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
       toast.success(successToast)
     } catch (err) {
       toast.error(errorToast, { description: (err as Error).message })
+    }
+  }
+
+  // ── suggest colours from the logo (landr-sl7k Fix 3) ───────────────────────
+  // Non-destructive: fills the brand/accent/background fields so the live
+  // preview updates, but never auto-saves — the operator reviews and clicks
+  // Save themselves. A tainted/blocked canvas surfaces an inline hint.
+
+  async function handleSuggestColors() {
+    if (!operator.logo_url) return
+    setSuggestError(null)
+    setIsSuggesting(true)
+    try {
+      const theme = await suggestThemeFromLogo(operator.logo_url)
+      setBrand(theme.brand)
+      setAccent(theme.accent)
+      setBackground(theme.background)
+      toast.success(t.settings.suggestColorsToastApplied)
+    } catch {
+      setSuggestError(t.settings.suggestColorsError)
+    } finally {
+      setIsSuggesting(false)
     }
   }
 
@@ -476,6 +523,32 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
           <CardDescription>{t.settings.themeSectionDesc}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {/* landr-sl7k Fix 3 — suggest theme colours from the uploaded logo.
+              Only shown once a logo exists. Non-destructive: fills the fields
+              (live preview updates), operator reviews + Saves. */}
+          {operator.logo_url && (
+            <div className="flex flex-col gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                className="self-start"
+                disabled={isSuggesting}
+                aria-label={t.settings.suggestColorsAriaLabel}
+                aria-busy={isSuggesting}
+                onClick={() => void handleSuggestColors()}
+              >
+                <Sparkles className="mr-2 h-4 w-4" aria-hidden="true" />
+                {isSuggesting
+                  ? t.settings.suggestColorsButtonLoading
+                  : t.settings.suggestColorsButton}
+              </Button>
+              {suggestError && (
+                <p role="status" className="text-muted-foreground text-xs">
+                  {suggestError}
+                </p>
+              )}
+            </div>
+          )}
           <ColorField
             label={t.settings.fieldBrandColor}
             value={brand}
@@ -537,20 +610,27 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
                 <p className="text-muted-foreground text-xs">
                   {t.settings.darkOverridesSectionDesc}
                 </p>
+                {/* landr-sl7k Fix 2 — show the REAL (possibly empty) override.
+                    An empty field means "auto-derived"; the swatch + placeholder
+                    preview the colour the derivation would actually produce, so
+                    an unset override no longer masquerades as a configured one. */}
                 <ColorField
                   label={t.settings.fieldDarkBrandColor}
-                  value={darkBrand || DEFAULT_BRAND}
+                  value={darkBrand}
                   onChange={setDarkBrand}
+                  placeholderColor={deriveDark(brand, 'brand')}
                 />
                 <ColorField
                   label={t.settings.fieldDarkAccentColor}
-                  value={darkAccent || DEFAULT_ACCENT}
+                  value={darkAccent}
                   onChange={setDarkAccent}
+                  placeholderColor={deriveDark(accent, 'accent')}
                 />
                 <ColorField
                   label={t.settings.fieldDarkBackgroundColor}
-                  value={darkBackground || DEFAULT_BACKGROUND}
+                  value={darkBackground}
                   onChange={setDarkBackground}
+                  placeholderColor={deriveDark(background, 'background')}
                 />
               </div>
             )}
@@ -596,9 +676,9 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
                 {t.settings.brandingPreviewDark}
               </p>
               <WidgetPreview
-                brand={darkBrand || deriveDark(brand)}
-                accent={darkAccent || deriveDark(accent)}
-                background={darkBackground || deriveDark(background, true)}
+                brand={darkBrand || deriveDark(brand, 'brand')}
+                accent={darkAccent || deriveDark(accent, 'accent')}
+                background={darkBackground || deriveDark(background, 'background')}
                 logoUrl={operator.logo_dark_url ?? operator.logo_url}
               />
             </div>

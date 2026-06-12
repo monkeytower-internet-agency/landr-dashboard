@@ -2473,6 +2473,14 @@ export const t = {
     fieldDarkAccentColor: 'Dark accent colour',
     fieldDarkBackgroundColor: 'Dark background colour',
     themeToastSaved: 'Theme saved.',
+    // landr-sl7k — suggest theme colours from the uploaded logo.
+    suggestColorsButton: '✨ Suggest colours',
+    suggestColorsButtonLoading: 'Reading logo…',
+    suggestColorsAriaLabel: 'Suggest theme colours from your uploaded logo',
+    suggestColorsToastApplied:
+      'Suggested colours from your logo — review and Save to keep them.',
+    suggestColorsError:
+      "Couldn't read the logo's colours — set them manually.",
     // landr-nils — operator-configurable copy around the embedded booking widget.
     widgetTextSectionTitle: 'Booking widget text',
     widgetTextSectionDesc:
