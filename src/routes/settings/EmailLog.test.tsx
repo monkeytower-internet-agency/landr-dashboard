@@ -1,5 +1,6 @@
 // landr-qg4q — EmailLog route smoke + status filter coverage.
 // landr-0xo6 — truthful badges + edit-and-resend dialog.
+// landr-rw7q — type (template_kind) filter chips + Type column badge.
 
 import {
   render as rtlRender,
@@ -409,5 +410,98 @@ describe('EmailLog resend dialog (landr-0xo6)', () => {
     expect(msg).toMatch(/resend failed/i)
     // The server error detail must be surfaced (never silent).
     expect(opts?.description).toMatch(/upstream smtp error/i)
+  })
+})
+
+describe('EmailLog type filter (landr-rw7q)', () => {
+  it('renders the Type column with the friendly label for a known kind', async () => {
+    fetchOutboundEmailsMock.mockResolvedValue([
+      makeRow({ template_kind: 'booking_confirmation' }),
+    ])
+    render(<EmailLog />)
+    // Column header
+    expect(await screen.findByText('Type')).toBeInTheDocument()
+    // Badge in the row
+    expect(screen.getByTestId('email-log-type-booking_confirmation')).toHaveTextContent(
+      'Confirmation',
+    )
+  })
+
+  it('renders a humanized fallback label for an unknown kind', async () => {
+    fetchOutboundEmailsMock.mockResolvedValue([
+      makeRow({ template_kind: 'payment_receipt' }),
+    ])
+    render(<EmailLog />)
+    await waitFor(() =>
+      expect(screen.getByTestId('email-log-type-payment_receipt')).toHaveTextContent(
+        'Payment Receipt',
+      ),
+    )
+  })
+
+  it('passes selected type kind to the fetcher', async () => {
+    fetchOutboundEmailsMock.mockResolvedValue([
+      makeRow({ template_kind: 'group_inquiry' }),
+    ])
+    const user = userEvent.setup()
+    render(<EmailLog />)
+
+    // Wait for initial fetch so toggling drives a new call.
+    await waitFor(() => expect(fetchOutboundEmailsMock).toHaveBeenCalled())
+    fetchOutboundEmailsMock.mockClear()
+
+    await user.click(screen.getByTestId('email-log-filter-kind-group_inquiry'))
+
+    await waitFor(() => {
+      const last = fetchOutboundEmailsMock.mock.calls.at(-1)
+      expect(last?.[0]).toBe('op-1')
+      expect(last?.[1]).toMatchObject({ templateKinds: ['group_inquiry'] })
+    })
+  })
+
+  it('combines a type filter and a status filter — both passed to the fetcher', async () => {
+    fetchOutboundEmailsMock.mockResolvedValue([
+      makeRow({ template_kind: 'booking_confirmation', status: 'failed' }),
+    ])
+    const user = userEvent.setup()
+    render(<EmailLog />)
+
+    await waitFor(() => expect(fetchOutboundEmailsMock).toHaveBeenCalled())
+    fetchOutboundEmailsMock.mockClear()
+
+    // Toggle a kind chip (count = 1 so enabled)
+    await user.click(screen.getByTestId('email-log-filter-kind-booking_confirmation'))
+    // Toggle a status chip
+    await user.click(screen.getByTestId('email-log-filter-failed'))
+
+    await waitFor(() => {
+      const last = fetchOutboundEmailsMock.mock.calls.at(-1)
+      expect(last?.[1]).toMatchObject({
+        templateKinds: ['booking_confirmation'],
+        statuses: ['failed'],
+      })
+    })
+  })
+
+  it('clears both kind and status filters when Clear filters is clicked', async () => {
+    fetchOutboundEmailsMock.mockResolvedValue([
+      makeRow({ template_kind: 'booking_received', status: 'sent' }),
+    ])
+    const user = userEvent.setup()
+    render(<EmailLog />)
+
+    await waitFor(() => expect(fetchOutboundEmailsMock).toHaveBeenCalled())
+
+    // Activate a kind chip
+    await user.click(screen.getByTestId('email-log-filter-kind-booking_received'))
+
+    // Clear filters button should now be visible
+    const clearBtn = await screen.findByRole('button', { name: /clear filters/i })
+    await user.click(clearBtn)
+
+    await waitFor(() => {
+      const last = fetchOutboundEmailsMock.mock.calls.at(-1)
+      expect(last?.[1]).toMatchObject({ templateKinds: [], statuses: [] })
+    })
   })
 })
