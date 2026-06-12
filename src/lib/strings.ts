@@ -2500,6 +2500,10 @@ export const t = {
     widgetFooterHint:
       'Shown below the booking widget. No headline. Line breaks are kept.',
     widgetTextToastSaved: 'Booking widget text saved.',
+    // landr-dnzd — first-page-only switch labels + helper line (same for all three).
+    widgetFirstPageOnlyLabel: 'Show only on the first page',
+    widgetFirstPageOnlyHelper:
+      'When on, this only appears on the product-selection screen — not throughout the booking steps.',
     contrastWarningBrand: 'Brand on background contrast is below WCAG AA (4.5:1) — text may be hard to read.',
     contrastWarningAccent: 'Accent button text contrast is below WCAG AA (4.5:1) — button text may be hard to read.',
     brandingPreviewTitle: 'Preview',
