@@ -1,12 +1,10 @@
 import { useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
+import { ChevronDown, ChevronRight, AlertTriangle, Sparkles } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Card,
   CardContent,
@@ -22,6 +20,8 @@ import {
 import { supabase } from '@/lib/supabase'
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
+import { contrastRatio, deriveDark, normaliseHex } from '@/lib/branding-color'
+import { suggestThemeFromLogo } from '@/lib/logo-palette'
 import { OperatorSection } from './_shared'
 
 // landr-znzz.11 — Branding settings extended from the single-colour yp8x
@@ -73,9 +73,6 @@ export function BrandingSettings() {
               lc: operator.logo_url,
               ld: operator.logo_dark_url,
               th: operator.theme,
-              wh: operator.widget_headline,
-              wd: operator.widget_description,
-              wf: operator.widget_footer,
             })}
             operator={operator}
             operatorId={operatorId}
@@ -95,12 +92,8 @@ type FormProps = {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-/** Normalise a raw string to '#rrggbb' or null. */
-function normaliseHex(raw: string): string | null {
-  const trimmed = raw.trim().replace(/^#/, '')
-  if (!/^[0-9a-fA-F]{6}$/.test(trimmed)) return null
-  return `#${trimmed.toLowerCase()}`
-}
+// relativeLuminance, contrastRatio, deriveDark, normaliseHex live in
+// @/lib/branding-color (extracted by landr-v9e4.9). They are imported above.
 
 /** Pull the storage key out of a Supabase public URL. */
 function extractStorageKey(url: string, operatorId: string): string | null {
@@ -119,46 +112,43 @@ function guessExtension(file: File): string {
 }
 
 /**
- * WCAG relative luminance (sRGB).
- * https://www.w3.org/TR/WCAG21/#dfn-relative-luminance
+ * Color picker + hex-text-input pair.
+ *
+ * `value` is the source of truth (controlled). A local `text` draft lets the
+ * user type partial/invalid hex without the parent rejecting it, but it
+ * resyncs whenever the parent's `value` changes externally (cancel / re-seed /
+ * "Suggest colours") so programmatic updates are reflected in the field —
+ * landr-sl7k.
+ *
+ * `value` may be empty (''), which means "unset → auto-derived". In that case
+ * the hex input shows blank (placeholder signals the auto behaviour) and the
+ * colour swatch falls back to `placeholderColor` for display only — it does NOT
+ * count as a configured value (landr-sl7k Fix 2).
  */
-function relativeLuminance(hex: string): number {
-  const h = hex.replace('#', '')
-  const r = parseInt(h.slice(0, 2), 16) / 255
-  const g = parseInt(h.slice(2, 4), 16) / 255
-  const b = parseInt(h.slice(4, 6), 16) / 255
-  const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
-  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
-}
-
-/** WCAG contrast ratio (always ≥ 1). */
-function contrastRatio(hex1: string, hex2: string): number {
-  const l1 = relativeLuminance(hex1)
-  const l2 = relativeLuminance(hex2)
-  const lighter = Math.max(l1, l2)
-  const darker = Math.min(l1, l2)
-  return (lighter + 0.05) / (darker + 0.05)
-}
-
-/** Color picker + hex-text-input pair. */
 function ColorField({
   label,
   value,
   onChange,
+  placeholderColor,
 }: {
   label: string
   value: string
   onChange: (hex: string) => void
+  /** Swatch colour shown when `value` is empty. Display-only. */
+  placeholderColor?: string
 }) {
   const [text, setText] = useState(value)
-
-  // Keep text in sync when parent resets value (e.g. cancel)
-  if (text !== value && normaliseHex(text) !== normaliseHex(value)) {
-    // Only resync when the picker value changed externally and our text
-    // doesn't already represent the same colour.
-    // We do it inline (not in useEffect) following the React controlled-input
-    // pattern — avoids the react-hooks/set-state-in-effect lint error.
+  // Track the last `value` prop we synced from, so an external change (not
+  // caused by our own onChange) re-seeds the local draft. Inline-during-render
+  // resync is the React-canonical controlled pattern (no effect, no lint).
+  const [lastValue, setLastValue] = useState(value)
+  if (value !== lastValue) {
+    setLastValue(value)
+    if (normaliseHex(text) !== normaliseHex(value)) setText(value)
   }
+
+  const swatchColor =
+    normaliseHex(value) ?? (value === '' ? placeholderColor : undefined) ?? '#000000'
 
   // landr-3qkr.4 — color picker + hex input stay in a row (the color swatch
   // is small enough); the label wraps below on very narrow widths via flex-wrap.
@@ -167,7 +157,7 @@ function ColorField({
       <input
         type="color"
         aria-label={label}
-        value={normaliseHex(value) ?? value}
+        value={swatchColor}
         onChange={(e) => {
           setText(e.target.value)
           onChange(e.target.value)
@@ -181,8 +171,9 @@ function ColorField({
           setText(e.target.value)
           const norm = normaliseHex(e.target.value)
           if (norm) onChange(norm)
+          else if (e.target.value === '') onChange('')
         }}
-        placeholder="#FF8800"
+        placeholder={placeholderColor ? `Auto (${placeholderColor})` : '#FF8800'}
         className="w-32 font-mono uppercase"
         maxLength={7}
       />
@@ -305,20 +296,13 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
     Object.keys(persistedDark).length > 0,
   )
 
-  // ── widget embed text state (landr-nils) ───────────────────────────────────
-  const [headline, setHeadline] = useState(operator.widget_headline ?? '')
-  const [description, setDescription] = useState(
-    operator.widget_description ?? '',
-  )
-  const [footer, setFooter] = useState(operator.widget_footer ?? '')
-  const widgetTextDirty =
-    headline.trim() !== (operator.widget_headline ?? '') ||
-    description.trim() !== (operator.widget_description ?? '') ||
-    footer.trim() !== (operator.widget_footer ?? '')
-
   // ── upload state ─────────────────────────────────────────────────────────
   const [isUploadingLight, setIsUploadingLight] = useState(false)
   const [isUploadingDark, setIsUploadingDark] = useState(false)
+
+  // ── suggest-colours state (landr-sl7k Fix 3) ──────────────────────────────
+  const [isSuggesting, setIsSuggesting] = useState(false)
+  const [suggestError, setSuggestError] = useState<string | null>(null)
 
   // ── mutation ──────────────────────────────────────────────────────────────
   const patchMutation = useMutation({
@@ -391,6 +375,28 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
     }
   }
 
+  // ── suggest colours from the logo (landr-sl7k Fix 3) ───────────────────────
+  // Non-destructive: fills the brand/accent/background fields so the live
+  // preview updates, but never auto-saves — the operator reviews and clicks
+  // Save themselves. A tainted/blocked canvas surfaces an inline hint.
+
+  async function handleSuggestColors() {
+    if (!operator.logo_url) return
+    setSuggestError(null)
+    setIsSuggesting(true)
+    try {
+      const theme = await suggestThemeFromLogo(operator.logo_url)
+      setBrand(theme.brand)
+      setAccent(theme.accent)
+      setBackground(theme.background)
+      toast.success(t.settings.suggestColorsToastApplied)
+    } catch {
+      setSuggestError(t.settings.suggestColorsError)
+    } finally {
+      setIsSuggesting(false)
+    }
+  }
+
   // ── theme save ────────────────────────────────────────────────────────────
 
   function handleThemeSave() {
@@ -420,25 +426,6 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
 
     patchMutation.mutate({ theme })
     toast.success(t.settings.themeToastSaved)
-  }
-
-  // ── widget embed text save (landr-nils) ────────────────────────────────────
-
-  function handleWidgetTextSave() {
-    // Empty string clears the field (sends null) — an intentional clear the
-    // API preserves via exclude_unset.
-    const trimOrNull = (s: string) => {
-      const v = s.trim()
-      return v.length > 0 ? v : null
-    }
-    patchMutation.mutate(
-      {
-        widget_headline: trimOrNull(headline),
-        widget_description: trimOrNull(description),
-        widget_footer: trimOrNull(footer),
-      },
-      { onSuccess: () => toast.success(t.settings.widgetTextToastSaved) },
-    )
   }
 
   // ── contrast checks ───────────────────────────────────────────────────────
@@ -536,6 +523,32 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
           <CardDescription>{t.settings.themeSectionDesc}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {/* landr-sl7k Fix 3 — suggest theme colours from the uploaded logo.
+              Only shown once a logo exists. Non-destructive: fills the fields
+              (live preview updates), operator reviews + Saves. */}
+          {operator.logo_url && (
+            <div className="flex flex-col gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                className="self-start"
+                disabled={isSuggesting}
+                aria-label={t.settings.suggestColorsAriaLabel}
+                aria-busy={isSuggesting}
+                onClick={() => void handleSuggestColors()}
+              >
+                <Sparkles className="mr-2 h-4 w-4" aria-hidden="true" />
+                {isSuggesting
+                  ? t.settings.suggestColorsButtonLoading
+                  : t.settings.suggestColorsButton}
+              </Button>
+              {suggestError && (
+                <p role="status" className="text-muted-foreground text-xs">
+                  {suggestError}
+                </p>
+              )}
+            </div>
+          )}
           <ColorField
             label={t.settings.fieldBrandColor}
             value={brand}
@@ -597,20 +610,27 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
                 <p className="text-muted-foreground text-xs">
                   {t.settings.darkOverridesSectionDesc}
                 </p>
+                {/* landr-sl7k Fix 2 — show the REAL (possibly empty) override.
+                    An empty field means "auto-derived"; the swatch + placeholder
+                    preview the colour the derivation would actually produce, so
+                    an unset override no longer masquerades as a configured one. */}
                 <ColorField
                   label={t.settings.fieldDarkBrandColor}
-                  value={darkBrand || DEFAULT_BRAND}
+                  value={darkBrand}
                   onChange={setDarkBrand}
+                  placeholderColor={deriveDark(brand, 'brand')}
                 />
                 <ColorField
                   label={t.settings.fieldDarkAccentColor}
-                  value={darkAccent || DEFAULT_ACCENT}
+                  value={darkAccent}
                   onChange={setDarkAccent}
+                  placeholderColor={deriveDark(accent, 'accent')}
                 />
                 <ColorField
                   label={t.settings.fieldDarkBackgroundColor}
-                  value={darkBackground || DEFAULT_BACKGROUND}
+                  value={darkBackground}
                   onChange={setDarkBackground}
+                  placeholderColor={deriveDark(background, 'background')}
                 />
               </div>
             )}
@@ -622,76 +642,6 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
               onClick={handleThemeSave}
               disabled={patchMutation.isPending}
               data-testid="theme-save"
-            >
-              {patchMutation.isPending ? t.settings.saving : t.settings.save}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Booking widget text (landr-nils) ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t.settings.widgetTextSectionTitle}</CardTitle>
-          <CardDescription>{t.settings.widgetTextSectionDesc}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="widget-headline">
-              {t.settings.widgetHeadlineLabel}
-            </Label>
-            <Input
-              id="widget-headline"
-              value={headline}
-              maxLength={200}
-              placeholder={t.settings.widgetHeadlinePlaceholder}
-              onChange={(e) => setHeadline(e.target.value)}
-            />
-            <p className="text-muted-foreground text-xs">
-              {t.settings.widgetHeadlineHint}
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="widget-description">
-              {t.settings.widgetDescriptionLabel}
-            </Label>
-            <Textarea
-              id="widget-description"
-              value={description}
-              maxLength={2000}
-              rows={3}
-              placeholder={t.settings.widgetDescriptionPlaceholder}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-            <p className="text-muted-foreground text-xs">
-              {t.settings.widgetDescriptionHint}
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="widget-footer">
-              {t.settings.widgetFooterLabel}
-            </Label>
-            <Textarea
-              id="widget-footer"
-              value={footer}
-              maxLength={2000}
-              rows={3}
-              placeholder={t.settings.widgetFooterPlaceholder}
-              onChange={(e) => setFooter(e.target.value)}
-            />
-            <p className="text-muted-foreground text-xs">
-              {t.settings.widgetFooterHint}
-            </p>
-          </div>
-
-          <div className="flex gap-2 pt-2">
-            <Button
-              type="button"
-              onClick={handleWidgetTextSave}
-              disabled={!widgetTextDirty || patchMutation.isPending}
-              data-testid="widget-text-save"
             >
               {patchMutation.isPending ? t.settings.saving : t.settings.save}
             </Button>
@@ -726,9 +676,9 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
                 {t.settings.brandingPreviewDark}
               </p>
               <WidgetPreview
-                brand={darkBrand || deriveDark(brand)}
-                accent={darkAccent || deriveDark(accent)}
-                background={darkBackground || deriveDark(background, true)}
+                brand={darkBrand || deriveDark(brand, 'brand')}
+                accent={darkAccent || deriveDark(accent, 'accent')}
+                background={darkBackground || deriveDark(background, 'background')}
                 logoUrl={operator.logo_dark_url ?? operator.logo_url}
               />
             </div>
@@ -792,22 +742,5 @@ function WidgetPreview({
   )
 }
 
-// ── Dark derivation fallback ─────────────────────────────────────────────────
-
-/**
- * Very simple heuristic: invert the lightness of a hex colour so a light
- * brand becomes a dark-mode equivalent. Used only when the operator hasn't
- * provided explicit overrides — the widget does the same thing.
- */
-function deriveDark(hex: string, isBackground = false): string {
-  const norm = normaliseHex(hex)
-  if (!norm) return isBackground ? '#1a1a1a' : '#e5e5e5'
-  const r = parseInt(norm.slice(1, 3), 16)
-  const g = parseInt(norm.slice(3, 5), 16)
-  const b = parseInt(norm.slice(5, 7), 16)
-  // Invert: simple 255-x per channel (photographic negative)
-  const ri = 255 - r
-  const gi = 255 - g
-  const bi = 255 - b
-  return `#${ri.toString(16).padStart(2, '0')}${gi.toString(16).padStart(2, '0')}${bi.toString(16).padStart(2, '0')}`
-}
+// deriveDark, relativeLuminance, contrastRatio, normaliseHex are imported
+// from @/lib/branding-color (extracted by landr-v9e4.9).

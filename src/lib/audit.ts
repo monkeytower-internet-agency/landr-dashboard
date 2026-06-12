@@ -52,8 +52,6 @@ export const AUDIT_TABLE_OPTIONS = [
   'operator_memberships',
 ] as const
 
-export type AuditTableOption = (typeof AUDIT_TABLE_OPTIONS)[number]
-
 export const AUDIT_OPERATION_OPTIONS = [
   'INSERT',
   'UPDATE',

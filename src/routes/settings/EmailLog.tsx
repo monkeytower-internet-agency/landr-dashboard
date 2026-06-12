@@ -16,7 +16,6 @@
  */
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { MailOpenIcon } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { PageTitle } from '@/lib/page-title'
@@ -459,7 +458,7 @@ function EmailLogDrawer({
                   title={t.emailLog.fieldBodyHtmlTitle}
                   srcDoc={row.body_html}
                   sandbox=""
-                  className="h-72 w-full rounded-md border bg-background"
+                  className="h-72 w-full rounded-md border bg-white"
                 />
               </section>
 
@@ -506,6 +505,3 @@ function EmailLogDrawer({
   )
 }
 
-// Re-export the icon for the settings sidebar entry so the sections module
-// doesn't have to know which icon EmailLog uses.
-export const EMAIL_LOG_ICON = MailOpenIcon

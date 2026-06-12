@@ -27,12 +27,12 @@ describe('SETTINGS_SECTIONS', () => {
     expect(entry?.label).toBe('Schedule')
   })
 
-  // landr-yp8x — Branding section drives the embedded booking widget's
-  // logo + primary colour.
-  it('includes a Branding entry at /settings/branding', () => {
+  // landr-yp8x — Brand section drives the embedded booking widget's
+  // logo + colours. landr-ylvp — renamed Branding → Brand.
+  it('includes a Brand entry at /settings/branding', () => {
     const entry = SETTINGS_SECTIONS.find((s) => s.to === '/settings/branding')
     expect(entry).toBeDefined()
-    expect(entry?.label).toBe('Branding')
+    expect(entry?.label).toBe('Brand')
   })
 
   // landr-jb1k — Booking widget section drives the embedded widget's
@@ -130,7 +130,11 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // landr-znzz.7 — Weather (opt-in forecast hint) added after Branding.
   // landr-jb1k — Booking widget (layout variant + category columns + title
   // style) joined the SETTINGS group between Branding and Weather.
-  it('settings group contains the twenty-three program subsections', () => {
+  // landr-cyoi — Hotels joined the SETTINGS group directly after Pickup
+  // locations (first-class accommodation entity; a hotel is also a pickup).
+  // landr-atwy — Account link prompt opt-in added after Webhooks
+  // (per-operator toggle for the post-booking mobile app link prompt).
+  it('settings group contains the twenty-five program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -144,6 +148,10 @@ describe('account/settings grouping (landr-fzcg)', () => {
       // landr-funh — Settings → Providers: operational delivery roster.
       '/settings/providers',
       '/settings/pickup-locations',
+      // landr-cyoi — Settings → Hotels: first-class accommodation entity
+      // (required address/email/phone + maps link). Sits right after Pickup
+      // locations because a hotel is also a pickup point.
+      '/settings/hotels',
       '/settings/products',
       // landr-up1b — nested category tree editor + booking-widget embed
       // generator, grouped right after Products.
@@ -170,7 +178,18 @@ describe('account/settings grouping (landr-fzcg)', () => {
       // landr-ah9u — Settings → Webhooks: operator-managed event
       // subscriptions (v1 localStorage; v2 server-delivered).
       '/settings/webhooks',
+      // landr-atwy — Settings → Account link prompt: per-operator opt-in
+      // for the post-booking "Track in LANDR app" customer prompt.
+      '/settings/account-link',
     ])
+  })
+
+  // landr-cyoi — pin the Hotels entry shape (first-class accommodation
+  // entity; sits right after Pickup locations).
+  it('includes a Hotels entry at /settings/hotels', () => {
+    const entry = SETTINGS_SECTIONS.find((s) => s.to === '/settings/hotels')
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Hotels')
   })
 
   // landr-r87i — pin the Operations entry shape.

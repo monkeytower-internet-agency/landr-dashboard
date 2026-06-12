@@ -20,7 +20,7 @@ export function SettingsLayout() {
     // overflow-x-guard prevents the horizontal chip strip and any wide
     // section content from escaping the viewport (clip, not hidden, so
     // sticky descendants still work).
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 overflow-x-guard px-2 py-4 md:flex-row md:gap-8 md:px-4">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 overflow-x-guard px-2 py-4 md:flex-row md:gap-8 md:px-4">
       <PageTitle title={t.app.settings} />
       <SettingsSubSidebar />
       <div className="min-w-0 flex-1">

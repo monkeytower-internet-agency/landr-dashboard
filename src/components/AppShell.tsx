@@ -12,6 +12,7 @@ import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp'
 import { ErrorHistoryBell } from '@/components/ErrorHistoryBell'
 import { NotificationsBell } from '@/components/NotificationsBell'
 import { OnboardingBanner } from '@/components/OnboardingBanner'
+import { ConfigHealthBanners } from '@/components/ConfigHealthBanners'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
 import { UserMenu } from '@/components/UserMenu'
 import { ViewAsBanner } from '@/components/ViewAsBanner'
@@ -142,6 +143,11 @@ function AppShellInner({ children }: { children: ReactNode }) {
             every page while view-as is active. Renders null otherwise. */}
         <ViewAsBanner />
         <OnboardingBanner />
+        {/* landr-y5si — config-health banners. Operator misconfiguration
+            warnings surfaced below the onboarding banner (errors above
+            warnings). Dismissible for the session; reappears on reload
+            while unresolved. Renders nothing when there are no issues. */}
+        <ConfigHealthBanners />
         {/* min-w-0 mirrors the inset constraint so route content respects
             the available width; per-table overflow-x-auto (shadcn Table) then
             handles its own horizontal scroll inside the card.

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,8 +10,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { FormErrorAlert } from '@/components/ui/FormErrorAlert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/ui/PasswordInput'
 import { supabase } from '@/lib/supabase'
 import { MIN_PASSWORD_LENGTH } from '@/lib/password-policy'
 import { t } from '@/lib/strings'
@@ -174,28 +175,17 @@ export function ResetPassword() {
           <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="new-password">{t.auth.resetNewPasswordLabel}</Label>
-              <div className="relative">
-                <Input
-                  id="new-password"
-                  name="new-password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  placeholder={t.auth.passwordPlaceholder}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={submitting}
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  onClick={() => setShowPassword((v) => !v)}
-                  disabled={submitting}
-                  className="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
+              <PasswordInput
+                id="new-password"
+                name="new-password"
+                autoComplete="new-password"
+                placeholder={t.auth.passwordPlaceholder}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={submitting}
+                show={showPassword}
+                onToggleShow={() => setShowPassword((v) => !v)}
+              />
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -212,14 +202,7 @@ export function ResetPassword() {
               />
             </div>
 
-            {error ? (
-              <div
-                role="alert"
-                className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-destructive text-sm"
-              >
-                {error}
-              </div>
-            ) : null}
+            <FormErrorAlert message={error} />
 
             <Button type="submit" disabled={submitting}>
               {submitting ? t.auth.resetSubmitting : t.auth.resetSubmit}

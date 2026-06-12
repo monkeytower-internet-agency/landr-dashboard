@@ -1,5 +1,6 @@
+import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { BadgeEuro, CheckCircle, Download, Mail, Printer, Unlock, UserX, XCircle } from 'lucide-react'
 
@@ -17,16 +18,6 @@ import {
   mobileSheetFooter,
 } from '@/lib/mobile-sheet-classes'
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -45,6 +36,7 @@ import {
 } from '@/components/ui/sheet'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { ConfirmActionDialog } from '@/components/ConfirmActionDialog'
 import { CopyLinkButton } from '@/components/CopyLinkButton'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
 import { BookingChecklist } from '@/components/booking/BookingChecklist'
@@ -59,31 +51,21 @@ import { DayChips } from '@/components/booking/DayChips'
 import { MultiDayPicker } from '@/components/booking/MultiDayPicker'
 import { StageBadge } from '@/components/booking/StageBadge'
 import {
-  balanceDueOf,
-  canMarkAsNoShow,
-  canMarkAsPaid,
-  cancelBooking,
-  clearBookingPriceOverride,
   customerDisplay,
-  getConfirmationStatus,
-  hasPriceOverride,
-  invalidateBookingCaches,
-  markBookingAsNoShow,
-  markBookingAsPaid,
-  patchBookingProduct,
-  patchCustomerContact,
-  postGeneralApprovalDecision,
-  postHotelApprovalDecision,
   priceDisplay,
-  resendConfirmation,
   stageCode,
   type BookingRow,
-  type MarkAsPaidMethod,
 } from '@/lib/bookings'
-import { downloadInvoicePdf } from '@/lib/invoice-download'
 import { bookingDayOptions } from '@/lib/providers'
 import { t } from '@/lib/strings'
-import { showDeleteUndoToast } from '@/lib/undo-toast'
+import {
+  useBookingActions,
+  customerDraftFromRow,
+  itemDraftsFromRow,
+  type CustomerDraft,
+  type ItemDraft,
+  type MarkAsPaidMethod,
+} from '@/lib/booking-actions'
 
 type Props = {
   row: BookingRow | null
@@ -134,63 +116,6 @@ type BodyProps = {
   onCustomerClick?: (contactId: string) => void
 }
 
-type CustomerDraft = {
-  first_name: string
-  last_name: string
-  email: string
-  phone: string
-}
-
-type ItemDraft = {
-  id: string
-  date_range_start: string | null
-  date_range_end: string | null
-  selected_days: string[]
-}
-
-function customerDraftFromRow(row: BookingRow): CustomerDraft {
-  const c = row.customer
-  return {
-    first_name: c?.first_name ?? '',
-    last_name: c?.last_name ?? '',
-    email: c?.email ?? '',
-    phone: c?.phone ?? '',
-  }
-}
-
-function itemDraftsFromRow(row: BookingRow): ItemDraft[] {
-  return row.items.map((it) => ({
-    id: it.id,
-    date_range_start: it.date_range_start,
-    date_range_end: it.date_range_end,
-    selected_days: [...(it.selected_days ?? [])].sort(),
-  }))
-}
-
-function arraysEqual(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false
-  for (let i = 0; i < a.length; i += 1) {
-    if (a[i] !== b[i]) return false
-  }
-  return true
-}
-
-function deriveBounds(days: string[]): {
-  start: string | null
-  end: string | null
-} {
-  if (days.length === 0) return { start: null, end: null }
-  const sorted = [...days].sort()
-  return { start: sorted[0], end: sorted[sorted.length - 1] }
-}
-
-function formatRangeLabel(days: string[]): string | null {
-  const { start, end } = deriveBounds(days)
-  if (!start || !end) return null
-  if (start === end) return start
-  return `${start} → ${end}`
-}
-
 type ActiveTab =
   | 'details'
   | 'participants'
@@ -201,8 +126,16 @@ type ActiveTab =
   | 'payments'
   | 'briefing'
 
+function formatRangeLabel(days: string[]): string | null {
+  if (days.length === 0) return null
+  const sorted = [...days].sort()
+  const start = sorted[0]
+  const end = sorted[sorted.length - 1]
+  if (start === end) return start
+  return `${start} → ${end}`
+}
+
 function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
-  const queryClient = useQueryClient()
   const { user } = useAuth()
   const isMobile = useIsMobile()
   // landr-84n1 — the checklist tab persists per (operator, booking_id).
@@ -210,10 +143,14 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   // outside tests); the checklist hook handles that gracefully.
   const { currentOperatorId } = useOperator()
   const { isEnabled } = useEntitlements()
+
+  // ---- Form draft state ----
   const [customer, setCustomer] = useState<CustomerDraft>(() =>
     customerDraftFromRow(row),
   )
   const [items, setItems] = useState<ItemDraft[]>(() => itemDraftsFromRow(row))
+
+  // ---- Dialog open/close state ----
   const [showCancel, setShowCancel] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [showUnblock, setShowUnblock] = useState(false)
@@ -232,6 +169,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const [markPaidMethod, setMarkPaidMethod] = useState<MarkAsPaidMethod>('cash')
   const [markPaidAmount, setMarkPaidAmount] = useState<string>('')
   const [markPaidNote, setMarkPaidNote] = useState<string>('')
+
   // landr-5f8q — Details vs Timeline tab. Defaults to Details so the most
   // common operator interaction (editing dates / customer) stays one click
   // away. Timeline is read-only.
@@ -254,355 +192,57 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     )
   }, [user?.id, row])
 
+  // ---- All mutations + derived flags ----
+  const {
+    saveMutation,
+    cancelMutation,
+    unblockMutation,
+    generalApproveMutation,
+    generalRejectMutation,
+    noShowMutation,
+    markPaidMutation,
+    clearOverrideMutation,
+    invoiceMutation,
+    resendConfirmationMutation,
+    busy,
+    showClearOverride,
+    canUnblock,
+    canGeneralApprove,
+    canNoShow,
+    canMarkPaid,
+    balanceDue,
+    hasMaterialChanges,
+    hasPriorConfirmation,
+    isDirty,
+    invalidateAll,
+  } = useBookingActions({
+    row,
+    customer,
+    items,
+    onClose,
+    setShowCancel,
+    setCancelReason,
+    cancelReason,
+    setShowUnblock,
+    setShowNoShow,
+    setChargeCancellationFee,
+    chargeCancellationFee,
+    setShowGeneralApprove,
+    setGeneralApproveNote,
+    generalApproveNote,
+    setShowGeneralReject,
+    setGeneralRejectNote,
+    generalRejectNote,
+    setShowMarkPaid,
+    setMarkPaidMethod,
+    setMarkPaidAmount,
+    setMarkPaidNote,
+    markPaidMethod,
+    markPaidAmount,
+    markPaidNote,
+  })
+
   const code = stageCode(row)
-  const canUnblock = code === 'awaiting_hotel_approval'
-  // landr-hgd4 — general approve/reject eligibility. The server re-checks
-  // defensively; we only show the buttons when the stage matches so the
-  // sheet isn't cluttered for bookings that aren't pending approval.
-  const canGeneralApprove = code === 'awaiting_general_approval'
-  // landr-ng3m — eligibility mirrors the server guards in
-  // app/routers/staff_bookings_no_show.py so the button only shows
-  // when the request would actually succeed.
-  const canNoShow = canMarkAsNoShow(row)
-  // landr-okxm — Mark-as-paid eligibility mirrors the server guard in
-  // app/routers/staff_bookings_mark_paid.py: visible only when the
-  // booking sits in lifecycle stage 'awaiting_payment' with a positive
-  // balance_due.
-  const canMarkPaid = canMarkAsPaid(row)
-  const balanceDue = balanceDueOf(row)
-
-  const originalCustomer = customerDraftFromRow(row)
-  const originalItems = itemDraftsFromRow(row)
-
-  const customerDirty =
-    !!row.customer &&
-    (customer.first_name !== originalCustomer.first_name ||
-      customer.last_name !== originalCustomer.last_name ||
-      customer.email !== originalCustomer.email ||
-      customer.phone !== originalCustomer.phone)
-
-  const dirtyItems = items.filter((draft, idx) => {
-    const orig = originalItems[idx]
-    if (!orig) return true
-    return !arraysEqual(draft.selected_days, orig.selected_days)
-  })
-
-  const isDirty = customerDirty || dirtyItems.length > 0
-
-  const invalidateAll = () => {
-    // landr-399m — ['bookings'] + ['views-bookings'] live in the shared
-    // invalidateBookingCaches helper so CustomerDetailSheet + GeneralApprovals
-    // (and any future booking-writing surface) stay in lock-step. The Views
-    // layer (lib/views-bookings-data.ts:useViewBookings) keys under a
-    // different prefix that ['bookings'] doesn't match — see helper comment.
-    void invalidateBookingCaches(queryClient)
-    queryClient.invalidateQueries({ queryKey: ['calendar'] })
-    queryClient.invalidateQueries({ queryKey: ['contacts'] })
-  }
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (customerDirty && row.customer) {
-        await patchCustomerContact(row.customer.id, {
-          first_name: customer.first_name.trim() || null,
-          last_name: customer.last_name.trim() || null,
-          email: customer.email.trim() || null,
-          phone: customer.phone.trim() || null,
-        })
-      }
-      for (const draft of dirtyItems) {
-        const orig = originalItems.find((o) => o.id === draft.id)
-        const patch: Parameters<typeof patchBookingProduct>[2] = {}
-        const draftBounds = deriveBounds(draft.selected_days)
-        const origBounds = orig
-          ? deriveBounds(orig.selected_days)
-          : { start: null, end: null }
-        if (!orig || draftBounds.start !== origBounds.start) {
-          patch.date_range_start = draftBounds.start
-        }
-        if (!orig || draftBounds.end !== origBounds.end) {
-          patch.date_range_end = draftBounds.end
-        }
-        if (!orig || !arraysEqual(draft.selected_days, orig.selected_days)) {
-          patch.selected_days = draft.selected_days
-        }
-        await patchBookingProduct(row.id, draft.id, patch)
-      }
-    },
-    onSuccess: () => {
-      toast.success(t.bookings.detail.saveToastSuccess)
-      invalidateAll()
-      onClose()
-    },
-    onError: (err: Error) => {
-      toast.error(t.bookings.detail.saveToastError, {
-        description: err.message,
-      })
-    },
-  })
-
-  const cancelMutation = useMutation({
-    mutationFn: async () => {
-      await cancelBooking(row.id, cancelReason.trim())
-    },
-    onSuccess: () => {
-      // landr-v6aq — replace the plain success toast with the undo flow
-      // (calendar-reschedule pattern). The 5s window calls the staff_trash
-      // restore router on Undo, which flips deleted_at back to NULL.
-      // Falls back to the plain toast when no operator is selected (rare
-      // outside tests; restore is operator-scoped on the server).
-      if (currentOperatorId) {
-        showDeleteUndoToast({
-          operatorId: currentOperatorId,
-          kind: 'bookings',
-          rowId: row.id,
-          message: t.undo.deletedBooking(customerDisplay(row)),
-          queryClient,
-          invalidateQueryKeys: [['bookings'], ['views-bookings']],
-        })
-      } else {
-        toast.success(t.bookings.cancel.toastSuccess)
-      }
-      setShowCancel(false)
-      setCancelReason('')
-      invalidateAll()
-      onClose()
-    },
-    onError: (err: Error) => {
-      toast.error(t.bookings.cancel.toastError, { description: err.message })
-    },
-  })
-
-  const unblockMutation = useMutation({
-    mutationFn: async () => {
-      await postHotelApprovalDecision({
-        bookingId: row.id,
-        decision: 'approve',
-      })
-    },
-    onSuccess: () => {
-      toast.success(t.bookings.hotelUnblock.toastSuccess)
-      setShowUnblock(false)
-      invalidateAll()
-    },
-    onError: (err: Error) => {
-      toast.error(t.bookings.hotelUnblock.toastError, {
-        description: err.message,
-      })
-    },
-  })
-
-  // landr-hgd4 — general approve mutation. Mirrors the GeneralApprovals page's
-  // approve action; calls postGeneralApprovalDecision (branch=general).
-  const generalApproveMutation = useMutation({
-    mutationFn: async () => {
-      await postGeneralApprovalDecision({
-        bookingId: row.id,
-        decision: 'approve',
-        notes: generalApproveNote.trim() || undefined,
-      })
-    },
-    onSuccess: () => {
-      toast.success(t.bookings.generalApprove.toastApproved)
-      setShowGeneralApprove(false)
-      setGeneralApproveNote('')
-      invalidateAll()
-    },
-    onError: (err: Error) => {
-      toast.error(t.bookings.generalApprove.toastError, {
-        description: err.message,
-      })
-    },
-  })
-
-  // landr-hgd4 — general reject mutation. Mirrors the GeneralApprovals page's
-  // reject action; calls postGeneralApprovalDecision (branch=general,
-  // decision=reject). Reject notes are optional but surfaced prominently
-  // (mirrors the cancel-reason pattern — same dialog style, no min-length guard
-  // since the server treats notes as optional too).
-  const generalRejectMutation = useMutation({
-    mutationFn: async () => {
-      await postGeneralApprovalDecision({
-        bookingId: row.id,
-        decision: 'reject',
-        notes: generalRejectNote.trim() || undefined,
-      })
-    },
-    onSuccess: () => {
-      toast.success(t.bookings.generalApprove.toastRejected)
-      setShowGeneralReject(false)
-      setGeneralRejectNote('')
-      invalidateAll()
-      onClose()
-    },
-    onError: (err: Error) => {
-      toast.error(t.bookings.generalApprove.toastError, {
-        description: err.message,
-      })
-    },
-  })
-
-  // landr-ng3m — mark-as-no-show. Requires currentOperatorId because the
-  // endpoint lives under /api/staff/operators/{op}/... — the cross-tenant
-  // guard is path-based on the server.
-  const noShowMutation = useMutation({
-    mutationFn: async () => {
-      if (!currentOperatorId) {
-        throw new Error('No operator selected.')
-      }
-      await markBookingAsNoShow(currentOperatorId, row.id, chargeCancellationFee)
-    },
-    onSuccess: () => {
-      toast.success(t.bookings.noShow.toastSuccess)
-      setShowNoShow(false)
-      setChargeCancellationFee(false)
-      invalidateAll()
-      onClose()
-    },
-    onError: (err: Error) => {
-      toast.error(t.bookings.noShow.toastError, { description: err.message })
-    },
-  })
-
-  // landr-okxm — mark-as-paid mutation. Same path-based operator
-  // scoping as the no-show + invoice endpoints; the server inserts the
-  // payments row and (if balance hits zero) advances current_stage_id
-  // out of awaiting_payment.
-  const markPaidMutation = useMutation({
-    mutationFn: async () => {
-      if (!currentOperatorId) {
-        throw new Error('No operator selected.')
-      }
-      const trimmedAmount = markPaidAmount.trim()
-      const trimmedNote = markPaidNote.trim()
-      await markBookingAsPaid(currentOperatorId, row.id, {
-        method: markPaidMethod,
-        amount: trimmedAmount.length > 0 ? trimmedAmount : null,
-        note: trimmedNote.length > 0 ? trimmedNote : null,
-      })
-    },
-    onSuccess: () => {
-      toast.success(t.bookings.markPaid.toastSuccess)
-      setShowMarkPaid(false)
-      setMarkPaidMethod('cash')
-      setMarkPaidAmount('')
-      setMarkPaidNote('')
-      invalidateAll()
-    },
-    onError: (err: Error) => {
-      toast.error(t.bookings.markPaid.toastError, { description: err.message })
-    },
-  })
-
-  // landr-puix — clear an operator-set price override. Only shown when
-  // hasPriceOverride(row) is true (the footer hides the button
-  // otherwise so canCancel logic stays simple). Operator-scoped DELETE
-  // route; the server-side trigger recomputes balance_due against the
-  // engine gross_total so a subsequent refresh shows the engine price
-  // back in the table cell.
-  const clearOverrideMutation = useMutation({
-    mutationFn: async () => {
-      if (!currentOperatorId) {
-        throw new Error('No operator selected.')
-      }
-      await clearBookingPriceOverride(currentOperatorId, row.id)
-    },
-    onSuccess: () => {
-      toast.success(t.bookings.inlineEdit.priceClearedToast)
-      invalidateAll()
-    },
-    onError: (err: Error) => {
-      toast.error(t.bookings.inlineEdit.priceClearError, {
-        description: err.message,
-      })
-    },
-  })
-
-  // landr-6629 — resend booking confirmation with old→new diff.
-  // Requires currentOperatorId (operator-scoped endpoint). The status
-  // query (confirmation-status) drives the dot-badge on the button;
-  // it refetches after a successful resend so the badge clears.
-  const confirmationStatusQuery = useQuery({
-    queryKey: ['confirmation-status', currentOperatorId, row.id],
-    queryFn: () =>
-      currentOperatorId
-        ? getConfirmationStatus(currentOperatorId, row.id)
-        : Promise.resolve({
-            last_sent_at: null,
-            has_material_changes: false,
-            has_prior_confirmation: false,
-          }),
-    enabled: !!currentOperatorId,
-    staleTime: 60_000,
-  })
-  const hasMaterialChanges =
-    confirmationStatusQuery.data?.has_material_changes ?? false
-  // landr-tf39 — the Resend-Confirmation button only makes sense once a real
-  // confirmation has gone out; rendering it for never-confirmed bookings is
-  // how the premature-confirmation bug happened.
-  const hasPriorConfirmation =
-    confirmationStatusQuery.data?.has_prior_confirmation ?? false
-
-  const resendConfirmationMutation = useMutation({
-    mutationFn: async () => {
-      if (!currentOperatorId) {
-        throw new Error('No operator selected.')
-      }
-      return resendConfirmation(currentOperatorId, row.id)
-    },
-    onSuccess: (result) => {
-      const n = result.changes.length
-      if (n > 0) {
-        toast.success(t.bookings.resendConfirmation.toastSuccessWithChanges(n))
-      } else {
-        toast.success(t.bookings.resendConfirmation.toastSuccess)
-      }
-      // Refetch status so the badge clears / reflects current state.
-      void confirmationStatusQuery.refetch()
-    },
-    onError: (err: Error) => {
-      toast.error(t.bookings.resendConfirmation.toastError, {
-        description: err.message,
-      })
-    },
-  })
-
-  // landr-irds — server-rendered invoice PDF download. Requires
-  // currentOperatorId because the endpoint is operator-scoped
-  // (/api/staff/operators/{op}/bookings/{id}/invoice.pdf). Cache
-  // doesn't need invalidation — the download is read-only.
-  const invoiceMutation = useMutation({
-    mutationFn: async () => {
-      if (!currentOperatorId) {
-        throw new Error('No operator selected.')
-      }
-      await downloadInvoicePdf({
-        operatorId: currentOperatorId,
-        bookingId: row.id,
-      })
-    },
-    onError: (err: Error) => {
-      toast.error(t.bookings.invoice.toastError, { description: err.message })
-    },
-  })
-
-  const busy =
-    saveMutation.isPending ||
-    cancelMutation.isPending ||
-    unblockMutation.isPending ||
-    generalApproveMutation.isPending ||
-    generalRejectMutation.isPending ||
-    noShowMutation.isPending ||
-    markPaidMutation.isPending ||
-    clearOverrideMutation.isPending ||
-    invoiceMutation.isPending ||
-    resendConfirmationMutation.isPending
-
-  // landr-puix — Clear-override visibility. Gated on currentOperatorId
-  // too (the DELETE route is operator-scoped), mirroring the no-show /
-  // mark-paid buttons. When no operator is selected the button stays
-  // hidden rather than rendering disabled — same UX pattern.
-  const showClearOverride = hasPriceOverride(row) && !!currentOperatorId
 
   function updateItem(itemId: string, updater: (it: ItemDraft) => ItemDraft) {
     setItems((prev) => prev.map((it) => (it.id === itemId ? updater(it) : it)))
@@ -620,6 +260,172 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   }
 
   const cancelReasonReady = cancelReason.trim().length >= 3
+
+  // ---- Tab panel configuration ----
+  type TabConfig = {
+    key: ActiveTab
+    label: string
+    testId: string
+    render: () => ReactNode
+  }
+
+  const tabPanels: TabConfig[] = [
+    {
+      key: 'participants',
+      label: t.bookings.participants.tabParticipants,
+      testId: 'booking-tab-participants',
+      render: () => (
+        <div
+          role="tabpanel"
+          aria-label={t.bookings.participants.tabParticipants}
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
+        >
+          {/* landr-z4lj — clicking a participant name forwards to the same
+              onCustomerClick the booker name in the sheet header uses. The
+              parent route (routes/Bookings.tsx etc.) wires that to
+              setOpenCustomerId, which stacks a ContactDetailSheet over this
+              BookingDetailSheet — Customer 360 pattern (landr-7o2a). */}
+          <BookingParticipants
+            bookingId={row.id}
+            onContactClick={onCustomerClick}
+          />
+        </div>
+      ),
+    },
+    {
+      key: 'briefing',
+      label: t.bookings.briefing.tabBriefing,
+      testId: 'booking-tab-briefing',
+      render: () => (
+        <div
+          role="tabpanel"
+          aria-label={t.bookings.briefing.tabBriefing}
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
+        >
+          {/* landr-znzz.2 — Customer page tab. Edits the customer-facing
+              briefing ("event") page. */}
+          {currentOperatorId ? (
+            <BookingCustomerPage
+              operatorId={currentOperatorId}
+              bookingId={row.id}
+              days={bookingDayOptions(row.items)}
+              customerPhone={row.customer?.phone ?? null}
+            />
+          ) : (
+            <p className="text-muted-foreground text-xs italic">
+              {t.bookings.briefing.loading}
+            </p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'providers',
+      label: t.bookings.timeline.tabProviders,
+      testId: 'booking-tab-providers',
+      render: () => (
+        <div
+          role="tabpanel"
+          aria-label={t.bookings.timeline.tabProviders}
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
+        >
+          {/* landr-funh — Providers tab. Per-booking-day provider assignment. */}
+          {currentOperatorId ? (
+            <BookingProviderAssignments
+              operatorId={currentOperatorId}
+              bookingId={row.id}
+              items={row.items}
+            />
+          ) : (
+            <p className="text-muted-foreground text-xs italic">
+              {t.providers.assignLoading}
+            </p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'timeline',
+      label: t.bookings.timeline.tabTimeline,
+      testId: 'booking-tab-timeline',
+      render: () => (
+        <div
+          role="tabpanel"
+          aria-label={t.bookings.timeline.tabTimeline}
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
+        >
+          <BookingTimeline booking={row} />
+        </div>
+      ),
+    },
+    {
+      key: 'checklist',
+      label: t.bookings.checklist.tabChecklist,
+      testId: 'booking-tab-checklist',
+      render: () => (
+        <div
+          role="tabpanel"
+          aria-label={t.bookings.checklist.tabChecklist}
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
+        >
+          {/* landr-84n1 — Checklist tab. Sits alongside Details/Timeline in
+              the same shared Tabs primitive (landr-maat). */}
+          <BookingChecklist
+            bookingId={row.id}
+            operatorId={currentOperatorId}
+          />
+        </div>
+      ),
+    },
+    {
+      key: 'notes',
+      label: t.bookings.notes.tabNotes,
+      testId: 'booking-tab-notes',
+      render: () => (
+        <div
+          role="tabpanel"
+          aria-label={t.bookings.notes.tabNotes}
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
+        >
+          {/* landr-9qo1 — Notes tab. Operator-internal free-text notes
+              per booking; never sent to the customer. */}
+          {currentOperatorId ? (
+            <BookingNotes
+              operatorId={currentOperatorId}
+              bookingId={row.id}
+            />
+          ) : (
+            <p className="text-muted-foreground text-xs italic">
+              {t.bookings.notes.loading}
+            </p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'payments',
+      label: t.bookings.payments.tabPayments,
+      testId: 'booking-tab-payments',
+      render: () => (
+        <div
+          role="tabpanel"
+          aria-label={t.bookings.payments.tabPayments}
+          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
+        >
+          {/* landr-uzup — Payments tab. Lists every payments +
+              payment_refunds row for the booking. */}
+          <BookingPayments
+            operatorId={currentOperatorId}
+            bookingId={row.id}
+            bookingCurrency={row.currency ?? null}
+          />
+        </div>
+      ),
+    },
+  ]
+
+  // The active non-details panel (undefined = render the details form).
+  const activePanel = tabPanels.find((p) => p.key === activeTab)
 
   return (
     <>
@@ -672,181 +478,21 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           >
             {t.bookings.timeline.tabDetails}
           </TabsTrigger>
-          {/* landr-z4lj — Participants tab. Sits between Details and
-              Timeline so the service-recipient roster is one click from
-              the booker information operators land on by default. */}
-          <TabsTrigger
-            variant="pill"
-            value="participants"
-            data-testid="booking-tab-participants"
-          >
-            {t.bookings.participants.tabParticipants}
-          </TabsTrigger>
-          {/* landr-znzz.2 — Customer page tab. Edits the customer-facing
-              briefing ("event") page: share link, publish, content
-              (title/welcome/tone/review) + per-day nightly updates
-              (conditions verdict + plan + meeting point). Sits after
-              Participants — both are customer-facing surfaces. */}
-          <TabsTrigger
-            variant="pill"
-            value="briefing"
-            data-testid="booking-tab-briefing"
-          >
-            {t.bookings.briefing.tabBriefing}
-          </TabsTrigger>
-          {/* landr-funh — Providers tab. Per-booking-day provider
-              assignment picker (who delivers each day). Sits after
-              Participants — both are "people on this booking" surfaces. */}
-          <TabsTrigger
-            variant="pill"
-            value="providers"
-            data-testid="booking-tab-providers"
-          >
-            {t.bookings.timeline.tabProviders}
-          </TabsTrigger>
-          <TabsTrigger
-            variant="pill"
-            value="timeline"
-            data-testid="booking-tab-timeline"
-          >
-            {t.bookings.timeline.tabTimeline}
-          </TabsTrigger>
-          {/* landr-84n1 — Checklist tab. Sits alongside Details/Timeline in
-              the same shared Tabs primitive (landr-maat) so we don't grow a
-              second nav surface; the panel below mirrors the timeline
-              tabpanel layout. */}
-          <TabsTrigger
-            variant="pill"
-            value="checklist"
-            data-testid="booking-tab-checklist"
-          >
-            {t.bookings.checklist.tabChecklist}
-          </TabsTrigger>
-          {/* landr-9qo1 — Notes tab. Operator-internal free-text notes
-              per booking; never sent to the customer. The panel below
-              renders BookingNotes which manages its own list query +
-              create/delete mutations. */}
-          <TabsTrigger
-            variant="pill"
-            value="notes"
-            data-testid="booking-tab-notes"
-          >
-            {t.bookings.notes.tabNotes}
-          </TabsTrigger>
-          {/* landr-uzup — Payments tab. Lists every payments +
-              payment_refunds row for the booking and offers a Refund
-              action on succeeded payments. */}
-          <TabsTrigger
-            variant="pill"
-            value="payments"
-            data-testid="booking-tab-payments"
-          >
-            {t.bookings.payments.tabPayments}
-          </TabsTrigger>
+          {tabPanels.map((panel) => (
+            <TabsTrigger
+              key={panel.key}
+              variant="pill"
+              value={panel.key}
+              data-testid={panel.testId}
+            >
+              {panel.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
       </Tabs>
 
-      {activeTab === 'briefing' ? (
-        <div
-          role="tabpanel"
-          aria-label={t.bookings.briefing.tabBriefing}
-          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
-        >
-          {currentOperatorId ? (
-            <BookingCustomerPage
-              operatorId={currentOperatorId}
-              bookingId={row.id}
-              days={bookingDayOptions(row.items)}
-              customerPhone={row.customer?.phone ?? null}
-            />
-          ) : (
-            <p className="text-muted-foreground text-xs italic">
-              {t.bookings.briefing.loading}
-            </p>
-          )}
-        </div>
-      ) : activeTab === 'participants' ? (
-        <div
-          role="tabpanel"
-          aria-label={t.bookings.participants.tabParticipants}
-          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
-        >
-          {/* landr-z4lj — clicking a participant name forwards to the same
-              onCustomerClick the booker name in the sheet header uses. The
-              parent route (routes/Bookings.tsx etc.) wires that to
-              setOpenCustomerId, which stacks a ContactDetailSheet over this
-              BookingDetailSheet — Customer 360 pattern (landr-7o2a). */}
-          <BookingParticipants
-            bookingId={row.id}
-            onContactClick={onCustomerClick}
-          />
-        </div>
-      ) : activeTab === 'providers' ? (
-        <div
-          role="tabpanel"
-          aria-label={t.bookings.timeline.tabProviders}
-          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
-        >
-          {currentOperatorId ? (
-            <BookingProviderAssignments
-              operatorId={currentOperatorId}
-              bookingId={row.id}
-              items={row.items}
-            />
-          ) : (
-            <p className="text-muted-foreground text-xs italic">
-              {t.providers.assignLoading}
-            </p>
-          )}
-        </div>
-      ) : activeTab === 'timeline' ? (
-        <div
-          role="tabpanel"
-          aria-label={t.bookings.timeline.tabTimeline}
-          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
-        >
-          <BookingTimeline booking={row} />
-        </div>
-      ) : activeTab === 'checklist' ? (
-        <div
-          role="tabpanel"
-          aria-label={t.bookings.checklist.tabChecklist}
-          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
-        >
-          <BookingChecklist
-            bookingId={row.id}
-            operatorId={currentOperatorId}
-          />
-        </div>
-      ) : activeTab === 'notes' ? (
-        <div
-          role="tabpanel"
-          aria-label={t.bookings.notes.tabNotes}
-          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
-        >
-          {currentOperatorId ? (
-            <BookingNotes
-              operatorId={currentOperatorId}
-              bookingId={row.id}
-            />
-          ) : (
-            <p className="text-muted-foreground text-xs italic">
-              {t.bookings.notes.loading}
-            </p>
-          )}
-        </div>
-      ) : activeTab === 'payments' ? (
-        <div
-          role="tabpanel"
-          aria-label={t.bookings.payments.tabPayments}
-          className={cn('flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-2 pt-3', mobileSheetBody)}
-        >
-          <BookingPayments
-            operatorId={currentOperatorId}
-            bookingId={row.id}
-            bookingCurrency={row.currency ?? null}
-          />
-        </div>
+      {activePanel ? (
+        activePanel.render()
       ) : (
       <form
         onSubmit={(e) => {
@@ -1276,99 +922,65 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
       </SheetFooter>
 
       {/* Cancel-with-reason dialog */}
-      <AlertDialog
+      <ConfirmActionDialog
         open={showCancel}
         onOpenChange={(next) => {
           if (cancelMutation.isPending) return
           if (!next) setCancelReason('')
           setShowCancel(next)
         }}
+        title={t.bookings.cancel.dialogTitle}
+        description={t.bookings.cancel.dialogDescription}
+        cancelLabel={t.bookings.cancel.cancelAction}
+        confirmLabel={t.bookings.cancel.confirmAction}
+        confirmingLabel={t.bookings.cancel.cancelling}
+        variant="destructive"
+        isPending={cancelMutation.isPending}
+        confirmDisabled={!cancelReasonReady}
+        onConfirm={() => {
+          if (!cancelReasonReady) return
+          cancelMutation.mutate()
+        }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t.bookings.cancel.dialogTitle}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t.bookings.cancel.dialogDescription}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="bk-cancel-reason">
-              {t.bookings.cancel.reasonLabel}
-            </Label>
-            <Textarea
-              id="bk-cancel-reason"
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-              placeholder={t.bookings.cancel.reasonPlaceholder}
-              disabled={cancelMutation.isPending}
-              rows={4}
-            />
-            {!cancelReasonReady && cancelReason.length > 0 ? (
-              <p className="text-destructive text-xs" role="alert">
-                {t.bookings.cancel.reasonTooShort}
-              </p>
-            ) : null}
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={cancelMutation.isPending}>
-              {t.bookings.cancel.cancelAction}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={!cancelReasonReady || cancelMutation.isPending}
-              onClick={(e) => {
-                e.preventDefault()
-                if (!cancelReasonReady) return
-                cancelMutation.mutate()
-              }}
-              variant="destructive"
-            >
-              {cancelMutation.isPending
-                ? t.bookings.cancel.cancelling
-                : t.bookings.cancel.confirmAction}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="bk-cancel-reason">
+            {t.bookings.cancel.reasonLabel}
+          </Label>
+          <Textarea
+            id="bk-cancel-reason"
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder={t.bookings.cancel.reasonPlaceholder}
+            disabled={cancelMutation.isPending}
+            rows={4}
+          />
+          {!cancelReasonReady && cancelReason.length > 0 ? (
+            <p className="text-destructive text-xs" role="alert">
+              {t.bookings.cancel.reasonTooShort}
+            </p>
+          ) : null}
+        </div>
+      </ConfirmActionDialog>
 
       {/* Hotel-unblock confirmation */}
-      <AlertDialog
+      <ConfirmActionDialog
         open={showUnblock}
         onOpenChange={(next) => {
           if (unblockMutation.isPending) return
           setShowUnblock(next)
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t.bookings.hotelUnblock.label}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t.bookings.hotelUnblock.description}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={unblockMutation.isPending}>
-              {t.bookings.hotelUnblock.cancel}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={unblockMutation.isPending}
-              onClick={(e) => {
-                e.preventDefault()
-                unblockMutation.mutate()
-              }}
-            >
-              {unblockMutation.isPending
-                ? t.bookings.hotelUnblock.working
-                : t.bookings.hotelUnblock.confirm}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={t.bookings.hotelUnblock.label}
+        description={t.bookings.hotelUnblock.description}
+        cancelLabel={t.bookings.hotelUnblock.cancel}
+        confirmLabel={t.bookings.hotelUnblock.confirm}
+        confirmingLabel={t.bookings.hotelUnblock.working}
+        isPending={unblockMutation.isPending}
+        onConfirm={() => unblockMutation.mutate()}
+      />
 
       {/* landr-okxm — Mark-as-paid dialog. Method dropdown + amount input
           (defaults to balance_due) + optional note. */}
-      <AlertDialog
+      <ConfirmActionDialog
         open={showMarkPaid}
         onOpenChange={(next) => {
           if (markPaidMutation.isPending) return
@@ -1379,253 +991,181 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           }
           setShowMarkPaid(next)
         }}
+        title={t.bookings.markPaid.dialogTitle}
+        description={t.bookings.markPaid.dialogDescription}
+        cancelLabel={t.bookings.markPaid.cancel}
+        confirmLabel={t.bookings.markPaid.confirm}
+        confirmingLabel={t.bookings.markPaid.working}
+        isPending={markPaidMutation.isPending}
+        onConfirm={() => markPaidMutation.mutate()}
+        confirmTestId="mark-paid-confirm"
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t.bookings.markPaid.dialogTitle}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t.bookings.markPaid.dialogDescription}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bk-mark-paid-method">
-                {t.bookings.markPaid.methodLabel}
-              </Label>
-              <NativeSelect
-                id="bk-mark-paid-method"
-                value={markPaidMethod}
-                onChange={(e) =>
-                  setMarkPaidMethod(e.target.value as MarkAsPaidMethod)
-                }
-                disabled={markPaidMutation.isPending}
-                data-testid="mark-paid-method"
-              >
-                <option value="cash">{t.bookings.markPaid.methodCash}</option>
-                <option value="bank_transfer">
-                  {t.bookings.markPaid.methodBankTransfer}
-                </option>
-                <option value="other">{t.bookings.markPaid.methodOther}</option>
-              </NativeSelect>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bk-mark-paid-amount">
-                {t.bookings.markPaid.amountLabel} ({row.currency || 'EUR'})
-              </Label>
-              <Input
-                id="bk-mark-paid-amount"
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0.01"
-                value={markPaidAmount}
-                onChange={(e) => setMarkPaidAmount(e.target.value)}
-                disabled={markPaidMutation.isPending}
-                data-testid="mark-paid-amount"
-              />
-              <p className="text-muted-foreground text-xs">
-                {t.bookings.markPaid.amountHint}
-              </p>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bk-mark-paid-note">
-                {t.bookings.markPaid.noteLabel}
-              </Label>
-              <Textarea
-                id="bk-mark-paid-note"
-                value={markPaidNote}
-                onChange={(e) => setMarkPaidNote(e.target.value)}
-                placeholder={t.bookings.markPaid.notePlaceholder}
-                disabled={markPaidMutation.isPending}
-                rows={2}
-                data-testid="mark-paid-note"
-              />
-            </div>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={markPaidMutation.isPending}>
-              {t.bookings.markPaid.cancel}
-            </AlertDialogCancel>
-            <AlertDialogAction
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="bk-mark-paid-method">
+              {t.bookings.markPaid.methodLabel}
+            </Label>
+            <NativeSelect
+              id="bk-mark-paid-method"
+              value={markPaidMethod}
+              onChange={(e) =>
+                setMarkPaidMethod(e.target.value as MarkAsPaidMethod)
+              }
               disabled={markPaidMutation.isPending}
-              onClick={(e) => {
-                e.preventDefault()
-                markPaidMutation.mutate()
-              }}
-              data-testid="mark-paid-confirm"
+              data-testid="mark-paid-method"
             >
-              {markPaidMutation.isPending
-                ? t.bookings.markPaid.working
-                : t.bookings.markPaid.confirm}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              <option value="cash">{t.bookings.markPaid.methodCash}</option>
+              <option value="bank_transfer">
+                {t.bookings.markPaid.methodBankTransfer}
+              </option>
+              <option value="other">{t.bookings.markPaid.methodOther}</option>
+            </NativeSelect>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="bk-mark-paid-amount">
+              {t.bookings.markPaid.amountLabel} ({row.currency || 'EUR'})
+            </Label>
+            <Input
+              id="bk-mark-paid-amount"
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0.01"
+              value={markPaidAmount}
+              onChange={(e) => setMarkPaidAmount(e.target.value)}
+              disabled={markPaidMutation.isPending}
+              data-testid="mark-paid-amount"
+            />
+            <p className="text-muted-foreground text-xs">
+              {t.bookings.markPaid.amountHint}
+            </p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="bk-mark-paid-note">
+              {t.bookings.markPaid.noteLabel}
+            </Label>
+            <Textarea
+              id="bk-mark-paid-note"
+              value={markPaidNote}
+              onChange={(e) => setMarkPaidNote(e.target.value)}
+              placeholder={t.bookings.markPaid.notePlaceholder}
+              disabled={markPaidMutation.isPending}
+              rows={2}
+              data-testid="mark-paid-note"
+            />
+          </div>
+        </div>
+      </ConfirmActionDialog>
 
       {/* landr-ng3m — Mark-as-no-show confirmation */}
-      <AlertDialog
+      <ConfirmActionDialog
         open={showNoShow}
         onOpenChange={(next) => {
           if (noShowMutation.isPending) return
           if (!next) setChargeCancellationFee(false)
           setShowNoShow(next)
         }}
+        title={t.bookings.noShow.dialogTitle}
+        description={t.bookings.noShow.dialogDescription}
+        cancelLabel={t.bookings.noShow.cancel}
+        confirmLabel={t.bookings.noShow.confirm}
+        confirmingLabel={t.bookings.noShow.working}
+        variant="destructive"
+        isPending={noShowMutation.isPending}
+        onConfirm={() => noShowMutation.mutate()}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t.bookings.noShow.dialogTitle}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t.bookings.noShow.dialogDescription}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex items-start gap-2">
-            <Checkbox
-              id="bk-no-show-charge-fee"
-              checked={chargeCancellationFee}
-              onChange={(e) =>
-                setChargeCancellationFee(
-                  (e.target as HTMLInputElement).checked,
-                )
-              }
-              disabled={noShowMutation.isPending}
-              data-testid="no-show-charge-fee"
-            />
-            <div className="flex flex-col gap-1">
-              <Label
-                htmlFor="bk-no-show-charge-fee"
-                className="text-sm font-normal"
-              >
-                {t.bookings.noShow.chargeFeeLabel}
-              </Label>
-              <p className="text-muted-foreground text-xs">
-                {t.bookings.noShow.chargeFeeHint}
-              </p>
-            </div>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={noShowMutation.isPending}>
-              {t.bookings.noShow.cancel}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={noShowMutation.isPending}
-              onClick={(e) => {
-                e.preventDefault()
-                noShowMutation.mutate()
-              }}
-              variant="destructive"
+        <div className="flex items-start gap-2">
+          <Checkbox
+            id="bk-no-show-charge-fee"
+            checked={chargeCancellationFee}
+            onChange={(e) =>
+              setChargeCancellationFee(
+                (e.target as HTMLInputElement).checked,
+              )
+            }
+            disabled={noShowMutation.isPending}
+            data-testid="no-show-charge-fee"
+          />
+          <div className="flex flex-col gap-1">
+            <Label
+              htmlFor="bk-no-show-charge-fee"
+              className="text-sm font-normal"
             >
-              {noShowMutation.isPending
-                ? t.bookings.noShow.working
-                : t.bookings.noShow.confirm}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              {t.bookings.noShow.chargeFeeLabel}
+            </Label>
+            <p className="text-muted-foreground text-xs">
+              {t.bookings.noShow.chargeFeeHint}
+            </p>
+          </div>
+        </div>
+      </ConfirmActionDialog>
 
       {/* landr-hgd4 — General approve confirmation */}
-      <AlertDialog
+      <ConfirmActionDialog
         open={showGeneralApprove}
         onOpenChange={(next) => {
           if (generalApproveMutation.isPending) return
           if (!next) setGeneralApproveNote('')
           setShowGeneralApprove(next)
         }}
+        title={t.bookings.generalApprove.approveDialogTitle}
+        description={t.bookings.generalApprove.approveDialogDescription}
+        cancelLabel={t.bookings.generalApprove.cancel}
+        confirmLabel={t.bookings.generalApprove.confirmApprove}
+        confirmingLabel={t.bookings.generalApprove.approving}
+        isPending={generalApproveMutation.isPending}
+        onConfirm={() => generalApproveMutation.mutate()}
+        confirmTestId="general-approve-confirm"
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t.bookings.generalApprove.approveDialogTitle}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t.bookings.generalApprove.approveDialogDescription}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="bk-general-approve-note">
-              {t.bookings.generalApprove.noteLabel}
-            </Label>
-            <Textarea
-              id="bk-general-approve-note"
-              value={generalApproveNote}
-              onChange={(e) => setGeneralApproveNote(e.target.value)}
-              placeholder={t.bookings.generalApprove.notePlaceholder}
-              disabled={generalApproveMutation.isPending}
-              rows={2}
-              data-testid="general-approve-note"
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={generalApproveMutation.isPending}>
-              {t.bookings.generalApprove.cancel}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={generalApproveMutation.isPending}
-              onClick={(e) => {
-                e.preventDefault()
-                generalApproveMutation.mutate()
-              }}
-              data-testid="general-approve-confirm"
-            >
-              {generalApproveMutation.isPending
-                ? t.bookings.generalApprove.approving
-                : t.bookings.generalApprove.confirmApprove}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="bk-general-approve-note">
+            {t.bookings.generalApprove.noteLabel}
+          </Label>
+          <Textarea
+            id="bk-general-approve-note"
+            value={generalApproveNote}
+            onChange={(e) => setGeneralApproveNote(e.target.value)}
+            placeholder={t.bookings.generalApprove.notePlaceholder}
+            disabled={generalApproveMutation.isPending}
+            rows={2}
+            data-testid="general-approve-note"
+          />
+        </div>
+      </ConfirmActionDialog>
 
       {/* landr-hgd4 — General reject confirmation */}
-      <AlertDialog
+      <ConfirmActionDialog
         open={showGeneralReject}
         onOpenChange={(next) => {
           if (generalRejectMutation.isPending) return
           if (!next) setGeneralRejectNote('')
           setShowGeneralReject(next)
         }}
+        title={t.bookings.generalApprove.rejectDialogTitle}
+        description={t.bookings.generalApprove.rejectDialogDescription}
+        cancelLabel={t.bookings.generalApprove.cancel}
+        confirmLabel={t.bookings.generalApprove.confirmReject}
+        confirmingLabel={t.bookings.generalApprove.rejecting}
+        variant="destructive"
+        isPending={generalRejectMutation.isPending}
+        onConfirm={() => generalRejectMutation.mutate()}
+        confirmTestId="general-reject-confirm"
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t.bookings.generalApprove.rejectDialogTitle}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t.bookings.generalApprove.rejectDialogDescription}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="bk-general-reject-note">
-              {t.bookings.generalApprove.rejectNoteLabel}
-            </Label>
-            <Textarea
-              id="bk-general-reject-note"
-              value={generalRejectNote}
-              onChange={(e) => setGeneralRejectNote(e.target.value)}
-              placeholder={t.bookings.generalApprove.rejectNotePlaceholder}
-              disabled={generalRejectMutation.isPending}
-              rows={3}
-              data-testid="general-reject-note"
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={generalRejectMutation.isPending}>
-              {t.bookings.generalApprove.cancel}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={generalRejectMutation.isPending}
-              onClick={(e) => {
-                e.preventDefault()
-                generalRejectMutation.mutate()
-              }}
-              variant="destructive"
-              data-testid="general-reject-confirm"
-            >
-              {generalRejectMutation.isPending
-                ? t.bookings.generalApprove.rejecting
-                : t.bookings.generalApprove.confirmReject}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="bk-general-reject-note">
+            {t.bookings.generalApprove.rejectNoteLabel}
+          </Label>
+          <Textarea
+            id="bk-general-reject-note"
+            value={generalRejectNote}
+            onChange={(e) => setGeneralRejectNote(e.target.value)}
+            placeholder={t.bookings.generalApprove.rejectNotePlaceholder}
+            disabled={generalRejectMutation.isPending}
+            rows={3}
+            data-testid="general-reject-note"
+          />
+        </div>
+      </ConfirmActionDialog>
     </>
   )
 }

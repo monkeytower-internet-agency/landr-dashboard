@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { CONTACT_TYPES, type ContactType } from '@/lib/contacts-filters'
 import type { ContactsSort } from '@/lib/contacts-sort'
+import { formatDate, formatDateTime } from '@/lib/time-format'
 
 // landr-iz58 — operator-scoped tag projected through contact_tags JOIN
 // operator_tags. Same shape as BookingTagRef in lib/bookings.ts.
@@ -309,11 +310,8 @@ export async function fetchContactAuditLog(
  * Wraps the `gdpr_erase_contact(p_contact_id, p_jurisdiction_note)` plpgsql
  * function (Decision #69, 5-step PII scrub).
  *
- * landr-mk8o — the RPC now resolves auth.uid() → public.users.id
- * server-side, so the caller no longer passes a user id. Removed the
- * client-side currentPublicUserId() bridge; the SECURITY DEFINER body
- * reads the session's auth.uid directly and raises if it has no
- * matching public.users row.
+ * landr-mk8o — the RPC resolves auth.uid() → public.users.id server-side
+ * (SECURITY DEFINER body). The caller passes no user id.
  *
  * Idempotent server-side: a second call is a no-op once gdpr_erased_at is set.
  */
@@ -343,49 +341,23 @@ export function contactIsErased(row: ContactRow): boolean {
   return row.gdpr_erased_at !== null
 }
 
-const dateFormatter = new Intl.DateTimeFormat('en-IE', {
-  dateStyle: 'medium',
-})
-
-// landr-f1s — date + time-of-day display. Hour cycle follows the operator's
-// time_format_24h preference (passed by the caller via opts.hour12).
-// NOTE: Intl.DateTimeFormat forbids mixing dateStyle/timeStyle with the
-// per-component options (year, hour, minute, …); we use the per-component
-// form so hourCycle takes effect.
-const _dateTimeFormatters: Record<'h12' | 'h23', Intl.DateTimeFormat> = {
-  h12: new Intl.DateTimeFormat('en-IE', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h12',
-  }),
-  h23: new Intl.DateTimeFormat('en-IE', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }),
-}
-
+/**
+ * Format an ISO date string as a medium-style date.
+ * Thin wrapper over `formatDate` from `@/lib/time-format` (landr-v9e4.4).
+ */
 export function contactDate(iso: string | null): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return dateFormatter.format(d)
+  return formatDate(iso)
 }
 
+/**
+ * Format an ISO timestamp as a localised date+time string.
+ * Thin wrapper over `formatDateTime` from `@/lib/time-format` (landr-v9e4.4).
+ */
 export function contactDateTime(
   iso: string | null,
   opts?: { hour12?: boolean },
 ): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return _dateTimeFormatters[opts?.hour12 ? 'h12' : 'h23'].format(d)
+  return formatDateTime(iso, opts)
 }
 
 // ----- landr-6993 — Upcoming bookings join --------------------------------

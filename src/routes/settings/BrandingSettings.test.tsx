@@ -76,6 +76,18 @@ vi.mock('@/lib/page-title', () => ({
   PageTitle: () => null,
 }))
 
+// landr-sl7k — mock the logo-palette extractor so tests never touch
+// node-vibrant / canvas / Image (jsdom can't read pixels). Each test sets
+// the mock's behaviour (resolve a theme, or reject to simulate a tainted
+// canvas / CORS failure).
+const { suggestThemeFromLogoMock } = vi.hoisted(() => ({
+  suggestThemeFromLogoMock: vi.fn(),
+}))
+vi.mock('@/lib/logo-palette', () => ({
+  suggestThemeFromLogo: (...args: unknown[]) => suggestThemeFromLogoMock(...args),
+  LogoPaletteError: class extends Error {},
+}))
+
 // ---------------------------------------------------------------------------
 // Fixture
 // ---------------------------------------------------------------------------
@@ -419,67 +431,131 @@ describe('BrandingSettings — live preview (landr-znzz.11)', () => {
   })
 })
 
-describe('BrandingSettings — booking widget text (landr-nils)', () => {
-  it('seeds the headline / description / footer fields from the operator', async () => {
+// ---------------------------------------------------------------------------
+// landr-sl7k Fix 2 — dark override fields show their real (empty) state
+// ---------------------------------------------------------------------------
+
+describe('BrandingSettings — dark override fields show empty when unset (landr-sl7k)', () => {
+  it('an unset dark accent hex input is BLANK (not #2563eb)', async () => {
+    const user = userEvent.setup()
+    // Theme set in light mode, but NO dark overrides → dark fields are unset.
     fetchOperatorMock.mockResolvedValue(
       makeOperator({
-        widget_headline: 'Book with us',
-        widget_description: 'Subject to our terms.',
-        widget_footer: '© Para42',
+        theme: { brand: '#101010', accent: '#2563eb', background: '#ffffff' },
       }),
     )
     render(<BrandingSettings />)
 
-    expect(
-      await screen.findByDisplayValue('Book with us'),
-    ).toBeTruthy()
-    expect(screen.getByDisplayValue('Subject to our terms.')).toBeTruthy()
-    expect(screen.getByDisplayValue('© Para42')).toBeTruthy()
-  })
+    // Expand the dark overrides section.
+    const toggleBtn = await screen.findByRole('button', {
+      name: 'Dark-mode overrides (optional)',
+    })
+    await user.click(toggleBtn)
 
-  it('save is disabled until a field changes, then PATCHes the widget text', async () => {
-    const user = userEvent.setup()
-    patchOperatorMock.mockResolvedValue(makeOperator())
-    render(<BrandingSettings />)
-
-    const saveBtn = await screen.findByTestId('widget-text-save')
-    // Nothing changed yet → disabled.
-    expect(saveBtn).toBeDisabled()
-
-    const headline = screen.getByLabelText('Headline')
-    await user.type(headline, 'Book with us')
-    expect(saveBtn).toBeEnabled()
-    await user.click(saveBtn)
-
-    await waitFor(() =>
-      expect(patchOperatorMock).toHaveBeenCalledWith(
-        'op-1',
-        expect.objectContaining({
-          widget_headline: 'Book with us',
-          widget_description: null,
-          widget_footer: null,
-        }),
-      ),
+    const darkAccentHex = await screen.findByLabelText<HTMLInputElement>(
+      'Dark accent colour hex',
     )
+    // The misleading behaviour displayed the configured-looking '#2563eb'.
+    expect(darkAccentHex.value).toBe('')
+    expect(darkAccentHex.value).not.toBe('#2563eb')
   })
 
-  it('clearing a stored field PATCHes null (intentional clear)', async () => {
-    const user = userEvent.setup()
+  it('seeds the dark field when an override IS configured', async () => {
     fetchOperatorMock.mockResolvedValue(
-      makeOperator({ widget_headline: 'Book with us' }),
+      makeOperator({
+        theme: {
+          brand: '#101010',
+          accent: '#2563eb',
+          background: '#ffffff',
+          dark: { accent: '#88aaff' },
+        },
+      }),
     )
-    patchOperatorMock.mockResolvedValue(makeOperator())
     render(<BrandingSettings />)
 
-    const headline = await screen.findByDisplayValue('Book with us')
-    await user.clear(headline)
-    await user.click(screen.getByTestId('widget-text-save'))
-
-    await waitFor(() =>
-      expect(patchOperatorMock).toHaveBeenCalledWith(
-        'op-1',
-        expect.objectContaining({ widget_headline: null }),
-      ),
+    const darkAccentHex = await screen.findByLabelText<HTMLInputElement>(
+      'Dark accent colour hex',
     )
+    expect(darkAccentHex.value).toBe('#88aaff')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// landr-sl7k Fix 3 — "Suggest colours" from the logo
+// ---------------------------------------------------------------------------
+
+describe('BrandingSettings — Suggest colours from logo (landr-sl7k)', () => {
+  it('does NOT render the Suggest button when there is no logo', async () => {
+    render(<BrandingSettings />)
+    await screen.findByRole('button', { name: 'Upload logo' })
+    expect(
+      screen.queryByRole('button', {
+        name: 'Suggest theme colours from your uploaded logo',
+      }),
+    ).toBeNull()
+  })
+
+  it('renders the Suggest button once a logo is present', async () => {
+    fetchOperatorMock.mockResolvedValue(
+      makeOperator({ logo_url: 'https://cdn.example.com/op-1/logo.png' }),
+    )
+    render(<BrandingSettings />)
+    await screen.findByRole('button', {
+      name: 'Suggest theme colours from your uploaded logo',
+    })
+  })
+
+  it('clicking Suggest fills the three colour fields (non-destructive)', async () => {
+    const user = userEvent.setup()
+    suggestThemeFromLogoMock.mockResolvedValue({
+      brand: '#0b1d3a',
+      accent: '#2563eb',
+      background: '#f2f4f8',
+    })
+    fetchOperatorMock.mockResolvedValue(
+      makeOperator({ logo_url: 'https://cdn.example.com/op-1/logo.png' }),
+    )
+    render(<BrandingSettings />)
+
+    const btn = await screen.findByRole('button', {
+      name: 'Suggest theme colours from your uploaded logo',
+    })
+    await user.click(btn)
+
+    await waitFor(() => {
+      const brand = screen.getByLabelText<HTMLInputElement>(
+        'Brand colour (text / headings)',
+      )
+      const accent = screen.getByLabelText<HTMLInputElement>('Accent colour (buttons)')
+      const bg = screen.getByLabelText<HTMLInputElement>('Background colour')
+      expect(brand.value).toBe('#0b1d3a')
+      expect(accent.value).toBe('#2563eb')
+      expect(bg.value).toBe('#f2f4f8')
+    })
+
+    // Non-destructive: it must NOT auto-save.
+    expect(patchOperatorMock).not.toHaveBeenCalled()
+  })
+
+  it('shows an inline hint when the logo canvas is tainted / unreadable', async () => {
+    const user = userEvent.setup()
+    suggestThemeFromLogoMock.mockRejectedValue(new Error('tainted'))
+    fetchOperatorMock.mockResolvedValue(
+      makeOperator({ logo_url: 'https://cdn.example.com/op-1/logo.png' }),
+    )
+    render(<BrandingSettings />)
+
+    const btn = await screen.findByRole('button', {
+      name: 'Suggest theme colours from your uploaded logo',
+    })
+    await user.click(btn)
+
+    await screen.findByText(
+      "Couldn't read the logo's colours — set them manually.",
+    )
+    // Fields are untouched (still defaults) and nothing was saved.
+    const accent = screen.getByLabelText<HTMLInputElement>('Accent colour (buttons)')
+    expect(accent.value).toBe('#2563eb')
+    expect(patchOperatorMock).not.toHaveBeenCalled()
   })
 })

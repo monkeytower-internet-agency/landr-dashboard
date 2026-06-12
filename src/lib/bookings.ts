@@ -2,6 +2,8 @@ import type { QueryClient } from '@tanstack/react-query'
 
 import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api-client'
+import { getCurrencyFormatter } from '@/lib/format-currency'
+import { formatDateTime } from '@/lib/time-format'
 // landr-g2m5 — single source of truth for the product_kind enum lives in
 // lib/products.ts. Re-export here so existing `from '@/lib/bookings'`
 // consumers keep compiling without changes.
@@ -26,16 +28,6 @@ export type BookingSemanticState =
 //   blocked_on_human→ 'blocked'
 //   no row          → 'none'
 export type HoldedStatus = 'transferred' | 'pending' | 'failed' | 'blocked' | 'none'
-
-// free-text in booking_lifecycle_stages.code; operator-customizable.
-// These three are the seeded defaults for Para42; other operators
-// may have different codes.
-export type BookingStageCode =
-  | 'awaiting_general_approval'
-  | 'awaiting_secondary_approval'
-  | 'awaiting_hotel_approval'
-  | 'awaiting_payment'
-  | (string & {})
 
 // Mirrors public.service_time_shape enum. NULL for non-service products.
 export type ServiceTimeShape =
@@ -111,6 +103,14 @@ export type BookingRow = {
   // type so existing fixtures / mocks don't have to populate it; SELECT
   // adds the column unconditionally.
   balance_due?: number | string | null
+  // landr-39he — operator-collected subtotal (excludes paid_to=hotel lines).
+  // Stamped at booking submit by the API. For pure-operator bookings this
+  // equals gross_total. For mixed operator+hotel bookings this is the
+  // operator-side slice that balance_due is derived from (server trigger
+  // uses COALESCE(override, operator_gross_total, gross_total)). Optional
+  // on the type so legacy fixtures / mocks don't have to populate it;
+  // balanceDueOf falls back gracefully when null/absent.
+  operator_gross_total?: number | string | null
   // landr-puix — manual price override applied by an operator via
   // POST /api/staff/operators/{op}/bookings/{id}/price-override. When
   // non-null the dashboard surfaces it in place of gross_total (italic +
@@ -339,18 +339,14 @@ export function productDisplay(row: BookingRow): string {
   return `${named[0]} +${named.length - 1}`
 }
 
-const numberFormatCache = new Map<string, Intl.NumberFormat>()
+/**
+ * Returns a cached `Intl.NumberFormat` for the given currency.
+ * Re-exported from `@/lib/format-currency` for backward compatibility with
+ * call sites that need the formatter object directly (e.g. BookingPayments).
+ * New call sites should prefer `formatCurrency` from `@/lib/format-currency`.
+ */
 export function numberFormatter(currency: string): Intl.NumberFormat {
-  const key = currency || 'EUR'
-  let fmt = numberFormatCache.get(key)
-  if (!fmt) {
-    fmt = new Intl.NumberFormat('en-IE', {
-      style: 'currency',
-      currency: key,
-    })
-    numberFormatCache.set(key, fmt)
-  }
-  return fmt
+  return getCurrencyFormatter(currency)
 }
 
 export function priceDisplay(row: BookingRow): string {
@@ -361,7 +357,7 @@ export function priceDisplay(row: BookingRow): string {
   // billed.
   const raw = effectiveGrossOf(row)
   if (!Number.isFinite(raw)) return '—'
-  return numberFormatter(row.currency || 'EUR').format(raw)
+  return getCurrencyFormatter(row.currency || 'EUR').format(raw)
 }
 
 /** Numeric "effective gross" — the override when set, else gross_total.
@@ -387,34 +383,13 @@ export function hasPriceOverride(row: BookingRow): boolean {
 }
 
 // landr-f1s — date + time-of-day display. Hour cycle follows the operator's
-// time_format_24h preference (passed by the caller via opts.hour12). Cached
-// per cycle to match the previous module-level singleton.
-// NOTE: Intl.DateTimeFormat forbids mixing dateStyle/timeStyle with the
-// per-component options (year, hour, minute, …); we use the per-component
-// form so hourCycle takes effect.
-const _dateTimeFormatters: Record<'h12' | 'h23', Intl.DateTimeFormat> = {
-  h12: new Intl.DateTimeFormat('en-IE', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h12',
-  }),
-  h23: new Intl.DateTimeFormat('en-IE', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }),
-}
-
+/**
+ * Format a booking ISO timestamp as a localised date+time string.
+ * Re-exported from `@/lib/time-format` (formatDateTime) — consolidated as
+ * part of landr-v9e4.4. The signature is unchanged for backward compat.
+ */
 export function dateDisplay(iso: string, opts?: { hour12?: boolean }): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return _dateTimeFormatters[opts?.hour12 ? 'h12' : 'h23'].format(d)
+  return formatDateTime(iso, opts)
 }
 
 // ----- Service date helpers (landr-04ec) ----------------------------------
@@ -657,13 +632,6 @@ export function bookingsToCalendarEvents(
   return out
 }
 
-// Color tokens (mapped to shadcn/ui theme tokens via CSS classes in
-// BookingsCalendar.tsx). Returned as a string key the component maps to a
-// className. Kept here so tests can assert against the mapping directly.
-export function colorKeyForBooking(row: BookingRow): BookingSemanticState {
-  return row.current_semantic_state
-}
-
 // Persist a calendar drag-to-reschedule. Routes through FastAPI's
 // PATCH /bookings/{id}/products/{lineId} because date changes re-run
 // the pricing engine (see write-routing-convention memory). Callers
@@ -827,23 +795,11 @@ async function postApprovalDecision(args: {
 
 // ----- Edit / cancel mutations --------------------------------------------
 
-export type BookingPatch = {
-  customer_contact_id?: string
-}
-
 export type BookingProductPatch = {
   date_range_start?: string | null
   date_range_end?: string | null
   selected_days?: string[]
   quantity?: number
-}
-
-/** PATCH /api/staff/bookings/{id} — booking-level fields. */
-export async function patchBooking(
-  bookingId: string,
-  patch: BookingPatch,
-): Promise<void> {
-  await api<unknown>('PATCH', `/api/staff/bookings/${bookingId}`, patch)
 }
 
 /** PATCH /api/staff/bookings/{id}/products/{lineId} — re-runs pricing. */
@@ -936,7 +892,7 @@ export async function markBookingAsNoShow(
 export function canMarkAsNoShow(row: BookingRow, today?: Date): boolean {
   if (stageCode(row) === 'no_show') return false
   if (row.current_semantic_state === 'cancelled') return false
-  const todayIso = (today ?? new Date()).toISOString().slice(0, 10)
+  const todayIso = toDateOnlyIso(today ?? new Date())
   for (const item of row.items) {
     if (item.date_range_start && item.date_range_start <= todayIso) {
       return true
@@ -1109,13 +1065,29 @@ export function canRefundPayment(p: BookingPaymentRow): boolean {
   return refundableRemainingOf(p) > 0
 }
 
-/** Numeric balance_due, falling back to gross_total when the column is
- *  missing (legacy fixtures / mocks). Returns null only when neither
- *  field parses as a finite number. */
+/** Numeric balance_due, falling back through the operator subtotal then
+ *  gross_total when the column is missing (legacy fixtures / mocks).
+ *
+ *  Fallback chain mirrors the server trigger (landr-39he):
+ *    balance_due ?? operator_gross_total ?? gross_total
+ *
+ *  For hotel-branch mixed bookings operator_gross_total is the
+ *  operator-collected slice; gross_total includes the hotel portion and
+ *  must NOT be used as the balance fallback. Legacy rows where
+ *  operator_gross_total is null/absent fall through safely to gross_total.
+ *
+ *  Returns null only when no field parses as a finite number. */
 export function balanceDueOf(row: BookingRow): number | null {
   const raw = row.balance_due
   if (raw != null) {
     const n = typeof raw === 'number' ? raw : Number(raw)
+    if (Number.isFinite(n)) return n
+  }
+  // landr-gqq0 — prefer operator_gross_total over gross_total so hotel-branch
+  // bookings don't overstate the balance due.
+  const opRaw = row.operator_gross_total
+  if (opRaw != null) {
+    const n = typeof opRaw === 'number' ? opRaw : Number(opRaw)
     if (Number.isFinite(n)) return n
   }
   const gross =

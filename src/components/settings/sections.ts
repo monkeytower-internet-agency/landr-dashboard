@@ -1,5 +1,6 @@
 import {
   BanknoteIcon,
+  BedIcon,
   BellIcon,
   BuildingIcon,
   CalendarClockIcon,
@@ -23,6 +24,7 @@ import {
   PaletteIcon,
   PlugIcon,
   SlidersHorizontalIcon,
+  SmartphoneIcon,
   SparklesIcon,
   TagIcon,
   TagsIcon,
@@ -164,6 +166,14 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     label: t.settingsHub.sections.pickupLocations,
     icon: MapPinIcon,
   },
+  // landr-cyoi — Hotels as a first-class settings entity (separate from
+  // generic pickup locations; required address/email/phone + maps link). Sits
+  // directly after Pickup locations because a hotel is also a pickup point.
+  {
+    to: '/settings/hotels',
+    label: t.settingsHub.sections.hotels,
+    icon: BedIcon,
+  },
   {
     to: '/settings/products',
     label: t.settingsHub.sections.products,
@@ -266,6 +276,14 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/webhooks',
     label: t.settingsHub.sections.webhooks,
     icon: WebhookIcon,
+  },
+  // landr-atwy — post-booking account-link prompt opt-in. Sits after Webhooks
+  // because both are per-operator "plumbing" toggles rather than primary
+  // domain-object config surfaces.
+  {
+    to: '/settings/account-link',
+    label: t.settingsHub.sections.accountLink,
+    icon: SmartphoneIcon,
   },
 ]
 

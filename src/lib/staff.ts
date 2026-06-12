@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { formatDate } from '@/lib/time-format'
 
 // Mirrors public.operator_memberships from
 // landr-api/supabase/migrations/20260511222454_operator_memberships.sql.
@@ -40,8 +41,6 @@ export const STAFF_ROLE_OPTIONS = [
   'finance',
   'readonly',
 ] as const
-
-export type StaffRoleOption = (typeof STAFF_ROLE_OPTIONS)[number]
 
 const STAFF_SELECT = `
   id,
@@ -188,15 +187,12 @@ export function parsePermissions(text: string): ParsePermissionsResult {
 
 // ---- Display helpers -------------------------------------------------------
 
-const dateFormatter = new Intl.DateTimeFormat('en-IE', {
-  dateStyle: 'medium',
-})
-
+/**
+ * Format an ISO date string as a medium-style date.
+ * Thin wrapper over `formatDate` from `@/lib/time-format` (landr-v9e4.4).
+ */
 export function staffDate(iso: string | null): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return dateFormatter.format(d)
+  return formatDate(iso)
 }
 
 export function staffEmailDisplay(row: StaffRow): string {
