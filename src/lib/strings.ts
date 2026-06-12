@@ -3337,15 +3337,24 @@ export const t = {
     empty: 'No outbound emails match the current filters.',
 
     filtersLabel: 'Filter by status',
+    typeFiltersLabel: 'Filter by type',
     clearFilters: 'Clear filters',
     fromLabel: 'From',
     toLabel: 'To',
 
     columnSubject: 'Subject',
     columnRecipient: 'Recipient',
+    columnType: 'Type',
     columnStatus: 'Status',
     columnSentAt: 'Sent at',
     columnCreatedAt: 'Queued at',
+
+    typeLabels: {
+      booking_confirmation: 'Confirmation',
+      booking_received: 'Booking received',
+      group_inquiry: 'Group inquiry',
+      account_link: 'Account link',
+    } as Record<string, string>,
 
     rowAriaLabel: (subject: string): string =>
       `Open email log entry: ${subject}`,
