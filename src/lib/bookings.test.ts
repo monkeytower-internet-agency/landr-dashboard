@@ -5,7 +5,7 @@
 // Bookings with NO dates at all are treated as NOT past so they remain
 // visible by default.
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   balanceDueOf,
@@ -13,11 +13,37 @@ import {
   effectiveGrossOf,
   hasPriceOverride,
   isPastBooking,
+  markBookingAsPaid,
+  matchingServiceEnd,
   priceDisplay,
+  refundPayment,
   toDateOnlyIso,
   type BookingProduct,
   type BookingRow,
 } from './bookings'
+
+// ---------------------------------------------------------------------------
+// Shared fetch + supabase stubs for the async-function tests below.
+// ---------------------------------------------------------------------------
+
+const { mock: libMock } = vi.hoisted(() => {
+  const supabase = {
+    auth: {
+      getSession: vi.fn(async () => ({
+        data: { session: { access_token: 'tok' } },
+      })),
+    },
+  }
+  return { mock: { supabase } }
+})
+
+vi.mock('@/lib/supabase', () => ({
+  supabase: libMock.supabase,
+  getSupabase: () => libMock.supabase,
+}))
+
+const fetchSpy = vi.fn()
+vi.stubGlobal('fetch', fetchSpy)
 
 function item(overrides: Partial<BookingProduct> = {}): BookingProduct {
   return {
@@ -54,6 +80,17 @@ function row(items: BookingProduct[]): BookingRow {
     participants: [],
   }
 }
+
+beforeEach(() => {
+  fetchSpy.mockReset()
+  libMock.supabase.auth.getSession.mockResolvedValue({
+    data: { session: { access_token: 'tok' } },
+  })
+})
+
+afterEach(() => {
+  vi.clearAllMocks()
+})
 
 // Anchor "now" so tests are deterministic regardless of machine clock.
 const NOW = new Date('2026-05-20T12:00:00.000Z')
@@ -369,5 +406,260 @@ describe('balanceDueOf (landr-gqq0)', () => {
   it('returns null when no field parses as finite number', () => {
     const r = baseRow({ gross_total: NaN, operator_gross_total: null })
     expect(balanceDueOf(r)).toBeNull()
+  })
+
+  // landr-v9e4.11 — additional coverage: gross_total string fallback and
+  // unparseable-string null return.
+  it('falls back to gross_total (string) when balance_due and operator_gross_total are both absent', () => {
+    const r = baseRow({ gross_total: '499.00' })
+    // operator_gross_total not set, balance_due not set — must land on gross_total
+    expect(balanceDueOf(r)).toBe(499)
+  })
+
+  it('returns null when gross_total is an unparseable string', () => {
+    const r = baseRow({ gross_total: 'N/A', operator_gross_total: null })
+    expect(balanceDueOf(r)).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// landr-v9e4.11 — matchingServiceEnd: single-day / multi-day / no-match
+// ---------------------------------------------------------------------------
+
+describe('matchingServiceEnd (landr-v9e4.11)', () => {
+  function rowWithItems(items: BookingProduct[]): BookingRow {
+    return {
+      id: 'b-1',
+      created_at: '2026-01-01T00:00:00.000Z',
+      current_semantic_state: 'confirmed',
+      current_stage: { code: 'confirmed' },
+      gross_total: 100,
+      currency: 'EUR',
+      customer: null,
+      items,
+    }
+  }
+
+  it('returns the date_range_end for a matching start (single-day item)', () => {
+    const r = rowWithItems([
+      {
+        id: 'i-1',
+        date_range_start: '2026-06-01',
+        date_range_end: '2026-06-01',
+        selected_days: null,
+        products: null,
+      },
+    ])
+    expect(matchingServiceEnd(r, '2026-06-01')).toBe('2026-06-01')
+  })
+
+  it('returns date_range_end for the correct item in a multi-item booking', () => {
+    const r = rowWithItems([
+      {
+        id: 'i-1',
+        date_range_start: '2026-06-01',
+        date_range_end: '2026-06-03',
+        selected_days: ['2026-06-01', '2026-06-02', '2026-06-03'],
+        products: null,
+      },
+      {
+        id: 'i-2',
+        date_range_start: '2026-07-01',
+        date_range_end: '2026-07-05',
+        selected_days: null,
+        products: null,
+      },
+    ])
+    // Querying for i-1's start returns i-1's end, not i-2's.
+    expect(matchingServiceEnd(r, '2026-06-01')).toBe('2026-06-03')
+    expect(matchingServiceEnd(r, '2026-07-01')).toBe('2026-07-05')
+  })
+
+  it('returns null for a start that does not match any item', () => {
+    const r = rowWithItems([
+      {
+        id: 'i-1',
+        date_range_start: '2026-06-01',
+        date_range_end: '2026-06-01',
+        selected_days: null,
+        products: null,
+      },
+    ])
+    expect(matchingServiceEnd(r, '2026-09-15')).toBeNull()
+  })
+
+  it('returns null when item date_range_end is null (open-ended or selected_days only)', () => {
+    const r = rowWithItems([
+      {
+        id: 'i-1',
+        date_range_start: '2026-06-01',
+        date_range_end: null,
+        selected_days: ['2026-06-01', '2026-06-08', '2026-06-15'],
+        products: null,
+      },
+    ])
+    expect(matchingServiceEnd(r, '2026-06-01')).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// landr-v9e4.11 — markBookingAsPaid request-body shaping
+//   Empty/null amount and note must be OMITTED from the payload; non-empty
+//   values must be included.
+// ---------------------------------------------------------------------------
+
+describe('markBookingAsPaid request-body shaping (landr-v9e4.11)', () => {
+  const OP = 'op-1'
+  const BID = 'b-1'
+
+  const successResponse = () =>
+    new Response(
+      JSON.stringify({
+        booking_id: BID,
+        payment_id: 'pay-1',
+        amount: '300.00',
+        currency: 'EUR',
+        method: 'cash',
+        provider: 'manual_cash',
+        previous_stage_code: 'awaiting_payment',
+        new_stage_code: 'paid_pending_cutoff',
+        new_semantic_state: 'confirmed',
+        advanced_to_confirmed: true,
+      }),
+      { status: 200 },
+    )
+
+  it('includes amount and note when both are provided', async () => {
+    fetchSpy.mockResolvedValueOnce(successResponse())
+    await markBookingAsPaid(OP, BID, { method: 'cash', amount: '300.00', note: 'ref-42' })
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(opts.body as string)
+    expect(body).toEqual({ method: 'cash', amount: '300.00', note: 'ref-42' })
+  })
+
+  it('omits amount from payload when it is null', async () => {
+    fetchSpy.mockResolvedValueOnce(successResponse())
+    await markBookingAsPaid(OP, BID, { method: 'bank_transfer', amount: null })
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(opts.body as string)
+    expect(body).toEqual({ method: 'bank_transfer' })
+    expect(body).not.toHaveProperty('amount')
+  })
+
+  it('omits amount from payload when it is an empty string', async () => {
+    fetchSpy.mockResolvedValueOnce(successResponse())
+    await markBookingAsPaid(OP, BID, { method: 'cash', amount: '' })
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(opts.body as string)
+    expect(body).not.toHaveProperty('amount')
+  })
+
+  it('omits note from payload when it is null', async () => {
+    fetchSpy.mockResolvedValueOnce(successResponse())
+    await markBookingAsPaid(OP, BID, { method: 'cash', amount: '150.00', note: null })
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(opts.body as string)
+    expect(body).toHaveProperty('amount', '150.00')
+    expect(body).not.toHaveProperty('note')
+  })
+
+  it('omits note from payload when it is an empty string', async () => {
+    fetchSpy.mockResolvedValueOnce(successResponse())
+    await markBookingAsPaid(OP, BID, { method: 'cash', note: '' })
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(opts.body as string)
+    expect(body).not.toHaveProperty('note')
+  })
+
+  it('posts to the operator-scoped mark-paid endpoint', async () => {
+    fetchSpy.mockResolvedValueOnce(successResponse())
+    await markBookingAsPaid(OP, BID, { method: 'cash' })
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain(`/api/staff/operators/${OP}/bookings/${BID}/mark-paid`)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// landr-v9e4.11 — refundPayment request-body shaping
+//   Empty/null amount and reason must be OMITTED; non-empty values included.
+// ---------------------------------------------------------------------------
+
+describe('refundPayment request-body shaping (landr-v9e4.11)', () => {
+  const OP = 'op-1'
+  const BID = 'b-1'
+  const PID = 'pay-1'
+
+  const successResponse = () =>
+    new Response(
+      JSON.stringify({
+        booking_id: BID,
+        payment_id: PID,
+        refund_id: 'ref-1',
+        refund_amount: '50.00',
+        currency: 'EUR',
+        refundable_remaining_after: '250.00',
+        payment_status_after: 'partially_refunded',
+        booking_balance_due_after: '250.00',
+        reason: null,
+      }),
+      { status: 200 },
+    )
+
+  it('sends amount and reason when both are provided', async () => {
+    fetchSpy.mockResolvedValueOnce(successResponse())
+    await refundPayment(OP, BID, PID, { amount: '50.00', reason: 'customer request' })
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(opts.body as string)
+    expect(body).toEqual({ amount: '50.00', reason: 'customer request' })
+  })
+
+  it('omits amount from payload when it is null', async () => {
+    fetchSpy.mockResolvedValueOnce(successResponse())
+    await refundPayment(OP, BID, PID, { amount: null })
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(opts.body as string)
+    expect(body).not.toHaveProperty('amount')
+  })
+
+  it('omits amount from payload when it is an empty string', async () => {
+    fetchSpy.mockResolvedValueOnce(successResponse())
+    await refundPayment(OP, BID, PID, { amount: '' })
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(opts.body as string)
+    expect(body).not.toHaveProperty('amount')
+  })
+
+  it('omits reason from payload when it is null', async () => {
+    fetchSpy.mockResolvedValueOnce(successResponse())
+    await refundPayment(OP, BID, PID, { amount: '50.00', reason: null })
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(opts.body as string)
+    expect(body).toHaveProperty('amount', '50.00')
+    expect(body).not.toHaveProperty('reason')
+  })
+
+  it('omits reason from payload when it is an empty string', async () => {
+    fetchSpy.mockResolvedValueOnce(successResponse())
+    await refundPayment(OP, BID, PID, { reason: '' })
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(opts.body as string)
+    expect(body).not.toHaveProperty('reason')
+  })
+
+  it('sends an empty object body when neither amount nor reason is provided', async () => {
+    fetchSpy.mockResolvedValueOnce(successResponse())
+    await refundPayment(OP, BID, PID, {})
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(opts.body as string)
+    expect(body).toEqual({})
+  })
+
+  it('posts to the operator-scoped payment refund endpoint', async () => {
+    fetchSpy.mockResolvedValueOnce(successResponse())
+    await refundPayment(OP, BID, PID, {})
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain(
+      `/api/staff/operators/${OP}/bookings/${BID}/payments/${PID}/refund`,
+    )
   })
 })
