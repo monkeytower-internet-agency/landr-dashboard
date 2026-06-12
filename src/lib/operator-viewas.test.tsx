@@ -24,7 +24,12 @@ const { mock } = vi.hoisted(() => {
       operator_id: string
       operators: { id: string; slug: string; name: string | null }
     }>,
-    allOperators: [] as Array<{ id: string; slug: string; name: string | null }>,
+    allOperators: [] as Array<{
+      id: string
+      slug: string
+      name: string | null
+      onboarded_at: string | null
+    }>,
   }
   const supabase = {
     from: vi.fn((table: string) => {
@@ -109,9 +114,12 @@ beforeEach(() => {
   mock.state.membershipRows = [
     { operator_id: 'op-para', operators: { id: 'op-para', slug: 'para42', name: 'Para42' } },
   ]
+  // landr-y7lw — both seeded operators are onboarded so the existing view-as
+  // assertions (staff-count === 2, enter view-as on op-martin) still hold; the
+  // onboarded-filter behaviour gets its own describe block below.
   mock.state.allOperators = [
-    { id: 'op-para', slug: 'para42', name: 'Para42' },
-    { id: 'op-martin', slug: 'martin-co', name: 'Martin Co' },
+    { id: 'op-para', slug: 'para42', name: 'Para42', onboarded_at: '2026-01-01T00:00:00Z' },
+    { id: 'op-martin', slug: 'martin-co', name: 'Martin Co', onboarded_at: '2026-02-02T00:00:00Z' },
   ]
 })
 
@@ -188,6 +196,57 @@ describe('OperatorProvider — view-as (landr-2soj)', () => {
       expect(screen.getByTestId('staff-count').textContent).toBe('2'),
     )
     // Stale id resolves to inactive; own scope shows.
+    expect(screen.getByTestId('active').textContent).toBe('false')
+    expect(screen.getByTestId('current').textContent).toBe('op-para')
+  })
+})
+
+describe('OperatorProvider — view-as onboarded filter (landr-y7lw)', () => {
+  it('excludes operators with a null onboarded_at and includes onboarded ones', async () => {
+    // op-ghost never finished onboarding (onboarded_at null) — it must NOT
+    // appear in the staff picker list, while the two onboarded operators do.
+    mock.state.allOperators = [
+      { id: 'op-para', slug: 'para42', name: 'Para42', onboarded_at: '2026-01-01T00:00:00Z' },
+      { id: 'op-martin', slug: 'martin-co', name: 'Martin Co', onboarded_at: '2026-02-02T00:00:00Z' },
+      { id: 'op-ghost', slug: 'ghost', name: 'Ghost', onboarded_at: null },
+    ]
+    renderProvider()
+    // Three rows fetched, but only the two onboarded ones survive the filter.
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-count').textContent).toBe('2'),
+    )
+  })
+
+  it('refuses enterViewAs for an un-onboarded operator (filtered out of the list)', async () => {
+    const user = userEvent.setup()
+    mock.state.allOperators = [
+      { id: 'op-para', slug: 'para42', name: 'Para42', onboarded_at: '2026-01-01T00:00:00Z' },
+      // op-ghost is the target of the Probe's "view-ghost" button.
+      { id: 'op-ghost', slug: 'ghost', name: 'Ghost', onboarded_at: null },
+    ]
+    renderProvider()
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-count').textContent).toBe('1'),
+    )
+    // Selecting the un-onboarded operator is a no-op: it isn't in the list.
+    await user.click(screen.getByText('view-ghost'))
+    expect(screen.getByTestId('active').textContent).toBe('false')
+    expect(screen.getByTestId('current').textContent).toBe('op-para')
+    expect(window.localStorage.getItem(VIEW_AS_KEY)).toBeNull()
+  })
+
+  it('does NOT honour a persisted view-as id pointing at an un-onboarded operator', async () => {
+    // A stale view-as id that maps to an operator which exists but never
+    // onboarded must resolve inactive (it's filtered out of staffOperators).
+    window.localStorage.setItem(VIEW_AS_KEY, 'op-ghost')
+    mock.state.allOperators = [
+      { id: 'op-para', slug: 'para42', name: 'Para42', onboarded_at: '2026-01-01T00:00:00Z' },
+      { id: 'op-ghost', slug: 'ghost', name: 'Ghost', onboarded_at: null },
+    ]
+    renderProvider()
+    await waitFor(() =>
+      expect(screen.getByTestId('staff-count').textContent).toBe('1'),
+    )
     expect(screen.getByTestId('active').textContent).toBe('false')
     expect(screen.getByTestId('current').textContent).toBe('op-para')
   })
