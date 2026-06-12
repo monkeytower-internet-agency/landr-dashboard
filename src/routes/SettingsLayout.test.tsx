@@ -153,7 +153,7 @@ import { EmailTemplates } from './EmailTemplates'
 import { PickupLocations } from './PickupLocations'
 
 // landr-gka7 — index redirect now resolves via landingPathFor('settings')
-// in App.tsx, not a hard-coded /settings/company. We mirror that here so
+// in App.tsx, not a hard-coded /account/company. We mirror that here so
 // the routing test exercises the same redirect target as the real app.
 import { landingPathFor } from '@/components/settings/sections'
 
@@ -162,12 +162,27 @@ function renderSettingsTree(initialPath: string) {
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route element={<Outlet />}>
+          <Route path="/account" element={<SettingsLayout />}>
+            <Route
+              index
+              element={<Navigate to={landingPathFor('account')} replace />}
+            />
+            <Route path="company" element={<CompanySettings />} />
+            <Route
+              path="connected-accounts"
+              element={<ConnectedAccountsSettings />}
+            />
+            <Route
+              path="integrations/gmail"
+              element={<IntegrationsGmailSettings />}
+            />
+            <Route path="plan" element={<PlanSettings />} />
+          </Route>
           <Route path="/settings" element={<SettingsLayout />}>
             <Route
               index
               element={<Navigate to={landingPathFor('settings')} replace />}
             />
-            <Route path="company" element={<CompanySettings />} />
             <Route path="calendar-display" element={<CalendarDisplaySettings />} />
             <Route
               path="display-preferences"
@@ -184,15 +199,6 @@ function renderSettingsTree(initialPath: string) {
               element={<div data-testid="schedule-placeholder" />}
             />
             <Route path="email-templates" element={<EmailTemplates />} />
-            <Route
-              path="integrations/gmail"
-              element={<IntegrationsGmailSettings />}
-            />
-            <Route
-              path="connected-accounts"
-              element={<ConnectedAccountsSettings />}
-            />
-            <Route path="plan" element={<PlanSettings />} />
           </Route>
           <Route
             path="/staff"
@@ -234,7 +240,7 @@ afterEach(() => {
 describe('SettingsLayout', () => {
   // landr-gka7 — /settings index redirect now resolves to
   // landingPathFor('settings'), i.e. SETTINGS_SECTIONS[0].to
-  // (calendar-display today). The previous hard-coded /settings/company
+  // (calendar-display today). The previous hard-coded /account/company
   // landed users on an ACCOUNT section, which is precisely the bug that
   // ticket fixed — clicking the Settings gear briefly rendered the
   // Account sub-sidebar before re-navigating. We assert on the Settings
@@ -250,17 +256,19 @@ describe('SettingsLayout', () => {
   })
 
   it('renders the Account sub-sidebar when on an account URL (landr-fzcg)', () => {
-    renderSettingsTree('/settings/company')
-    // /settings/company belongs to the Account group, so the sub-sidebar
-    // renders ACCOUNT_SECTIONS (Company, Connected accounts, Gmail,
+    renderSettingsTree('/account/company')
+    // /account/company belongs to the Account group, so the sub-sidebar
+    // renders ACCOUNT_SECTIONS (Company, Connected accounts, Security, Gmail,
     // Calendar feed, Payments & invoicing, Plan, Notifications).
     // landr-6ybs added Calendar feed; landr-wwhn.16 added Notifications;
-    // landr-1nwu.2 added Payments & invoicing.
+    // landr-1nwu.2 added Payments & invoicing; landr added Security
+    // (change password).
     const nav = screen.getByRole('navigation', { name: /account sections/i })
     const links = nav.querySelectorAll('a')
-    expect(links).toHaveLength(7)
+    expect(links).toHaveLength(8)
     expect(nav).toHaveTextContent(/company/i)
     expect(nav).toHaveTextContent(/connected accounts/i)
+    expect(nav).toHaveTextContent(/security/i)
     expect(nav).toHaveTextContent(/gmail/i)
     expect(nav).toHaveTextContent(/calendar feed/i)
     expect(nav).toHaveTextContent(/payments & invoicing/i)
@@ -287,16 +295,23 @@ describe('SettingsLayout', () => {
     // landr-up1b — Categories + Embed joined Settings → 20 sections.
     // landr-znzz.5 — Upsells & offers joined Settings → 21 sections.
     // landr-znzz.7 — Weather forecast hint joined Settings → 22 sections.
+    // landr-jb1k — Booking widget configurator joined Settings → 23 sections.
+    // landr-cyoi — Hotels (first-class accommodation entity) joined Settings
+    // after Pickup locations → 24 sections.
+    // landr-atwy — Account link prompt opt-in joined Settings → 25 sections.
     const nav = screen.getByRole('navigation', { name: /settings sections/i })
     const links = nav.querySelectorAll('a')
-    expect(links).toHaveLength(22)
+    expect(links).toHaveLength(25)
     expect(nav).toHaveTextContent(/calendar & display/i)
     expect(nav).toHaveTextContent(/display preferences/i)
-    expect(nav).toHaveTextContent(/branding/i)
+    // landr-ylvp — section renamed Branding → Brand.
+    expect(nav).toHaveTextContent(/brand/i)
+    expect(nav).toHaveTextContent(/booking widget/i)
     expect(nav).toHaveTextContent(/weather/i)
     expect(nav).toHaveTextContent(/team/i)
     expect(nav).toHaveTextContent(/providers/i)
     expect(nav).toHaveTextContent(/pickup locations/i)
+    expect(nav).toHaveTextContent(/hotels/i)
     expect(nav).toHaveTextContent(/products/i)
     expect(nav).toHaveTextContent(/categories/i)
     expect(nav).toHaveTextContent(/embed/i)
@@ -363,7 +378,7 @@ describe('SettingsLayout', () => {
   })
 
   it('renders the Plan subsection placeholder when no package is embedded', async () => {
-    renderSettingsTree('/settings/plan')
+    renderSettingsTree('/account/plan')
     expect(
       await screen.findByText(/no plan information available/i),
     ).toBeInTheDocument()
@@ -376,7 +391,11 @@ describe('SettingsLayout', () => {
       name: /settings sections/i,
     })
     const teamLink = within(nav).getByRole('link', { name: /team/i })
-    expect(teamLink).toHaveClass(/text-foreground/)
+    // landr-ar44 — the active settings-nav link is now a filled primary
+    // pill (bg-primary + text-primary-foreground). `font-medium` is the
+    // active-only marker (inactive rows are normal weight), so it's the
+    // stable proxy for "this section is active".
+    expect(teamLink).toHaveClass(/font-medium/)
   })
 
   it('redirects /pickup-locations to /settings/pickup-locations', async () => {
@@ -385,7 +404,9 @@ describe('SettingsLayout', () => {
       name: /settings sections/i,
     })
     const link = within(nav).getByRole('link', { name: /pickup locations/i })
-    expect(link).toHaveClass(/text-foreground/)
+    // landr-ar44 — active link = filled primary pill; assert the
+    // active-only `font-medium` marker (see /staff test).
+    expect(link).toHaveClass(/font-medium/)
   })
 
   it('redirects /email-templates to /settings/email-templates', async () => {
@@ -394,7 +415,9 @@ describe('SettingsLayout', () => {
       name: /settings sections/i,
     })
     const link = within(nav).getByRole('link', { name: /email templates/i })
-    expect(link).toHaveClass(/text-foreground/)
+    // landr-ar44 — active link = filled primary pill; assert the
+    // active-only `font-medium` marker (see /staff test).
+    expect(link).toHaveClass(/font-medium/)
   })
 
   // landr-e8jf — Schedule now lives at /settings/schedule. Pin both the
@@ -408,6 +431,30 @@ describe('SettingsLayout', () => {
       name: /settings sections/i,
     })
     const link = within(nav).getByRole('link', { name: /schedule/i })
-    expect(link).toHaveClass(/text-foreground/)
+    // landr-ar44 — active link = filled primary pill; assert the
+    // active-only `font-medium` marker (see /staff test).
+    expect(link).toHaveClass(/font-medium/)
+  })
+
+  // landr-3qkr.4 — Mobile nav smoke: the sub-sidebar renders a scrollable
+  // chip strip on mobile. The nav element must always be in the document
+  // and all section links must be reachable (even if visually off-screen
+  // in a scroll container). This test pins that the nav is present and
+  // queryable regardless of viewport width — the overflow-x-auto class
+  // is a CSS concern, so we just assert presence + link count stability.
+  it('renders mobile-nav: sub-sidebar links remain accessible in scrollable strip (landr-3qkr.4)', () => {
+    renderSettingsTree('/settings/team')
+    const nav = screen.getByRole('navigation', { name: /settings sections/i })
+    // All 25 links must be in the DOM (the chip strip doesn't clip DOM nodes,
+    // only overflows visually). If the count grows in future, extend the
+    // existing "renders the Settings sub-sidebar" test comment chain first.
+    // landr-cyoi — Hotels joined Settings → 24 links.
+    // landr-atwy — Account link prompt joined Settings → 25 links.
+    expect(nav.querySelectorAll('a')).toHaveLength(25)
+    // The <ul> must have the overflow-x-auto class (applied on mobile, stripped
+    // on md+). We assert the class is present in the rendered markup so a
+    // future refactor of the chip-strip doesn't silently remove mobile scroll.
+    const ul = nav.querySelector('ul')
+    expect(ul).toHaveClass('overflow-x-auto')
   })
 })

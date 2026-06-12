@@ -23,7 +23,14 @@ import {
   type BookingRow,
   type BookingSemanticState,
 } from '@/lib/bookings'
+import type { DayRosterEntry } from '@/lib/day-roster'
+import {
+  DayCellRoster,
+  DayRosterPanel,
+  formatRosterDate,
+} from '@/components/shared/DayRosterComponents'
 import { fetchAvailability, type AvailabilityRow } from '@/lib/availability'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { t } from '@/lib/strings'
 import { cn } from '@/lib/utils'
 
@@ -87,6 +94,12 @@ type Props = {
   // daily-ops calendar).
   operatorId?: string | null
   activeProductId?: string | null
+  // landr-sr69 — flying roster keyed by ISO 'YYYY-MM-DD'. Each day's entries
+  // are the flying participants (companions excluded) of every booking that
+  // flies that day. When present, the month grid renders a compact roster in
+  // each day cell and clicking a day opens the full roster panel. Omit (or
+  // pass an empty map) to keep the legacy plain calendar.
+  rosterByDay?: Map<string, DayRosterEntry[]>
 }
 
 // landr-3uai — pill state derived from reserved/capacity sums for the day.
@@ -146,9 +159,19 @@ export function BookingsCalendar({
   firstDayOfWeek = 1,
   operatorId,
   activeProductId,
+  rosterByDay,
 }: Props) {
   const calendarRef = useRef<FullCalendar | null>(null)
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
+  // landr-3qkr.5 — on phones the month grid is unusable; default to agenda
+  // list mode when the viewport is <md. The toggle lets users switch back.
+  // Initialised to `true` on mobile; `false` on desktop. We use a lazy
+  // initial state so the hook value (which starts `false` on first paint) is
+  // read only once — switching from desktop to phone mid-session is not a
+  // supported scenario so the stale initial value on frame 1 is acceptable.
+  const [agendaMode, setAgendaMode] = useState(() => isMobile)
+
   const isControlled = controlledView !== undefined
   const [uncontrolledView, setUncontrolledView] = useState<CalendarView>(
     controlledView ?? initialView,
@@ -230,6 +253,46 @@ export function BookingsCalendar({
     for (const e of calendarEvents) map.set(e.id, e)
     return map
   }, [calendarEvents])
+
+  // landr-sr69 — bookingId → BookingRow so the roster panel can open the
+  // existing BookingDetailSheet flow via onEventClick(row).
+  const rowById = useMemo(() => {
+    const map = new Map<string, BookingRow>()
+    for (const r of rows) map.set(r.id, r)
+    return map
+  }, [rows])
+
+  // landr-sr69 — the day whose roster panel is open (ISO 'YYYY-MM-DD'), or
+  // null when closed. Only meaningful when a roster is supplied.
+  const rosterEnabled = !!rosterByDay && rosterByDay.size > 0
+  const [openRosterDay, setOpenRosterDay] = useState<string | null>(null)
+  const openRosterEntries =
+    openRosterDay && rosterByDay ? (rosterByDay.get(openRosterDay) ?? []) : []
+
+  // landr-sr69 — booking_id → distinct flying participant names, derived from
+  // the day roster. The agenda (mobile) lists these under each booking entry.
+  const participantsByBooking = useMemo(() => {
+    const map = new Map<string, string[]>()
+    if (!rosterByDay) return map
+    const seen = new Map<string, Set<string>>()
+    for (const entries of rosterByDay.values()) {
+      for (const e of entries) {
+        let names = map.get(e.bookingId)
+        let nameSet = seen.get(e.bookingId)
+        if (!names) {
+          names = []
+          map.set(e.bookingId, names)
+          nameSet = new Set()
+          seen.set(e.bookingId, nameSet)
+        }
+        if (!nameSet!.has(e.participantName)) {
+          nameSet!.add(e.participantName)
+          names.push(e.participantName)
+        }
+      }
+    }
+    return map
+  }, [rosterByDay])
 
   const fcEvents = useMemo<EventInput[]>(
     () =>
@@ -336,15 +399,16 @@ export function BookingsCalendar({
     )
   }
 
-  // landr-3uai — render a small capacity pill in each day cell's corner.
-  // The pill only appears in dayGrid* views (month grid) where day cells
-  // have room for the badge; timeGrid* slot views are pill-free. When no
-  // product filter is active, this returns FullCalendar's default content
-  // so the daily-ops calendar stays clean.
+  // landr-3uai / landr-sr69 — custom day-cell content. Renders (a) the
+  // capacity pill in the corner when a single-product filter is active, and
+  // (b) the flying roster (first names + '+N more') below the day number when
+  // a roster is supplied. When neither is active, returns FullCalendar's
+  // default content so the plain calendar stays clean.
   function renderDayCellContent(arg: DayCellContentArg) {
-    if (!availabilityEnabled) return undefined
+    if (!availabilityEnabled && !rosterEnabled) return undefined
     const iso = toLocalIso(arg.date)
-    const summary = capacityByDate.get(iso)
+    const summary = availabilityEnabled ? capacityByDate.get(iso) : undefined
+    const roster = rosterByDay?.get(iso) ?? []
     return (
       <div className="relative flex h-full w-full flex-col p-1">
         <div className="text-xs font-medium">{arg.dayNumberText}</div>
@@ -377,6 +441,14 @@ export function BookingsCalendar({
             {summary.reserved}/{summary.capacity}
           </button>
         ) : null}
+        {roster.length > 0 ? (
+          <DayCellRoster
+            iso={iso}
+            dayNumberText={arg.dayNumberText}
+            entries={roster}
+            onOpen={() => setOpenRosterDay(iso)}
+          />
+        ) : null}
       </div>
     )
   }
@@ -402,27 +474,63 @@ export function BookingsCalendar({
 
   return (
     <div className="flex flex-col gap-3">
-      <Tabs
-        value={view}
-        onValueChange={(next) => handleViewChange(next as CalendarView)}
-      >
-        <TabsList
-          className="flex items-center justify-end gap-1 border-0 bg-transparent p-0"
-        >
-          {(Object.keys(VIEW_LABEL) as CalendarView[]).map((v) => (
-            <TabsTrigger key={v} value={v} asChild>
-              <Button
-                type="button"
-                size="sm"
-                variant={view === v ? 'default' : 'outline'}
-              >
-                {VIEW_LABEL[v]}
-              </Button>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-      {showOffHoursToggle ? (
+      {/* Toolbar row: view-mode tabs on the left + agenda toggle on the right. */}
+      {/* landr-3qkr.6 — flex-wrap so that if a phone user switches to grid
+          mode the grid/list toggle + the Month/Week/Day view tabs wrap to a
+          second line instead of being clipped by the page overflow-x-guard.
+          Desktop is unchanged (wraps only when the row can't fit). */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* Grid/List toggle — shown always so users can switch on any screen.
+            On mobile it defaults to List; on desktop it defaults to Grid. */}
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant={!agendaMode ? 'default' : 'outline'}
+            onClick={() => setAgendaMode(false)}
+            data-testid="calendar-grid-toggle"
+            aria-pressed={!agendaMode}
+          >
+            {t.calendar.agendaToggleToGrid}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={agendaMode ? 'default' : 'outline'}
+            onClick={() => setAgendaMode(true)}
+            data-testid="calendar-agenda-toggle"
+            aria-pressed={agendaMode}
+          >
+            {t.calendar.agendaToggleToList}
+          </Button>
+        </div>
+
+        {/* Grid-view tab switcher — only when showing the calendar grid. */}
+        {!agendaMode ? (
+          <Tabs
+            value={view}
+            onValueChange={(next) => handleViewChange(next as CalendarView)}
+          >
+            <TabsList
+              className="flex items-center gap-1 border-0 bg-transparent p-0"
+            >
+              {(Object.keys(VIEW_LABEL) as CalendarView[]).map((v) => (
+                <TabsTrigger key={v} value={v} asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={view === v ? 'default' : 'outline'}
+                  >
+                    {VIEW_LABEL[v]}
+                  </Button>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        ) : null}
+      </div>
+
+      {!agendaMode && showOffHoursToggle ? (
         <div className="flex items-center justify-end">
           <Button
             type="button"
@@ -438,38 +546,270 @@ export function BookingsCalendar({
           </Button>
         </div>
       ) : null}
-      {/* landr-gu14 — tighter padding on phone so the FullCalendar grid
-          has more width to render day cells; desktop keeps the original
-          p-3 breathing room. */}
-      <div className="landr-fc rounded-md border p-1 sm:p-3">
-        <FullCalendar
-          ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView={isControlled ? controlledView : initialView}
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: '',
-          }}
-          height="auto"
-          firstDay={firstDayOfWeek}
-          weekNumbers={false}
-          editable={!!onReschedule}
-          eventStartEditable
-          eventDurationEditable={false}
-          events={fcEvents}
-          eventClick={handleEventClick}
-          eventDrop={handleEventDrop}
-          eventContent={renderEventContent}
-          datesSet={handleDatesSet}
-          dayCellContent={renderDayCellContent}
-          nowIndicator
-          slotMinTime={slotMinTime}
-          slotMaxTime={slotMaxTime}
-          slotLabelFormat={slotLabelFormat}
-          eventTimeFormat={eventTimeFormat}
+
+      {agendaMode ? (
+        // landr-3qkr.5 — agenda list: chronological, day-grouped. Same tap
+        // behaviour as the grid (calls onEventClick for the matching row).
+        <AgendaList
+          events={calendarEvents}
+          participantsByBooking={participantsByBooking}
+          onEventClick={onEventClick}
+          onCustomerClick={onCustomerClick}
         />
+      ) : (
+        /* landr-gu14 — tighter padding on phone so the FullCalendar grid
+           has more width to render day cells; desktop keeps the original
+           p-3 breathing room. */
+        <div className="landr-fc rounded-md border p-1 sm:p-3">
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView={isControlled ? controlledView : initialView}
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: '',
+            }}
+            height="auto"
+            firstDay={firstDayOfWeek}
+            weekNumbers={false}
+            editable={!!onReschedule}
+            eventStartEditable
+            eventDurationEditable={false}
+            events={fcEvents}
+            eventClick={handleEventClick}
+            eventDrop={handleEventDrop}
+            eventContent={renderEventContent}
+            datesSet={handleDatesSet}
+            dayCellContent={renderDayCellContent}
+            nowIndicator
+            slotMinTime={slotMinTime}
+            slotMaxTime={slotMaxTime}
+            slotLabelFormat={slotLabelFormat}
+            eventTimeFormat={eventTimeFormat}
+          />
+        </div>
+      )}
+
+      {/* landr-sr69 — day roster panel. Opened by clicking a day-cell roster
+          summary in the month grid. Names grouped by booking; each booking
+          ref links into the existing BookingDetailSheet flow via
+          onEventClick(row). A Dialog (not an in-cell popover) sidesteps
+          FullCalendar's day-cell overflow clipping and works on mobile. */}
+      <DayRosterPanel
+        iso={openRosterDay}
+        entries={openRosterEntries}
+        onClose={() => setOpenRosterDay(null)}
+        onOpenBooking={(bookingId) => {
+          const row = rowById.get(bookingId)
+          if (row && onEventClick) {
+            setOpenRosterDay(null)
+            onEventClick(row)
+          }
+        }}
+      />
+    </div>
+  )
+}
+
+// DayCellRoster and DayRosterPanel are imported from
+// @/components/shared/DayRosterComponents (shared with CalendarLayout
+// daily-roster mode via landr-21x1 extraction).
+
+// ---------------------------------------------------------------------------
+// landr-3qkr.5 — AgendaList: chronological, day-grouped list of bookings.
+//
+// Groups events by their start date (ISO YYYY-MM-DD) and renders each group
+// as a labelled section. Tapping a row calls onEventClick with the raw
+// BookingRow — identical to the calendar grid's click behaviour so the
+// parent's detail sheet flow is unchanged.
+
+// landr-21x1 — date formatting delegated to the shared formatRosterDate
+// (same locale/format; avoids two Intl.DateTimeFormat instances).
+
+type AgendaListProps = {
+  events: BookingCalendarEvent[]
+  // landr-sr69 — booking_id → flying participant names. Listed under each
+  // booking entry so the mobile agenda shows the full per-day roster.
+  participantsByBooking?: Map<string, string[]>
+  onEventClick?: (row: BookingRow) => void
+  onCustomerClick?: (contactId: string) => void
+}
+
+function AgendaList({
+  events,
+  participantsByBooking,
+  onEventClick,
+  onCustomerClick,
+}: AgendaListProps) {
+  // Group by start date (YYYY-MM-DD), sorted chronologically.
+  const groups = useMemo(() => {
+    const map = new Map<string, BookingCalendarEvent[]>()
+    const noDate: BookingCalendarEvent[] = []
+    for (const ev of events) {
+      const dateKey = ev.start ? ev.start.slice(0, 10) : null
+      if (!dateKey) {
+        noDate.push(ev)
+        continue
+      }
+      const existing = map.get(dateKey)
+      if (existing) {
+        existing.push(ev)
+      } else {
+        map.set(dateKey, [ev])
+      }
+    }
+    const sorted = Array.from(map.entries()).sort(([a], [b]) =>
+      a < b ? -1 : a > b ? 1 : 0,
+    )
+    return { sorted, noDate }
+  }, [events])
+
+  if (groups.sorted.length === 0 && groups.noDate.length === 0) {
+    return (
+      <p
+        className="text-muted-foreground py-8 text-center text-sm"
+        data-testid="calendar-agenda-empty"
+      >
+        {t.calendar.agendaEmpty}
+      </p>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-1" data-testid="calendar-agenda-list">
+      {groups.sorted.map(([dateKey, dayEvents]) => (
+        <AgendaDay
+          key={dateKey}
+          dateKey={dateKey}
+          events={dayEvents}
+          participantsByBooking={participantsByBooking}
+          onEventClick={onEventClick}
+          onCustomerClick={onCustomerClick}
+        />
+      ))}
+      {groups.noDate.length > 0 ? (
+        <AgendaDay
+          key="__no-date__"
+          dateKey={null}
+          events={groups.noDate}
+          participantsByBooking={participantsByBooking}
+          onEventClick={onEventClick}
+          onCustomerClick={onCustomerClick}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+type AgendaDayProps = {
+  dateKey: string | null
+  events: BookingCalendarEvent[]
+  participantsByBooking?: Map<string, string[]>
+  onEventClick?: (row: BookingRow) => void
+  onCustomerClick?: (contactId: string) => void
+}
+
+function AgendaDay({
+  dateKey,
+  events,
+  participantsByBooking,
+  onEventClick,
+  onCustomerClick,
+}: AgendaDayProps) {
+  const dateLabel = dateKey ? formatRosterDate(dateKey) : t.calendar.agendaNoDate
+  return (
+    <div data-testid={`agenda-day-${dateKey ?? 'no-date'}`}>
+      <div className="bg-muted/40 border-t px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+        {dateLabel}
+      </div>
+      <div className="divide-y">
+        {events.map((ev) => (
+          <AgendaRow
+            key={ev.id}
+            event={ev}
+            participantNames={participantsByBooking?.get(ev.id) ?? []}
+            onEventClick={onEventClick}
+            onCustomerClick={onCustomerClick}
+          />
+        ))}
       </div>
     </div>
+  )
+}
+
+type AgendaRowProps = {
+  event: BookingCalendarEvent
+  // landr-sr69 — flying participants on this booking, listed under the row.
+  participantNames: string[]
+  onEventClick?: (row: BookingRow) => void
+  onCustomerClick?: (contactId: string) => void
+}
+
+function AgendaRow({
+  event,
+  participantNames,
+  onEventClick,
+  onCustomerClick,
+}: AgendaRowProps) {
+  const state = event.state
+  const cls = STATE_CLASS[state]
+  const contactId = event.raw.customer?.id ?? null
+
+  return (
+    <button
+      type="button"
+      data-testid="agenda-row"
+      data-state={state}
+      data-booking-id={event.id}
+      onClick={() => onEventClick?.(event.raw)}
+      className={cn(
+        'flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/20 min-h-[44px]',
+      )}
+    >
+      {/* State colour strip */}
+      <span
+        className={cn(
+          'mt-0.5 h-full w-1 shrink-0 rounded-full border',
+          cls,
+        )}
+        aria-hidden="true"
+      />
+      <div className="min-w-0 flex-1">
+        {contactId && event.customerName && onCustomerClick ? (
+          <CustomerNameLink
+            contactId={contactId}
+            display={event.customerName}
+            onClick={onCustomerClick}
+            className="truncate font-medium text-sm"
+          />
+        ) : (
+          <span className="truncate font-medium text-sm block">
+            {event.title}
+          </span>
+        )}
+        {event.productName ? (
+          <span className="truncate text-xs text-muted-foreground block">
+            {event.productName}
+          </span>
+        ) : null}
+        {participantNames.length > 0 ? (
+          <ul
+            className="mt-1 flex flex-col gap-px"
+            data-testid="agenda-roster"
+          >
+            {participantNames.map((name, i) => (
+              <li
+                key={i}
+                data-testid="agenda-roster-name"
+                className="truncate text-xs text-foreground/70"
+              >
+                {name}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </button>
   )
 }

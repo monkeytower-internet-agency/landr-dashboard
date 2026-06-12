@@ -28,12 +28,13 @@
 // booking_products; dragging an event whose calendar position is keyed on
 // some other date field would silently move the wrong thing.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import type {
+  DayCellContentArg,
   EventClickArg,
   EventContentArg,
   EventDropArg,
@@ -53,8 +54,20 @@ import { findField } from '@/lib/views-entity-fields'
 import { cn } from '@/lib/utils'
 import { t } from '@/lib/strings'
 import type { BookingItem } from '@/lib/views-bookings-data'
+import type { DayRosterEntry } from '@/lib/day-roster'
+import {
+  DayCellRoster,
+  DayRosterPanel,
+} from '@/components/shared/DayRosterComponents'
 
 export type CalendarView = 'month' | 'week' | 'day'
+
+// landr-21x1 — calendar config mode discriminator.
+// 'events' (default / omitted) = existing FullCalendar event-bar rendering.
+// 'daily-roster' = month grid with the flying-participant roster in each
+//   day cell, backed by the fetchFlyingParticipants query (passed in as
+//   `rosterByDay` from CalendarLayoutBranch in ViewPage).
+export type CalendarMode = 'events' | 'daily-roster'
 
 const FC_VIEW_BY_VARIANT: Record<CalendarView, string> = {
   month: 'dayGridMonth',
@@ -68,10 +81,17 @@ function isCalendarView(x: unknown): x is CalendarView {
   return x === 'month' || x === 'week' || x === 'day'
 }
 
+function isCalendarMode(x: unknown): x is CalendarMode {
+  return x === 'events' || x === 'daily-roster'
+}
+
 type CalendarConfig = {
   dateField?: string
   dateEndField?: string
   view?: CalendarView
+  // landr-21x1 — 'daily-roster' enables the flying-roster cell overlay.
+  // Omitted / 'events' keeps the existing event-bar behaviour.
+  mode?: CalendarMode
 }
 
 function readCalendarConfig(
@@ -86,6 +106,7 @@ function readCalendarConfig(
     dateEndField:
       typeof c.dateEndField === 'string' ? c.dateEndField : undefined,
     view: isCalendarView(c.view) ? c.view : undefined,
+    mode: isCalendarMode(c.mode) ? c.mode : undefined,
   }
 }
 
@@ -183,6 +204,12 @@ type Props = {
    *  callback with the new + previous dates so the parent can patch
    *  optimistically + show a toast with Undo. */
   onReschedule?: (payload: CalendarReschedulePayload) => void
+  /** landr-21x1 — daily-roster mode. When calendarConfig.mode is
+   *  'daily-roster', this map provides the pre-built per-day roster
+   *  (keyed ISO 'YYYY-MM-DD'). Supplied by CalendarLayoutBranch in
+   *  ViewPage after fetching flying participants. Omit for the normal
+   *  event-bar rendering. */
+  rosterByDay?: Map<string, DayRosterEntry[]>
 }
 
 export function CalendarLayout({
@@ -192,12 +219,19 @@ export function CalendarLayout({
   firstDayOfWeek = 1,
   onConfigChange,
   onReschedule,
+  rosterByDay,
 }: Props) {
   const calendarConfig = useMemo(
     () => readCalendarConfig(view.config),
     [view.config],
   )
   const activeView: CalendarView = calendarConfig.view ?? 'month'
+  // landr-21x1 — daily-roster mode: render the flying-participant roster in
+  // each day cell instead of (or in addition to) event bars. The 'events'
+  // mode (default) is unchanged. In daily-roster mode the calendar is always
+  // locked to dayGridMonth because the roster cell is designed for the month
+  // grid; week/day time-grid views don't have day-cell content hooks.
+  const isRosterMode = calendarConfig.mode === 'daily-roster'
 
   const dateFieldMeta = calendarConfig.dateField
     ? findField(view.entity_type, calendarConfig.dateField)
@@ -305,7 +339,53 @@ export function CalendarLayout({
     return map
   }, [items])
 
-  if (!validDateField || !validDateEndField) {
+  // landr-21x1 — daily-roster mode: per-day flying roster, built from
+  // `rosterByDay` (passed in from CalendarLayoutBranch after the participant
+  // fetch). Falls back to an empty map so the day cells render clean.
+  const effectiveRosterByDay = useMemo(
+    () => (isRosterMode ? (rosterByDay ?? new Map()) : new Map<string, DayRosterEntry[]>()),
+    [isRosterMode, rosterByDay],
+  )
+
+  // landr-21x1 — day whose roster panel is open (ISO 'YYYY-MM-DD'), or null.
+  const [openRosterDay, setOpenRosterDay] = useState<string | null>(null)
+  const openRosterEntries = openRosterDay
+    ? (effectiveRosterByDay.get(openRosterDay) ?? [])
+    : []
+
+  // landr-21x1 — helper to convert an ISO date string to a local ISO
+  // YYYY-MM-DD without timezone drift. Matches the pattern used in
+  // BookingsCalendar.renderDayCellContent.
+  function toLocalIso(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  // landr-21x1 — day-cell content for roster mode. Renders the date number
+  // plus the compact roster summary (first 3 names + '+N more') in each day
+  // cell. Clicking the cell opens the full DayRosterPanel.
+  function renderDayCellContent(arg: DayCellContentArg): React.ReactElement | undefined {
+    if (!isRosterMode) return undefined
+    const iso = toLocalIso(arg.date)
+    const roster = effectiveRosterByDay.get(iso) ?? []
+    return (
+      <div className="relative flex h-full w-full flex-col p-1">
+        <div className="text-xs font-medium">{arg.dayNumberText}</div>
+        {roster.length > 0 ? (
+          <DayCellRoster
+            iso={iso}
+            dayNumberText={arg.dayNumberText}
+            entries={roster}
+            onOpen={() => setOpenRosterDay(iso)}
+          />
+        ) : null}
+      </div>
+    )
+  }
+
+  // In daily-roster mode the date field is not required — the roster is
+  // keyed off flying days derived from booking_participants, not calendarConfig.
+  // In events mode, a valid date field is required (show placeholder if absent).
+  if (!isRosterMode && (!validDateField || !validDateEndField)) {
     return (
       <Card data-testid="view-layout-calendar-placeholder">
         <CardHeader>
@@ -406,34 +486,44 @@ export function CalendarLayout({
 
   return (
     <div className="flex flex-col gap-3" data-testid="view-layout-calendar">
-      <div
-        className="flex items-center justify-end gap-1"
-        data-testid="view-calendar-view-switcher"
-      >
-        {VIEW_VARIANTS.map((variant) => (
-          <Button
-            key={variant}
-            type="button"
-            size="sm"
-            variant={activeView === variant ? 'default' : 'outline'}
-            aria-pressed={activeView === variant}
-            className="h-7 px-2 text-xs"
-            data-testid={`view-calendar-view-${variant}`}
-            onClick={() => handleSelectView(variant)}
-          >
-            {variant === 'month'
-              ? t.calendar.viewMonth
-              : variant === 'week'
-                ? t.calendar.viewWeek
-                : t.calendar.viewDay}
-          </Button>
-        ))}
-      </div>
-      <div className="landr-fc rounded-md border p-3">
+      {/* landr-21x1 — in daily-roster mode the calendar is locked to the
+          month grid (roster cells are designed for dayGridMonth); hide the
+          variant switcher so the operator can't switch to week/day. */}
+      {!isRosterMode ? (
+        <div
+          className="flex items-center justify-end gap-1"
+          data-testid="view-calendar-view-switcher"
+        >
+          {VIEW_VARIANTS.map((variant) => (
+            <Button
+              key={variant}
+              type="button"
+              size="sm"
+              variant={activeView === variant ? 'default' : 'outline'}
+              aria-pressed={activeView === variant}
+              className="h-7 px-2 text-xs"
+              data-testid={`view-calendar-view-${variant}`}
+              onClick={() => handleSelectView(variant)}
+            >
+              {variant === 'month'
+                ? t.calendar.viewMonth
+                : variant === 'week'
+                  ? t.calendar.viewWeek
+                  : t.calendar.viewDay}
+            </Button>
+          ))}
+        </div>
+      ) : null}
+      {/* landr-3qkr.5 — horizontal scroll container with edge-fade so the
+          user can see the calendar grid continues off-screen on narrow
+          viewports (the FullCalendar month grid has a fixed min-width). */}
+      <div className="landr-fc overflow-x-auto rounded-md border p-3 [mask-image:linear-gradient(to_right,black_90%,transparent_100%)]">
         <FullCalendar
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView={FC_VIEW_BY_VARIANT[activeView]}
+          // landr-21x1 — roster mode always starts in dayGridMonth;
+          // events mode respects the stored calendarConfig.view.
+          initialView={isRosterMode ? 'dayGridMonth' : FC_VIEW_BY_VARIANT[activeView]}
           headerToolbar={{
             left: 'prev,next today',
             center: 'title',
@@ -448,10 +538,14 @@ export function CalendarLayout({
           editable={dndEnabled}
           eventStartEditable={dndEnabled}
           eventDurationEditable={false}
-          events={events}
-          eventClick={handleEventClick}
-          eventDrop={handleEventDrop}
-          eventContent={renderEventContent}
+          // landr-21x1 — roster mode hides event bars (the roster IS the
+          // calendar information in this mode); events mode shows them.
+          events={isRosterMode ? [] : events}
+          eventClick={isRosterMode ? undefined : handleEventClick}
+          eventDrop={isRosterMode ? undefined : handleEventDrop}
+          eventContent={isRosterMode ? undefined : renderEventContent}
+          // landr-21x1 — roster mode: custom day-cell content with name list.
+          dayCellContent={isRosterMode ? renderDayCellContent : undefined}
         />
       </div>
       <BookingDetailSheet
@@ -460,6 +554,27 @@ export function CalendarLayout({
           if (!open) setOpenRow(null)
         }}
       />
+      {/* landr-21x1 — roster panel: shown when a day cell is clicked in
+          daily-roster mode. Opens the booking detail sheet when a booking
+          ref is clicked inside the panel. */}
+      {isRosterMode ? (
+        <DayRosterPanel
+          iso={openRosterDay}
+          entries={openRosterEntries}
+          onClose={() => setOpenRosterDay(null)}
+          onOpenBooking={(bookingId) => {
+            const row = itemsById.get(bookingId)
+            if (row) {
+              setOpenRosterDay(null)
+              if (onItemClick) {
+                onItemClick(row)
+              } else {
+                setOpenRow(row)
+              }
+            }
+          }}
+        />
+      ) : null}
     </div>
   )
 }

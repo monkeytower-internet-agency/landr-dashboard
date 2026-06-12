@@ -27,12 +27,20 @@ describe('SETTINGS_SECTIONS', () => {
     expect(entry?.label).toBe('Schedule')
   })
 
-  // landr-yp8x — Branding section drives the embedded booking widget's
-  // logo + primary colour.
-  it('includes a Branding entry at /settings/branding', () => {
+  // landr-yp8x — Brand section drives the embedded booking widget's
+  // logo + colours. landr-ylvp — renamed Branding → Brand.
+  it('includes a Brand entry at /settings/branding', () => {
     const entry = SETTINGS_SECTIONS.find((s) => s.to === '/settings/branding')
     expect(entry).toBeDefined()
-    expect(entry?.label).toBe('Branding')
+    expect(entry?.label).toBe('Brand')
+  })
+
+  // landr-jb1k — Booking widget section drives the embedded widget's
+  // showcased layout variant, category grid columns, and title typography.
+  it('includes a Booking widget entry at /settings/widget', () => {
+    const entry = SETTINGS_SECTIONS.find((s) => s.to === '/settings/widget')
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Booking widget')
   })
 
   it('has no duplicate routes', () => {
@@ -53,30 +61,39 @@ describe('ACCOUNT_SECTIONS (landr-fzcg)', () => {
   // landr-1nwu.2 — Payments & invoicing joined ACCOUNT between Calendar feed
   // and Plan (per-operator Stripe + Holded credentials; another personal
   // third-party integration the operator wires up once).
-  it('contains exactly company/connected/gmail/calendar/payments/plan/notifications in that order', () => {
+  // landr — Security (change password) added after Connected accounts; both
+  // manage how the operator authenticates into the dashboard.
+  it('contains exactly company/connected/security/gmail/calendar/payments/plan/notifications in that order', () => {
     expect(ACCOUNT_SECTIONS.map((s) => s.to)).toEqual([
-      '/settings/company',
-      '/settings/connected-accounts',
-      '/settings/integrations/gmail',
-      '/settings/integrations/calendar',
-      '/settings/integrations/payments',
-      '/settings/plan',
-      '/settings/notifications',
+      '/account/company',
+      '/account/connected-accounts',
+      '/account/security',
+      '/account/integrations/gmail',
+      '/account/integrations/calendar',
+      '/account/integrations/payments',
+      '/account/plan',
+      '/account/notifications',
     ])
   })
 
+  it('includes a Security entry at /account/security', () => {
+    const entry = ACCOUNT_SECTIONS.find((s) => s.to === '/account/security')
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Security')
+  })
+
   // landr-1nwu.2 — pin the Payments & invoicing entry shape.
-  it('includes a Payments & invoicing entry at /settings/integrations/payments', () => {
+  it('includes a Payments & invoicing entry at /account/integrations/payments', () => {
     const entry = ACCOUNT_SECTIONS.find(
-      (s) => s.to === '/settings/integrations/payments',
+      (s) => s.to === '/account/integrations/payments',
     )
     expect(entry).toBeDefined()
     expect(entry?.label).toBe('Payments & invoicing')
   })
 
-  it('includes a Calendar feed entry at /settings/integrations/calendar', () => {
+  it('includes a Calendar feed entry at /account/integrations/calendar', () => {
     const entry = ACCOUNT_SECTIONS.find(
-      (s) => s.to === '/settings/integrations/calendar',
+      (s) => s.to === '/account/integrations/calendar',
     )
     expect(entry).toBeDefined()
     expect(entry?.label).toBe('Calendar feed')
@@ -111,17 +128,30 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // landr-up1b — Categories + Embed joined the SETTINGS group right after
   // Products (nested category tree editor + booking-widget embed generator).
   // landr-znzz.7 — Weather (opt-in forecast hint) added after Branding.
-  it('settings group contains the twenty-two program subsections', () => {
+  // landr-jb1k — Booking widget (layout variant + category columns + title
+  // style) joined the SETTINGS group between Branding and Weather.
+  // landr-cyoi — Hotels joined the SETTINGS group directly after Pickup
+  // locations (first-class accommodation entity; a hotel is also a pickup).
+  // landr-atwy — Account link prompt opt-in added after Webhooks
+  // (per-operator toggle for the post-booking mobile app link prompt).
+  it('settings group contains the twenty-five program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
       '/settings/branding',
+      // landr-jb1k — booking-widget presentation configurator (sits between
+      // Branding and Weather; both shape the embedded widget).
+      '/settings/widget',
       // landr-znzz.7 — weather forecast hint opt-in (sits next to Branding).
       '/settings/weather',
       '/settings/team',
       // landr-funh — Settings → Providers: operational delivery roster.
       '/settings/providers',
       '/settings/pickup-locations',
+      // landr-cyoi — Settings → Hotels: first-class accommodation entity
+      // (required address/email/phone + maps link). Sits right after Pickup
+      // locations because a hotel is also a pickup point.
+      '/settings/hotels',
       '/settings/products',
       // landr-up1b — nested category tree editor + booking-widget embed
       // generator, grouped right after Products.
@@ -148,7 +178,18 @@ describe('account/settings grouping (landr-fzcg)', () => {
       // landr-ah9u — Settings → Webhooks: operator-managed event
       // subscriptions (v1 localStorage; v2 server-delivered).
       '/settings/webhooks',
+      // landr-atwy — Settings → Account link prompt: per-operator opt-in
+      // for the post-booking "Track in LANDR app" customer prompt.
+      '/settings/account-link',
     ])
+  })
+
+  // landr-cyoi — pin the Hotels entry shape (first-class accommodation
+  // entity; sits right after Pickup locations).
+  it('includes a Hotels entry at /settings/hotels', () => {
+    const entry = SETTINGS_SECTIONS.find((s) => s.to === '/settings/hotels')
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Hotels')
   })
 
   // landr-r87i — pin the Operations entry shape.
@@ -190,10 +231,10 @@ describe('groupForPath() (landr-fzcg)', () => {
   })
 
   it('routes account-group deeper URLs to "account"', () => {
-    expect(groupForPath('/settings/integrations/gmail/oauth-callback')).toBe(
+    expect(groupForPath('/account/integrations/gmail/oauth-callback')).toBe(
       'account',
     )
-    expect(groupForPath('/settings/connected-accounts/google')).toBe('account')
+    expect(groupForPath('/account/connected-accounts/google')).toBe('account')
   })
 
   it('routes settings-group leaf URLs to "settings"', () => {

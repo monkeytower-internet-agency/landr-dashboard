@@ -93,6 +93,8 @@ function CompanyForm({ operator, operatorId, onSaved }: FormProps) {
       country: operator.country ?? '',
       timezone: operator.timezone ?? '',
       default_locale: operator.default_locale ?? '',
+      // landr-x5o5.7 — hotel-facing email language.
+      hotel_email_locale: operator.hotel_email_locale ?? '',
     },
   })
 
@@ -290,6 +292,30 @@ function CompanyForm({ operator, operatorId, onSaved }: FormProps) {
                   />
                 )}
               />
+            </div>
+            {/* landr-x5o5.7 — hotel-facing email language. Separate from
+                default_locale so Spanish-only hotels receive Spanish emails
+                regardless of the operator's own interface language. */}
+            <div className="grid gap-1.5" data-testid="hotel-email-locale-section">
+              <Label htmlFor="settings-hotel-email-locale">
+                {t.settings.fieldHotelEmailLocale}
+              </Label>
+              <Controller
+                control={control}
+                name="hotel_email_locale"
+                render={({ field }) => (
+                  <LocalePicker
+                    id="settings-hotel-email-locale"
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    disabled={mutation.isPending}
+                    placeholder="— Same as default locale —"
+                  />
+                )}
+              />
+              <p className="text-muted-foreground text-xs">
+                {t.settings.fieldHotelEmailLocaleHint}
+              </p>
             </div>
           </CardContent>
         </Card>

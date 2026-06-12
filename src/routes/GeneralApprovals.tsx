@@ -11,27 +11,23 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  flexRender,
   getCoreRowModel,
   getSortedRowModel,
   useReactTable,
-  type ColumnDef,
+  type Row,
   type SortingState,
 } from '@tanstack/react-table'
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  DownloadIcon,
-  PartyPopperIcon,
-} from 'lucide-react'
+import { DownloadIcon, PartyPopperIcon } from 'lucide-react'
 
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
 import { BulkActionToolbar } from '@/components/BulkActionToolbar'
+import { DataTable } from '@/components/DataTable'
 import { EmptyState } from '@/components/EmptyState'
 import { SkeletonTableRows } from '@/components/SkeletonTableRows'
 import { ApprovalRowContextMenu } from '@/components/approvals/ApprovalRowContextMenu'
 import { ApprovalsFilters } from '@/components/approvals/ApprovalsFilters'
+import { ApprovalRowDecisionButtons } from '@/components/approvals/ApprovalRowDecisionButtons'
+import { buildGeneralApprovalsColumns } from '@/components/approvals/generalApprovalsColumns'
 import { StageChip } from '@/components/approvals/StageChip'
 import {
   AlertDialog,
@@ -47,19 +43,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Table, TableBody } from '@/components/ui/table'
 import {
   activityDateDisplay,
   bulkSendReminder,
   customerDisplay,
-  dateDisplay,
   fetchPendingGeneralApprovals,
   firstActivityDate,
   invalidateBookingCaches,
@@ -176,155 +164,14 @@ export function GeneralApprovals() {
     { id: 'created_at', desc: true },
   ])
 
-  const columns = useMemo<ColumnDef<BookingRow>[]>(
-    () => [
-      // landr-lbbj — bulk-select column. Header checkbox toggles ALL
-      // currently-visible (filtered+sorted) rows; row checkbox toggles
-      // that single id. Both stopPropagation so clicking the box doesn't
-      // also open the detail sheet underneath.
-      {
-        id: 'select',
-        enableSorting: false,
-        header: ({ table: t1 }) => {
-          const visibleIds = t1
-            .getRowModel()
-            .rows.map((r) => (r.original as BookingRow).id)
-          const allChecked =
-            visibleIds.length > 0 &&
-            visibleIds.every((id) => selectedIds.has(id))
-          const someChecked = visibleIds.some((id) => selectedIds.has(id))
-          return (
-            <Checkbox
-              checked={allChecked}
-              ref={(el) => {
-                if (el) el.indeterminate = !allChecked && someChecked
-              }}
-              onChange={(e) => {
-                const next = new Set(selectedIds)
-                if (e.currentTarget.checked) {
-                  for (const id of visibleIds) next.add(id)
-                } else {
-                  for (const id of visibleIds) next.delete(id)
-                }
-                setSelectedIds(next)
-              }}
-              onClick={(e) => e.stopPropagation()}
-              aria-label={t.bulkActions.selectAllAria}
-              data-testid="approvals-select-all"
-            />
-          )
-        },
-        cell: ({ row }) => {
-          const id = row.original.id
-          const checked = selectedIds.has(id)
-          return (
-            <Checkbox
-              checked={checked}
-              onChange={(e) => {
-                const next = new Set(selectedIds)
-                if (e.currentTarget.checked) next.add(id)
-                else next.delete(id)
-                setSelectedIds(next)
-              }}
-              onClick={(e) => e.stopPropagation()}
-              aria-label={t.bulkActions.selectRowAria(id)}
-              data-testid={`approvals-select-${id}`}
-            />
-          )
-        },
-      },
-      {
-        id: 'created_at',
-        accessorKey: 'created_at',
-        header: t.generalApprovals.columnDate,
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap">
-            {dateDisplay(row.original.created_at, { hour12 })}
-          </span>
-        ),
-        sortingFn: 'datetime',
-      },
-      {
-        // Sortable by the ISO date string — lexicographic compare on
-        // YYYY-MM-DD matches calendar order. Bookings with no activity
-        // date sort to the end via sortUndefined.
-        id: 'activity_date',
-        accessorFn: (row) => firstActivityDate(row),
-        sortUndefined: 'last',
-        header: t.generalApprovals.columnActivityDate,
-        cell: ({ row }) => {
-          const display = activityDateDisplay(row.original)
-          if (!display) {
-            return <span className="text-muted-foreground text-xs">—</span>
-          }
-          return <span className="whitespace-nowrap">{display}</span>
-        },
-      },
-      {
-        // landr-qmdo — color-coded "Awaiting X" chip showing which actor
-        // needs to act next. Sortable by stage code so the operator can
-        // batch-process "all the Hotel ones" without leaving the queue.
-        id: 'stage',
-        header: t.generalApprovals.columnStage,
-        accessorFn: (row) => row.current_stage?.code ?? '',
-        cell: ({ row }) => <StageChip code={row.original.current_stage?.code} />,
-      },
-      {
-        id: 'customer',
-        header: t.generalApprovals.columnCustomer,
-        accessorFn: (row) => customerDisplay(row),
-        cell: ({ getValue }) => (
-          <span className="truncate">{getValue<string>()}</span>
-        ),
-      },
-      {
-        id: 'product',
-        header: t.generalApprovals.columnProduct,
-        accessorFn: (row) => productDisplay(row),
-        cell: ({ getValue }) => (
-          <span className="truncate">{getValue<string>()}</span>
-        ),
-      },
-      {
-        id: 'price',
-        header: t.generalApprovals.columnPrice,
-        accessorFn: (row) => Number(row.gross_total) || 0,
-        cell: ({ row }) => (
-          <span className="font-medium">{priceDisplay(row.original)}</span>
-        ),
-      },
-      {
-        id: 'actions',
-        header: t.generalApprovals.columnActions,
-        enableSorting: false,
-        cell: ({ row }) => (
-          <div
-            className="flex items-center gap-2"
-            // The row itself is click-to-open-sheet; the button cluster
-            // stops propagation so Approve/Reject don't ALSO open the
-            // detail sheet underneath.
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Button
-              size="sm"
-              variant="default"
-              onClick={() => openDialog(row.original, 'approve')}
-              aria-label={`${t.generalApprovals.actionApprove} booking ${row.original.id}`}
-            >
-              {t.generalApprovals.actionApprove}
-            </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => openDialog(row.original, 'reject')}
-              aria-label={`${t.generalApprovals.actionReject} booking ${row.original.id}`}
-            >
-              {t.generalApprovals.actionReject}
-            </Button>
-          </div>
-        ),
-      },
-    ],
+  const columns = useMemo(
+    () =>
+      buildGeneralApprovalsColumns({
+        hour12,
+        selectedIds,
+        setSelectedIds,
+        onDecide: openDialog,
+      }),
     [hour12, selectedIds],
   )
 
@@ -362,6 +209,56 @@ export function GeneralApprovals() {
   })
 
   const pendingCount = rows.length
+
+  // landr-3qkr.2 — mobile card: select checkbox (bulk actions exist here) +
+  // customer + product + stage chip + activity date + price, with the inline
+  // Approve / Reject cluster as the row's primary action. Tapping the card
+  // body opens the detail sheet, same as a desktop row click.
+  const renderApprovalCard = (row: Row<BookingRow>) => {
+    const booking = row.original
+    const checked = selectedIds.has(booking.id)
+    const activity = activityDateDisplay(booking)
+    return (
+      <div className="bg-card flex flex-col gap-2 rounded-lg border p-3 shadow-s">
+        <div className="flex items-start gap-2">
+          <Checkbox
+            checked={checked}
+            onChange={(e) => {
+              const next = new Set(selectedIds)
+              if (e.currentTarget.checked) next.add(booking.id)
+              else next.delete(booking.id)
+              setSelectedIds(next)
+            }}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={t.bulkActions.selectRowAria(booking.id)}
+            data-testid={`approvals-card-select-${booking.id}`}
+            className="mt-1 size-5"
+          />
+          <button
+            type="button"
+            onClick={() => setActiveRow(booking)}
+            className="min-w-0 flex-1 text-left"
+            data-testid={`approvals-card-${booking.id}`}
+          >
+            <span className="block truncate font-medium">
+              {customerDisplay(booking)}
+            </span>
+            <span className="text-muted-foreground block truncate text-sm">
+              {productDisplay(booking)}
+            </span>
+          </button>
+          <StageChip code={booking.current_stage?.code} />
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-muted-foreground text-sm">
+            {activity ?? '—'}
+          </span>
+          <span className="font-medium">{priceDisplay(booking)}</span>
+        </div>
+        <ApprovalRowDecisionButtons row={booking} onDecide={openDialog} />
+      </div>
+    )
+  }
 
   // landr-xnpc — export the CURRENT FILTERED view (post chip filters), not
   // the raw queue. If the operator narrowed to "Hotel review only" they
@@ -497,7 +394,10 @@ export function GeneralApprovals() {
         title={t.generalApprovals.title}
         subtitle={t.generalApprovals.subtitleCount(pendingCount)}
       />
-      <header className="flex items-center justify-between gap-4">
+      {/* landr-3qkr.6 — flex-wrap so the title+badge and the Export CSV
+          button drop to two lines on a 360px phone instead of being clipped
+          when the localized title is long. Desktop stays single-row. */}
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">{t.generalApprovals.title}</h1>
           {pendingCount > 0 ? (
@@ -563,96 +463,31 @@ export function GeneralApprovals() {
             filtersApi={filtersApi}
             testIdPrefix="approvals-filters"
           />
-          <div
-            className="overflow-x-auto rounded-md border"
-            data-testid="approvals-table"
-          >
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map((group) => (
-                  <TableRow key={group.id}>
-                    {group.headers.map((header) => {
-                      const canSort = header.column.getCanSort()
-                      const dir = header.column.getIsSorted()
-                      const Icon = !dir
-                        ? ArrowUpDown
-                        : dir === 'asc'
-                          ? ArrowUp
-                          : ArrowDown
-                      return (
-                        <TableHead key={header.id}>
-                          {canSort ? (
-                            <button
-                              type="button"
-                              onClick={header.column.getToggleSortingHandler()}
-                              className="hover:text-foreground inline-flex cursor-pointer items-center gap-1"
-                              data-testid={`approvals-sort-${header.column.id}`}
-                            >
-                              {flexRender(
-                                header.column.columnDef.header,
-                                header.getContext(),
-                              )}
-                              <Icon className="size-3 opacity-60" />
-                            </button>
-                          ) : (
-                            flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )
-                          )}
-                        </TableHead>
-                      )
-                    })}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {table.getRowModel().rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="text-muted-foreground py-8 text-center text-sm"
-                    >
-                      {t.generalApprovals.empty}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  visibleApprovalRows.map((row, index) => {
-                    const rowProps = nav.getRowProps(index)
-                    // landr-oxlk — right-click → Open / Approve / Reject.
-                    // Approve & Reject defer to openDialog() so the same
-                    // AlertDialog wizard the inline buttons use handles
-                    // the confirmation + optional note.
-                    return (
-                      <ApprovalRowContextMenu
-                        key={row.id}
-                        row={row.original}
-                        onOpenDetail={(r) => setActiveRow(r)}
-                        onDecide={(r, decision) => openDialog(r, decision)}
-                      >
-                        <TableRow
-                          onClick={() => setActiveRow(row.original)}
-                          className="cursor-pointer data-[focused]:bg-muted/60"
-                          data-testid={`approvals-row-${row.original.id}`}
-                          ref={rowProps.ref}
-                          data-focused={rowProps['data-focused']}
-                        >
-                          {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id}>
-                              {flexRender(
-                                cell.column.columnDef.cell,
-                                cell.getContext(),
-                              )}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      </ApprovalRowContextMenu>
-                    )
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          <DataTable
+            table={table}
+            columnCount={columns.length}
+            emptyMessage={t.generalApprovals.empty}
+            paginate={false}
+            containerTestId="approvals-table"
+            sortTestId={(columnId) => `approvals-sort-${columnId}`}
+            onRowClick={(row) => setActiveRow(row.original)}
+            rowTestId={(row) => `approvals-row-${row.original.id}`}
+            rowProps={(_row, index) => nav.getRowProps(index)}
+            renderCard={renderApprovalCard}
+            rowWrapper={(row, rowNode) => (
+              // landr-oxlk — right-click → Open / Approve / Reject. Approve
+              // & Reject defer to openDialog() so the same AlertDialog wizard
+              // the inline buttons use handles the confirmation + note.
+              <ApprovalRowContextMenu
+                key={row.id}
+                row={row.original}
+                onOpenDetail={(r) => setActiveRow(r)}
+                onDecide={(r, decision) => openDialog(r, decision)}
+              >
+                {rowNode}
+              </ApprovalRowContextMenu>
+            )}
+          />
         </>
       )}
 

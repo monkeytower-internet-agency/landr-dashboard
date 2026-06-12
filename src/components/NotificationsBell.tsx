@@ -52,6 +52,7 @@ import {
   type NotificationRow,
 } from '@/lib/notifications'
 import { fetchCurrentPublicUser } from '@/lib/tickets'
+import { TICKET_SYSTEM_PATH } from '@/lib/app-mode'
 import { t } from '@/lib/strings'
 
 // ---- helpers ----------------------------------------------------------------
@@ -147,11 +148,17 @@ export function NotificationsBell() {
     },
   })
 
-  // ---- item click (mark read + navigate if ticket) ----------------------------
+  // ---- item click (mark read + navigate) --------------------------------------
   //
-  // landr-wwhn.28: staff are deep-linked into the feedback inbox
-  // (/feedback-inbox?open=<ticketId>) so the triage surface opens. Operators
-  // land on the board (/tickets?open=<ticketId>) as before.
+  // landr-7dya.6: staff are deep-linked into the app-view inbox
+  // (/staff/tickets?open=<ticketId>) which opens TicketDetailSheet directly.
+  // Operators land on the operator board (/tickets?open=<ticketId>) as before.
+  //
+  // landr-agiw.1: ticket_id takes precedence. When a notification has no ticket
+  // (system/promotion events) but carries a `link`, navigate there instead so the
+  // bell no longer dead-ends (previously it only marked-as-read). `link` is always
+  // an in-app path written by the backend; we still guard against protocol-relative
+  // ('//evil.com') and absolute URLs as defense-in-depth.
 
   const handleItemClick = useCallback(
     (notification: NotificationRow) => {
@@ -162,13 +169,20 @@ export function NotificationsBell() {
         setOpen(false)
         if (effectiveIsStaff) {
           navigate(
-            `/feedback-inbox?open=${encodeURIComponent(notification.ticket_id)}`,
+            `${TICKET_SYSTEM_PATH}?open=${encodeURIComponent(notification.ticket_id)}`,
           )
         } else {
           navigate(
             `/tickets?open=${encodeURIComponent(notification.ticket_id)}`,
           )
         }
+      } else if (
+        notification.link &&
+        notification.link.startsWith('/') &&
+        !notification.link.startsWith('//')
+      ) {
+        setOpen(false)
+        navigate(notification.link)
       }
     },
     [effectiveIsStaff, markReadMutation, navigate],

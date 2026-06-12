@@ -285,24 +285,26 @@ export function Contacts() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* landr-ar44 — page header pattern: title/subtitle in the topbar,
+          primary action (Export CSV) moved into the topbar action slot;
+          the duplicate in-page title header is removed. */}
       <PageTitle
         title={t.contacts.title}
         subtitle={t.contacts.subtitleCount(rows.length)}
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onExportCsv}
+            disabled={rows.length === 0}
+            aria-label={t.contacts.exportCsvAria(rows.length)}
+            data-testid="contacts-export-csv"
+          >
+            <DownloadIcon className="size-4" />
+            {t.contacts.exportCsv}
+          </Button>
+        }
       />
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">{t.contacts.title}</h1>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onExportCsv}
-          disabled={rows.length === 0}
-          aria-label={t.contacts.exportCsvAria(rows.length)}
-          data-testid="contacts-export-csv"
-        >
-          <DownloadIcon className="size-4" />
-          {t.contacts.exportCsv}
-        </Button>
-      </header>
       <ContactsFilters
         sortApi={sortApi}
         filtersApi={filtersApi}

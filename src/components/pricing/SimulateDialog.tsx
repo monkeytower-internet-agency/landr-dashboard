@@ -188,7 +188,10 @@ function SimulateDialogBody({ schemeId, operatorId, operatorSlug }: BodyProps) {
           ) : null}
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        {/* landr-3qkr.6 — stack to one column below sm so the native date
+            picker + number inputs aren't squeezed to ~96px on a 360px phone;
+            three across from sm up (desktop unchanged). */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="space-y-1">
             <Label htmlFor="sim-start" className="text-xs">
               Start date

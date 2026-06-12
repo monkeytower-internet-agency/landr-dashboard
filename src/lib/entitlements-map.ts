@@ -48,17 +48,27 @@ export const FEATURE_SECTIONS: Record<string, string[]> = {
   email_templates: ['/settings/email-templates'],
   email_log: ['/settings/email-log'],
   commission: ['/settings/commissions'],
-  company: ['/settings/company'],
+  company: ['/account/company'],
   branding: ['/settings/branding'],
+  // landr-jb1k — Booking widget presentation (variant + category columns).
+  // Gated alongside Branding: both are paid "make the embedded widget yours"
+  // surfaces. The feature key mirrors the API registry (landr-jb1k.1).
+  widget_config: ['/settings/widget'],
   team: ['/settings/team'],
   // OFF-set for Para42
   vouchers: ['/settings/vouchers'],
   campaigns: ['/settings/campaigns'],
   tags: ['/settings/tags'],
   webhooks: ['/settings/webhooks'],
-  gmail: ['/settings/integrations/gmail'],
-  calendar_feed: ['/settings/integrations/calendar'],
-  plan: ['/settings/plan'],
+  // landr-ubqo — Gmail (sending mailbox) is intentionally UNGATED: connecting
+  // your own Gmail to send branded booking emails is a prerequisite to
+  // operate, not a paid upsell. Same rationale as the ungated Payments &
+  // invoicing section (landr-1nwu.2). Must never be hidden by tier — a gated
+  // Gmail section left operators unable to send ANY booking email. So it is
+  // deliberately absent from this map (→ featureForSection returns null →
+  // always visible). Do NOT re-add a `gmail:` entry here.
+  calendar_feed: ['/account/integrations/calendar'],
+  plan: ['/account/plan'],
 }
 
 // Reverse index: route path → owning feature key. Built once. A path absent

@@ -6,22 +6,39 @@
 //   4. Dropdown lists notifications with titles and unread/read visual state.
 //   5. Empty state renders when there are no notifications.
 //   6. Clicking a notification item calls markNotificationRead (if unread).
-//   7. Clicking a notification with a ticket_id navigates to /tickets?open=<id>.
+//   7. Clicking a notification with a ticket_id navigates:
+//      - staff → /staff/tickets?open=<id>  (app-view inbox; landr-7dya.6)
+//      - operator → /tickets?open=<id>     (operator board, unchanged)
 //   8. "Mark all read" button calls markAllNotificationsRead.
 //   9. Error state renders when the query fails.
 //
 // We mock fetchNotifications, markNotificationRead, markAllNotificationsRead,
 // and fetchCurrentPublicUser to bypass Supabase entirely.
 
+import { useEffect } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { NotificationRow } from '@/lib/notifications'
 
+// ---- hoisted control state --------------------------------------------------
+
+const { bellMockState } = vi.hoisted(() => ({
+  bellMockState: { isStaff: false },
+}))
+
 // ---- mocks ------------------------------------------------------------------
+
+vi.mock('@/lib/entitlements', () => ({
+  useEntitlements: () => ({
+    isEnabled: () => true,
+    effectiveIsStaff: bellMockState.isStaff,
+    isLoading: false,
+  }),
+}))
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
@@ -101,28 +118,51 @@ function makeNotification(overrides: Partial<NotificationRow> = {}): Notificatio
     event_type: 'ticket.commented',
     title: 'New comment on your ticket',
     body: null,
+    link: null,
     read_at: null,
     created_at: new Date().toISOString(),
     ...overrides,
   }
 }
 
-function renderBell() {
+/** Captures the current pathname after navigation so tests can assert on it. */
+function PathCapture({ onPathChange }: { onPathChange: (p: string) => void }) {
+  const loc = useLocation()
+  useEffect(() => {
+    onPathChange(`${loc.pathname}${loc.search}`)
+  }, [loc.pathname, loc.search, onPathChange])
+  return null
+}
+
+function renderBell(opts: { isStaff?: boolean } = {}) {
+  bellMockState.isStaff = opts.isStaff ?? false
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
-  return render(
+  let capturedPath = '/'
+  const result = render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <NotificationsBell />
+        <Routes>
+          <Route path="*" element={
+            <>
+              <PathCapture onPathChange={(p) => { capturedPath = p }} />
+              <NotificationsBell />
+            </>
+          } />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   )
+  // Return a getter so navigation tests can wait for updates.
+  return { ...result, getPath: () => capturedPath }
 }
+
 
 // ---- setup / teardown -------------------------------------------------------
 
 beforeEach(() => {
+  bellMockState.isStaff = false
   fetchNotificationsMock.mockReset()
   markNotificationReadMock.mockReset()
   markAllNotificationsReadMock.mockReset()
@@ -387,5 +427,101 @@ describe('NotificationsBell (landr-wwhn.15)', () => {
         screen.getByTestId('notifications-bell-error'),
       ).toBeInTheDocument()
     })
+  })
+
+  // ---- landr-7dya.6: bell navigation deep-link --------------------------------
+
+  it('staff: clicking a ticket notification navigates to /staff/tickets?open=<id>', async () => {
+    const ticketId = 'ticket-abc-123'
+    const n = makeNotification({ id: 'n-staff', ticket_id: ticketId, read_at: null })
+    fetchNotificationsMock.mockResolvedValue([n])
+
+    const { getPath } = renderBell({ isStaff: true })
+
+    const user = userEvent.setup()
+    const trigger = await screen.findByTestId('notifications-bell-trigger')
+    await user.click(trigger)
+    await waitFor(() => {
+      expect(screen.getByTestId(`notification-item-${n.id}`)).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId(`notification-item-${n.id}`))
+
+    await waitFor(() => {
+      expect(getPath()).toBe(`/staff/tickets?open=${ticketId}`)
+    })
+  })
+
+  it('operator: clicking a ticket notification navigates to /tickets?open=<id>', async () => {
+    const ticketId = 'ticket-def-456'
+    const n = makeNotification({ id: 'n-op', ticket_id: ticketId, read_at: null })
+    fetchNotificationsMock.mockResolvedValue([n])
+
+    const { getPath } = renderBell({ isStaff: false })
+
+    const user = userEvent.setup()
+    const trigger = await screen.findByTestId('notifications-bell-trigger')
+    await user.click(trigger)
+    await waitFor(() => {
+      expect(screen.getByTestId(`notification-item-${n.id}`)).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId(`notification-item-${n.id}`))
+
+    await waitFor(() => {
+      expect(getPath()).toBe(`/tickets?open=${ticketId}`)
+    })
+  })
+
+  // ---- landr-agiw.1: generic link deep-link (non-ticket notifications) ---------
+
+  it('clicking a no-ticket notification with a link navigates to that link', async () => {
+    const n = makeNotification({
+      id: 'n-promo',
+      ticket_id: null,
+      link: '/release?run=run-42',
+      event_type: 'promotion.completed',
+      read_at: null,
+    })
+    fetchNotificationsMock.mockResolvedValue([n])
+
+    const { getPath } = renderBell({ isStaff: true })
+
+    const user = userEvent.setup()
+    const trigger = await screen.findByTestId('notifications-bell-trigger')
+    await user.click(trigger)
+    await waitFor(() => {
+      expect(screen.getByTestId(`notification-item-${n.id}`)).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId(`notification-item-${n.id}`))
+
+    await waitFor(() => {
+      expect(getPath()).toBe('/release?run=run-42')
+    })
+  })
+
+  it('does not navigate on a notification with neither ticket_id nor link', async () => {
+    const n = makeNotification({
+      id: 'n-bare',
+      ticket_id: null,
+      link: null,
+      read_at: null,
+    })
+    fetchNotificationsMock.mockResolvedValue([n])
+
+    const { getPath } = renderBell({ isStaff: true })
+    const startPath = getPath()
+
+    const user = userEvent.setup()
+    const trigger = await screen.findByTestId('notifications-bell-trigger')
+    await user.click(trigger)
+    await waitFor(() => {
+      expect(screen.getByTestId(`notification-item-${n.id}`)).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId(`notification-item-${n.id}`))
+
+    // Marked read, but no navigation away from the starting route.
+    await waitFor(() => {
+      expect(markNotificationReadMock).toHaveBeenCalled()
+    })
+    expect(getPath()).toBe(startPath)
   })
 })

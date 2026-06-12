@@ -14,6 +14,7 @@ import {
   MousePointerClickIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
+  ReceiptTextIcon,
   RocketIcon,
   ScrollTextIcon,
   SettingsIcon,
@@ -22,7 +23,10 @@ import {
   UsersIcon,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import type { LucideIcon } from 'lucide-react'
+
+import { fetchGoLiveEligibility } from '@/lib/release-promotion'
 import {
   Sidebar,
   SidebarContent,
@@ -45,6 +49,7 @@ import { useEntitlements } from '@/lib/entitlements'
 import { featureForRoute } from '@/lib/entitlements-map'
 import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
 import type { SidebarMode } from '@/lib/sidebar-mode'
+import { TICKET_SYSTEM_PATH } from '@/lib/app-mode'
 import { t } from '@/lib/strings'
 // landr-c58d — Views sub-list (star + hide) rendered under the
 // top-level "Views" primary nav entry.
@@ -126,6 +131,15 @@ const primaryItems: NavItem[] = [
     icon: ChartAreaIcon,
     exact: false,
   },
+  // landr-a4pl.2 — Invoicing (Holded transfer status + manual Sync-now).
+  // Finance surface; sits after Reporting in the primary cluster. Ungated
+  // (featureForRoute returns null), like Audit/Trash.
+  {
+    to: '/invoicing',
+    label: t.nav.invoicing,
+    icon: ReceiptTextIcon,
+    exact: false,
+  },
   {
     to: '/approvals/general',
     label: t.nav.generalApprovals,
@@ -186,8 +200,13 @@ const staffItems: NavItem[] = [
     exact: false,
   },
   // landr-wwhn.28 — cross-operator feedback triage inbox.
+  // landr-7dya.10 — the inbox is now a FIRST-CLASS APP-VIEW (full-screen
+  // ticket-system workspace), not an operator-chrome sidebar page. This launcher
+  // points at the app-view (/staff/tickets) so staff enter the dedicated chrome
+  // rather than embedding the inbox in the operator sidebar. The legacy
+  // /feedback-inbox route still works (deep-links / bookmarks) — coexists.
   {
-    to: '/feedback-inbox',
+    to: TICKET_SYSTEM_PATH,
     label: t.nav.feedbackInbox,
     icon: InboxIcon,
     exact: false,
@@ -200,6 +219,19 @@ const staffItems: NavItem[] = [
     exact: false,
   },
 ]
+
+// landr-7dya.21 — non-staff customer signer (Martin) sidebar item. Surfaced
+// when fetchGoLiveEligibility returns can_request_golive=true: i.e. on the
+// staging build, for users with public.users.is_release_signer=true. Points at
+// the same /release route — the route guard renders the customer console
+// (Request go-live card) instead of the staff console for these users.
+// Hidden on dev/prod tiers and for non-signers (the endpoint returns false).
+const signerItem: NavItem = {
+  to: '/release',
+  label: t.nav.release,
+  icon: RocketIcon,
+  exact: false,
+}
 
 // Secondary nav — rarely-used admin items in the bottom footer cluster.
 // landr-fzcg — split Settings into Account + Settings:
@@ -214,7 +246,7 @@ const staffItems: NavItem[] = [
 // landingPathFor() so the click lands directly on a Settings (or Account)
 // leaf URL. Previously these were the bare /account and /settings
 // virtual paths, both of which resolved (via Route-level Navigate) to
-// /settings/company — an ACCOUNT section. Clicking the bottom "Settings"
+// /account/company — an ACCOUNT section. Clicking the bottom "Settings"
 // gear would briefly render the Account sub-sidebar before the user
 // re-navigated, and Account-group highlighting was wrong on first paint.
 // landingPathFor() pulls from sections.ts so this stays in sync as the
@@ -238,10 +270,13 @@ const secondaryItems: NavItem[] = [
 
 function isMatch(pathname: string, item: NavItem): boolean {
   if (item.matchGroup) {
-    // Only consider Account/Settings active when the user is actually
-    // INSIDE the settings hub (or onthe Account redirect target). A user
-    // on /bookings shouldn't see either bottom nav item highlighted.
-    if (pathname !== '/account' && !pathname.startsWith('/settings')) {
+    // Only consider Account/Settings active when the user is actually inside
+    // one of the two hubs (/account/* or /settings/*). A user on /bookings
+    // shouldn't see either bottom nav item highlighted.
+    if (
+      !pathname.startsWith('/account') &&
+      !pathname.startsWith('/settings')
+    ) {
       return false
     }
     return groupForPath(pathname) === item.matchGroup
@@ -387,12 +422,29 @@ export function AppSidebar() {
   const { mode, setHovered } = useSidebarModeContext()
   const { isEnabled, effectiveIsStaff } = useEntitlements()
 
+  // landr-7dya.21 — surface /release for non-staff customer signers (Martin).
+  // Endpoint gates server-side on tier (staging only) AND is_release_signer, so
+  // for staff / dev / prod / non-signers it returns false and the link stays
+  // hidden. retry:false + silent error so a missing endpoint (older API) just
+  // hides the link rather than surfacing a toast. The /release route guard
+  // itself does the second-line check; this query just drives sidebar
+  // visibility.
+  const eligibilityQuery = useQuery({
+    queryKey: ['operator', 'release', 'eligibility'] as const,
+    queryFn: fetchGoLiveEligibility,
+    staleTime: 1000 * 60 * 5,
+    retry: false,
+  })
+  const canRequestGoLive =
+    !effectiveIsStaff && eligibilityQuery.data?.can_request_golive === true
+
   // landr-sbhz.6 — hide primary nav items whose gating feature is DISABLED for
   // the current operator. Items without a gating feature (Dashboard, Views,
   // Approvals, Retrieve, Trash) have featureForRoute() === null and are always
   // shown. Staff bypass lives inside isEnabled (always true for staff).
   //
   // landr-sbhz.8 — staff-only items (Revenue) are appended only for staff.
+  // landr-7dya.21 — non-staff signers see only /release (no other staff items).
   // landr-2soj — gate on EFFECTIVE staff so they vanish in view-as mode: a
   // staff user viewing as a (non-staff) operator should not see Landr owner
   // tooling. (Audit lives in primaryItems and is gated by featureForRoute →
@@ -402,7 +454,7 @@ export function AppSidebar() {
       const feature = featureForRoute(item.to)
       return feature === null || isEnabled(feature)
     }),
-    ...(effectiveIsStaff ? staffItems : []),
+    ...(effectiveIsStaff ? staffItems : canRequestGoLive ? [signerItem] : []),
   ]
 
   // landr-fzcg — hover-expand: only attach pointer handlers when the user

@@ -70,12 +70,6 @@ export function isTieredCommissionKind(kind: CommissionRuleKind): boolean {
 
 export type EarningStatus = 'accrued' | 'paid' | 'reversed'
 
-export const EARNING_STATUS_LABELS: Record<EarningStatus, string> = {
-  accrued: 'Accrued',
-  paid: 'Paid',
-  reversed: 'Reversed',
-}
-
 // ---- tree types ---------------------------------------------------------
 
 export type CommissionTier = {
@@ -242,16 +236,6 @@ export async function patchCommissionScheme(
     'PATCH',
     `/api/staff/operators/${operatorId}/commission-schemes/${schemeId}`,
     body,
-  )
-}
-
-export async function deleteCommissionScheme(
-  operatorId: string,
-  schemeId: string,
-): Promise<void> {
-  await api<{ status: string }>(
-    'DELETE',
-    `/api/staff/operators/${operatorId}/commission-schemes/${schemeId}`,
   )
 }
 

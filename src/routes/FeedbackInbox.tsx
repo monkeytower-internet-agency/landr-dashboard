@@ -33,10 +33,13 @@ import {
   InboxIcon,
   MessageSquareIcon,
   ArrowUpRightIcon,
+  ChevronLeftIcon,
   UserIcon,
 } from 'lucide-react'
+import { OriginChip, CardStatusIcons } from '@/components/tickets/CardVisuals'
 
 import { PageTitle } from '@/lib/page-title'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { t } from '@/lib/strings'
 import { cn } from '@/lib/utils'
 import { contactDateTime } from '@/lib/contacts'
@@ -45,6 +48,9 @@ import { useOperatorCalendarPrefs } from '@/lib/operator'
 import {
   fetchOperatorInboxSummaries,
   fetchInboxThreads,
+  fetchSystemInboxThreads,
+  fetchSystemLaneSummary,
+  SYSTEM_LANE_ID,
   threadMatchesFilter,
   INBOX_FILTER_DEFAULTS,
   type OperatorInboxSummary,
@@ -54,14 +60,19 @@ import {
 } from '@/lib/feedback-inbox'
 import {
   fetchAssignableUsers,
+  fetchTicket,
   PERCEIVED_IMPACT_LABEL,
   TICKET_STATUSES,
+  type TicketRow,
   type TicketStatus,
   type TicketPerceivedImpact,
   type AssignableUser,
 } from '@/lib/tickets'
+import { TICKET_SYSTEM_PATH } from '@/lib/app-mode'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
+import { useTicketFilter } from '@/lib/ticket-filter-context'
+import { TicketDetailSheet } from '@/components/tickets/TicketDetailSheet'
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -311,6 +322,14 @@ function ThreadCard({
   const displayedEvents = expanded ? timeline : timeline.slice(-2)
   const hiddenCount = timeline.length - 2
 
+  // Derive comment count from timeline (comment events only)
+  const commentCount = timeline.filter((e) => e.kind === 'comment').length
+
+  // Resolved assignee for the status-icon avatar
+  const resolvedAssignee = ticket.assignee_id
+    ? (assigneeMap.get(ticket.assignee_id) ?? null)
+    : null
+
   return (
     <div
       className={cn(
@@ -324,6 +343,12 @@ function ThreadCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-sm truncate">{ticket.title}</span>
+            {/* landr-7dya.2 — origin chip */}
+            <OriginChip
+              tier={ticket.origin_tier ?? null}
+              operatorLabel={ticket.origin_operator_label ?? null}
+              data-testid={`inbox-thread-origin-${ticket.id}`}
+            />
             {hasUnread && (
               <span
                 className="inline-flex size-2 shrink-0 rounded-full bg-primary"
@@ -344,16 +369,19 @@ function ThreadCard({
             <span>{PERCEIVED_IMPACT_LABEL[ticket.perceived_impact]}</span>
             <span>·</span>
             <span>{ticket.status.replace('_', ' ')}</span>
-            {ticket.assignee_id && (
-              <>
-                <span>·</span>
-                <span>
-                  {assigneeMap.get(ticket.assignee_id)?.email ??
-                    ticket.assignee_id.slice(0, 8)}
-                </span>
-              </>
-            )}
           </div>
+          {/* landr-7dya.3 — Trello-style status icons */}
+          <CardStatusIcons
+            attachmentCount={0}
+            isWatching={false}
+            assignee={resolvedAssignee}
+            priority={ticket.priority}
+            commentCount={commentCount}
+            moscow={ticket.moscow ?? null}
+            blocked={ticket.blocked}
+            className="mt-1.5"
+            data-testid={`inbox-thread-status-icons-${ticket.id}`}
+          />
         </div>
         <Button
           variant="ghost"
@@ -588,11 +616,25 @@ function FeedbackInboxInner() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
+  // landr-3qkr.6 — on a phone the rail + main pane can't sit side-by-side
+  // (the w-60 rail would crush the thread pane to ~120px). Below md we show
+  // ONE pane at a time: the operator rail until a lane is picked, then the
+  // thread pane with a Back button. isMobile only gates the auto-select (so
+  // mobile lands on the rail first); the pane visibility is pure CSS so it's
+  // right on first paint without waiting for matchMedia.
+  const isMobile = useIsMobile()
 
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(
     null,
   )
   const [filter, setFilter] = useState<InboxFilter>(INBOX_FILTER_DEFAULTS)
+
+  // landr-7dya.11 — the shell-level shared filter (operator/type/urgency/time/
+  // assigned-to-me/unread/watching/mentioned/unassigned/status/blocked/tier).
+  // Layered ON TOP of this surface's own status/impact/assignee/unread chips
+  // (AND). When the inbox is rendered standalone (/feedback-inbox, no shell)
+  // useTicketFilter() returns a fallback whose `matches` passes everything.
+  const { matches: shellMatches } = useTicketFilter()
 
   // Left-rail summary
   const summaryQuery = useQuery({
@@ -601,10 +643,23 @@ function FeedbackInboxInner() {
     staleTime: 60 * 1000,
   })
 
-  // Thread list for selected operator
+  // landr-agiw.3 — System lane summary (null when no system tickets exist yet).
+  const systemSummaryQuery = useQuery({
+    queryKey: ['feedback-inbox-system-summary'],
+    queryFn: fetchSystemLaneSummary,
+    staleTime: 60 * 1000,
+  })
+
+  const isSystemLane = selectedOperatorId === SYSTEM_LANE_ID
+
+  // Thread list for the selected lane: the System lane lists system-filed tickets
+  // (operator_id NULL), every other lane is per-operator.
   const threadsQuery = useQuery({
     queryKey: ['feedback-inbox-threads', selectedOperatorId ?? 'none'],
-    queryFn: () => fetchInboxThreads(selectedOperatorId!),
+    queryFn: () =>
+      isSystemLane
+        ? fetchSystemInboxThreads()
+        : fetchInboxThreads(selectedOperatorId!),
     enabled: !!selectedOperatorId,
     staleTime: 30 * 1000,
   })
@@ -616,7 +671,13 @@ function FeedbackInboxInner() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const summaries = useMemo(() => summaryQuery.data ?? [], [summaryQuery.data])
+  // landr-agiw.3 — pin the System lane (if any system tickets exist) at the top
+  // of the rail, above the per-operator rows.
+  const summaries = useMemo<OperatorInboxSummary[]>(() => {
+    const operators = summaryQuery.data ?? []
+    const system = systemSummaryQuery.data
+    return system ? [system, ...operators] : operators
+  }, [summaryQuery.data, systemSummaryQuery.data])
   const threads = useMemo(() => threadsQuery.data ?? [], [threadsQuery.data])
 
   // Build a set of staff user IDs for author classification
@@ -666,26 +727,31 @@ function FeedbackInboxInner() {
     return ids
   }, [threads, selectedSummary, staffUserIds])
 
-  // Apply filters
+  // Apply filters — the inbox's own chips AND the shell-level shared filter.
   const filteredThreads = useMemo(
     () =>
-      threads.filter((th) =>
-        threadMatchesFilter(
-          th,
-          filter,
-          unreadTicketIds,
-          awaitingReplyTicketIds,
-        ),
+      threads.filter(
+        (th) =>
+          threadMatchesFilter(
+            th,
+            filter,
+            unreadTicketIds,
+            awaitingReplyTicketIds,
+          ) && shellMatches(th.ticket),
       ),
-    [threads, filter, unreadTicketIds, awaitingReplyTicketIds],
+    [threads, filter, unreadTicketIds, awaitingReplyTicketIds, shellMatches],
   )
 
-  // Bell deep-link: ?open=<ticketId> clears param and keeps current selection
-  // if the ticket is already in view, otherwise defers to user to pick rail.
+  // landr-7dya.6 — bell deep-link: ?open=<ticketId> fetches the ticket and
+  // opens TicketDetailSheet directly (refresh-safe). Clears the param after
+  // opening so the URL stays clean. The sheet is owned here so the inbox
+  // stays mounted behind it (state preserved when the sheet is closed).
+  const [deepLinkTicket, setDeepLinkTicket] = useState<TicketRow | null>(null)
   const openTicketId = searchParams.get('open')
 
   useEffect(() => {
     if (!openTicketId) return
+    // Strip the param immediately so a refresh doesn't re-trigger.
     setSearchParams(
       (p) => {
         const next = new URLSearchParams(p)
@@ -694,29 +760,56 @@ function FeedbackInboxInner() {
       },
       { replace: true },
     )
-  }, [openTicketId, setSearchParams])
+    // Fetch the ticket row and open the detail sheet.
+    fetchTicket(openTicketId)
+      .then((row) => {
+        if (row) setDeepLinkTicket(row)
+      })
+      .catch(() => {
+        // Fetch failure is non-fatal — the bell click just lands on the
+        // inbox without opening the sheet.
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openTicketId])
 
-  // Auto-select first operator once summaries load
-  if (selectedOperatorId === null && summaries.length > 0) {
+  // Auto-select first operator once summaries load. landr-3qkr.6 — desktop
+  // only: on a phone we leave the rail un-selected so the operator picks a
+  // lane first (single-pane), rather than being dropped straight into the
+  // first lane's threads with no visible way back to the list.
+  if (!isMobile && selectedOperatorId === null && summaries.length > 0) {
     const first = summaries[0]
     if (first) setSelectedOperatorId(first.operator_id)
   }
 
+  // landr-7dya.6 — "View on board" now targets the app-view board
+  // (/staff/tickets/board?open=<id>) so the full TicketDetailSheet opens there.
   function handleViewOnBoard(ticketId: string) {
     void queryClient.invalidateQueries({
       queryKey: ['feedback-inbox-summary'],
     })
-    navigate(`/tickets?open=${encodeURIComponent(ticketId)}`)
+    navigate(`${TICKET_SYSTEM_PATH}/board?open=${encodeURIComponent(ticketId)}`)
   }
 
   return (
     <>
       <PageTitle title={t.feedbackInbox.title} />
 
+      {/* landr-7dya.6 — Deep-link sheet: opens when ?open=<id> is resolved. */}
+      <TicketDetailSheet
+        ticket={deepLinkTicket}
+        onOpenChange={(open) => { if (!open) setDeepLinkTicket(null) }}
+      />
+
       <div className="flex h-full min-h-0 overflow-hidden">
         {/* ---- Left rail --------------------------------------------------- */}
+        {/* landr-3qkr.6 — full-width on a phone (single-pane), fixed w-60 from
+            md up. Once a lane is selected the rail hides below md so the
+            thread pane gets the whole screen; desktop always shows both. */}
         <aside
-          className="flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto border-r p-2"
+          className={cn(
+            'flex w-full shrink-0 flex-col gap-0.5 overflow-y-auto p-2 md:w-60 md:border-r',
+            selectedOperatorId !== null && 'hidden md:flex',
+          )}
           data-testid="inbox-left-rail"
           aria-label={t.feedbackInbox.title}
         >
@@ -757,8 +850,14 @@ function FeedbackInboxInner() {
         </aside>
 
         {/* ---- Main pane --------------------------------------------------- */}
+        {/* landr-3qkr.6 — hidden below md until a lane is selected, so the
+            phone shows the rail first; once a lane is picked it takes the
+            whole screen. Always visible from md up (desktop master-detail). */}
         <main
-          className="flex min-w-0 flex-1 flex-col overflow-y-auto p-4 gap-4"
+          className={cn(
+            'min-w-0 flex-1 flex-col overflow-y-auto p-4 gap-4 md:flex',
+            selectedOperatorId === null ? 'hidden' : 'flex',
+          )}
           data-testid="inbox-main-pane"
         >
           {/* Placeholder when no operator is selected */}
@@ -778,8 +877,23 @@ function FeedbackInboxInner() {
             <>
               {/* Operator header row */}
               <div className="flex items-center justify-between gap-2 border-b pb-3">
-                <div>
-                  <h1 className="text-base font-semibold">
+                <div className="flex min-w-0 items-center gap-2">
+                  {/* landr-3qkr.6 — mobile-only back affordance: returns to the
+                      operator rail (single-pane on phones). Hidden from md up
+                      where both panes are visible side-by-side. */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-2 shrink-0 md:hidden"
+                    onClick={() => setSelectedOperatorId(null)}
+                    data-testid="inbox-back-to-rail"
+                  >
+                    <ChevronLeftIcon className="size-4" aria-hidden />
+                    {t.feedbackInbox.backToInbox}
+                  </Button>
+                  <div className="min-w-0">
+                  <h1 className="truncate text-base font-semibold">
                     {selectedSummary?.operator_name ??
                       selectedSummary?.operator_slug ??
                       selectedOperatorId.slice(0, 8)}
@@ -811,6 +925,7 @@ function FeedbackInboxInner() {
                       )}
                     </p>
                   )}
+                  </div>
                 </div>
               </div>
 

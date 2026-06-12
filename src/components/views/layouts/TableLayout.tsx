@@ -64,6 +64,7 @@ import {
 import { groupRows, useGroupCollapse } from '@/lib/views-group-by'
 import type { BookingItem } from '@/lib/views-bookings-data'
 import { t } from '@/lib/strings'
+import { getCurrencyFormatter } from '@/lib/format-currency'
 
 type SortEntry = { source: 'system' | 'custom'; key: string; dir: 'asc' | 'desc' }
 
@@ -190,7 +191,10 @@ export function TableLayout({
           onToggle={handleToggleColumn}
         />
       </div>
-      <div className="overflow-x-auto rounded-md border">
+      {/* landr-3qkr.5 — edge-fade affordance on the right so users see the
+          table continues off-screen on phones. The mask only takes effect
+          when content overflows; on wide screens it's invisible. */}
+      <div className="overflow-x-auto rounded-md border [mask-image:linear-gradient(to_right,black_90%,transparent_100%)]">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((group) => (
@@ -523,16 +527,10 @@ function renderCell(item: BookingItem, field: ViewField): React.ReactNode {
 // ---------------------------------------------------------------------------
 // Formatters
 
-const moneyFormatters = new Map<string, Intl.NumberFormat>()
 function formatMoney(value: string | number, currency: string): string {
   const n = typeof value === 'number' ? value : Number(value)
   if (!Number.isFinite(n)) return t.views.table.moneyFallback
-  let fmt = moneyFormatters.get(currency)
-  if (!fmt) {
-    fmt = new Intl.NumberFormat('en-IE', { style: 'currency', currency })
-    moneyFormatters.set(currency, fmt)
-  }
-  return fmt.format(n)
+  return getCurrencyFormatter(currency).format(n)
 }
 
 const _dayFormatter = new Intl.DateTimeFormat('en-IE', {

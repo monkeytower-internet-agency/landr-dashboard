@@ -44,6 +44,8 @@ const { mock } = vi.hoisted(() => {
     commentRows: [] as unknown[],
     eventRows: [] as unknown[],
     attachmentRows: [] as unknown[],
+    // landr-7dya.9 — assignable_users feed the reply-CC picker (staff only).
+    assignableRows: [] as unknown[],
     watcherRow: null as unknown,
     // landr-wwhn.16 — notification preference rows
     notifPrefsRow: null as unknown,
@@ -60,7 +62,7 @@ const { mock } = vi.hoisted(() => {
     }
     if (table === 'ticket_events') return state.eventRows
     if (table === 'ticket_attachments') return state.attachmentRows
-    if (table === 'assignable_users') return []
+    if (table === 'assignable_users') return state.assignableRows
     return state.ticketRows
   }
 
@@ -97,10 +99,29 @@ const { mock } = vi.hoisted(() => {
       upsert: vi.fn(() => b),
       ilike: vi.fn(() => b),
       or: vi.fn(() => b),
-      single: vi.fn(async () => ({
-        data: null as unknown,
-        error: null as { message: string } | null,
-      })),
+      single: vi.fn(async () => {
+        // createComment does insert→select→single; return a synthetic row so
+        // the post-insert notify dispatch has a comment id to forward.
+        if (table === 'ticket_comments') {
+          return {
+            data: {
+              id: 'new-comment-1',
+              ticket_id: 'ticket-test-1234',
+              operator_id: 'op-1',
+              author_id: null,
+              body: '',
+              is_internal: false,
+              created_at: '2026-05-28T12:00:00Z',
+              updated_at: '2026-05-28T12:00:00Z',
+            } as unknown,
+            error: null as { message: string } | null,
+          }
+        }
+        return {
+          data: null as unknown,
+          error: null as { message: string } | null,
+        }
+      }),
       maybeSingle: vi.fn(async () => {
         if (table === 'users') {
           // If querying by id (reporter fetch), return the reporter row;
@@ -198,6 +219,8 @@ function makeTicket(overrides: Partial<TicketRow> = {}): TicketRow {
     assignee_id: null,
     blocked: false,
     moscow: null,
+    origin_tier: null,
+    origin_operator_label: null,
     created_at: '2026-05-24T10:00:00Z',
     updated_at: '2026-05-24T10:00:00Z',
     ...overrides,
@@ -234,6 +257,7 @@ beforeEach(() => {
   mock.state.commentRows = []
   mock.state.eventRows = []
   mock.state.attachmentRows = []
+  mock.state.assignableRows = []
   mock.state.watcherRow = null
   mock.state.notifPrefsRow = null
   mock.state.ticketNotifySettingsRow = null
@@ -1080,6 +1104,333 @@ describe('TicketDetailSheet — Triage card (staff actions)', () => {
       expect(toast.error).toHaveBeenCalledWith(
         expect.stringContaining('Not authorized'),
       )
+    })
+  })
+})
+
+// ---- landr-7dya.4: Attachment preview + lightbox ----------------------------
+//
+// Covers:
+//   - Image attachment shows a thumbnail once the signed URL resolves
+//   - Clicking the thumbnail opens the lightbox (backdrop + image)
+//   - Lightbox closes when the Esc key is pressed
+//   - Lightbox closes when the close button is clicked
+//   - Non-image attachment renders a file icon (no thumbnail)
+//   - Download button is present for both image and non-image attachments
+
+describe('TicketDetailSheet — Attachment preview (landr-7dya.4)', () => {
+  function makeAttachment(overrides: Partial<{
+    id: string
+    ticket_id: string
+    uploader_id: string | null
+    storage_path: string
+    filename: string
+    content_type: string
+    size_bytes: number
+    created_at: string
+  }> = {}) {
+    return {
+      id: 'att-1',
+      ticket_id: 'ticket-test-1234',
+      uploader_id: null,
+      storage_path: 'ticket-attachments/ticket-test-1234/att-1/photo.png',
+      filename: 'photo.png',
+      content_type: 'image/png',
+      size_bytes: 102400,
+      created_at: '2026-05-28T10:00:00Z',
+      ...overrides,
+    }
+  }
+
+  async function openAttachmentTab(user: ReturnType<typeof userEvent.setup>) {
+    await waitFor(() => {
+      expect(screen.getByTestId('ticket-detail-tab-attachments')).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId('ticket-detail-tab-attachments'))
+  }
+
+  it('shows a thumbnail for an image attachment once signed URL resolves', async () => {
+    mock.state.attachmentRows = [makeAttachment()]
+    const user = userEvent.setup()
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await openAttachmentTab(user)
+
+    // Thumbnail should appear once the signed URL resolves
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('attachment-thumbnail-att-1'),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('clicking the image thumbnail opens the lightbox', async () => {
+    mock.state.attachmentRows = [makeAttachment()]
+    const user = userEvent.setup()
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await openAttachmentTab(user)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('attachment-thumbnail-att-1')).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId('attachment-thumbnail-att-1'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('attachment-lightbox-backdrop')).toBeInTheDocument()
+      expect(screen.getByTestId('lightbox-image')).toBeInTheDocument()
+    })
+  })
+
+  it('lightbox closes when the close button is clicked', async () => {
+    mock.state.attachmentRows = [makeAttachment()]
+    const user = userEvent.setup()
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await openAttachmentTab(user)
+    await waitFor(() => {
+      expect(screen.getByTestId('attachment-thumbnail-att-1')).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId('attachment-thumbnail-att-1'))
+    await waitFor(() => {
+      expect(screen.getByTestId('lightbox-close')).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId('lightbox-close'))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('attachment-lightbox-backdrop')).not.toBeInTheDocument()
+    })
+  })
+
+  it('lightbox closes on Escape key', async () => {
+    mock.state.attachmentRows = [makeAttachment()]
+    const user = userEvent.setup()
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await openAttachmentTab(user)
+    await waitFor(() => {
+      expect(screen.getByTestId('attachment-thumbnail-att-1')).toBeInTheDocument()
+    })
+    await user.click(screen.getByTestId('attachment-thumbnail-att-1'))
+    await waitFor(() => {
+      expect(screen.getByTestId('attachment-lightbox-backdrop')).toBeInTheDocument()
+    })
+    await user.keyboard('{Escape}')
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('attachment-lightbox-backdrop')).not.toBeInTheDocument()
+    })
+  })
+
+  it('non-image attachment has no thumbnail and keeps download button', async () => {
+    mock.state.attachmentRows = [
+      makeAttachment({
+        id: 'att-pdf',
+        filename: 'report.pdf',
+        content_type: 'application/pdf',
+        storage_path: 'ticket-attachments/ticket-test-1234/att-pdf/report.pdf',
+      }),
+    ]
+    const user = userEvent.setup()
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await openAttachmentTab(user)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('attachment-row-att-pdf')).toBeInTheDocument()
+    })
+
+    // No thumbnail for non-image
+    expect(screen.queryByTestId('attachment-thumbnail-att-pdf')).not.toBeInTheDocument()
+    // Download button still present
+    expect(screen.getByTestId('attachment-download-att-pdf')).toBeInTheDocument()
+  })
+
+  it('download button present on image attachment', async () => {
+    mock.state.attachmentRows = [makeAttachment()]
+    const user = userEvent.setup()
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await openAttachmentTab(user)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('attachment-download-att-1')).toBeInTheDocument()
+    })
+  })
+})
+
+// ---- landr-7dya.12: @mention rendering in displayed comment bodies ----------
+//
+// Covers: a comment body that contains @handles renders the @-tokens inside a
+// highlighted <span data-testid="comment-mention">, while plain text is not.
+
+describe('TicketDetailSheet — mention rendering (landr-7dya.12)', () => {
+  it('highlights @mentions in a displayed comment body', async () => {
+    mock.state.commentRows = [
+      {
+        id: 'c-mention',
+        ticket_id: 'ticket-test-1234',
+        operator_id: 'op-1',
+        author_id: null,
+        body: 'hey @alice can you check with @bob',
+        is_internal: false,
+        created_at: '2026-05-28T11:00:00Z',
+        updated_at: '2026-05-28T11:00:00Z',
+      },
+    ]
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('comment-body-c-mention')).toBeInTheDocument()
+    })
+    const highlights = screen.getAllByTestId('comment-mention')
+    expect(highlights.map((n) => n.textContent)).toEqual(['@alice', '@bob'])
+  })
+
+  it('renders no mention highlights for a plain comment', async () => {
+    mock.state.commentRows = [
+      {
+        id: 'c-plain',
+        ticket_id: 'ticket-test-1234',
+        operator_id: 'op-1',
+        author_id: null,
+        body: 'just a normal reply, no mentions',
+        is_internal: false,
+        created_at: '2026-05-28T11:00:00Z',
+        updated_at: '2026-05-28T11:00:00Z',
+      },
+    ]
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('comment-body-c-plain')).toBeInTheDocument()
+    })
+    expect(screen.queryByTestId('comment-mention')).not.toBeInTheDocument()
+  })
+})
+
+// ---- landr-7dya.9: reply-with-CC --------------------------------------------
+//
+// Covers:
+//   - CC picker is staff-only (hidden for operators)
+//   - CC picker lists human staff candidates (no Claude agents)
+//   - Selecting a staff member shows a removable CC chip
+//   - Posting a comment with CC'd staff dispatches notify-mentions with those
+//     user IDs (CC == explicit notify target through the same fan-out)
+
+describe('TicketDetailSheet — reply-with-CC (landr-7dya.9)', () => {
+  function makeStaffAssignable(
+    overrides: Partial<{
+      id: string
+      email: string | null
+      is_landr_staff: boolean
+      is_claude_agent: boolean
+    }> = {},
+  ) {
+    return {
+      id: 'staff-1',
+      email: 'olaf@landr.de',
+      is_landr_staff: true,
+      is_claude_agent: false,
+      ...overrides,
+    }
+  }
+
+  beforeEach(() => {
+    mockApiFn.mockReset()
+    mockApiFn.mockResolvedValue(undefined)
+  })
+
+  it('does NOT show the CC picker for non-staff operators', async () => {
+    mock.state.userRows = [makePublicUser(false)]
+    mock.state.assignableRows = [makeStaffAssignable()]
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('comment-body-input')).toBeInTheDocument()
+    })
+    expect(screen.queryByTestId('cc-picker')).not.toBeInTheDocument()
+  })
+
+  it('shows the CC picker for staff', async () => {
+    mock.state.userRows = [makePublicUser(true)]
+    mock.state.assignableRows = [makeStaffAssignable()]
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('cc-picker')).toBeInTheDocument()
+      expect(screen.getByTestId('cc-add-btn')).toBeInTheDocument()
+    })
+  })
+
+  it('lists human staff candidates but not Claude agents', async () => {
+    mock.state.userRows = [makePublicUser(true)]
+    mock.state.assignableRows = [
+      makeStaffAssignable({ id: 'staff-1', email: 'olaf@landr.de' }),
+      makeStaffAssignable({
+        id: 'agent-1',
+        email: 'claude@landr.de',
+        is_landr_staff: false,
+        is_claude_agent: true,
+      }),
+    ]
+    const user = userEvent.setup()
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await waitFor(() => screen.getByTestId('cc-add-btn'))
+    await user.click(screen.getByTestId('cc-add-btn'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('cc-option-staff-1')).toBeInTheDocument()
+    })
+    expect(screen.queryByTestId('cc-option-agent-1')).not.toBeInTheDocument()
+  })
+
+  it('shows a removable chip after selecting a CC staff member', async () => {
+    mock.state.userRows = [makePublicUser(true)]
+    mock.state.assignableRows = [makeStaffAssignable()]
+    const user = userEvent.setup()
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    await waitFor(() => screen.getByTestId('cc-add-btn'))
+    await user.click(screen.getByTestId('cc-add-btn'))
+    await waitFor(() => screen.getByTestId('cc-option-staff-1'))
+    await user.click(screen.getByTestId('cc-option-staff-1'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('cc-chip-staff-1')).toBeInTheDocument()
+    })
+  })
+
+  it('dispatches notify-mentions with the CC user IDs on submit', async () => {
+    mock.state.userRows = [makePublicUser(true)]
+    mock.state.assignableRows = [makeStaffAssignable({ id: 'staff-1' })]
+    // createComment returns the new comment id (insert→select→single).
+    const user = userEvent.setup()
+    render(<TicketDetailSheet ticket={makeTicket()} onOpenChange={() => {}} />)
+
+    // Select the CC staff member.
+    await waitFor(() => screen.getByTestId('cc-add-btn'))
+    await user.click(screen.getByTestId('cc-add-btn'))
+    await waitFor(() => screen.getByTestId('cc-option-staff-1'))
+    await user.click(screen.getByTestId('cc-option-staff-1'))
+    // Close the menu so the textarea is interactable.
+    await user.keyboard('{Escape}')
+
+    // Type a plain comment (no @mentions) so only CC IDs are dispatched.
+    await user.type(
+      screen.getByTestId('comment-body-input'),
+      'looping you in here',
+    )
+    await user.click(screen.getByTestId('comment-submit-btn'))
+
+    await waitFor(() => {
+      const notifyCall = mockApiFn.mock.calls.find(
+        (c) => typeof c[1] === 'string' && c[1].endsWith('/notify-mentions'),
+      )
+      expect(notifyCall).toBeDefined()
+      const payload = notifyCall![2] as { mentioned_user_ids: string[] }
+      expect(payload.mentioned_user_ids).toContain('staff-1')
     })
   })
 })

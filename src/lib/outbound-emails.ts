@@ -13,6 +13,7 @@
 // Schema-of-truth: see landr-api/supabase/migrations/20260518000100_outbound_emails.sql.
 
 import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api-client'
 
 export const OUTBOUND_EMAIL_STATUSES = [
   'queued',
@@ -22,6 +23,8 @@ export const OUTBOUND_EMAIL_STATUSES = [
 ] as const
 
 export type OutboundEmailStatus = (typeof OUTBOUND_EMAIL_STATUSES)[number]
+
+export type OutboundEmailSentVia = 'gmail' | 'dev_fallback'
 
 export type OutboundEmailRow = {
   id: string
@@ -38,6 +41,10 @@ export type OutboundEmailRow = {
   last_error: string | null
   created_at: string
   sent_at: string | null
+  /** How the email was dispatched. null = queued/sending/never sent. */
+  sent_via: OutboundEmailSentVia | null
+  /** Id of the original email this was resent from. */
+  resent_from_id: string | null
 }
 
 const OUTBOUND_EMAIL_SELECT = `
@@ -54,7 +61,9 @@ const OUTBOUND_EMAIL_SELECT = `
   retries,
   last_error,
   created_at,
-  sent_at
+  sent_at,
+  sent_via,
+  resent_from_id
 `
 
 export type FetchOutboundEmailsOptions = {
@@ -102,4 +111,33 @@ export async function fetchOutboundEmails(
 
   if (error) throw new Error(error.message)
   return (data ?? []) as unknown as OutboundEmailRow[]
+}
+
+// ----- Resend email (landr-0xo6) ------------------------------------------
+// POST /api/operators/{operator_id}/emails/{email_id}/resend
+// Only changed fields should be sent in the body — omit unchanged ones.
+
+export type ResendEmailPayload = {
+  to_address?: string
+  subject?: string
+  body_html?: string
+  body_text?: string
+}
+
+export type ResendEmailResult = {
+  id: string
+  status: OutboundEmailStatus
+  sent_via: OutboundEmailSentVia | null
+}
+
+export async function resendEmail(
+  operatorId: string,
+  emailId: string,
+  payload: ResendEmailPayload,
+): Promise<ResendEmailResult> {
+  return api<ResendEmailResult>(
+    'POST',
+    `/api/operators/${operatorId}/emails/${emailId}/resend`,
+    payload,
+  )
 }

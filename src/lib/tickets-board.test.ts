@@ -38,8 +38,13 @@ const { mock } = vi.hoisted(() => {
     return b
   }
 
+  // rpc's resolved shape mirrors patchTicketStatus's destructure ({ error }).
+  // Typed so `error` is `{ message: string } | null` — otherwise TS infers the
+  // literal `{ error: null }` and rejects the error-path mockResolvedValueOnce.
+  type RpcResult = { error: { message: string } | null }
   const supabase = {
     from: vi.fn(() => fromBuilder()),
+    rpc: vi.fn(async (): Promise<RpcResult> => ({ error: null })),
     channel: vi.fn(() => ({ on: vi.fn().mockReturnThis(), subscribe: vi.fn() })),
     removeChannel: vi.fn(),
     auth: {
@@ -83,6 +88,8 @@ function makeTicket(overrides: Partial<TicketRow> = {}): TicketRow {
     assignee_id: null,
     blocked: false,
     moscow: null,
+    origin_tier: null,
+    origin_operator_label: null,
     created_at: '2026-05-24T10:00:00Z',
     updated_at: '2026-05-24T10:00:00Z',
     ...overrides,
@@ -173,7 +180,7 @@ describe('fetchTicketsStaff', () => {
 // ---- patchTicketStatus ------------------------------------------------------
 
 describe('patchTicketStatus', () => {
-  it('calls supabase update with the new status', async () => {
+  it('calls supabase update with the new status (no actor)', async () => {
     const updateSpy = vi.fn(() => ({
       eq: vi.fn(async () => ({ error: null })),
     }))
@@ -181,9 +188,11 @@ describe('patchTicketStatus', () => {
 
     await patchTicketStatus('ticket-1', 'ready')
     expect(updateSpy).toHaveBeenCalledWith({ status: 'ready' })
+    // RPC must NOT be called when no actorId is provided.
+    expect(mock.supabase.rpc).not.toHaveBeenCalled()
   })
 
-  it('throws when Supabase returns an error', async () => {
+  it('throws when Supabase returns an error (no actor)', async () => {
     const eqSpy = vi.fn(async () => ({ error: { message: 'update failed' } }))
     mock.supabase.from.mockReturnValueOnce({
       update: vi.fn(() => ({ eq: eqSpy })),
@@ -191,6 +200,47 @@ describe('patchTicketStatus', () => {
     await expect(patchTicketStatus('ticket-1', 'ready')).rejects.toThrow(
       'update failed',
     )
+  })
+
+  // ---- landr-yqqz: actor-exclusion RPC path --------------------------------
+
+  it('calls patch_ticket_status_as_actor RPC when actorId is provided', async () => {
+    mock.supabase.rpc.mockResolvedValueOnce({ error: null })
+
+    await patchTicketStatus('ticket-1', 'ready', 'user-uuid-123')
+
+    expect(mock.supabase.rpc).toHaveBeenCalledWith(
+      'patch_ticket_status_as_actor',
+      {
+        p_ticket_id: 'ticket-1',
+        p_status: 'ready',
+        p_actor_id: 'user-uuid-123',
+      },
+    )
+    // Plain REST update must NOT be called when RPC is used.
+    expect(mock.supabase.from).not.toHaveBeenCalled()
+  })
+
+  it('throws when RPC returns an error (with actor)', async () => {
+    mock.supabase.rpc.mockResolvedValueOnce({
+      error: { message: 'rpc failed' },
+    })
+
+    await expect(
+      patchTicketStatus('ticket-1', 'ready', 'user-uuid-123'),
+    ).rejects.toThrow('rpc failed')
+  })
+
+  it('falls back to plain REST update when actorId is null', async () => {
+    const updateSpy = vi.fn(() => ({
+      eq: vi.fn(async () => ({ error: null })),
+    }))
+    mock.supabase.from.mockReturnValueOnce({ update: updateSpy })
+
+    await patchTicketStatus('ticket-1', 'ready', null)
+
+    expect(updateSpy).toHaveBeenCalledWith({ status: 'ready' })
+    expect(mock.supabase.rpc).not.toHaveBeenCalled()
   })
 })
 

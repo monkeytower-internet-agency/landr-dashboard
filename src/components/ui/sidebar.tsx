@@ -4,6 +4,7 @@ import { PanelLeftIcon } from "lucide-react"
 import { Slot } from "radix-ui"
 
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useScrollShadow } from "@/hooks/use-scroll-shadow"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -346,7 +347,15 @@ function SidebarFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sidebar-footer"
       data-sidebar="footer"
-      className={cn("flex flex-col gap-2 p-2", className)}
+      className={cn(
+        "flex flex-col gap-2 p-2",
+        // Hairline top divider makes the scroll boundary explicit: the user
+        // can see where the scrollable nav ends and the pinned
+        // Account/Settings/mode-control begins. Hidden in icon-rail mode
+        // because the narrow rail has no room for the divider to read well.
+        "border-t border-sidebar-border group-data-[collapsible=icon]:border-t-0",
+        className,
+      )}
       {...props}
     />
   )
@@ -366,17 +375,59 @@ function SidebarSeparator({
   )
 }
 
-function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
+function SidebarContent({ className, children, ...props }: React.ComponentProps<"div">) {
+  const { ref, showTop, showBottom } = useScrollShadow<HTMLDivElement>()
+
+  // Fade height: 20px — subtle, matches the ScrollShadow component default.
+  const FADE_H = 20
+
   return (
     <div
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
+        // relative so the fade overlays position correctly
+        "relative flex min-h-0 flex-1 flex-col",
         className
       )}
       {...props}
-    />
+    >
+      {/* Top fade — visible when scrolled down past the top */}
+      <div
+        aria-hidden
+        data-scroll-shadow="top"
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-0 z-10 transition-opacity duration-150 group-data-[collapsible=icon]:hidden",
+          showTop ? "opacity-100" : "opacity-0",
+        )}
+        style={{
+          height: FADE_H,
+          background: "linear-gradient(to bottom, var(--sidebar), transparent)",
+        }}
+      />
+
+      {/* Scrollable inner — keeps the same gap/overflow-auto behaviour */}
+      <div
+        ref={ref}
+        className="flex flex-1 flex-col gap-2 overflow-auto [scrollbar-gutter:stable] group-data-[collapsible=icon]:overflow-hidden"
+      >
+        {children}
+      </div>
+
+      {/* Bottom fade — visible when there is content below the fold */}
+      <div
+        aria-hidden
+        data-scroll-shadow="bottom"
+        className={cn(
+          "pointer-events-none absolute inset-x-0 bottom-0 z-10 transition-opacity duration-150 group-data-[collapsible=icon]:hidden",
+          showBottom ? "opacity-100" : "opacity-0",
+        )}
+        style={{
+          height: FADE_H,
+          background: "linear-gradient(to top, var(--sidebar), transparent)",
+        }}
+      />
+    </div>
   )
 }
 
@@ -479,7 +530,7 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 // cursor:pointer on <button>; restore here so every sidebar nav row
 // telegraphs affordance on hover. disabled:* nullifies it.
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full cursor-pointer items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding,box-shadow,background-color] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[active=true]:shadow-s data-[active=true]:[&>svg]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+  "peer/menu-button flex w-full cursor-pointer items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding,box-shadow,background-color] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-primary data-[active=true]:font-medium data-[active=true]:text-sidebar-primary-foreground data-[active=true]:shadow-s data-[active=true]:hover:bg-sidebar-primary data-[active=true]:hover:text-sidebar-primary-foreground data-[active=true]:[&>svg]:text-sidebar-primary-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
   {
     variants: {
       variant: {

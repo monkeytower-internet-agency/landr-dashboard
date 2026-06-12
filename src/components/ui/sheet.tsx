@@ -5,6 +5,7 @@ import { XIcon } from "lucide-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import { ScrollShadow } from "@/components/ui/scroll-shadow"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -99,7 +100,42 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sheet-footer"
-      className={cn("mt-auto flex flex-col gap-2 p-4", className)}
+      className={cn(
+        // sticky keeps the footer pinned even when the sheet body overflows
+        // outside a flex layout (e.g. mobile full-screen variant).
+        // border-t + subtle shadow give a clear visual separation from the
+        // scrolling content above it — the scroll-affordance "landing strip".
+        "sticky bottom-0 z-10 shrink-0 bg-background flex flex-col gap-2 p-4 border-t shadow-[0_-1px_4px_rgba(0,0,0,0.06)]",
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+/**
+ * SheetBody — scrollable body region with scroll-shadow affordance.
+ *
+ * Drop this between <SheetHeader> and <SheetFooter> instead of a raw
+ * `<div className="flex-1 overflow-y-auto">` to automatically get the
+ * top/bottom fade indicators when the content overflows.
+ *
+ * @example
+ * <SheetContent>
+ *   <SheetHeader>…</SheetHeader>
+ *   <SheetBody className="px-4 py-3 gap-4">
+ *     <MyForm />
+ *   </SheetBody>
+ *   <SheetFooter>…</SheetFooter>
+ * </SheetContent>
+ */
+function SheetBody({ className, innerClassName, ...props }: React.ComponentProps<"div"> & { innerClassName?: string }) {
+  return (
+    <ScrollShadow
+      data-slot="sheet-body"
+      className={cn("flex-1", className)}
+      innerClassName={cn("flex flex-col gap-4 px-4 py-3", innerClassName)}
+      fadeColor="var(--background)"
       {...props}
     />
   )
@@ -137,6 +173,7 @@ export {
   SheetClose,
   SheetContent,
   SheetHeader,
+  SheetBody,
   SheetFooter,
   SheetTitle,
   SheetDescription,

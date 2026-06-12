@@ -67,6 +67,10 @@ import {
   type BookingItem,
 } from '@/lib/views-bookings-data'
 import {
+  buildDayRoster,
+  fetchFlyingParticipants,
+} from '@/lib/day-roster'
+import {
   postGeneralApprovalDecision,
   postHotelApprovalDecision,
   stageCode,
@@ -560,6 +564,10 @@ function LayoutBody({ layout, view, setConfig }: LayoutBodyProps) {
 //
 // landr-mofm — `setConfig` is threaded so the layout's month/week/day
 // switcher can persist into `calendarConfig.view`.
+//
+// landr-21x1 — when calendarConfig.mode === 'daily-roster', also fetches
+// flying participants and builds the per-day roster map, which is passed
+// down to CalendarLayout as `rosterByDay`.
 function CalendarLayoutBranch({
   view,
   setConfig,
@@ -582,6 +590,22 @@ function CalendarLayoutBranch({
       ['bookings', currentOperatorId ?? 'none'],
     ],
   })
+
+  // landr-21x1 — detect daily-roster mode from calendarConfig.
+  const isRosterMode =
+    (view.config as { calendarConfig?: { mode?: string } } | null)
+      ?.calendarConfig?.mode === 'daily-roster'
+
+  // landr-21x1 — flying participants query: only fires in daily-roster
+  // mode. Same direct-Supabase pattern as BookingsCalendar's parent
+  // (Calendar.tsx). Keyed on operator so the result is shared across
+  // calendar surfaces and doesn't re-fetch on every render.
+  const participantsQuery = useQuery({
+    queryKey: ['flying-participants', currentOperatorId ?? 'none'],
+    queryFn: () => fetchFlyingParticipants(currentOperatorId as string),
+    enabled: isRosterMode && !!currentOperatorId,
+  })
+
   const items = useMemo(
     () =>
       applyView(
@@ -593,6 +617,17 @@ function CalendarLayoutBranch({
       ),
     [bookings.data, view.config, view.entity_type, firstDayOfWeek],
   )
+
+  // landr-21x1 — build the per-day roster from all loaded bookings (not
+  // just the filtered `items`) so days outside the view's filter still
+  // surface roster entries when paging the calendar. Matches the
+  // BookingsCalendar pattern (Calendar.tsx fetches all bookings, roster
+  // is derived from the full set).
+  const rosterByDay = useMemo(() => {
+    if (!isRosterMode || !participantsQuery.data) return undefined
+    return buildDayRoster(bookings.data ?? [], participantsQuery.data)
+  }, [isRosterMode, bookings.data, participantsQuery.data])
+
   if (bookings.isPending) {
     return (
       <p className="text-muted-foreground text-sm">
@@ -621,6 +656,7 @@ function CalendarLayoutBranch({
       firstDayOfWeek={firstDayOfWeek}
       onConfigChange={setConfig}
       onReschedule={reschedule}
+      rosterByDay={rosterByDay}
     />
   )
 }

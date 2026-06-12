@@ -65,7 +65,9 @@ export function BoardColumn({
       data-board-column={columnKey}
       data-board-column-disabled={disabled || undefined}
       className={cn(
-        'bg-muted/40 flex w-72 shrink-0 flex-col gap-2 rounded-md p-3',
+        // landr-3qkr.5 — snap-start so the column snaps into place when
+        // the user swipes horizontally on a phone.
+        'bg-muted/40 flex w-72 shrink-0 snap-start flex-col gap-2 rounded-md p-3',
         isOver && !disabled && 'ring-primary/50 ring-2',
         disabled && 'opacity-60',
       )}

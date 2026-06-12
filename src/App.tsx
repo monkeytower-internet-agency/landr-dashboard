@@ -49,11 +49,18 @@ const FeedbackInbox = lazy(() => import('@/routes/FeedbackInbox'))
 // landr-a99u.6 — release promotion console (staff-only, staff-rare). Lazy so
 // it stays off the operator-facing initial bundle.
 const Release = lazy(() => import('@/routes/Release'))
+// landr-7dya.10 — full-screen ticket-system app-view shell. Staff-only,
+// off the operator initial bundle (operators never reach it).
+const TicketSystemShell = lazy(() => import('@/components/TicketSystemShell'))
 import { AuthCallback } from '@/routes/AuthCallback'
+import { ForgotPassword } from '@/routes/ForgotPassword'
+import { ResetPassword } from '@/routes/ResetPassword'
 import { Bookings } from '@/routes/Bookings'
 import { Calendar } from '@/routes/Calendar'
 import { Contacts } from '@/routes/Contacts'
 import { Dashboard } from '@/routes/Dashboard'
+// landr-a4pl.2 — /invoicing: Holded invoice transfer status + manual Sync-now.
+import { Invoicing } from '@/routes/Invoicing'
 import { GeneralApprovals } from '@/routes/GeneralApprovals'
 import { NotFound } from '@/routes/NotFound'
 import { Login } from '@/routes/Login'
@@ -64,10 +71,12 @@ import { Schedule } from '@/routes/Schedule'
 import { Staff } from '@/routes/Staff'
 import { EmailTemplates } from '@/routes/EmailTemplates'
 import { PickupLocations } from '@/routes/PickupLocations'
+import { Hotels } from '@/routes/Hotels'
 import { Providers } from '@/routes/Providers'
 import { SettingsLayout } from '@/routes/SettingsLayout'
 import { landingPathFor } from '@/components/settings/sections'
 import { BrandingSettings } from '@/routes/settings/BrandingSettings'
+import { WidgetSettings } from '@/routes/settings/WidgetSettings'
 import { CompanySettings } from '@/routes/settings/CompanySettings'
 import { CalendarDisplaySettings } from '@/routes/settings/CalendarDisplaySettings'
 import { DisplayPreferencesSettings } from '@/routes/settings/DisplayPreferencesSettings'
@@ -75,6 +84,7 @@ import { IntegrationsCalendarSettings } from '@/routes/settings/IntegrationsCale
 import { IntegrationsGmailSettings } from '@/routes/settings/IntegrationsGmailSettings'
 import { IntegrationsPaymentsSettings } from '@/routes/settings/IntegrationsPaymentsSettings'
 import { ConnectedAccountsSettings } from '@/routes/settings/ConnectedAccountsSettings'
+import { SecuritySettings } from '@/routes/settings/SecuritySettings'
 import { EmailLog } from '@/routes/settings/EmailLog'
 import { PlanSettings } from '@/routes/settings/PlanSettings'
 import { CampaignsSettings } from '@/routes/settings/CampaignsSettings'
@@ -87,6 +97,7 @@ import { CategoriesSettings } from '@/routes/settings/CategoriesSettings'
 import { OffersSettings } from '@/routes/settings/OffersSettings'
 import { EmbedSettings } from '@/routes/settings/EmbedSettings'
 import { NotificationPrefsSettings } from '@/routes/settings/NotificationPrefsSettings'
+import { AccountLinkSettings } from '@/routes/settings/AccountLinkSettings'
 import { OperationsSettings } from '@/routes/settings/OperationsSettings'
 import { WebhooksSettings } from '@/routes/settings/WebhooksSettings'
 // landr-znzz.7 — Settings → Weather (opt-in forecast hint).
@@ -100,9 +111,13 @@ import { EntitlementsProvider, useEntitlements } from '@/lib/entitlements'
 import { featureForRoute, featureForSection } from '@/lib/entitlements-map'
 import { ProtectedRoute } from '@/lib/ProtectedRoute'
 import { ThemeProvider } from '@/lib/theme'
+import { AppModeProvider } from '@/lib/app-mode-context'
+import { TICKET_SYSTEM_PATH } from '@/lib/app-mode'
 import { AppShell } from '@/components/AppShell'
+import { TicketSystemGate } from '@/components/TicketSystemGate'
 import { OnboardingGuard } from '@/components/OnboardingGuard'
 import { RouteFallback } from '@/components/RouteFallback'
+import { RouteErrorBoundary } from '@/components/RouteErrorBoundary'
 import { Toaster } from '@/components/ui/sonner'
 
 // landr-sydf — preserve /products/:productId deep links by forwarding the
@@ -145,6 +160,17 @@ function AccountIndexRedirect() {
   return <Navigate to={landingPathFor('account')} replace />
 }
 
+// landr-7dya.10 — padded, scrollable pane for the ticket-system BOARD/PLANNING
+// surfaces. The inbox surface is a full-height split-pane and is rendered
+// full-bleed (no wrapper); the board + planning are ordinary scrolling content
+// (flex-col gap-6) so they get a padded scroll container here. Keeps the
+// TicketSystemShell host a bare sized box (one place owns the scroll model).
+function TicketSurfacePane({ children }: { children: ReactNode }) {
+  return (
+    <div className="h-full overflow-y-auto px-4 py-4 sm:px-6">{children}</div>
+  )
+}
+
 // landr-sbhz.6 — guard a route by its effective-entitlement feature. When the
 // feature is DISABLED for the current operator (and the user isn't Landr
 // staff), the route is unreachable: we redirect to the dashboard home rather
@@ -183,8 +209,18 @@ function App() {
       <AuthProvider>
         <OperatorProvider>
           <EntitlementsProvider>
+          {/* landr-7dya.10 — top-level app-mode context (single-operator ·
+              view-as · ticket-system). Lives above the chrome split so both
+              the operator AppShell and the full-screen ticket-system shell
+              read the same mode + staff capability state. */}
+          <AppModeProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
+            {/* landr — public forgot/reset-password pages. Reachable while
+                logged out; /reset-password carries the Supabase recovery
+                session established from the emailed link. */}
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route
               path="/onboarding/start"
@@ -199,13 +235,20 @@ function App() {
                 <ProtectedRoute>
                   <OnboardingGuard>
                     <AppShell>
-                      {/* landr-mhhq — Suspense boundary catches all
-                          lazy-loaded route chunks (Analytics +
-                          /views family today) so the AppShell chrome
-                          stays mounted while the chunk streams in. */}
-                      <Suspense fallback={<RouteFallback />}>
-                        <Outlet />
-                      </Suspense>
+                      {/* landr-a99u — RouteErrorBoundary wraps the Suspense
+                          so a single route's render crash turns into a
+                          "Something went wrong" card (with the error captured
+                          in ErrorHistoryBell) rather than blacking out the
+                          whole dashboard. Resets on navigation via key=pathname. */}
+                      <RouteErrorBoundary>
+                        {/* landr-mhhq — Suspense boundary catches all
+                            lazy-loaded route chunks (Analytics +
+                            /views family today) so the AppShell chrome
+                            stays mounted while the chunk streams in. */}
+                        <Suspense fallback={<RouteFallback />}>
+                          <Outlet />
+                        </Suspense>
+                      </RouteErrorBoundary>
                     </AppShell>
                   </OnboardingGuard>
                 </ProtectedRoute>
@@ -227,6 +270,10 @@ function App() {
               <Route path="/analytics" element={gatedRoute('/analytics', <Analytics />)} />
               <Route path="/contacts" element={gatedRoute('/contacts', <Contacts />)} />
               <Route path="/reporting" element={gatedRoute('/reporting', <Reporting />)} />
+              {/* landr-a4pl.2 — Invoicing (Holded transfer status + manual
+                  Sync-now). Operator-rare finance surface, ungated (operational
+                  tooling, not in the feature registry — like /audit and /trash). */}
+              <Route path="/invoicing" element={<Invoicing />} />
               {/* landr-aref — /audit (audit_log viewer). Tenant-scoped via
                   RLS on audit_log; landr staff see cross-tenant rows for
                   fraud/dispute investigation per the existing policy. */}
@@ -259,29 +306,53 @@ function App() {
                   is_landr_staff with a 403. */}
               <Route path="/release" element={<Release />} />
 
-              {/* landr-fzcg — Account is a virtual top-level nav item
-                  whose subsections live under /settings/*. Hitting
-                  /account lands the user on /settings/company (first
-                  ACCOUNT_SECTIONS entry); the sub-sidebar then renders
-                  the Account group's section list because the URL is
-                  in ACCOUNT_PATHS. Keeping leaf URLs under /settings/*
-                  preserves every existing deep link. */}
-              <Route path="/account" element={<AccountIndexRedirect />} />
+              {/* landr-fzcg — Account hub: user/billing-scoped subsections
+                  under /account/*. Same SettingsLayout + sub-sidebar as the
+                  Settings hub; groupForPath() maps /account/* to the ACCOUNT
+                  group. Pre-launch these moved off /settings/* so the URL
+                  matches the "Account" nav (best-practice alignment). */}
+              <Route path="/account" element={<SettingsLayout />}>
+                <Route index element={<AccountIndexRedirect />} />
+                <Route path="company" element={gatedSection('/account/company', <CompanySettings />)} />
+                <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
+                {/* landr — Account → Security: set / change password
+                    (logged-in). Personal scope; ungated. */}
+                <Route path="security" element={<SecuritySettings />} />
+                <Route path="integrations/gmail" element={gatedSection('/account/integrations/gmail', <IntegrationsGmailSettings />)} />
+                {/* landr-6ybs — per-operator subscribable ICS calendar feed. */}
+                <Route path="integrations/calendar" element={gatedSection('/account/integrations/calendar', <IntegrationsCalendarSettings />)} />
+                {/* landr-1nwu.2 — per-operator Stripe + Holded credentials.
+                    Ungated: operators always need to enter their own payment
+                    keys (like connected-accounts), so no feature-entitlement
+                    gate. */}
+                <Route path="integrations/payments" element={<IntegrationsPaymentsSettings />} />
+                <Route path="plan" element={gatedSection('/account/plan', <PlanSettings />)} />
+                {/* landr-wwhn.16 — personal notification preferences
+                    (bell/email/push + per-ticket overrides). */}
+                <Route path="notifications" element={<NotificationPrefsSettings />} />
+              </Route>
 
               {/* Settings hub — left sub-sidebar wraps every subsection. */}
               <Route path="/settings" element={<SettingsLayout />}>
                 <Route index element={<SettingsIndexRedirect />} />
-                <Route path="company" element={gatedSection('/settings/company', <CompanySettings />)} />
                 <Route path="calendar-display" element={<CalendarDisplaySettings />} />
                 <Route path="display-preferences" element={<DisplayPreferencesSettings />} />
                 {/* landr-yp8x — Branding (logo + primary colour shown in
                     the embedded booking widget). */}
                 <Route path="branding" element={gatedSection('/settings/branding', <BrandingSettings />)} />
+                {/* landr-jb1k — Booking widget (showcased layout variant +
+                    category grid columns + title typography). Gated like
+                    Branding via widget_config. */}
+                <Route path="widget" element={gatedSection('/settings/widget', <WidgetSettings />)} />
                 {/* landr-znzz.7 — Weather (opt-in forecast hint for conditions pre-fill). */}
                 <Route path="weather" element={<WeatherSettings />} />
                 <Route path="team" element={gatedSection('/settings/team', <Staff />)} />
                 <Route path="providers" element={gatedSection('/settings/providers', <Providers />)} />
                 <Route path="pickup-locations" element={gatedSection('/settings/pickup-locations', <PickupLocations />)} />
+                {/* landr-cyoi — Hotels as a first-class settings entity
+                    (separate from generic pickup locations). Sits right after
+                    Pickup locations in the IA. */}
+                <Route path="hotels" element={gatedSection('/settings/hotels', <Hotels />)} />
                 {/* landr-sydf — Products lives under Settings now (operators
                     edit rarely, not daily). The :productId variant preserves
                     the landr-i018 deep-link contract used by the PricingSettings
@@ -302,15 +373,6 @@ function App() {
                 <Route path="email-templates" element={gatedSection('/settings/email-templates', <EmailTemplates />)} />
                 {/* landr-qg4q — outbound_emails viewer (failed sends, retried, sent). */}
                 <Route path="email-log" element={gatedSection('/settings/email-log', <EmailLog />)} />
-                <Route path="integrations/gmail" element={gatedSection('/settings/integrations/gmail', <IntegrationsGmailSettings />)} />
-                {/* landr-6ybs — per-operator subscribable ICS calendar feed. */}
-                <Route path="integrations/calendar" element={gatedSection('/settings/integrations/calendar', <IntegrationsCalendarSettings />)} />
-                {/* landr-1nwu.2 — per-operator Stripe + Holded credentials.
-                    Ungated: operators always need to enter their own payment
-                    keys (like connected-accounts), so no feature-entitlement
-                    gate. */}
-                <Route path="integrations/payments" element={<IntegrationsPaymentsSettings />} />
-                <Route path="connected-accounts" element={<ConnectedAccountsSettings />} />
                 <Route path="pricing" element={gatedSection('/settings/pricing', <PricingSettings />)} />
                 {/* landr-9n0l — Settings → Commissions: scheme/rule/tier
                     editor + read-only agent-earnings report. */}
@@ -333,11 +395,9 @@ function App() {
                 {/* landr-ah9u — Settings → Webhooks: operator-managed event
                     subscriptions (v1 localStorage; v2 server-delivered). */}
                 <Route path="webhooks" element={gatedSection('/settings/webhooks', <WebhooksSettings />)} />
-                {/* landr-wwhn.16 — Settings → Notifications: personal
-                    notification preferences (bell/email/push + per-ticket
-                    overrides). Personal scope; lives in ACCOUNT group. */}
-                <Route path="notifications" element={<NotificationPrefsSettings />} />
-                <Route path="plan" element={gatedSection('/settings/plan', <PlanSettings />)} />
+                {/* landr-atwy — Settings → Account link prompt: per-operator
+                    opt-in for the post-booking "Track in LANDR app" prompt. */}
+                <Route path="account-link" element={<AccountLinkSettings />} />
                 {/* landr-sbhz.5 — STAFF-ONLY tier/feature editor. Not gated by
                     the tenant entitlement system (like /audit it is Landr
                     tooling); TierSettings self-redirects non-staff to home and
@@ -372,9 +432,64 @@ function App() {
                   ScheduleRedirect carries the search string through. */}
               <Route path="/schedule" element={<ScheduleRedirect />} />
             </Route>
+
+            {/* landr-7dya.10 — full-screen TICKET-SYSTEM app-view. A SIBLING of
+                the operator AppShell group above: it owns its OWN chrome
+                (TicketSystemShell) and REPLACES the operator sidebar/topbar
+                rather than nesting inside it. STAFF-ONLY (ProtectedRoute auth +
+                TicketSystemGate staff/capability gate; the hosted surfaces keep
+                their own server-side enforcement). Coexists with the
+                operator-chrome /tickets board + /tickets/planning + the
+                /feedback-inbox sidebar destinations, all of which stay working.
+                The hosted surfaces are the EXISTING route components — this
+                unifies them under one workspace, it does not duplicate them. */}
+            <Route
+              path={TICKET_SYSTEM_PATH}
+              element={
+                <ProtectedRoute>
+                  <TicketSystemGate>
+                    <Suspense fallback={<RouteFallback />}>
+                      <TicketSystemShell />
+                    </Suspense>
+                  </TicketSystemGate>
+                </ProtectedRoute>
+              }
+            >
+              {/* Inbox is the default surface (ADR 0005 primary workspace). */}
+              <Route
+                index
+                element={
+                  <Suspense fallback={<RouteFallback />}>
+                    <FeedbackInbox />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="board"
+                element={
+                  <Suspense fallback={<RouteFallback />}>
+                    <TicketSurfacePane>
+                      <TicketBoard />
+                    </TicketSurfacePane>
+                  </Suspense>
+                }
+              />
+              <Route
+                path="planning"
+                element={
+                  <Suspense fallback={<RouteFallback />}>
+                    <TicketSurfacePane>
+                      <TicketPlanning />
+                    </TicketSurfacePane>
+                  </Suspense>
+                }
+              />
+            </Route>
+
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Toaster />
+          </AppModeProvider>
           </EntitlementsProvider>
         </OperatorProvider>
       </AuthProvider>

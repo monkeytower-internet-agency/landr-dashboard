@@ -3,17 +3,22 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmailTemplateForm } from '@/components/EmailTemplateForm'
-import { EmailTemplatePreview } from '@/components/EmailTemplatePreview'
+import { EmailTemplatePreview, EmailVariableCatalog } from '@/components/EmailTemplatePreview'
 import { useOperator } from '@/lib/operator'
+import { fetchOperator } from '@/lib/operatorSettings'
 import { PageTitle } from '@/lib/page-title'
 import {
   TEMPLATE_KINDS,
   OPERATOR_LOCALES,
   fetchTemplates,
+  fetchEffective,
+  fetchVariables,
   createTemplate,
   updateTemplate,
   deleteTemplate,
+  isHotelKind,
   type EmailTemplate,
+  type EffectiveTemplate,
   type TemplateKind,
   type OperatorLocale,
   type TemplateFormValues,
@@ -23,10 +28,51 @@ import { cn } from '@/lib/utils'
 
 type Selection = { kind: TemplateKind; locale: OperatorLocale }
 
+// landr-x5o5.7: hotel_email_locale is now surfaced in the operator settings
+// API. We read it directly; fall back to default_locale → 'es' only when it
+// is null (Para42's hotel is ES, which is the only live operator, and that row
+// is already seeded to 'es' in the migration).
+const HOTEL_LOCALE_FALLBACK: OperatorLocale = 'es'
+
+/** Resolve a valid OperatorLocale from a raw string or return the fallback. */
+function resolveHotelLocale(raw: string | null | undefined): OperatorLocale {
+  if (raw && (OPERATOR_LOCALES as readonly string[]).includes(raw)) {
+    return raw as OperatorLocale
+  }
+  return HOTEL_LOCALE_FALLBACK
+}
+
 export function EmailTemplates() {
   const { currentOperatorId } = useOperator()
   const qc = useQueryClient()
-  const [selection, setSelection] = useState<Selection | null>(null)
+  // Default to first kind + first locale so the editor shows immediately
+  const [selection, setSelection] = useState<Selection>({
+    kind: TEMPLATE_KINDS[0],
+    locale: OPERATOR_LOCALES[0],
+  })
+
+  // landr-x5o5.7: fetch operator settings to read hotel_email_locale (now
+  // surfaced). Falls back to default_locale → 'es' only when null.
+  // Shares the same React Query cache key used by OperatorSection in settings
+  // so the request is deduped on the settings page.
+  const operatorSettingsQuery = useQuery({
+    queryKey: ['operator-settings', currentOperatorId ?? 'none'],
+    queryFn: () => fetchOperator(currentOperatorId as string),
+    enabled: !!currentOperatorId,
+    staleTime: 5 * 60 * 1000,
+  })
+  const hotelLocale = resolveHotelLocale(
+    operatorSettingsQuery.data?.hotel_email_locale
+      ?? operatorSettingsQuery.data?.default_locale,
+  )
+
+  // landr-x5o5.6: For hotel-facing kinds the locale is always the pinned
+  // hotelLocale — we derive it here rather than storing it in state to avoid
+  // an extra render cycle. `selection.locale` is only meaningful for
+  // non-hotel kinds and is left unchanged when the user switches kinds.
+  const effectiveLocale: OperatorLocale = isHotelKind(selection.kind)
+    ? hotelLocale
+    : selection.locale
 
   const query = useQuery({
     queryKey: ['email-templates', currentOperatorId ?? 'none'],
@@ -34,21 +80,63 @@ export function EmailTemplates() {
     enabled: !!currentOperatorId,
   })
 
+  // landr-x5o5.5: per-kind variable catalog — fetched by selected kind,
+  // independent of whether a saved template exists. A brand-new template
+  // immediately shows its variables.
+  const variablesQuery = useQuery({
+    queryKey: ['email-template-variables', currentOperatorId ?? 'none', selection.kind],
+    queryFn: () => fetchVariables(currentOperatorId as string, selection.kind),
+    enabled: !!currentOperatorId,
+    staleTime: 5 * 60 * 1000, // catalog is stable; cache 5 min
+  })
+
+  // landr-x5o5.4: resolved effective template — prefills the editor with the
+  // default content when the operator hasn't customized yet (is_default=true).
+  const effectiveQuery = useQuery<EffectiveTemplate>({
+    queryKey: ['email-template-effective', currentOperatorId ?? 'none', selection.kind, effectiveLocale],
+    queryFn: () => fetchEffective(currentOperatorId as string, selection.kind, effectiveLocale),
+    enabled: !!currentOperatorId,
+    // Stable while operator row or system_templates don't change — 2 min TTL.
+    staleTime: 2 * 60 * 1000,
+  })
+
   const templates = query.data ?? []
 
   function findTemplate(kind: string, locale: string): EmailTemplate | null {
-    return templates.find(
-      (tpl) => tpl.template_kind === kind && tpl.locale === locale,
-    ) ?? null
+    return (
+      templates.find(
+        (tpl) => tpl.template_kind === kind && tpl.locale === locale,
+      ) ?? null
+    )
   }
 
-  const selectedTemplate =
-    selection ? findTemplate(selection.kind, selection.locale) : null
+  const selectedTemplate = findTemplate(selection.kind, effectiveLocale)
+  const effectiveTemplate = effectiveQuery.data ?? null
+
+  /** True when the operator has their own row (is_default=false from effective). */
+  const isCustom = effectiveTemplate ? !effectiveTemplate.is_default : !!selectedTemplate
+
+  /** Returns true if form values are byte-identical to the resolved default. */
+  function isIdenticalToDefault(values: TemplateFormValues): boolean {
+    if (!effectiveTemplate) return false
+    return (
+      values.subject === effectiveTemplate.subject &&
+      values.body_html === effectiveTemplate.body_html &&
+      (values.body_text ?? '') === (effectiveTemplate.body_text ?? '')
+    )
+  }
 
   const saveMutation = useMutation({
     mutationFn: async (values: TemplateFormValues) => {
-      if (!currentOperatorId || !selection) throw new Error('No operator or selection')
-      const existing = findTemplate(selection.kind, selection.locale)
+      if (!currentOperatorId) throw new Error('No operator or selection')
+      const existing = findTemplate(selection.kind, effectiveLocale)
+
+      // landr-x5o5.4: if the operator has no custom row AND the submitted
+      // content matches the default exactly, skip the write entirely.
+      if (!existing && effectiveTemplate?.is_default && isIdenticalToDefault(values)) {
+        return null // sentinel: no-op
+      }
+
       if (existing) {
         return updateTemplate(currentOperatorId, existing.id, {
           subject: values.subject,
@@ -58,17 +146,23 @@ export function EmailTemplates() {
       } else {
         return createTemplate(currentOperatorId, {
           template_kind: selection.kind,
-          locale: selection.locale,
+          locale: effectiveLocale,
           subject: values.subject,
           body_html: values.body_html,
           body_text: values.body_text ?? '',
         })
       }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result === null) {
+        // No-op: content was identical to the default.
+        toast.success(t.emailTemplates.toastNoChangeFromDefault)
+        return
+      }
       toast.success(t.emailTemplates.toastSaved)
       void qc.invalidateQueries({ queryKey: ['email-templates', currentOperatorId] })
       void qc.invalidateQueries({ queryKey: ['email-template-preview'] })
+      void qc.invalidateQueries({ queryKey: ['email-template-effective', currentOperatorId] })
     },
     onError: (err: Error) => {
       toast.error(`${t.emailTemplates.toastSaveError}: ${err.message}`)
@@ -103,6 +197,8 @@ export function EmailTemplates() {
     )
   }
 
+  const catalogEntries = variablesQuery.data?.variables ?? []
+
   return (
     <div className="flex flex-col gap-6">
       <PageTitle
@@ -120,97 +216,161 @@ export function EmailTemplates() {
       {query.isPending && currentOperatorId ? (
         <p className="text-muted-foreground text-sm">{t.emailTemplates.loading}</p>
       ) : (
-        <div className="flex gap-6">
-          {/* Left: kind cards */}
-          <div className="flex w-72 shrink-0 flex-col gap-3">
-            {TEMPLATE_KINDS.map((kind) => (
-              <Card key={kind} className="overflow-hidden">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">
-                    {t.emailTemplates.kindLabels[kind]}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="flex border-t">
-                    {OPERATOR_LOCALES.map((locale) => {
-                      const has = !!findTemplate(kind, locale)
-                      const isSelected =
-                        selection?.kind === kind && selection.locale === locale
+        <div className="flex flex-col gap-6">
+          {/* Top selector bar: kind tabs + locale tabs */}
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
+                {/* Kind segmented control */}
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                    {t.emailTemplates.selectorKindLabel}
+                  </p>
+                  <div
+                    role="tablist"
+                    aria-label={t.emailTemplates.selectorKindLabel}
+                    className="flex rounded-md border bg-muted/40 p-0.5 gap-0.5"
+                  >
+                    {TEMPLATE_KINDS.map((kind) => {
+                      const isSelected = selection.kind === kind
                       return (
                         <button
-                          key={locale}
+                          key={kind}
                           type="button"
-                          onClick={() => setSelection({ kind, locale })}
+                          role="tab"
+                          aria-selected={isSelected}
+                          onClick={() => setSelection((s) => ({ ...s, kind }))}
                           className={cn(
-                            'flex-1 cursor-pointer border-r px-3 py-2 text-sm last:border-r-0 transition-colors',
+                            'rounded px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                             isSelected
-                              ? 'bg-primary text-primary-foreground'
-                              : 'hover:bg-accent hover:text-accent-foreground',
+                              ? 'bg-background text-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground hover:bg-background/60',
                           )}
-                          aria-pressed={isSelected}
                         >
-                          <span className="block font-medium uppercase">{locale}</span>
-                          <span
-                            className={cn(
-                              'block text-xs',
-                              isSelected
-                                ? 'text-primary-foreground/70'
-                                : 'text-muted-foreground',
-                            )}
-                          >
-                            {has
-                              ? t.emailTemplates.statusCustom
-                              : t.emailTemplates.statusDefault}
-                          </span>
+                          {t.emailTemplates.kindLabels[kind]}
                         </button>
                       )
                     })}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                </div>
 
-          {/* Right: edit + preview */}
-          <div className="flex min-w-0 flex-1 flex-col gap-6">
-            {!selection ? (
-              <p className="text-muted-foreground text-sm">{t.emailTemplates.selectHint}</p>
-            ) : (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">
-                      {t.emailTemplates.kindLabels[selection.kind]} —{' '}
-                      {t.emailTemplates.localeLabels[selection.locale]}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <EmailTemplateForm
-                      template={selectedTemplate}
-                      saving={saveMutation.isPending}
-                      onSave={(values) => saveMutation.mutate(values)}
-                      onResetToDefault={() => deleteMutation.mutate()}
-                      resetting={deleteMutation.isPending}
-                    />
-                  </CardContent>
-                </Card>
-
-                {selectedTemplate && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">{t.emailTemplates.previewTitle}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <EmailTemplatePreview
-                        operatorId={currentOperatorId as string}
-                        template={selectedTemplate}
-                      />
-                    </CardContent>
-                  </Card>
+                {/* Locale segmented control — hidden for hotel-facing kinds;
+                    those are always sent in the operator's hotel_email_locale.
+                    landr-x5o5.7: reads hotel_email_locale directly (falls back
+                    to default_locale / 'es' when null). */}
+                {isHotelKind(selection.kind) ? (
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                      {t.emailTemplates.selectorLocaleLabel}
+                    </p>
+                    <p
+                      className="text-muted-foreground text-sm"
+                      data-testid="hotel-locale-pin-note"
+                    >
+                      {t.emailTemplates.hotelLocalePinNote(hotelLocale)}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                      {t.emailTemplates.selectorLocaleLabel}
+                    </p>
+                    <div
+                      role="tablist"
+                      aria-label={t.emailTemplates.selectorLocaleLabel}
+                      className="flex rounded-md border bg-muted/40 p-0.5 gap-0.5"
+                    >
+                      {OPERATOR_LOCALES.map((locale) => {
+                        const isSelected = selection.locale === locale
+                        const hasCustom = !!findTemplate(selection.kind, locale)
+                        return (
+                          <button
+                            key={locale}
+                            type="button"
+                            role="tab"
+                            aria-selected={isSelected}
+                            onClick={() => setSelection((s) => ({ ...s, locale }))}
+                            className={cn(
+                              'relative flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                              isSelected
+                                ? 'bg-background text-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground hover:bg-background/60',
+                            )}
+                          >
+                            <span className="uppercase">{locale}</span>
+                            {hasCustom && (
+                              <span
+                                aria-hidden="true"
+                                className={cn(
+                                  'h-1.5 w-1.5 rounded-full',
+                                  isSelected ? 'bg-primary' : 'bg-muted-foreground/60',
+                                )}
+                              />
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
                 )}
-              </>
-            )}
-          </div>
+
+                {/* Status badge for selected kind+locale */}
+                <div className="flex items-end sm:ml-auto">
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+                      isCustom
+                        ? 'border-primary/30 bg-primary/10 text-primary'
+                        : 'border-border bg-muted text-muted-foreground',
+                    )}
+                  >
+                    {isCustom
+                      ? t.emailTemplates.statusCustom
+                      : t.emailTemplates.statusDefault}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Full-width editor — form + always-visible variable catalog */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">
+                {t.emailTemplates.kindLabels[selection.kind]} —{' '}
+                {t.emailTemplates.localeLabels[effectiveLocale]}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <EmailTemplateForm
+                template={selectedTemplate}
+                effectiveTemplate={effectiveTemplate}
+                saving={saveMutation.isPending}
+                onSave={(values) => saveMutation.mutate(values)}
+                onResetToDefault={() => deleteMutation.mutate()}
+                resetting={deleteMutation.isPending}
+              />
+              {/* landr-x5o5.5: variable catalog — always visible for the
+                  selected kind, no saved template required. Replaces the
+                  preview-only path from landr-7tyo. */}
+              <EmailVariableCatalog entries={catalogEntries} />
+            </CardContent>
+          </Card>
+
+          {/* Full-width preview (only when a custom template exists) */}
+          {selectedTemplate && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">{t.emailTemplates.previewTitle}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <EmailTemplatePreview
+                  operatorId={currentOperatorId as string}
+                  template={selectedTemplate}
+                />
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
     </div>

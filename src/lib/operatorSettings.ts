@@ -55,6 +55,14 @@ export const OperatorSettingsSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/u, 'Must be a 7-char hex colour like #FF8800.')
     .nullable()
     .optional(),
+  // landr-nils — operator-configurable copy rendered around the embedded
+  // booking widget. widget_headline + widget_description sit above the widget
+  // (the operator may put legal info in the description); widget_footer sits
+  // below it (no headline). All optional/nullable; max lengths mirror the API
+  // (OperatorPatch) + DB CHECK constraints (operators_widget_*_len_chk).
+  widget_headline: z.string().max(200).nullable().optional(),
+  widget_description: z.string().max(2000).nullable().optional(),
+  widget_footer: z.string().max(2000).nullable().optional(),
   // landr-znzz.7 — opt-in weather forecast hint for the conditions verdict
   // pre-fill. OFF by default; operator enables in Settings → Weather.
   // weather_provider is the provider slug (currently only 'open_meteo').
@@ -63,6 +71,71 @@ export const OperatorSettingsSchema = z.object({
   weather_provider: z.string().nullable().optional(),
   weather_lat: z.number().nullable().optional(),
   weather_lon: z.number().nullable().optional(),
+  // landr-x5o5.7 — language used for hotel-facing emails (hotel_request /
+  // hotel_confirmation). NULL = fall back to customer/operator locale. Mirrors
+  // max_length of default_locale (API: 10 chars). Editable in Settings → Company.
+  hotel_email_locale: z.string().nullable().optional(),
+  // landr-jb1k — operator-configurable booking-widget presentation.
+  // widget_variant picks the showcased layout (aurora/summit/alpine); NULL =
+  // the widget's default (aurora). widget_category_columns clamps the >=md
+  // category grid to a fixed column count (1..4); NULL = the widget's
+  // count-aware auto. Both mirror the DB CHECK constraints (landr-jb1k.1) and
+  // are edited in Settings → Booking widget. The ?variant= URL param still
+  // overrides widget_variant for preview.
+  widget_variant: z
+    .enum(['aurora', 'summit', 'alpine'])
+    .nullable()
+    .optional(),
+  widget_category_columns: z
+    .number()
+    .int()
+    .min(1)
+    .max(4)
+    .nullable()
+    .optional(),
+  // landr-jb1k — booking-widget title typography. widget_tile_font picks the
+  // font family used for product/category titles in the widget; NULL =
+  // 'system' default. widget_title_case applies a CSS text-transform to those
+  // titles; NULL = render titles exactly as entered. Both mirror the DB CHECK
+  // constraints (landr-jb1k.1) and are edited in Settings → Booking widget.
+  widget_tile_font: z
+    .enum([
+      'system',
+      'playfair',
+      'montserrat',
+      'bebas',
+      'space-grotesk',
+      'caveat',
+    ])
+    .nullable()
+    .optional(),
+  widget_title_case: z
+    .enum(['uppercase', 'lowercase', 'capitalize'])
+    .nullable()
+    .optional(),
+  // landr-jb1k.4 — booking-widget creative tile-style options for the category
+  // grid. Each NULL = the widget's current/auto behaviour (the variant token
+  // wins) so untouched embeds never shift. widget_tile_radius sets the tile
+  // corner radius; widget_tile_aspect the tile ratio; widget_tile_scrim the
+  // text-overlay gradient tint (light forces dark title text, AA enforced);
+  // widget_tile_hover the hover interaction. All mirror the DB CHECK
+  // constraints (landr-jb1k.4) and are edited in Settings → Booking widget.
+  widget_tile_radius: z
+    .enum(['sharp', 'rounded', 'round'])
+    .nullable()
+    .optional(),
+  widget_tile_aspect: z
+    .enum(['square', 'landscape', 'wide'])
+    .nullable()
+    .optional(),
+  widget_tile_scrim: z
+    .enum(['dark', 'brand', 'light'])
+    .nullable()
+    .optional(),
+  widget_tile_hover: z
+    .enum(['lift', 'zoom', 'none'])
+    .nullable()
+    .optional(),
   // landr-znzz.11 — extended branding: dark-mode logo + 3-colour theme.
   // logo_dark_url: optional dark-mode variant uploaded to the same bucket.
   // theme: { brand, accent, background } (light) + optional dark overrides.
@@ -100,6 +173,11 @@ export const OperatorSettingsSchema = z.object({
     })
     .nullable()
     .optional(),
+  // landr-atwy — per-operator opt-in toggle for the post-booking
+  // "Track this booking in the LANDR app" account-link prompt. OFF by
+  // default for privacy; operator enables here once magic-link email
+  // (landr-16u9) is confirmed working in production.
+  offer_account_link: z.boolean().nullable().optional(),
   // landr-c3t — embedded subscription_package (read-only on Settings; the
   // GET returns it via PostgREST FK join). Drives the disabled-on UX for
   // free-tier operators so they can't opt out of teasers.

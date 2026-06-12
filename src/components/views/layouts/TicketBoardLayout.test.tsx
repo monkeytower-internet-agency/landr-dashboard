@@ -37,6 +37,9 @@ import { TICKET_LABEL_AREAS } from '@/lib/tickets-views-data'
 // useOperator: default non-staff (empty staffOperators) so operator filter
 // is hidden. Tests that need it override via mockReturnValue before rendering.
 // useEntitlements: default non-staff (effectiveIsStaff = false).
+// useAuth: default unauthenticated (session = null) so the actorId query is
+//   disabled (no authUid → no public-user lookup → actorId = null).
+//   Tests that exercise actor-exclusion wiring can override this.
 
 vi.mock('@/lib/operator', () => ({
   useOperator: vi.fn(() => ({
@@ -62,6 +65,16 @@ vi.mock('@/lib/entitlements', () => ({
     isLoading: false,
   })),
   EntitlementsProvider: ({ children }: { children: ReactElement }) => children,
+}))
+
+vi.mock('@/lib/auth', () => ({
+  useAuth: vi.fn(() => ({
+    session: null,
+    user: null,
+    loading: false,
+    signOut: vi.fn(),
+  })),
+  AuthProvider: ({ children }: { children: ReactElement }) => children,
 }))
 
 // Import mocked hooks so tests can override return values.
@@ -106,6 +119,8 @@ function makeTicket(
     assignee_id: null,
     blocked: false,
     moscow: null,
+    origin_tier: null,
+    origin_operator_label: null,
     created_at: '2026-05-24T00:00:00Z',
     updated_at: '2026-05-24T00:00:00Z',
   }

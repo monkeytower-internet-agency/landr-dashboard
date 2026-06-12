@@ -47,6 +47,9 @@ export type PromotionStatus =
 /** Per-repo merge outcome inside an executed run. */
 export type MergeStatus = 'pending' | 'merged' | 'noop' | 'conflict' | 'error'
 
+/** landr-a99u.14: state of the migration stage on this run. */
+export type MigrationStatus = 'pending' | 'applied' | 'failed' | 'skipped'
+
 /** One repo's slice of a promotion run, with its pinned head SHA + result. */
 export type PromotionRunRepo = {
   repo: string
@@ -88,6 +91,25 @@ export type PromotionRun = {
    * "Para42"). Only meaningful when signoff_source === 'customer'.
    */
   signoff_by_label?: string | null
+  /**
+   * landr-a99u.14 — migration stage state. 'pending' on a run currently in
+   * flight; 'applied' on success (or no-op); 'failed' means code-merges were
+   * SKIPPED — there is nothing for RunRepoList to render. 'skipped' applies
+   * to legacy runs predating the migration stage or to runs that proceeded
+   * without a configured target DB URL but had nothing pending anyway.
+   */
+  migration_status?: MigrationStatus | null
+  /** landr-a99u.14 — combined stdout+stderr of the migration stage. */
+  migration_log?: string | null
+  /** landr-a99u.14 — filenames applied this run, in order. */
+  migrations_applied?: string[] | null
+  /**
+   * landr-agiw — row last-modified time (handle_updated_at trigger). For a run
+   * in a terminal status (completed/failed/rejected/cancelled) this is when it
+   * finished; the console shows it as the run's end time + elapsed. Already
+   * returned by the API (`select *`); declared here so the UI can read it.
+   */
+  updated_at?: string | null
 }
 
 // --- operator-facing types (landr-a99u.12) ----------------------------------
@@ -112,25 +134,98 @@ export type RepoStatus = {
   staging_sha: string
   main_sha: string
   /** Commits dev is ahead of staging. */
-  dev_to_staging_ahead: number
+  dev_to_staging_ahead_by: number
   /** Commits staging is ahead of main. */
-  staging_to_main_ahead: number
+  staging_to_main_ahead_by: number
+
+  // --- OPTIONAL decoration (landr — release matrix commit metadata) ---------
+  // All fields below are added by a sibling landr-api PR. They are OPTIONAL so
+  // an older/not-yet-deployed backend (which omits them) degrades gracefully:
+  // the matrix still renders the ahead counts, just without the commit detail
+  // or links.
+
+  /** Head commit of `dev` (source branch of the dev→staging hop). */
+  dev_head_message?: string | null
+  dev_head_author?: string | null
+  /** ISO-8601 author date of dev's head commit. */
+  dev_head_date?: string | null
+  /** github.com html_url of dev's head commit. */
+  dev_head_url?: string | null
+
+  /** Head commit of `staging` (source branch of the staging→main hop). */
+  staging_head_message?: string | null
+  staging_head_author?: string | null
+  /** ISO-8601 author date of staging's head commit. */
+  staging_head_date?: string | null
+  /** github.com html_url of staging's head commit. */
+  staging_head_url?: string | null
+
+  /** GitHub compare view for the dev→staging ahead range (staging...dev). */
+  dev_to_staging_compare_url?: string | null
+  /** GitHub compare view for the staging→main ahead range (main...staging). */
+  staging_to_main_compare_url?: string | null
+  /** GitHub full commit-history view for the `dev` branch. */
+  dev_history_url?: string | null
+  /** GitHub full commit-history view for the `staging` branch. */
+  staging_history_url?: string | null
 }
 
 /**
  * Server-computed capability block. The dashboard gates buttons on THESE,
  * not on raw roles, so the rules stay in one place (the backend).
+ *
+ * landr-7dya.21 — the API enforcement worker may extend `viewer` with an
+ * optional `tier` field reporting the deploy tier the API itself is serving.
+ * When present, the dashboard prefers it over the static-build VITE_DEPLOY_TIER
+ * (via `resolveTier()` in @/lib/tier). Absent on older API revisions; the
+ * dashboard falls back to the build env then to null in that case.
  */
 export type PromotionViewer = {
   can_promote_staging: boolean
   can_propose_prod: boolean
   can_approve_prod: boolean
+  /** Optional server-reported deploy tier (landr-7dya.21). */
+  tier?: 'dev' | 'staging' | 'prod' | null
 }
 
 /** Response of GET …/status — env matrix + the viewer's capabilities. */
 export type PromotionStatusResponse = {
   repos: RepoStatus[]
   viewer: PromotionViewer
+}
+
+// --- local working-tree status (DEV/Trillian only) --------------------------
+
+/**
+ * One repo's LOCAL working-tree status, read off the Trillian checkout.
+ * Counts come from `git status --porcelain` (excluding `.claude/`); ahead/behind
+ * are vs `origin/<branch>` from LOCAL refs (no fetch — hence possibly stale).
+ */
+export type LocalRepoStatus = {
+  repo: string
+  branch: string | null
+  /** modified + staged + untracked (excl. `.claude/`). */
+  uncommitted_count: number
+  untracked_count: number
+  /** Commits HEAD is ahead of origin/<branch> (unpushed). */
+  ahead: number
+  /** Commits origin/<branch> is ahead of HEAD. */
+  behind: number
+  dirty: boolean
+  /** Per-repo read failure (e.g. `not_a_checkout`, `git_error`, `timeout`). */
+  error?: string | null
+}
+
+/**
+ * Response of GET …/promotions/local-worktree. `enabled` is false on every
+ * deployment without the dev flag (i.e. every Cloud Run / staging / prod
+ * service) — the dashboard hides the whole section in that case. `stale` warns
+ * that ahead/behind were read from local refs without a fetch.
+ */
+export type LocalWorktreeResponse = {
+  enabled: boolean
+  stale?: boolean
+  repos: LocalRepoStatus[]
 }
 
 /** Request bodies. */
@@ -159,9 +254,39 @@ export async function fetchStatus(): Promise<PromotionStatusResponse> {
   return api<PromotionStatusResponse>('GET', '/api/landr-staff/promotions/status')
 }
 
-/** Fetch the recent promotion runs (history, newest first). */
+/**
+ * Fetch the LOCAL working-tree status of the deployable repos (DEV/Trillian
+ * only). On staging/prod the backend returns `{enabled:false, repos:[]}` (it
+ * has no checkout and never sets the dev flag), so this resolves cleanly there
+ * too — the UI hides the section when `enabled` is false. Tolerates a missing
+ * `repos` array defensively.
+ */
+export async function fetchLocalWorktree(): Promise<LocalWorktreeResponse> {
+  const res = await api<LocalWorktreeResponse | null>(
+    'GET',
+    '/api/landr-staff/promotions/local-worktree',
+  )
+  if (res && Array.isArray(res.repos)) return res
+  return { enabled: false, repos: [] }
+}
+
+/** Fetch the recent promotion runs (history, newest first).
+ *
+ * The backend wraps the list in `{"runs": [...]}` (landr_staff_promotions.list_runs
+ * returns a dict, not a bare array). Unwrap here so callers receive the array
+ * the type promises — otherwise `runs.filter(...)` in Release.tsx throws
+ * "runs.filter is not a function" and /release blank-pages (was silently black
+ * before landr-7dya.18's RouteErrorBoundary made it visible). Tolerates either
+ * shape (bare array OR `{runs}`) + null/missing for future-proofing.
+ */
 export async function fetchRuns(): Promise<PromotionRun[]> {
-  return api<PromotionRun[]>('GET', '/api/landr-staff/promotions')
+  const res = await api<{ runs: PromotionRun[] } | PromotionRun[] | null>(
+    'GET',
+    '/api/landr-staff/promotions',
+  )
+  if (Array.isArray(res)) return res
+  if (res && Array.isArray(res.runs)) return res.runs
+  return []
 }
 
 /** Fetch a single run with its per-repo slices. */
@@ -169,6 +294,33 @@ export async function fetchRun(id: string): Promise<PromotionRun> {
   return api<PromotionRun>(
     'GET',
     `/api/landr-staff/promotions/${encodeURIComponent(id)}`,
+  )
+}
+
+/**
+ * Response of GET …/promotions/preview-migrations?kind=…
+ * (landr-a99u.14.3 — shipped on landr-api dev).
+ */
+export type PreviewMigrationsResponse = {
+  pending_count: number
+  files: string[]
+}
+
+/**
+ * landr-a99u.14.6 — preview of pending migrations for a promotion kind.
+ * Reads the staff-only endpoint that the executor (landr-a99u.14.4) will
+ * apply BEFORE the code-merge stage. Used by the propose/promote dialogs
+ * to render "this run will apply N migrations" without committing to a
+ * run. 503 / 502 from the server surface as Error("migration_target_…") —
+ * callers should treat those as informational (do NOT block the submit),
+ * per the always-on contract on landr-a99u.14.
+ */
+export async function fetchPreviewMigrations(
+  kind: PromotionKind,
+): Promise<PreviewMigrationsResponse> {
+  return api<PreviewMigrationsResponse>(
+    'GET',
+    `/api/landr-staff/promotions/preview-migrations?kind=${encodeURIComponent(kind)}`,
   )
 }
 
@@ -265,4 +417,33 @@ export function shortSha(sha: string | null | undefined): string {
 /** Human label for a kind. */
 export function kindLabel(kind: PromotionKind): string {
   return kind === 'dev_to_staging' ? 'dev → staging' : 'staging → main'
+}
+
+/**
+ * Compact relative time ("3 hours ago", "2 days ago", "now") for the env-matrix
+ * commit dates. Uses Intl.RelativeTimeFormat for the wording, but PINNED to
+ * 'en-US' — the rest of the dashboard is English, so we must NOT defer to the
+ * browser locale (navigator.language = de-DE on the dev machine would otherwise
+ * render "vor 22 Stunden"). Returns '' for null/invalid input so callers can
+ * skip it.
+ */
+export function relativeTime(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return ''
+  const diffMs = then - Date.now()
+  const rtf = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' })
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['year', 365 * 24 * 3600_000],
+    ['month', 30 * 24 * 3600_000],
+    ['day', 24 * 3600_000],
+    ['hour', 3600_000],
+    ['minute', 60_000],
+  ]
+  for (const [unit, ms] of units) {
+    if (Math.abs(diffMs) >= ms) {
+      return rtf.format(Math.round(diffMs / ms), unit)
+    }
+  }
+  return rtf.format(0, 'second') // "now"
 }

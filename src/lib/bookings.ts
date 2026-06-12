@@ -2,6 +2,8 @@ import type { QueryClient } from '@tanstack/react-query'
 
 import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api-client'
+import { getCurrencyFormatter } from '@/lib/format-currency'
+import { formatDateTime } from '@/lib/time-format'
 // landr-g2m5 — single source of truth for the product_kind enum lives in
 // lib/products.ts. Re-export here so existing `from '@/lib/bookings'`
 // consumers keep compiling without changes.
@@ -16,15 +18,16 @@ export type BookingSemanticState =
   | 'cancelled'
   | 'no_show'
 
-// free-text in booking_lifecycle_stages.code; operator-customizable.
-// These three are the seeded defaults for Para42; other operators
-// may have different codes.
-export type BookingStageCode =
-  | 'awaiting_general_approval'
-  | 'awaiting_secondary_approval'
-  | 'awaiting_hotel_approval'
-  | 'awaiting_payment'
-  | (string & {})
+// landr-a4pl.3 — derived per-booking Holded transfer status for Views.
+// Maps the latest external_sync_log.status for action='invoice_push' /
+// external_target='holded' onto a UI-facing 5-value enum:
+//   succeeded       → 'transferred'
+//   pending         → 'pending'
+//   in_flight       → 'pending'  (in transit; still counts as pending to the operator)
+//   failed          → 'failed'
+//   blocked_on_human→ 'blocked'
+//   no row          → 'none'
+export type HoldedStatus = 'transferred' | 'pending' | 'failed' | 'blocked' | 'none'
 
 // Mirrors public.service_time_shape enum. NULL for non-service products.
 export type ServiceTimeShape =
@@ -100,6 +103,14 @@ export type BookingRow = {
   // type so existing fixtures / mocks don't have to populate it; SELECT
   // adds the column unconditionally.
   balance_due?: number | string | null
+  // landr-39he — operator-collected subtotal (excludes paid_to=hotel lines).
+  // Stamped at booking submit by the API. For pure-operator bookings this
+  // equals gross_total. For mixed operator+hotel bookings this is the
+  // operator-side slice that balance_due is derived from (server trigger
+  // uses COALESCE(override, operator_gross_total, gross_total)). Optional
+  // on the type so legacy fixtures / mocks don't have to populate it;
+  // balanceDueOf falls back gracefully when null/absent.
+  operator_gross_total?: number | string | null
   // landr-puix — manual price override applied by an operator via
   // POST /api/staff/operators/{op}/bookings/{id}/price-override. When
   // non-null the dashboard surfaces it in place of gross_total (italic +
@@ -130,6 +141,11 @@ export type BookingRow = {
   // it. The Supabase embed filters out soft-deleted parent tags so this
   // array only ever contains active labels.
   tags?: BookingTagRef[]
+  // landr-a4pl.3 — derived from the latest external_sync_log row for this
+  // booking (action='invoice_push', external_target='holded'). Optional so
+  // existing fixtures / mocks don't have to populate it; extractors default
+  // to 'none' when absent.
+  holded_status?: HoldedStatus
 }
 
 // landr-iz58 — `tags` embed projects operator_tags through booking_tags.
@@ -137,6 +153,12 @@ export type BookingRow = {
 // PostgREST without an inner-join; instead we map the result client-side
 // in fetchBookings + drop rows where the operator_tags side is null
 // (which happens when the tag was soft-deleted or hard-deleted).
+//
+// landr-a4pl.3 — `holded_sync:external_sync_log` embeds the latest
+// invoice_push rows so we can derive holded_status client-side.
+// PostgREST embeds don't support LIMIT 1 per-row; we embed up to 5 rows
+// (Holded retries up to max_attempts times) ordered by created_at desc
+// and pick the first in normaliseBookingRow.
 const SELECT = `
   id,
   created_at,
@@ -152,17 +174,54 @@ const SELECT = `
   customer:contacts!inner ( id, first_name, last_name, email, phone ),
   items:booking_products ( id, date_range_start, date_range_end, selected_days, products ( id, name, product_kind, service_time_shape ) ),
   participants:booking_participants ( id, pickup_location:locations!pickup_location_id ( id, name ) ),
-  booking_tags ( operator_tags ( id, name, color, deleted_at ) )
+  booking_tags ( operator_tags ( id, name, color, deleted_at ) ),
+  holded_sync:external_sync_log ( status, created_at )
 `
 
 type RawBookingTagEmbed = {
   operator_tags: { id: string; name: string; color: string; deleted_at: string | null } | null
 }
-type RawBookingRow = Omit<BookingRow, 'tags'> & {
-  booking_tags?: RawBookingTagEmbed[] | null
+
+// landr-a4pl.3 — raw shape of the external_sync_log embed rows.
+// status mirrors public.external_sync_status enum values.
+type RawHoldedSyncRow = {
+  status: 'pending' | 'in_flight' | 'succeeded' | 'failed' | 'blocked_on_human'
+  created_at: string
 }
 
-function flattenTags(raw: RawBookingRow): BookingRow {
+type RawBookingRow = Omit<BookingRow, 'tags' | 'holded_status'> & {
+  booking_tags?: RawBookingTagEmbed[] | null
+  // landr-a4pl.3 — all embed rows returned by PostgREST; empty array when
+  // the booking has no external_sync_log entry.
+  holded_sync?: RawHoldedSyncRow[] | null
+}
+
+/** landr-a4pl.3 — derive HoldedStatus from the latest external_sync_log row.
+ *  PostgREST returns the embed rows in insertion order; we find the most
+ *  recent one by created_at then map the DB status to the UI enum. */
+function deriveHoldedStatus(rows: RawHoldedSyncRow[] | null | undefined): HoldedStatus {
+  if (!rows || rows.length === 0) return 'none'
+  // Find the latest row by created_at (lexicographic ISO string compare is safe).
+  let latest = rows[0]
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i].created_at > latest.created_at) latest = rows[i]
+  }
+  switch (latest.status) {
+    case 'succeeded':
+      return 'transferred'
+    case 'pending':
+    case 'in_flight':
+      return 'pending'
+    case 'failed':
+      return 'failed'
+    case 'blocked_on_human':
+      return 'blocked'
+    default:
+      return 'none'
+  }
+}
+
+function normaliseBookingRow(raw: RawBookingRow): BookingRow {
   const tags: BookingTagRef[] = []
   for (const wrapper of raw.booking_tags ?? []) {
     const ot = wrapper.operator_tags
@@ -170,9 +229,14 @@ function flattenTags(raw: RawBookingRow): BookingRow {
     if (ot.deleted_at) continue // tag was soft-deleted
     tags.push({ id: ot.id, name: ot.name, color: ot.color })
   }
-  const { booking_tags: _omit, ...rest } = raw
-  return { ...rest, tags }
+  const holded_status = deriveHoldedStatus(raw.holded_sync)
+  const { booking_tags: _omitTags, holded_sync: _omitSync, ...rest } = raw
+  return { ...rest, tags, holded_status }
 }
+
+// Keep backward-compatible alias — previously callers inside this file used
+// flattenTags. All internal call sites updated to normaliseBookingRow below.
+const flattenTags = normaliseBookingRow
 
 /** Convenience helper — falls back to null safely. */
 export function stageCode(row: BookingRow): string | null {
@@ -275,18 +339,14 @@ export function productDisplay(row: BookingRow): string {
   return `${named[0]} +${named.length - 1}`
 }
 
-const numberFormatCache = new Map<string, Intl.NumberFormat>()
+/**
+ * Returns a cached `Intl.NumberFormat` for the given currency.
+ * Re-exported from `@/lib/format-currency` for backward compatibility with
+ * call sites that need the formatter object directly (e.g. BookingPayments).
+ * New call sites should prefer `formatCurrency` from `@/lib/format-currency`.
+ */
 export function numberFormatter(currency: string): Intl.NumberFormat {
-  const key = currency || 'EUR'
-  let fmt = numberFormatCache.get(key)
-  if (!fmt) {
-    fmt = new Intl.NumberFormat('en-IE', {
-      style: 'currency',
-      currency: key,
-    })
-    numberFormatCache.set(key, fmt)
-  }
-  return fmt
+  return getCurrencyFormatter(currency)
 }
 
 export function priceDisplay(row: BookingRow): string {
@@ -297,7 +357,7 @@ export function priceDisplay(row: BookingRow): string {
   // billed.
   const raw = effectiveGrossOf(row)
   if (!Number.isFinite(raw)) return '—'
-  return numberFormatter(row.currency || 'EUR').format(raw)
+  return getCurrencyFormatter(row.currency || 'EUR').format(raw)
 }
 
 /** Numeric "effective gross" — the override when set, else gross_total.
@@ -323,34 +383,13 @@ export function hasPriceOverride(row: BookingRow): boolean {
 }
 
 // landr-f1s — date + time-of-day display. Hour cycle follows the operator's
-// time_format_24h preference (passed by the caller via opts.hour12). Cached
-// per cycle to match the previous module-level singleton.
-// NOTE: Intl.DateTimeFormat forbids mixing dateStyle/timeStyle with the
-// per-component options (year, hour, minute, …); we use the per-component
-// form so hourCycle takes effect.
-const _dateTimeFormatters: Record<'h12' | 'h23', Intl.DateTimeFormat> = {
-  h12: new Intl.DateTimeFormat('en-IE', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h12',
-  }),
-  h23: new Intl.DateTimeFormat('en-IE', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }),
-}
-
+/**
+ * Format a booking ISO timestamp as a localised date+time string.
+ * Re-exported from `@/lib/time-format` (formatDateTime) — consolidated as
+ * part of landr-v9e4.4. The signature is unchanged for backward compat.
+ */
 export function dateDisplay(iso: string, opts?: { hour12?: boolean }): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return _dateTimeFormatters[opts?.hour12 ? 'h12' : 'h23'].format(d)
+  return formatDateTime(iso, opts)
 }
 
 // ----- Service date helpers (landr-04ec) ----------------------------------
@@ -593,13 +632,6 @@ export function bookingsToCalendarEvents(
   return out
 }
 
-// Color tokens (mapped to shadcn/ui theme tokens via CSS classes in
-// BookingsCalendar.tsx). Returned as a string key the component maps to a
-// className. Kept here so tests can assert against the mapping directly.
-export function colorKeyForBooking(row: BookingRow): BookingSemanticState {
-  return row.current_semantic_state
-}
-
 // Persist a calendar drag-to-reschedule. Routes through FastAPI's
 // PATCH /bookings/{id}/products/{lineId} because date changes re-run
 // the pricing engine (see write-routing-convention memory). Callers
@@ -763,23 +795,11 @@ async function postApprovalDecision(args: {
 
 // ----- Edit / cancel mutations --------------------------------------------
 
-export type BookingPatch = {
-  customer_contact_id?: string
-}
-
 export type BookingProductPatch = {
   date_range_start?: string | null
   date_range_end?: string | null
   selected_days?: string[]
   quantity?: number
-}
-
-/** PATCH /api/staff/bookings/{id} — booking-level fields. */
-export async function patchBooking(
-  bookingId: string,
-  patch: BookingPatch,
-): Promise<void> {
-  await api<unknown>('PATCH', `/api/staff/bookings/${bookingId}`, patch)
 }
 
 /** PATCH /api/staff/bookings/{id}/products/{lineId} — re-runs pricing. */
@@ -872,7 +892,7 @@ export async function markBookingAsNoShow(
 export function canMarkAsNoShow(row: BookingRow, today?: Date): boolean {
   if (stageCode(row) === 'no_show') return false
   if (row.current_semantic_state === 'cancelled') return false
-  const todayIso = (today ?? new Date()).toISOString().slice(0, 10)
+  const todayIso = toDateOnlyIso(today ?? new Date())
   for (const item of row.items) {
     if (item.date_range_start && item.date_range_start <= todayIso) {
       return true
@@ -1045,13 +1065,29 @@ export function canRefundPayment(p: BookingPaymentRow): boolean {
   return refundableRemainingOf(p) > 0
 }
 
-/** Numeric balance_due, falling back to gross_total when the column is
- *  missing (legacy fixtures / mocks). Returns null only when neither
- *  field parses as a finite number. */
+/** Numeric balance_due, falling back through the operator subtotal then
+ *  gross_total when the column is missing (legacy fixtures / mocks).
+ *
+ *  Fallback chain mirrors the server trigger (landr-39he):
+ *    balance_due ?? operator_gross_total ?? gross_total
+ *
+ *  For hotel-branch mixed bookings operator_gross_total is the
+ *  operator-collected slice; gross_total includes the hotel portion and
+ *  must NOT be used as the balance fallback. Legacy rows where
+ *  operator_gross_total is null/absent fall through safely to gross_total.
+ *
+ *  Returns null only when no field parses as a finite number. */
 export function balanceDueOf(row: BookingRow): number | null {
   const raw = row.balance_due
   if (raw != null) {
     const n = typeof raw === 'number' ? raw : Number(raw)
+    if (Number.isFinite(n)) return n
+  }
+  // landr-gqq0 — prefer operator_gross_total over gross_total so hotel-branch
+  // bookings don't overstate the balance due.
+  const opRaw = row.operator_gross_total
+  if (opRaw != null) {
+    const n = typeof opRaw === 'number' ? opRaw : Number(opRaw)
     if (Number.isFinite(n)) return n
   }
   const gross =
@@ -1329,6 +1365,23 @@ export type TimelineEventKind =
   | 'rescheduled'
   | 'email_sent'
 
+/** The outbound_emails row fields needed to preview + re-send an email
+ *  directly from the timeline (landr-33r3). Only present on `email_sent`
+ *  events whose source row is readable. */
+export type TimelineEmail = {
+  /** outbound_emails.id — the source row a resend copies/links to. */
+  id: string
+  operatorId: string
+  toAddress: string
+  subject: string
+  bodyHtml: string
+  bodyText: string
+  templateKind: string
+  locale: string
+  /** Set when this email was itself a resend of another row. */
+  resentFromId: string | null
+}
+
 export type TimelineEvent = {
   /** Stable id for React keys; not necessarily a uuid. */
   id: string
@@ -1340,6 +1393,8 @@ export type TimelineEvent = {
   detail?: string | null
   /** Optional actor kind for badge colouring. */
   actorKind?: string | null
+  /** Present on `email_sent` events: the source row for preview + resend. */
+  email?: TimelineEmail | null
 }
 
 type AuditLogRowRaw = {
@@ -1362,11 +1417,17 @@ type PaymentRowRaw = {
 
 type OutboundEmailRowRaw = {
   id: string
+  operator_id: string
   template_kind: string
+  locale: string | null
   status: string
   created_at: string
   sent_at: string | null
   to_address: string | null
+  subject: string | null
+  body_html: string | null
+  body_text: string | null
+  resent_from_id: string | null
 }
 
 type StageRow = { id: string; code: string; label: string | null }
@@ -1505,7 +1566,10 @@ export async function fetchBookingTimeline(
       .limit(20),
     supabase
       .from('outbound_emails')
-      .select('id, template_kind, status, created_at, sent_at, to_address')
+      .select(
+        'id, operator_id, template_kind, locale, status, created_at, sent_at, ' +
+          'to_address, subject, body_html, body_text, resent_from_id',
+      )
       .eq('related_booking_id', bookingId)
       .order('created_at', { ascending: true })
       .limit(50),
@@ -1584,9 +1648,10 @@ export async function fetchBookingTimeline(
     }
   }
 
-  // 3) outbound_emails → email_sent event
+  // 3) outbound_emails → email_sent event. Carries the row payload so the
+  // timeline can preview the body and re-send it in place (landr-33r3).
   if (!emailsRes.error && emailsRes.data) {
-    for (const e of emailsRes.data as OutboundEmailRowRaw[]) {
+    for (const e of emailsRes.data as unknown as OutboundEmailRowRaw[]) {
       const occurredAt = e.sent_at ?? e.created_at
       events.push({
         id: `email-${e.id}`,
@@ -1599,6 +1664,17 @@ export async function fetchBookingTimeline(
             : e.status === 'failed'
               ? 'Failed to send'
               : 'Queued',
+        email: {
+          id: e.id,
+          operatorId: e.operator_id,
+          toAddress: e.to_address ?? '',
+          subject: e.subject ?? '',
+          bodyHtml: e.body_html ?? '',
+          bodyText: e.body_text ?? '',
+          templateKind: e.template_kind,
+          locale: e.locale ?? '',
+          resentFromId: e.resent_from_id ?? null,
+        },
       })
     }
   }
@@ -1620,5 +1696,49 @@ export async function fetchBookingTimeline(
 
   events.sort((a, b) => (a.occurredAt < b.occurredAt ? -1 : 1))
   return events
+}
+
+// ----- Resend confirmation (landr-6629) -----------------------------------
+// POST /api/staff/operators/{op}/bookings/{id}/resend-confirmation
+// Diffs current booking state against the last sent confirmation; sends a
+// booking_confirmation with is_update=true + changes list; returns the diff.
+
+export type ConfirmationChange = {
+  label: string
+  old: string
+  new: string
+}
+
+export type ResendConfirmationResult = {
+  changes_detected: boolean
+  changes: ConfirmationChange[]
+}
+
+export async function resendConfirmation(
+  operatorId: string,
+  bookingId: string,
+): Promise<ResendConfirmationResult> {
+  return api<ResendConfirmationResult>(
+    'POST',
+    `/api/staff/operators/${operatorId}/bookings/${bookingId}/resend-confirmation`,
+  )
+}
+
+export type ConfirmationStatus = {
+  last_sent_at: string | null
+  has_material_changes: boolean
+  /** True once a real booking_confirmation has gone out for this booking.
+   *  Drives the Resend-Confirmation button visibility (landr-tf39). */
+  has_prior_confirmation: boolean
+}
+
+export async function getConfirmationStatus(
+  operatorId: string,
+  bookingId: string,
+): Promise<ConfirmationStatus> {
+  return api<ConfirmationStatus>(
+    'GET',
+    `/api/staff/operators/${operatorId}/bookings/${bookingId}/confirmation-status`,
+  )
 }
 

@@ -41,6 +41,7 @@ import {
 } from '@/lib/tickets'
 import { useOperator } from '@/lib/operator'
 import { useAuth } from '@/lib/auth'
+import { useReportFab } from '@/lib/report-fab-context'
 import { t } from '@/lib/strings'
 
 // ---- constants ---------------------------------------------------------------
@@ -49,9 +50,18 @@ const APP_VERSION = __APP_VERSION__
 
 // ---- Public component -------------------------------------------------------
 
-export function ReportFab() {
+type ReportFabProps = {
+  /** Extra classes forwarded to the trigger Button — e.g. `"hidden md:flex"` to
+   *  hide below the md breakpoint when a TopbarMoreMenu handles it. */
+  className?: string
+}
+
+export function ReportFab({ className }: ReportFabProps = {}) {
   const { currentOperatorId } = useOperator()
-  const [open, setOpen] = useState(false)
+  // landr-40x0: open state lives in ReportFabContext so notifyError() can
+  // trigger the dialog pre-filled from outside React (via the toast "Report"
+  // action). The local trigger button delegates to the same context state.
+  const { open, setOpen } = useReportFab()
 
   // Hide until an operator is selected — same guard as QuickCaptureFab.
   if (!currentOperatorId) return null
@@ -65,10 +75,17 @@ export function ReportFab() {
         aria-label={t.reportButton.triggerLabel}
         onClick={() => setOpen(true)}
         data-testid="report-fab-trigger"
-        className="gap-1.5 text-xs"
+        // landr-3qkr.6 — text label collapses to icon-only below md so the
+        // topbar right-cluster (TierBadge · widget · report · errors ·
+        // notifications · theme · account) fits a 360px phone without the
+        // rightmost items (UserMenu) clipping under overflow-x-guard. The
+        // aria-label keeps the icon-only state accessible; desktop is unchanged.
+        // landr-3qkr.7 — className allows the shell to pass "hidden md:flex"
+        // so this button disappears below md (TopbarMoreMenu takes over).
+        className={`gap-1.5 text-xs${className ? ` ${className}` : ''}`}
       >
         <MessageSquarePlusIcon className="size-3.5" aria-hidden />
-        {t.reportButton.triggerText}
+        <span className="hidden md:inline">{t.reportButton.triggerText}</span>
       </Button>
       <ReportDialog
         operatorId={currentOperatorId}
@@ -133,10 +150,14 @@ function ReportBody({ operatorId, onClose }: BodyProps) {
   const { user } = useAuth()
   const qc = useQueryClient()
   const location = useLocation()
+  // landr-40x0: consume pre-filled body text from the error-capture flow.
+  // consumePrefill() returns the text and clears it in one shot, preventing
+  // it from re-seeding if the user closes and re-opens the dialog.
+  const { consumePrefill } = useReportFab()
 
   const [impact, setImpact] = useState<TicketCreate['perceived_impact']>('annoying')
   const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
+  const [body, setBody] = useState(() => consumePrefill() ?? '')
   const [linkUrl, setLinkUrl] = useState('')
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
   const [linkInvalid, setLinkInvalid] = useState(false)

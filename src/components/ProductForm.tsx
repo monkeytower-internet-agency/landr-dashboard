@@ -1,10 +1,14 @@
 import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { CrownIcon, Trash2Icon } from 'lucide-react'
 
+import { LocalizedTextField } from '@/components/LocalizedTextField'
 import { ProductAddonsManager } from '@/components/products/ProductAddonsManager'
+import {
+  ProductImageManager,
+  ProductImageManagerDisabledHint,
+} from '@/components/products/ProductImageManager'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -25,21 +29,31 @@ import { PricingSchemeManager } from '@/components/pricing/PricingSchemeManager'
 import { ProductGroupManager } from '@/components/products/ProductGroupManager'
 import { useOperator, useOperatorAllowedProductKinds } from '@/lib/operator'
 import {
-  KIND_DISPLAY_ORDER,
   lowestTierTooltip,
   shouldShowTeasers,
 } from '@/lib/package-teasers'
 import {
   nameToSlug,
-  suggestRoomCapacity,
   type HotelOffering,
   type PricingSchemeRef,
   type ProductGroupRef,
   type ProductKind,
   type ProductRow,
-  type ServiceTimeShape,
 } from '@/lib/products'
 import { t } from '@/lib/strings'
+import {
+  ALL_KINDS,
+  ALL_SHAPES,
+  buildSubmitPayload,
+  defaultValues,
+  hotelOfferingLabel,
+  kindLabel,
+  productFormSchema,
+  shapeLabel,
+  suggestRoomCapacity,
+  type ProductFormValues,
+  type ProductFormSubmitValue,
+} from '@/lib/product-form-schema'
 
 // landr-ssrx — surfaced as an option list in the form. Order mirrors the
 // DB-allowed values; 'none' is the default for a fresh service product.
@@ -58,172 +72,7 @@ export type HotelLocationRef = {
   name: string
 }
 
-// Zod schema for the product form. Mirrors the DB CHECK constraints:
-//   - time_slot requires duration_minutes
-//   - fixed_window bounds must be paired (both NULL or both NOT NULL)
-//   - (product_kind = 'service') = (service_time_shape IS NOT NULL)
-//
-// All "free-form" fields are kept as strings here (including numbers like
-// duration_minutes and sort_order). Coercion happens in handleSubmit so the
-// input/output types of the schema stay identical — which avoids a known
-// type-incompatibility between zod's "transformed output" types and
-// react-hook-form's strict generics.
-// landr-c3t — the picker now renders ALL kinds in marketing order; the
-// teaser-rendering rules decide which become disabled-with-crown vs
-// omitted entirely. The full list lives in KIND_DISPLAY_ORDER; this local
-// alias keeps the zod enum literal happy without a runtime mismatch.
-const ALL_KINDS: readonly ProductKind[] = KIND_DISPLAY_ORDER
-
-const ALL_SHAPES: readonly ServiceTimeShape[] = [
-  'single_date',
-  'days_range',
-  'fixed_window',
-  'time_slot',
-] as const
-
-const productFormSchema = z
-  .object({
-    name: z.string().trim().min(1, t.products.errorNameRequired),
-    slug: z
-      .string()
-      .trim()
-      .min(1, t.products.errorSlugRequired)
-      .regex(/^[a-z0-9-]+$/i, t.products.errorSlugFormat),
-    short_description: z.string().max(280),
-    description: z.string(),
-    product_group_id: z.string(),
-    product_kind: z.enum(ALL_KINDS as unknown as [ProductKind, ...ProductKind[]]),
-    service_time_shape: z.union([
-      z.enum(ALL_SHAPES as unknown as [ServiceTimeShape, ...ServiceTimeShape[]]),
-      z.literal(''),
-    ]),
-    is_contiguous: z.boolean(),
-    duration_minutes: z.string(),
-    fixed_start_date: z.string(),
-    fixed_end_date: z.string(),
-    default_pricing_scheme_id: z.string(),
-    needs_provider: z.boolean(),
-    needs_pickup: z.boolean(),
-    revenue_flows_through_operator: z.boolean(),
-    is_publicly_listed: z.boolean(),
-    active: z.boolean(),
-    sort_order: z.string(),
-    // landr-ssrx — hotel-room linkage + service-only accommodation toggle.
-    // Stored as a free-form string here ('' = unset) and coerced in
-    // handleSubmit; hotel_offering is constrained to the three DB values.
-    hotel_location_id: z.string(),
-    hotel_offering: z.enum(['none', 'optional', 'mandatory']),
-    // landr-u34k — hide from main list, restrict to add-on flow.
-    is_addon_only: z.boolean(),
-    // landr-knm0 — capacity_per_unit. Stored as a free-form string here
-    // (same convention as duration_minutes/sort_order) and coerced in
-    // handleSubmit. Only surfaced for kind='hotel_room'; collapsed to null
-    // for other kinds before the API call.
-    capacity_per_unit: z.string(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.product_kind === 'hotel_room') {
-      // landr-knm0 — DB CHECK forbids 0/negative; require an integer >=1.
-      const trimmed = (data.capacity_per_unit ?? '').trim()
-      if (!trimmed) {
-        ctx.addIssue({
-          code: 'custom',
-          message: t.products.errorRoomCapacityRequired,
-          path: ['capacity_per_unit'],
-        })
-      } else {
-        const n = Number(trimmed)
-        if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) {
-          ctx.addIssue({
-            code: 'custom',
-            message: t.products.errorRoomCapacityRequired,
-            path: ['capacity_per_unit'],
-          })
-        }
-      }
-    }
-    if (data.product_kind === 'hotel_room' && !data.hotel_location_id) {
-      // landr-ssrx — mirror the DB CHECK
-      //   (product_kind='hotel_room') = (hotel_location_id IS NOT NULL)
-      // so the form blocks submit before the API rejects the row.
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Pick the hotel this room belongs to.',
-        path: ['hotel_location_id'],
-      })
-    }
-    if (data.product_kind === 'service') {
-      if (!data.service_time_shape) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Service products must pick a time model.',
-          path: ['service_time_shape'],
-        })
-      }
-      if (data.service_time_shape === 'time_slot') {
-        const trimmed = (data.duration_minutes ?? '').trim()
-        const n = Number(trimmed)
-        if (!trimmed || !Number.isFinite(n) || n < 1) {
-          ctx.addIssue({
-            code: 'custom',
-            message: t.products.errorDurationRequired,
-            path: ['duration_minutes'],
-          })
-        }
-      }
-      if (data.service_time_shape === 'fixed_window') {
-        const a = (data.fixed_start_date ?? '').trim()
-        const b = (data.fixed_end_date ?? '').trim()
-        if ((a && !b) || (!a && b)) {
-          ctx.addIssue({
-            code: 'custom',
-            message: t.products.errorDateRangePaired,
-            path: ['fixed_end_date'],
-          })
-        }
-      }
-    }
-    if (data.sort_order && !Number.isFinite(Number(data.sort_order))) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Sort order must be a number.',
-        path: ['sort_order'],
-      })
-    }
-  })
-
-export type ProductFormValues = z.infer<typeof productFormSchema>
-
-export type ProductFormSubmitValue = {
-  name: string
-  slug: string
-  short_description: string | null
-  description: string | null
-  product_group_id: string | null
-  product_kind: ProductKind
-  service_time_shape: ServiceTimeShape | null
-  is_contiguous: boolean
-  duration_minutes: number | null
-  fixed_start_date: string | null
-  fixed_end_date: string | null
-  default_pricing_scheme_id: string | null
-  needs_provider: boolean
-  needs_pickup: boolean
-  revenue_flows_through_operator: boolean
-  is_publicly_listed: boolean
-  active: boolean
-  sort_order: number
-  hotel_location_id: string | null
-  hotel_offering: HotelOffering
-  // landr-u34k — hide-from-main-list flag. Persisted on the products row,
-  // edited via the main form (not the add-ons section, which manages link
-  // rows on a DIFFERENT parent product).
-  is_addon_only: boolean
-  // landr-knm0 — max sleepers per unit. NULL on non-room kinds (the form
-  // collapses to null before submit so the API never receives a stray
-  // value); >=1 integer on hotel_room.
-  capacity_per_unit: number | null
-}
+export type { ProductFormValues, ProductFormSubmitValue }
 
 type Props = {
   product: ProductRow | null
@@ -248,128 +97,6 @@ type Props = {
    *  hide the Add-ons section entirely (e.g. tests / wizards that don't
    *  load products). */
   allProducts?: ProductRow[]
-}
-
-function emptyToNull(v: string | undefined | null): string | null {
-  if (v === undefined || v === null) return null
-  const t = v.trim()
-  return t === '' ? null : t
-}
-
-function defaultValues(
-  product: ProductRow | null,
-  initialKind: ProductKind,
-): ProductFormValues {
-  if (!product) {
-    return {
-      name: '',
-      slug: '',
-      short_description: '',
-      description: '',
-      product_group_id: '',
-      product_kind: initialKind,
-      service_time_shape: initialKind === 'service' ? 'days_range' : '',
-      is_contiguous: false,
-      duration_minutes: '',
-      fixed_start_date: '',
-      fixed_end_date: '',
-      default_pricing_scheme_id: '',
-      needs_provider: true,
-      needs_pickup: true,
-      // landr-ssrx — hotel rooms are paid to the hotel directly, so the
-      // default for hotel_room is RFTO=false. All other kinds keep the
-      // historical default of true (operator collects the money).
-      revenue_flows_through_operator: initialKind !== 'hotel_room',
-      is_publicly_listed: false,
-      active: true,
-      sort_order: '0',
-      hotel_location_id: '',
-      hotel_offering: 'none',
-      is_addon_only: false,
-      // landr-knm0 — pre-fill a sensible default ONLY for fresh hotel_room
-      // rows (the input is hidden for other kinds, and existing rows are
-      // loaded from the server). The suggestRoomCapacity heuristic returns
-      // null on empty names; we fall back to '1' so the field starts valid
-      // and the operator can type over it.
-      capacity_per_unit: initialKind === 'hotel_room' ? '1' : '',
-    }
-  }
-  return {
-    name: product.name,
-    slug: product.slug,
-    short_description: product.short_description ?? '',
-    description: product.description ?? '',
-    product_group_id: product.product_group_id ?? '',
-    product_kind: product.product_kind,
-    service_time_shape: product.service_time_shape ?? '',
-    is_contiguous: !!product.is_contiguous,
-    duration_minutes:
-      product.duration_minutes == null ? '' : String(product.duration_minutes),
-    fixed_start_date: product.fixed_start_date ?? '',
-    fixed_end_date: product.fixed_end_date ?? '',
-    default_pricing_scheme_id: product.default_pricing_scheme_id ?? '',
-    needs_provider: product.needs_provider,
-    needs_pickup: product.needs_pickup,
-    revenue_flows_through_operator: product.revenue_flows_through_operator,
-    is_publicly_listed: product.is_publicly_listed,
-    active: product.active,
-    sort_order: String(product.sort_order ?? 0),
-    hotel_location_id: product.hotel_location_id ?? '',
-    // Defensive: pre-landr-ssrx rows wouldn't carry these columns. The DB
-    // default is 'none', so we fall back to that if the server response is
-    // missing the field for any reason.
-    hotel_offering: product.hotel_offering ?? 'none',
-    is_addon_only: !!product.is_addon_only,
-    // landr-knm0 — pre-landr-fi68 rows have no capacity_per_unit column at
-    // all; map NULL → '' so the input renders empty and the operator can
-    // type a value. The zod refine catches the empty case for hotel_room
-    // on submit.
-    capacity_per_unit:
-      product.capacity_per_unit == null
-        ? ''
-        : String(product.capacity_per_unit),
-  }
-}
-
-function kindLabel(kind: ProductKind): string {
-  switch (kind) {
-    case 'service':
-      return t.products.kindService
-    case 'subscription':
-      return t.products.kindSubscription
-    case 'digital_good':
-      return t.products.kindDigitalGood
-    case 'physical_good':
-      return t.products.kindPhysicalGood
-    case 'gift_card':
-      return t.products.kindGiftCard
-    case 'hotel_room':
-      return t.products.kindHotelRoom
-  }
-}
-
-function hotelOfferingLabel(value: HotelOffering): string {
-  switch (value) {
-    case 'none':
-      return t.products.optionHotelOfferingNone
-    case 'optional':
-      return t.products.optionHotelOfferingOptional
-    case 'mandatory':
-      return t.products.optionHotelOfferingMandatory
-  }
-}
-
-function shapeLabel(shape: ServiceTimeShape): string {
-  switch (shape) {
-    case 'single_date':
-      return t.products.shapeSingleDate
-    case 'days_range':
-      return t.products.shapeDaysRange
-    case 'fixed_window':
-      return t.products.shapeFixedWindow
-    case 'time_slot':
-      return t.products.shapeTimeSlot
-  }
 }
 
 export function ProductForm({
@@ -510,56 +237,7 @@ export function ProductForm({
       : t.products.nonServiceComingSoonBody
 
   async function handleSubmit(values: ProductFormValues) {
-    const minutesTrimmed = (values.duration_minutes ?? '').trim()
-    const sortTrimmed = (values.sort_order ?? '').trim()
-    const shape: ServiceTimeShape | null =
-      values.product_kind === 'service'
-        ? (values.service_time_shape as ServiceTimeShape)
-        : null
-    const payload: ProductFormSubmitValue = {
-      name: values.name.trim(),
-      slug: values.slug.trim(),
-      short_description: emptyToNull(values.short_description),
-      description: emptyToNull(values.description),
-      product_group_id: emptyToNull(values.product_group_id),
-      product_kind: values.product_kind,
-      service_time_shape: shape,
-      // is_contiguous is only meaningful for service + days_range; for
-      // everything else we collapse to false so we never store a stray true.
-      is_contiguous: shape === 'days_range' ? !!values.is_contiguous : false,
-      duration_minutes:
-        shape === 'time_slot' && minutesTrimmed ? Number(minutesTrimmed) : null,
-      fixed_start_date:
-        shape === 'fixed_window' ? emptyToNull(values.fixed_start_date) : null,
-      fixed_end_date:
-        shape === 'fixed_window' ? emptyToNull(values.fixed_end_date) : null,
-      default_pricing_scheme_id: emptyToNull(values.default_pricing_scheme_id),
-      needs_provider: values.needs_provider,
-      needs_pickup: values.needs_pickup,
-      revenue_flows_through_operator: values.revenue_flows_through_operator,
-      is_publicly_listed: values.is_publicly_listed,
-      active: values.active,
-      sort_order: sortTrimmed ? Number(sortTrimmed) : 0,
-      // landr-ssrx — collapse to null/'none' on every kind except where
-      // the field is actually meaningful. The DB CHECKs would catch a
-      // stale value from a kind-switch race, but we'd rather not even
-      // send one.
-      hotel_location_id:
-        values.product_kind === 'hotel_room'
-          ? emptyToNull(values.hotel_location_id)
-          : null,
-      hotel_offering:
-        values.product_kind === 'service' ? values.hotel_offering : 'none',
-      is_addon_only: values.is_addon_only,
-      // landr-knm0 — capacity is meaningful only for hotel_room today.
-      // Collapse to null on every other kind so the API never receives a
-      // stray value (the DB column accepts NULL but the column comment
-      // documents the convention).
-      capacity_per_unit:
-        values.product_kind === 'hotel_room'
-          ? Number((values.capacity_per_unit ?? '').trim()) || null
-          : null,
-    }
+    const payload = buildSubmitPayload(values)
     await onSubmit(payload)
   }
 
@@ -644,7 +322,10 @@ export function ProductForm({
           </Card>
         ) : null}
 
+        {/* landr-3qkr.4 — single column on mobile, 2-up on sm+ */}
         <div className="grid gap-4 sm:grid-cols-2">
+          {/* landr-14s4 — name is locale-tabbed (EN base + DE override). The
+              slug auto-fill still keys off the EN base value only. */}
           <FormField
             control={form.control}
             name="name"
@@ -652,16 +333,21 @@ export function ProductForm({
               <FormItem>
                 <FormLabel>{t.products.fieldName}</FormLabel>
                 <FormControl>
-                  <Input
-                    {...field}
-                    onChange={(e) => {
-                      field.onChange(e)
+                  <LocalizedTextField
+                    label={t.products.fieldName}
+                    base={field.value}
+                    localized={form.watch('name_localized')}
+                    onChange={(base, localized) => {
+                      field.onChange(base)
+                      form.setValue('name_localized', localized, {
+                        shouldDirty: true,
+                      })
                       // Auto-fill slug when creating a new product and slug
                       // is either empty or still matches the slugified name.
                       if (!product) {
                         const current = form.getValues('slug')
                         if (!current || current === nameToSlug(field.value)) {
-                          form.setValue('slug', nameToSlug(e.target.value))
+                          form.setValue('slug', nameToSlug(base))
                         }
                       }
                     }}
@@ -688,6 +374,8 @@ export function ProductForm({
           />
         </div>
 
+        {/* landr-14s4 — short_description is locale-tabbed (EN base + DE
+            override). */}
         <FormField
           control={form.control}
           name="short_description"
@@ -695,7 +383,17 @@ export function ProductForm({
             <FormItem>
               <FormLabel>{t.products.fieldShortDescription}</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <LocalizedTextField
+                  label={t.products.fieldShortDescription}
+                  base={field.value}
+                  localized={form.watch('short_description_localized')}
+                  onChange={(base, localized) => {
+                    field.onChange(base)
+                    form.setValue('short_description_localized', localized, {
+                      shouldDirty: true,
+                    })
+                  }}
+                />
               </FormControl>
               <FormDescription>
                 {t.products.fieldShortDescriptionHelp}
@@ -705,6 +403,12 @@ export function ProductForm({
           )}
         />
 
+        {/* landr-14s4 — the long Markdown `description` is intentionally NOT
+            locale-tabbed yet. The DB column products.description_localized
+            exists, but no public widget RPC returns it, so a DE override here
+            would never render. DE translation for the long description ships
+            later — tracked by follow-up bead landr-soo4 (widget RPC pick +
+            a Markdown-aware locale editor are the remaining work). */}
         <FormField
           control={form.control}
           name="description"
@@ -1117,23 +821,42 @@ export function ProductForm({
           )
         ) : null}
 
-        <div className="flex items-center justify-between gap-2">
+        {/* landr-d8rg.9 — product image manager. Only meaningful for
+            existing products (needs product_id for storage paths + row FK).
+            Render the save-first hint for new products when operatorId is
+            present (matches the AddonsManager pattern above). */}
+        {operatorId ? (
+          product ? (
+            <ProductImageManager
+              operatorId={operatorId}
+              productId={product.id}
+            />
+          ) : (
+            <ProductImageManagerDisabledHint />
+          )
+        ) : null}
+
+        {/* landr-3qkr.4 — action row: stack vertically (column-reverse) on
+            mobile so the primary Save button appears on top; row on sm+.
+            min-h-11 ensures ≥44px touch targets on both buttons. */}
+        <div className="flex flex-col-reverse items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
           {product && onDelete ? (
             <Button
               type="button"
               variant="outline"
               onClick={onDelete}
               disabled={!!deleting}
-              className="text-destructive"
+              className="min-h-11 text-destructive"
             >
               <Trash2Icon className="size-4" />
               {deleting ? t.products.deleting : t.products.delete}
             </Button>
           ) : (
-            <span />
+            <span className="hidden sm:block" />
           )}
           <Button
             type="submit"
+            className="min-h-11"
             // landr-ssrx — service + hotel_room are both fully editable. The
             // still-unsupported kinds (subscription, *_good, gift_card) keep
             // the upgrade-prompt tooltip from the prior package-gating work.

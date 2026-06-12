@@ -190,7 +190,9 @@ beforeEach(() => {
     product_group_id: payload.product_group_id,
     slug: payload.slug,
     name: payload.name,
+    name_localized: payload.name_localized,
     short_description: payload.short_description,
+    short_description_localized: payload.short_description_localized,
     description: payload.description,
     product_kind: payload.product_kind,
     service_time_shape: payload.service_time_shape,
@@ -288,7 +290,7 @@ describe('Onboarding wizard', () => {
     mocks.fetchProducts.mockResolvedValue([
       {
         id: 'p-1', operator_id: 'op-1', product_group_id: null, slug: 'a',
-        name: 'A', short_description: null, description: null,
+        name: 'A', name_localized: null, short_description: null, short_description_localized: null, description: null,
         product_kind: 'service', service_time_shape: 'time_slot', is_contiguous: false, duration_minutes: 60,
         fixed_start_date: null, fixed_end_date: null,
         default_pricing_scheme_id: null,
@@ -302,7 +304,7 @@ describe('Onboarding wizard', () => {
       },
       {
         id: 'p-2', operator_id: 'op-1', product_group_id: null, slug: 'b',
-        name: 'B', short_description: null, description: null,
+        name: 'B', name_localized: null, short_description: null, short_description_localized: null, description: null,
         product_kind: 'service', service_time_shape: 'time_slot', is_contiguous: false, duration_minutes: 60,
         fixed_start_date: null, fixed_end_date: null,
         default_pricing_scheme_id: null,
@@ -316,7 +318,7 @@ describe('Onboarding wizard', () => {
       },
       {
         id: 'p-3', operator_id: 'op-1', product_group_id: null, slug: 'c',
-        name: 'C', short_description: null, description: null,
+        name: 'C', name_localized: null, short_description: null, short_description_localized: null, description: null,
         product_kind: 'service', service_time_shape: 'time_slot', is_contiguous: false, duration_minutes: 60,
         fixed_start_date: null, fixed_end_date: null,
         default_pricing_scheme_id: null,

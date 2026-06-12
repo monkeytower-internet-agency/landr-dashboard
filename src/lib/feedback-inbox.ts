@@ -20,6 +20,14 @@ import {
   type TicketStatus,
 } from '@/lib/tickets'
 
+// landr-agiw.3 — the "System" lane. System-filed tickets (failed promotions,
+// future deploy/cron/site-warning escalations) carry operator_id = NULL and
+// context = 'system', so they belong to no operator and never appear in the
+// per-operator rail rows. We surface them as a synthetic rail entry keyed by this
+// sentinel id (operator ids are uuids, so it can never collide with a real one).
+export const SYSTEM_LANE_ID = '__system__'
+export const SYSTEM_LANE_NAME = 'System'
+
 // ---- left-rail summary (feedback_inbox_operator_summary view) ---------------
 
 export type OperatorInboxSummary = {
@@ -106,25 +114,80 @@ export type InboxTicketThread = {
  * comments), oldest-first within the thread. Threads themselves are ordered
  * newest-activity-first so the most recent conversation appears at the top.
  */
+const STAFF_TICKET_COLUMNS = `id, context, type, title, body, status, priority, perceived_impact,
+   reporter_id, operator_id, assignee_id, blocked, moscow,
+   severity, linked_bd_id, promotion_prompt, promotion_requested_at,
+   sync_status, last_synced_at, origin_tier, origin_operator_label,
+   created_at, updated_at`
+
 export async function fetchInboxThreads(
   operatorId: string,
 ): Promise<InboxTicketThread[]> {
   // 1. Load staff tickets for the operator
   const { data: ticketData, error: ticketErr } = await supabase
     .from('tickets_staff')
-    .select(
-      `id, context, type, title, body, status, priority, perceived_impact,
-       reporter_id, operator_id, assignee_id, blocked, moscow,
-       severity, linked_bd_id, promotion_prompt, promotion_requested_at,
-       sync_status, last_synced_at, created_at, updated_at`,
-    )
+    .select(STAFF_TICKET_COLUMNS)
     .eq('operator_id', operatorId)
     .order('updated_at', { ascending: false })
     .limit(200)
 
   if (ticketErr) throw new Error(ticketErr.message)
-  const tickets = (ticketData ?? []) as TicketRowStaff[]
+  return buildThreadsFromTickets((ticketData ?? []) as TicketRowStaff[])
+}
 
+/**
+ * landr-agiw.3 — threads for the System lane: system-filed tickets
+ * (operator_id IS NULL AND context = 'system'), newest-activity first. Same
+ * shape + comment-merge as fetchInboxThreads; staff-only via tickets_staff.
+ */
+export async function fetchSystemInboxThreads(): Promise<InboxTicketThread[]> {
+  const { data: ticketData, error: ticketErr } = await supabase
+    .from('tickets_staff')
+    .select(STAFF_TICKET_COLUMNS)
+    .is('operator_id', null)
+    .eq('context', 'system')
+    .order('updated_at', { ascending: false })
+    .limit(200)
+
+  if (ticketErr) throw new Error(ticketErr.message)
+  return buildThreadsFromTickets((ticketData ?? []) as TicketRowStaff[])
+}
+
+/**
+ * landr-agiw.3 — synthetic rail summary for the System lane. Returns null when
+ * there are no system tickets (the lane is hidden until the system files one).
+ * unread/awaiting counts are 0: system tickets have no operator-reply cadence,
+ * so those badges don't apply.
+ */
+export async function fetchSystemLaneSummary(): Promise<OperatorInboxSummary | null> {
+  const { data, error } = await supabase
+    .from('tickets_staff')
+    .select('id, updated_at')
+    .is('operator_id', null)
+    .eq('context', 'system')
+    .order('updated_at', { ascending: false })
+    .limit(200)
+  if (error) throw new Error(error.message)
+  const rows = (data ?? []) as { id: string; updated_at: string }[]
+  if (rows.length === 0) return null
+  return {
+    operator_id: SYSTEM_LANE_ID,
+    operator_name: SYSTEM_LANE_NAME,
+    operator_slug: null,
+    ticket_count: rows.length,
+    last_activity_at: rows[0]?.updated_at ?? null,
+    unread_count: 0,
+    awaiting_reply_count: 0,
+  }
+}
+
+/**
+ * Merge a set of staff tickets + their comments into newest-activity-first
+ * threads (ticket-open event then comments oldest→newest within each thread).
+ */
+async function buildThreadsFromTickets(
+  tickets: TicketRowStaff[],
+): Promise<InboxTicketThread[]> {
   // 2. Load comments for all tickets in one query
   let allComments: TicketComment[] = []
   if (tickets.length > 0) {

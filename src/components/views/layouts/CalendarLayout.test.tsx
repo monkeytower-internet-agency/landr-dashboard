@@ -8,8 +8,15 @@
 //   - Event click opens the BookingDetailSheet (BookingDetailSheet is
 //     mocked to keep the test free of supabase / API plumbing — see
 //     BookingDetailSheet.test.tsx for the sheet's own coverage).
+//
+// landr-21x1 — daily-roster mode:
+//   - Renders the roster day cell for days with flying participants.
+//   - Clicking a day cell opens the DayRosterPanel (grouped by booking).
+//   - Clicking a booking ref in the panel fires the booking detail sheet.
+//   - In daily-roster mode the view-variant switcher is hidden.
+//   - No date field required (placeholder not shown even without dateField).
 
-import { render as rtlRender, screen } from '@testing-library/react'
+import { render as rtlRender, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -25,12 +32,21 @@ import type { ReactElement } from 'react'
 
 import type { BookingRow } from '@/lib/bookings'
 import type { SavedViewWithState } from '@/lib/saved-views'
+import {
+  buildDayRoster,
+  type FlyingParticipantsByBooking,
+} from '@/lib/day-roster'
 
-// Pin "today" — see vitest-react-query-fake-timers-deadlock memory.
-// FullCalendar reads `Date.now()` (via `new Date()`) when picking the
-// initially visible month; pinning it keeps the events inside the grid.
+// Pin "today" so the FullCalendar dayGridMonth view lands in May 2026 and
+// the test fixtures (2026-05-1x) fall inside the visible grid.
+//
+// FullCalendar picks the initially-visible month via a bare `new Date()`,
+// which a plain `vi.spyOn(Date, 'now')` does NOT control (V8's `new Date()`
+// reads the system clock directly, not `Date.now()`). Use Date-only fake
+// timers — `toFake: ['Date']` overrides `new Date()` / `Date.now()` while
+// leaving setTimeout / queueMicrotask / Promises real, so userEvent and
+// waitFor keep working.
 const FIXED_NOW = new Date('2026-05-21T12:00:00.000Z')
-let dateNowSpy: ReturnType<typeof vi.spyOn> | null = null
 
 // Mock BookingDetailSheet so the click test can assert that the layout
 // opens the sheet, without dragging the sheet's own supabase/network deps
@@ -132,11 +148,12 @@ function render(ui: ReactElement) {
 
 beforeEach(() => {
   sheetMock.calls.length = 0
-  dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(FIXED_NOW.getTime())
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(FIXED_NOW)
 })
 
 afterEach(() => {
-  dateNowSpy?.mockRestore()
+  vi.useRealTimers()
   vi.clearAllMocks()
 })
 
@@ -498,5 +515,203 @@ describe('CalendarLayout (landr-9kbl)', () => {
         expect(harnessRoot?.className ?? '').not.toMatch(/fc-event-draggable/)
       }
     })
+  })
+})
+
+// landr-21x1 — daily-roster mode: CalendarLayout renders the flying roster in
+// each day cell (no date field required; no event bars; no variant switcher).
+// Pinned to 2026-05-21 so the test roster days (2026-05-15) are in the
+// same month-grid render as the FIXED_NOW above.
+describe('CalendarLayout — daily-roster mode (landr-21x1)', () => {
+  function makeRosterRow(
+    id: string,
+    selectedDays: string[],
+    overrides: Partial<BookingRow> = {},
+  ): BookingRow {
+    return {
+      id,
+      created_at: '2026-05-10T10:00:00Z',
+      current_semantic_state: 'confirmed',
+      current_stage: { code: 'confirmed' },
+      gross_total: 100,
+      currency: 'EUR',
+      customer: {
+        id: `c-${id}`,
+        first_name: 'Booker',
+        last_name: id,
+        email: `${id}@example.com`,
+        phone: null,
+      },
+      items: [
+        {
+          id: `bp-${id}`,
+          date_range_start: selectedDays[0] ?? null,
+          date_range_end: selectedDays[selectedDays.length - 1] ?? null,
+          selected_days: selectedDays,
+          products: {
+            id: 'prod',
+            name: 'Tandem flight',
+            product_kind: 'service',
+            service_time_shape: 'days_range',
+          },
+        },
+      ],
+      ...overrides,
+    }
+  }
+
+  it('renders a roster day cell for days with flying participants', () => {
+    const rows = [makeRosterRow('b-1', ['2026-05-15'])]
+    const participants: FlyingParticipantsByBooking = new Map([
+      ['b-1', ['Anna', 'Ben']],
+    ])
+    const rosterByDay = buildDayRoster(rows, participants)
+    const view = makeView({
+      layout: 'calendar',
+      calendarConfig: { mode: 'daily-roster' },
+    })
+
+    render(<CalendarLayout view={view} items={rows} rosterByDay={rosterByDay} />)
+
+    const cell = screen.getByTestId('calendar-day-roster')
+    expect(cell).toHaveAttribute('data-date', '2026-05-15')
+    expect(cell).toHaveAttribute('data-count', '2')
+    const names = within(cell).getAllByTestId('calendar-day-roster-name')
+    expect(names.map((n) => n.textContent)).toEqual(['Anna', 'Ben'])
+  })
+
+  it('does not require a dateField — no placeholder shown in daily-roster mode', () => {
+    const view = makeView({
+      layout: 'calendar',
+      // No dateField set — should NOT show the placeholder in roster mode.
+      calendarConfig: { mode: 'daily-roster' },
+    })
+    render(<CalendarLayout view={view} items={[]} rosterByDay={new Map()} />)
+
+    expect(screen.queryByTestId('view-layout-calendar-placeholder')).toBeNull()
+    expect(screen.getByTestId('view-layout-calendar')).toBeInTheDocument()
+  })
+
+  it('hides the view-variant switcher in daily-roster mode', () => {
+    const view = makeView({
+      layout: 'calendar',
+      calendarConfig: { mode: 'daily-roster' },
+    })
+    render(<CalendarLayout view={view} items={[]} rosterByDay={new Map()} />)
+
+    expect(screen.queryByTestId('view-calendar-view-switcher')).toBeNull()
+  })
+
+  it('opens the roster panel when a day cell is clicked', async () => {
+    const user = userEvent.setup()
+    const rows = [makeRosterRow('b-1', ['2026-05-15'])]
+    const participants: FlyingParticipantsByBooking = new Map([
+      ['b-1', ['Anna']],
+    ])
+    const rosterByDay = buildDayRoster(rows, participants)
+    const view = makeView({
+      layout: 'calendar',
+      calendarConfig: { mode: 'daily-roster' },
+    })
+
+    render(<CalendarLayout view={view} items={rows} rosterByDay={rosterByDay} />)
+
+    await user.click(screen.getByTestId('calendar-day-roster'))
+    const panel = await screen.findByTestId('calendar-day-roster-panel')
+    expect(panel).toBeInTheDocument()
+    expect(panel).toHaveAttribute('data-date', '2026-05-15')
+  })
+
+  it('clicking a booking ref in the panel opens the booking detail sheet', async () => {
+    const user = userEvent.setup()
+    const rows = [makeRosterRow('b-1', ['2026-05-15'])]
+    const participants: FlyingParticipantsByBooking = new Map([
+      ['b-1', ['Anna']],
+    ])
+    const rosterByDay = buildDayRoster(rows, participants)
+    const view = makeView({
+      layout: 'calendar',
+      calendarConfig: { mode: 'daily-roster' },
+    })
+
+    render(<CalendarLayout view={view} items={rows} rosterByDay={rosterByDay} />)
+
+    await user.click(screen.getByTestId('calendar-day-roster'))
+    const panel = await screen.findByTestId('calendar-day-roster-panel')
+    await user.click(within(panel).getByTestId('roster-booking-link'))
+
+    // Panel closes + detail sheet opens.
+    expect(screen.queryByTestId('calendar-day-roster-panel')).toBeNull()
+    expect(
+      screen.getByTestId('booking-detail-sheet-mock').dataset.open,
+    ).toBe('true')
+    expect(
+      screen.getByTestId('booking-detail-sheet-mock').dataset.rowId,
+    ).toBe('b-1')
+  })
+
+  it('uses onItemClick override in roster mode (no internal sheet)', async () => {
+    const user = userEvent.setup()
+    const rows = [makeRosterRow('b-1', ['2026-05-15'])]
+    const participants: FlyingParticipantsByBooking = new Map([
+      ['b-1', ['Anna']],
+    ])
+    const rosterByDay = buildDayRoster(rows, participants)
+    const view = makeView({
+      layout: 'calendar',
+      calendarConfig: { mode: 'daily-roster' },
+    })
+    const onItemClick = vi.fn()
+
+    render(
+      <CalendarLayout
+        view={view}
+        items={rows}
+        rosterByDay={rosterByDay}
+        onItemClick={onItemClick}
+      />,
+    )
+
+    await user.click(screen.getByTestId('calendar-day-roster'))
+    const panel = await screen.findByTestId('calendar-day-roster-panel')
+    await user.click(within(panel).getByTestId('roster-booking-link'))
+
+    expect(onItemClick).toHaveBeenCalledTimes(1)
+    expect(onItemClick.mock.calls[0][0].id).toBe('b-1')
+    // Internal sheet stays closed when override is active.
+    expect(
+      screen.getByTestId('booking-detail-sheet-mock').dataset.open,
+    ).toBe('false')
+  })
+
+  it('shows no roster cells when rosterByDay is empty', () => {
+    const view = makeView({
+      layout: 'calendar',
+      calendarConfig: { mode: 'daily-roster' },
+    })
+    render(
+      <CalendarLayout
+        view={view}
+        items={[makeRosterRow('b-1', ['2026-05-15'])]}
+        rosterByDay={new Map()}
+      />,
+    )
+    expect(screen.queryAllByTestId('calendar-day-roster')).toHaveLength(0)
+  })
+
+  it('events mode (default) still shows event bars and the variant switcher', () => {
+    const rows = [makeRow({ id: 'row-a' })]
+    const view = makeView({
+      layout: 'calendar',
+      calendarConfig: { dateField: 'date_range_start' },
+    })
+    render(<CalendarLayout view={view} items={rows} />)
+
+    // Switcher visible.
+    expect(screen.getByTestId('view-calendar-view-switcher')).toBeInTheDocument()
+    // Event bars rendered.
+    expect(screen.getByTestId('view-calendar-event')).toBeInTheDocument()
+    // No roster cells.
+    expect(screen.queryByTestId('calendar-day-roster')).toBeNull()
   })
 })

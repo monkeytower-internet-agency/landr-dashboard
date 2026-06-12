@@ -43,26 +43,35 @@ export function SettingsSubSidebar() {
     group === 'account' ? t.accountHub.navLabel : t.settingsHub.navLabel
   return (
     <nav aria-label={navLabel} className="w-full shrink-0 md:w-56">
-      <ul className="flex flex-col gap-0.5">
+      {/*
+       * landr-3qkr.4 — Mobile (<md): horizontally scrollable chip strip so
+       * the long section list never causes page overflow. Each chip keeps the
+       * same active-pill language (bg-primary, font-medium) that desktop uses.
+       *
+       * Desktop (md+): vertical pill list, same as before.
+       */}
+      <ul className="flex gap-1 overflow-x-auto pb-1 md:flex-col md:gap-0.5 md:overflow-x-visible md:pb-0">
         {sections.map((section) => {
           const Icon = section.icon
           return (
-            <li key={section.to}>
+            <li key={section.to} className="shrink-0 md:shrink">
               <NavLink
                 to={section.to}
                 className={({ isActive }) =>
                   cn(
-                    // Structural only — visual polish (active pill, hover
-                    // bg) is tuned by sibling worker landr-z7t via theme
-                    // tokens + the shadcn primitives we re-use elsewhere.
-                    'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm',
+                    // landr-ar44 — settings section nav matches the app
+                    // sidebar's visual language: soft hover tint for
+                    // inactive rows, a filled primary pill for the active
+                    // section so it reads as the current location.
+                    'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors',
                     'text-muted-foreground hover:bg-accent hover:text-foreground',
-                    isActive && 'bg-accent font-medium text-foreground',
+                    isActive &&
+                      'bg-primary font-medium text-primary-foreground shadow-s hover:bg-primary hover:text-primary-foreground',
                   )
                 }
               >
-                <Icon className="size-4" aria-hidden="true" />
-                <span>{section.label}</span>
+                <Icon className="size-4 shrink-0" aria-hidden="true" />
+                <span className="whitespace-nowrap">{section.label}</span>
               </NavLink>
             </li>
           )

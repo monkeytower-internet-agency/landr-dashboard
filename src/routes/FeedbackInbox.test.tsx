@@ -1,10 +1,13 @@
 // landr-wwhn.28 — /feedback-inbox route tests.
+// landr-7dya.6  — bell→detail deep-link: ?open=<id> opens TicketDetailSheet.
 //
 // Covers: staff gate (non-staff redirect), summary load error, empty rail,
-// operator row renders with unread/awaiting badges, threads load and render.
+// operator row renders with unread/awaiting badges, threads load and render,
+// deep-link ?open=<id> fetches ticket and opens TicketDetailSheet directly.
 import {
   render as rtlRender,
   screen,
+  waitFor,
   type RenderOptions,
 } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -78,17 +81,48 @@ vi.mock('@/lib/operator', () => ({
   OperatorProvider: ({ children }: { children: ReactNode }) => children,
 }))
 
+const fetchTicketMock = vi.fn<(id: string) => Promise<import('@/lib/tickets').TicketRow | null>>()
+
 vi.mock('@/lib/tickets', async () => {
   const actual =
     await vi.importActual<typeof import('@/lib/tickets')>('@/lib/tickets')
   return {
     ...actual,
     fetchAssignableUsers: vi.fn(async () => []),
+    fetchTicket: (...args: unknown[]) =>
+      fetchTicketMock(...(args as [string])),
   }
 })
 
 vi.mock('@/lib/page-title', () => ({
   PageTitle: ({ title }: { title: string }) => <title>{title}</title>,
+}))
+
+// Lightweight TicketDetailSheet stub so the deep-link test doesn't need the
+// full supabase mock stack. The stub renders a testid when ticket is non-null.
+vi.mock('@/components/tickets/TicketDetailSheet', () => ({
+  TicketDetailSheet: ({
+    ticket,
+    onOpenChange,
+  }: {
+    ticket: { id: string; title: string } | null
+    onOpenChange: (open: boolean) => void
+  }) =>
+    ticket ? (
+      <div
+        data-testid="stub-ticket-detail-sheet"
+        data-ticket-id={ticket.id}
+        data-ticket-title={ticket.title}
+      >
+        <button
+          type="button"
+          data-testid="stub-detail-close"
+          onClick={() => onOpenChange(false)}
+        >
+          close
+        </button>
+      </div>
+    ) : null,
 }))
 
 // ---- import subject ---------------------------------------------------------
@@ -98,14 +132,18 @@ const { default: FeedbackInbox } = await import('./FeedbackInbox')
 
 // ---- render helper ----------------------------------------------------------
 
-function render(ui: ReactElement, options?: RenderOptions) {
+function render(
+  ui: ReactElement,
+  options?: RenderOptions & { initialPath?: string },
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+  const initialPath = options?.initialPath ?? '/feedback-inbox'
   return rtlRender(ui, {
     wrapper: (_props) => (
       <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={['/feedback-inbox']}>
+        <MemoryRouter initialEntries={[initialPath]}>
           <Routes>
             <Route path="/" element={<div data-testid="home">home</div>} />
             <Route path="/feedback-inbox" element={ui} />
@@ -143,6 +181,7 @@ beforeEach(() => {
   mock.state.threadsError = null
   mock.state.isStaff = true
   mock.state.entLoading = false
+  fetchTicketMock.mockReset()
 })
 
 afterEach(() => {
@@ -222,6 +261,59 @@ describe('FeedbackInbox', () => {
       mock.state.threadsError = new Error('timeout')
       render(<FeedbackInbox />)
       await screen.findByText(/could not load threads/i)
+    })
+  })
+
+  // ---- landr-7dya.6: ?open=<id> deep-link ------------------------------------
+
+  describe('deep-link ?open=<id>', () => {
+    it('fetches the ticket and opens TicketDetailSheet when ?open= is present', async () => {
+      const ticketId = 'ticket-deeplink-1'
+      fetchTicketMock.mockResolvedValue({
+        id: ticketId,
+        context: 'operations',
+        type: 'bug',
+        title: 'Deep-linked ticket',
+        body: null,
+        status: 'ready',
+        priority: 'p1',
+        perceived_impact: 'blocking',
+        reporter_id: null,
+        operator_id: 'op-1',
+        assignee_id: null,
+        blocked: false,
+        moscow: null,
+        origin_tier: 'prod',
+        origin_operator_label: null,
+        created_at: '2026-05-28T10:00:00Z',
+        updated_at: '2026-05-28T10:00:00Z',
+      })
+
+      render(<FeedbackInbox />, {
+        initialPath: `/feedback-inbox?open=${ticketId}`,
+      })
+
+      // The stub TicketDetailSheet should appear with the fetched ticket
+      await waitFor(() => {
+        const sheet = screen.getByTestId('stub-ticket-detail-sheet')
+        expect(sheet).toBeInTheDocument()
+        expect(sheet).toHaveAttribute('data-ticket-id', ticketId)
+        expect(sheet).toHaveAttribute('data-ticket-title', 'Deep-linked ticket')
+      })
+    })
+
+    it('does not open sheet when fetchTicket returns null', async () => {
+      fetchTicketMock.mockResolvedValue(null)
+
+      render(<FeedbackInbox />, {
+        initialPath: '/feedback-inbox?open=missing-ticket',
+      })
+
+      // Wait for the inbox to render (left rail present)
+      await screen.findByTestId('inbox-left-rail')
+
+      // No sheet should open for a missing ticket
+      expect(screen.queryByTestId('stub-ticket-detail-sheet')).not.toBeInTheDocument()
     })
   })
 })

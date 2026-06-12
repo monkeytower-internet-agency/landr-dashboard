@@ -168,7 +168,10 @@ function TrashCategory({
   }
 
   return (
-    <div className="rounded-md border">
+    // landr-3qkr.6 — overflow-x-auto so the trash table (item + fixed-width
+    // deleted-at/actions cols sum past 360px) scrolls inside its own box on a
+    // phone instead of being clipped by the page-level overflow-x-guard.
+    <div className="overflow-x-auto rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>

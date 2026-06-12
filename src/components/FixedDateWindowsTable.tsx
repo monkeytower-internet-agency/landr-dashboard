@@ -166,6 +166,10 @@ export function FixedDateWindowsTable({ operatorId, productId }: Props) {
         ) : rows.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t.products.windowEmpty}</p>
         ) : (
+          // landr-3qkr.6 — overflow-x-auto so the 6-column fixed-date-windows
+          // table scrolls inside its box on a 360px phone instead of being
+          // clipped by the page-level overflow-x-guard.
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-muted-foreground border-b text-left">
@@ -223,6 +227,7 @@ export function FixedDateWindowsTable({ operatorId, productId }: Props) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
 
         {editing.mode === 'idle' ? (

@@ -23,6 +23,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import type { ReactNode } from 'react'
@@ -33,6 +34,13 @@ export type PageTitleState = {
   title: string | null
   crumbs: Crumb[]
   subtitle: string | null
+  // landr-ar44 — optional primary-action slot. A route can hand the
+  // topbar a node (typically a single primary <Button>) that renders
+  // right-aligned in the page header, opposite the title/breadcrumb.
+  // Kept as ReactNode (not a string) so routes pass their existing
+  // button — with its own onClick/icon/disabled state — rather than
+  // re-deriving the action in the topbar.
+  action: ReactNode | null
 }
 
 type PageTitleApi = {
@@ -42,7 +50,12 @@ type PageTitleApi = {
 
 const PageTitleContext = createContext<PageTitleApi | undefined>(undefined)
 
-const EMPTY_STATE: PageTitleState = { title: null, crumbs: [], subtitle: null }
+const EMPTY_STATE: PageTitleState = {
+  title: null,
+  crumbs: [],
+  subtitle: null,
+  action: null,
+}
 
 export function PageTitleProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PageTitleState>(EMPTY_STATE)
@@ -64,20 +77,34 @@ export function PageTitleProvider({ children }: { children: ReactNode }) {
  * Use in each route component:
  *   <PageTitle title="Bookings" />
  *   <PageTitle title="Bookings" subtitle="124 bookings · €12.4k revenue" />
+ *   <PageTitle title="Bookings" action={<Button …>New booking</Button>} />
  *   <PageTitle crumbs={[{label:'Products', to:'/settings/products'}, {label: name}]} />
  *   <PageTitle crumbs={[…]} subtitle="Apply your logo + brand colour" />
  *
  * If both `title` and `crumbs` are passed, `crumbs` wins (breadcrumb mode).
- * `subtitle` is optional and renders in either mode.
+ * `subtitle` is optional and renders in either mode. `action` is an
+ * optional ReactNode (a primary button) rendered right-aligned in the
+ * page header by PageTitleDisplay.
+ *
+ * landr-ar44 note on `action`: it's a ReactNode, so its identity changes
+ * every render. Rather than serialise it (impossible) we hold the latest
+ * node in a ref and only re-publish to the topbar when the OTHER deps
+ * (title / crumbs / subtitle) change. Call sites that need the action to
+ * react to live state (e.g. a disabled flag) should drive that through
+ * the same props or remount via a changing title — for the v1 use cases
+ * (a static "New X" button that opens a dialog) the node is effectively
+ * constant, so this is correct and avoids a render loop.
  */
 export function PageTitle({
   title,
   crumbs,
   subtitle,
+  action,
 }: {
   title?: string
   crumbs?: Crumb[]
   subtitle?: string
+  action?: ReactNode
 }): null {
   const ctx = useContext(PageTitleContext)
   // Outside a provider this is a no-op (lets tests render route components
@@ -86,18 +113,28 @@ export function PageTitle({
   // Serialise crumbs so the effect dep array reacts to deep changes without
   // identity churn from each render returning a fresh array literal.
   const crumbsKey = JSON.stringify(crumbs ?? [])
+  // Hold the latest action node without making it an effect dep (its
+  // identity churns every render). The ref is updated in its own effect
+  // (writing a ref during render is disallowed by react-hooks/refs) and
+  // read at publish time. Publishing is keyed on title/crumbs/subtitle.
+  const actionRef = useRef<ReactNode>(action)
+  useEffect(() => {
+    actionRef.current = action
+  }, [action])
   useEffect(() => {
     if (!set) return
     set({
       title: title ?? null,
       crumbs: crumbs ?? [],
       subtitle: subtitle ?? null,
+      action: actionRef.current ?? null,
     })
     return () => {
       set(EMPTY_STATE)
     }
     // crumbsKey covers the deep content of `crumbs`; including the raw
-    // crumbs array would re-fire on every render.
+    // crumbs array would re-fire on every render. `action` is read from a
+    // ref (see note above) so it's intentionally not a dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, crumbsKey, subtitle, set])
   return null

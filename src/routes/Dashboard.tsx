@@ -13,6 +13,7 @@
 // normal operator daily-ops view on production.
 
 import { useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { CheckCircleIcon, ChevronRightIcon, RocketIcon } from 'lucide-react'
@@ -347,6 +348,52 @@ function TodaysBookingsCard({
   )
 }
 
+// ---------------------------------------------------------------------------
+// landr-ar44 — stat-card primitive for the dashboard summary cluster.
+// Big tabular-nums value + a small muted label and a context chip
+// (timeframe qualifier). Consistent header/content paddings across the
+// stack so the four right-rail cards read as one cohesive set. The chip
+// states a real qualifier ("This week" / "Right now") — no fabricated
+// percentage deltas, since the home fetchers expose no prior-period
+// baseline to compare against.
+// ---------------------------------------------------------------------------
+function StatCard({
+  label,
+  value,
+  context,
+  testId,
+  badge,
+  children,
+}: {
+  label: string
+  value: string
+  context: string
+  testId: string
+  badge?: ReactNode
+  children?: ReactNode
+}) {
+  return (
+    <Card data-testid={testId}>
+      <CardHeader className="flex flex-row items-start justify-between gap-2 pb-0">
+        <CardTitle className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+          {label}
+        </CardTitle>
+        {badge ?? (
+          <span className="bg-muted text-muted-foreground inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium">
+            {context}
+          </span>
+        )}
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        <p className="text-3xl font-semibold tracking-tight tabular-nums">
+          {value}
+        </p>
+        {children}
+      </CardContent>
+    </Card>
+  )
+}
+
 function RevenueSummaryCard({
   revenue,
   currency,
@@ -358,71 +405,60 @@ function RevenueSummaryCard({
 }) {
   const hasRevenue = revenue > 0
   return (
-    <Card data-testid="dashboard-week-revenue">
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">
-          {t.dashboard.weekRevenueLabel}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        <p className="text-2xl font-semibold">
-          {hasRevenue
-            ? formatCurrency(revenue, currency)
-            : t.dashboard.weekRevenueEmpty}
-        </p>
-        <DashboardRevenueSpark data={spark} />
-      </CardContent>
-    </Card>
+    <StatCard
+      testId="dashboard-week-revenue"
+      label={t.dashboard.weekRevenueLabel}
+      context={t.dashboard.statContextWeek}
+      value={
+        hasRevenue
+          ? formatCurrency(revenue, currency)
+          : t.dashboard.weekRevenueEmpty
+      }
+    >
+      <DashboardRevenueSpark data={spark} />
+    </StatCard>
   )
 }
 
 function BookingsSummaryCard({ count }: { count: number }) {
   return (
-    <Card data-testid="dashboard-week-bookings">
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">
-          {t.dashboard.weekBookingsLabel}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-semibold">{formatCount(count)}</p>
-      </CardContent>
-    </Card>
+    <StatCard
+      testId="dashboard-week-bookings"
+      label={t.dashboard.weekBookingsLabel}
+      context={t.dashboard.statContextWeek}
+      value={formatCount(count)}
+    />
   )
 }
 
 function ContactsSummaryCard({ count }: { count: number }) {
   return (
-    <Card data-testid="dashboard-week-contacts">
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">
-          {t.dashboard.weekContactsLabel}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-semibold">{formatCount(count)}</p>
-      </CardContent>
-    </Card>
+    <StatCard
+      testId="dashboard-week-contacts"
+      label={t.dashboard.weekContactsLabel}
+      context={t.dashboard.statContextWeek}
+      value={formatCount(count)}
+    />
   )
 }
 
 function PendingApprovalsCard({ count }: { count: number }) {
   return (
     <Card data-testid="dashboard-pending-approvals">
-      <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <CardTitle className="text-sm font-medium">
+      <CardHeader className="flex flex-row items-start justify-between gap-2 pb-0">
+        <CardTitle className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
           {t.dashboard.pendingApprovalsLabel}
         </CardTitle>
         {count > 0 ? (
           <span
-            className="bg-primary text-primary-foreground inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold"
+            className="bg-primary text-primary-foreground inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums"
             data-testid="dashboard-pending-approvals-badge"
           >
             {t.dashboard.pendingApprovalsCount(count)}
           </span>
         ) : null}
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-2">
         {count === 0 ? (
           <p className="text-muted-foreground text-sm">
             <CheckCircleIcon className="mr-1 inline size-4 align-text-bottom" />

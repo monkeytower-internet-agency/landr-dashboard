@@ -20,6 +20,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Tag as TagIcon } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,6 +36,7 @@ import {
   fetchTags,
   type Tag,
 } from '@/lib/tags'
+import { t } from '@/lib/strings'
 
 type Props = {
   operatorId: string
@@ -105,6 +107,11 @@ export function TagPicker({
       queryClient.invalidateQueries({ queryKey: ['tags', operatorId] })
       onChange([...selectedIds, created.id])
       setQuery('')
+    },
+    onError: (err: Error) => {
+      toast.error(t.tagsSettings.toastCreateError, {
+        description: err.message,
+      })
     },
   })
 

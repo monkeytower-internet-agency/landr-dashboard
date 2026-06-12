@@ -241,6 +241,8 @@ describe('VIEW_TEMPLATES', () => {
     'past-due',
     'my-open-tickets',
     'all-tickets',
+    // landr-21x1 — daily roster calendar view variant.
+    'daily-roster',
   ] as const
 
   it('has the expected number of entries', () => {

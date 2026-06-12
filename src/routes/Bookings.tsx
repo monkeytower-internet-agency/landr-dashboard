@@ -199,21 +199,27 @@ export function Bookings() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle title={t.bookings.title} subtitle={titleSubtitle} />
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">{t.bookings.title}</h1>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onExportCsv}
-          disabled={filteredRows.length === 0}
-          aria-label={t.bookings.exportCsvAria(filteredRows.length)}
-          data-testid="bookings-export-csv"
-        >
-          <DownloadIcon className="size-4" />
-          {t.bookings.exportCsv}
-        </Button>
-      </header>
+      {/* landr-ar44 — page header pattern: title/subtitle live in the
+          topbar (via PageTitle); the page's primary action (Export CSV)
+          is moved into the topbar's right-aligned action slot rather than
+          a duplicate in-page header that repeated the title. */}
+      <PageTitle
+        title={t.bookings.title}
+        subtitle={titleSubtitle}
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onExportCsv}
+            disabled={filteredRows.length === 0}
+            aria-label={t.bookings.exportCsvAria(filteredRows.length)}
+            data-testid="bookings-export-csv"
+          >
+            <DownloadIcon className="size-4" />
+            {t.bookings.exportCsv}
+          </Button>
+        }
+      />
       {query.isError ? (
         <Card>
           <CardHeader>

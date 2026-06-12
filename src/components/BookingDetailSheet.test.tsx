@@ -128,8 +128,47 @@ vi.mock('@/lib/tags', () => ({
   fetchContactTagIds: vi.fn().mockResolvedValue([]),
 }))
 
+// landr-xfcy — feature gating for invoice download + print buttons.
+// Default: all features enabled (permissive), individual tests override
+// isEnabledSpy.mockImplementation to simulate disabled features.
+const isEnabledSpy = vi.fn((_key: string) => true)
+vi.mock('@/lib/entitlements', () => ({
+  useEntitlements: () => ({
+    isEnabled: isEnabledSpy,
+    isLandrStaff: false,
+    effectiveIsStaff: false,
+    isLoading: false,
+  }),
+}))
+
 const fetchSpy = vi.fn()
 vi.stubGlobal('fetch', fetchSpy)
+
+// landr-6629 — mock the confirmation-status / resend functions so the
+// useQuery that fires on every render does NOT go through raw fetch (which
+// would break existing tests' toHaveBeenCalledOnce assertions). Individual
+// tests that specifically test the resend flow call resendConfirmationSpy
+// directly or override the mock.
+const confirmationStatusSpy = vi.fn().mockResolvedValue({
+  last_sent_at: null,
+  has_material_changes: false,
+  // landr-tf39: default to "a prior confirmation exists" so the
+  // Resend-Confirmation button renders in the resend-flow tests.
+  has_prior_confirmation: true,
+})
+const resendConfirmationSpy = vi.fn().mockResolvedValue({
+  changes_detected: false,
+  changes: [],
+})
+
+vi.mock('@/lib/bookings', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/bookings')>()
+  return {
+    ...actual,
+    getConfirmationStatus: (...args: unknown[]) => confirmationStatusSpy(...args),
+    resendConfirmation: (...args: unknown[]) => resendConfirmationSpy(...args),
+  }
+})
 
 import { BookingDetailSheet } from './BookingDetailSheet'
 import type { BookingRow } from '@/lib/bookings'
@@ -196,14 +235,39 @@ function makeRow(overrides: Partial<BookingRow> = {}): BookingRow {
   }
 }
 
+// Pin "today" to 2026-05-21 so date-relative UI (e.g. the Mark-as-no-show
+// eligibility, which gates on `item.date_range_start <= today`) is
+// deterministic regardless of the real wall clock. The default fixture's
+// date_range_start is 2026-06-01 (genuinely in the future relative to this
+// pin), so the no-show button stays hidden as the test expects.
+//
+// `canMarkAsNoShow` (and other helpers) read the current instant via a bare
+// `new Date()`, which a plain `vi.spyOn(Date, 'now')` would NOT control. Use
+// Date-only fake timers (`toFake: ['Date']`) so `new Date()` / `Date.now()`
+// are pinned while setTimeout / Promises stay real — userEvent, waitFor and
+// react-query's scheduler keep working untouched.
+const FIXED_NOW = new Date('2026-05-21T12:00:00.000Z')
+
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(FIXED_NOW)
   fetchSpy.mockReset()
   ;(mock.builder.update as ReturnType<typeof vi.fn>).mockClear()
   ;(mock.builder.eq as ReturnType<typeof vi.fn>).mockClear()
   mock.state.contactUpdate = null
+  // landr-xfcy: reset feature-gate spy to permissive (all features enabled)
+  isEnabledSpy.mockImplementation((_key: string) => true)
+  // landr-6629: reset confirmation-status + resend spies to their defaults.
+  confirmationStatusSpy.mockResolvedValue({
+    last_sent_at: null,
+    has_material_changes: false,
+    has_prior_confirmation: true,
+  })
+  resendConfirmationSpy.mockResolvedValue({ changes_detected: false, changes: [] })
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.clearAllMocks()
 })
 
@@ -454,6 +518,9 @@ describe('BookingDetailSheet', () => {
           do_not_contact: false,
         },
         service_role: { id: 'sr-1', code: 'pilot', label: 'Pilot' },
+        // landr-wv0m: guiding participant — is_guiding=true, no companion_kind.
+        is_guiding: true,
+        companion_kind: null,
       },
     ])
 
@@ -933,6 +1000,257 @@ describe('BookingDetailSheet', () => {
     await user.click(screen.getByTestId('booking-mark-paid-btn'))
     const dialog = await screen.findByRole('alertdialog')
     await user.click(within(dialog).getByTestId('mark-paid-confirm'))
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const invalidatedKeys = invalidateSpy.mock.calls.map(
+      (call) => (call[0] as { queryKey: unknown[] }).queryKey,
+    )
+    expect(invalidatedKeys).toContainEqual(['bookings'])
+    expect(invalidatedKeys).toContainEqual(['views-bookings'])
+  })
+
+  // -----------------------------------------------------------------------
+  // landr-xfcy — feature gating for invoice download + print buttons.
+  // -----------------------------------------------------------------------
+
+  it('hides invoice button when booking_invoice_download feature is disabled', () => {
+    isEnabledSpy.mockImplementation((key: string) => key !== 'booking_invoice_download')
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(
+      screen.queryByTestId('booking-invoice-btn'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows invoice button when booking_invoice_download feature is enabled', () => {
+    // Default spy already returns true for all keys.
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(screen.getByTestId('booking-invoice-btn')).toBeInTheDocument()
+  })
+
+  it('hides print button when booking_print feature is disabled', () => {
+    isEnabledSpy.mockImplementation((key: string) => key !== 'booking_print')
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(
+      screen.queryByTestId('booking-print-btn'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows print button when booking_print feature is enabled', () => {
+    // Default spy already returns true for all keys.
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(screen.getByTestId('booking-print-btn')).toBeInTheDocument()
+  })
+
+  // -----------------------------------------------------------------------
+  // landr-6629 — Resend confirmation email with old→new diff.
+  // -----------------------------------------------------------------------
+
+  it('renders the Resend confirmation button when a prior confirmation exists', async () => {
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    // landr-tf39: the button only appears once confirmation-status resolves
+    // with has_prior_confirmation=true (the default mock).
+    expect(
+      await screen.findByTestId('booking-resend-confirmation-btn'),
+    ).toBeInTheDocument()
+  })
+
+  it('hides the Resend confirmation button when no prior confirmation exists (landr-tf39)', async () => {
+    confirmationStatusSpy.mockResolvedValue({
+      last_sent_at: null,
+      has_material_changes: false,
+      has_prior_confirmation: false,
+    })
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    await waitFor(() => expect(confirmationStatusSpy).toHaveBeenCalled())
+    expect(
+      screen.queryByTestId('booking-resend-confirmation-btn'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('Resend confirmation calls resendConfirmation() with the operator + booking ID', async () => {
+    const user = userEvent.setup()
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    await user.click(
+      await screen.findByTestId('booking-resend-confirmation-btn'),
+    )
+
+    await waitFor(() => {
+      expect(resendConfirmationSpy).toHaveBeenCalledWith(
+        'op-test',
+        'b-12345678-aaaa-bbbb-cccc-dddddddddddd',
+      )
+    })
+  })
+
+  it('shows the dot badge when confirmation-status has_material_changes=true', async () => {
+    confirmationStatusSpy.mockResolvedValue({
+      last_sent_at: '2026-06-01T10:00:00Z',
+      has_material_changes: true,
+      has_prior_confirmation: true,
+    })
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('booking-resend-confirmation-dot')).toBeInTheDocument()
+    })
+  })
+
+  it('hides the dot badge when confirmation-status has_material_changes=false', async () => {
+    // Default spy returns false — no override needed.
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    // Wait for the query to resolve before asserting absence.
+    await waitFor(() => {
+      expect(confirmationStatusSpy).toHaveBeenCalled()
+    })
+    expect(screen.queryByTestId('booking-resend-confirmation-dot')).not.toBeInTheDocument()
+  })
+
+  it('shows success toast with change count when resend returns changes', async () => {
+    const user = userEvent.setup()
+    const { toast: sonnerToast } = await import('sonner')
+    resendConfirmationSpy.mockResolvedValue({
+      changes_detected: true,
+      changes: [
+        { label: 'Booking date (start)', old: '2026-07-01', new: '2026-08-01' },
+      ],
+    })
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    await user.click(
+      await screen.findByTestId('booking-resend-confirmation-btn'),
+    )
+
+    await waitFor(() => {
+      expect(sonnerToast.success).toHaveBeenCalledWith(
+        expect.stringContaining('1 change'),
+      )
+    })
+  })
+
+  // -----------------------------------------------------------------------
+  // landr-hgd4 — General approve / reject from the booking detail sheet.
+  // -----------------------------------------------------------------------
+
+  it('hides Approve/Reject buttons when stage is not awaiting_general_approval', () => {
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(
+      screen.queryByTestId('booking-general-approve-btn'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('booking-general-reject-btn'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows Approve and Reject buttons when stage is awaiting_general_approval', () => {
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_general_approval' },
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+    expect(screen.getByTestId('booking-general-approve-btn')).toBeInTheDocument()
+    expect(screen.getByTestId('booking-general-reject-btn')).toBeInTheDocument()
+  })
+
+  it('Approve opens a dialog and POSTs branch=general decision=approve on confirm', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ booking_id: 'b' }), { status: 200 }),
+    )
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_general_approval' },
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+
+    await user.click(screen.getByTestId('booking-general-approve-btn'))
+
+    const dialog = await screen.findByRole('alertdialog')
+    const confirmBtn = within(dialog).getByTestId('general-approve-confirm')
+    await user.click(confirmBtn)
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/staff/bookings/')
+    expect(url).toContain('/approval')
+    const body = JSON.parse(opts.body as string)
+    expect(body).toMatchObject({ branch: 'general', decision: 'approve' })
+  })
+
+  it('Approve sends optional note when the operator types one', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ booking_id: 'b' }), { status: 200 }),
+    )
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_general_approval' },
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+
+    await user.click(screen.getByTestId('booking-general-approve-btn'))
+    const dialog = await screen.findByRole('alertdialog')
+
+    const noteInput = within(dialog).getByTestId('general-approve-note')
+    await user.type(noteInput, 'Looks good')
+
+    await user.click(within(dialog).getByTestId('general-approve-confirm'))
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(opts.body as string)).toMatchObject({
+      branch: 'general',
+      decision: 'approve',
+      notes: 'Looks good',
+    })
+  })
+
+  it('Reject opens a dialog and POSTs branch=general decision=reject on confirm', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ booking_id: 'b' }), { status: 200 }),
+    )
+    const onOpenChange = vi.fn()
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_general_approval' },
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={onOpenChange} />)
+
+    await user.click(screen.getByTestId('booking-general-reject-btn'))
+
+    const dialog = await screen.findByRole('alertdialog')
+    const confirmBtn = within(dialog).getByTestId('general-reject-confirm')
+    await user.click(confirmBtn)
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/staff/bookings/')
+    expect(url).toContain('/approval')
+    const body = JSON.parse(opts.body as string)
+    expect(body).toMatchObject({ branch: 'general', decision: 'reject' })
+    // Reject closes the sheet on success.
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+  })
+
+  it('General approve invalidates [bookings] and [views-bookings] on success', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ booking_id: 'b' }), { status: 200 }),
+    )
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_general_approval' },
+    })
+    const { invalidateSpy } = renderWithInvalidationSpy(
+      <BookingDetailSheet row={row} onOpenChange={() => {}} />,
+    )
+
+    await user.click(screen.getByTestId('booking-general-approve-btn'))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByTestId('general-approve-confirm'))
 
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
     const invalidatedKeys = invalidateSpy.mock.calls.map(

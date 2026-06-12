@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { t } from '@/lib/strings'
-import { previewTemplate, type EmailTemplate } from '@/lib/emailTemplates'
+import { previewTemplate, type EmailTemplate, type VariableCatalogEntry } from '@/lib/emailTemplates'
 import { buildPreviewSrcDoc } from '@/lib/emailPreview'
 
 type Props = {
@@ -37,11 +37,11 @@ export function EmailTemplatePreview({ operatorId, template }: Props) {
 
   const result = query.data
   const renderError = result.render_error ?? null
-  const contextEntries = Object.entries(result.fixture?.context ?? {})
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-      <div className="flex min-w-0 flex-1 flex-col gap-3">
+    <div className="flex flex-col gap-4">
+      {/* Preview content — subject + iframe + optional error banner + plain text */}
+      <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
             {t.emailTemplates.previewSubject}
@@ -90,19 +90,20 @@ export function EmailTemplatePreview({ operatorId, template }: Props) {
           </div>
         )}
       </div>
-      <EmailVariableCatalog entries={contextEntries} />
+      {/* landr-x5o5.5: the variable catalog moved out of the preview into
+          the editor (single source, fed by the per-kind variables
+          endpoint). The preview now focuses on the rendered output only. */}
     </div>
   )
 }
 
-// landr-7tyo: variable catalog sidebar. Hydrates from the same
-// fixture.context the preview endpoint renders against (landr-tq6j),
-// so the catalog is guaranteed to stay in sync with the renderer —
-// no second source of truth to drift.
-function EmailVariableCatalog({
+// landr-x5o5.5: exported so EmailTemplates.tsx can render the catalog
+// in the editor for ANY kind, independent of whether a saved template
+// exists. Accepts the catalog API shape (VariableCatalogEntry[]).
+export function EmailVariableCatalog({
   entries,
 }: {
-  entries: Array<[string, unknown]>
+  entries: VariableCatalogEntry[]
 }) {
   async function copy(key: string) {
     const placeholder = `{{ ${key} }}`
@@ -117,7 +118,7 @@ function EmailVariableCatalog({
   return (
     <aside
       aria-label={t.emailTemplates.variablesTitle}
-      className="flex w-full shrink-0 flex-col gap-2 rounded border bg-muted/40 p-3 lg:w-64"
+      className="flex w-full flex-col gap-2 rounded border bg-muted/40 p-3"
     >
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide">
@@ -132,23 +133,24 @@ function EmailVariableCatalog({
           {t.emailTemplates.variablesEmpty}
         </p>
       ) : (
-        <ul className="flex flex-col gap-1.5">
-          {entries.map(([key, value]) => (
-            <li key={key}>
+        <ul className="flex flex-wrap gap-1.5">
+          {entries.map((entry) => (
+            <li key={entry.name}>
               <button
                 type="button"
-                onClick={() => copy(key)}
-                aria-label={t.emailTemplates.variablesCopyAria(key)}
-                className="group flex w-full flex-col items-start gap-0.5 rounded border bg-background px-2 py-1.5 text-left text-xs hover:border-primary/60 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => copy(entry.name)}
+                aria-label={t.emailTemplates.variablesCopyAria(entry.name)}
+                title={entry.description}
+                className="group flex flex-col items-start gap-0.5 rounded border bg-background px-2 py-1.5 text-left text-xs hover:border-primary/60 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <code className="font-mono text-[11px] text-primary group-hover:underline">
-                  {`{{ ${key} }}`}
+                  {`{{ ${entry.name} }}`}
                 </code>
                 <span className="line-clamp-1 text-[10px] text-muted-foreground">
                   <span className="mr-1 uppercase tracking-wide">
                     {t.emailTemplates.variablesSampleLabel}:
                   </span>
-                  {formatSample(value)}
+                  {formatSample(entry.sample)}
                 </span>
               </button>
             </li>

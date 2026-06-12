@@ -55,6 +55,9 @@ export function VoucherPerformance({
     )
   }
   return (
+    // landr-3qkr.6 — overflow-x-auto so the code + kind + 2 numeric columns
+    // scroll inside the analytics card on a 360px phone instead of clipping.
+    <div className="overflow-x-auto">
     <Table data-testid="voucher-performance-table">
       <TableHeader>
         <TableRow>
@@ -83,5 +86,6 @@ export function VoucherPerformance({
         ))}
       </TableBody>
     </Table>
+    </div>
   )
 }

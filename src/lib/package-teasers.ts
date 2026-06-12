@@ -35,15 +35,6 @@ export const KIND_DISPLAY_ORDER: readonly ProductKind[] = [
   'gift_card',
 ] as const
 
-export const KIND_LABELS: Record<ProductKind, string> = {
-  service: 'Service',
-  subscription: 'Subscription',
-  hotel_room: 'Hotel room',
-  physical_good: 'Physical good',
-  digital_good: 'Digital good',
-  gift_card: 'Gift card',
-}
-
 /**
  * For each product_kind, the slug of the lowest subscription_package tier
  * whose `allowed_product_kinds` includes that kind. Drives the teaser

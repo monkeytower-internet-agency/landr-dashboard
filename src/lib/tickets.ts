@@ -72,6 +72,18 @@ export type TicketRow = {
   blocked: boolean
   /** landr-wwhn.23: release-planning overlay. null = unplanned. */
   moscow: TicketMoscow | null
+  /**
+   * landr-7dya.2 — origin tier.
+   * Exposed on the public SELECT grant so operators can see the chip on their
+   * own tickets. 'prod' = native; 'staging' = relayed from landr-staging.
+   * Null on legacy rows or lower-env installs without the column.
+   */
+  origin_tier: 'prod' | 'staging' | null
+  /**
+   * landr-7dya.2 — staging operator label (denormalised text, no FK).
+   * Null for prod-origin rows.
+   */
+  origin_operator_label: string | null
   created_at: string
   updated_at: string
 }
@@ -85,6 +97,9 @@ export type TicketStaffFields = {
   promotion_requested_at: string | null
   sync_status: string | null
   last_synced_at: string | null
+  // Note: origin_tier and origin_operator_label are on the base TicketRow
+  // (exposed to all authenticated roles for the origin chip). Staff get them
+  // via the same columns — no duplication here.
 }
 
 export type TicketRowStaff = TicketRow & TicketStaffFields
@@ -209,9 +224,6 @@ export type TicketCreate = {
 // Lives here (not in the .tsx) so it can be unit-tested without mounting the
 // component and so it doesn't trip react-refresh/only-export-components.
 
-/** @deprecated Use resolveTicketType(impact) — single-arg form (landr-wwhn.29). */
-export type ReporterToggle = 'problem' | 'idea'
-
 /**
  * Derive the DB ticket_type from the reporter's perceived_impact.
  * tickets.type is internal; staff retype during triage. This provides a
@@ -242,6 +254,8 @@ const TICKET_SELECT = `
   assignee_id,
   blocked,
   moscow,
+  origin_tier,
+  origin_operator_label,
   created_at,
   updated_at
 `
@@ -266,6 +280,8 @@ const TICKET_STAFF_SELECT = `
   promotion_requested_at,
   sync_status,
   last_synced_at,
+  origin_tier,
+  origin_operator_label,
   created_at,
   updated_at
 `
@@ -277,7 +293,7 @@ export async function createTicket(payload: TicketCreate): Promise<TicketRow> {
     .from('tickets')
     .insert(payload)
     .select(
-      'id, context, type, title, body, status, priority, perceived_impact, reporter_id, operator_id, assignee_id, blocked, moscow, created_at, updated_at',
+      'id, context, type, title, body, status, priority, perceived_impact, reporter_id, operator_id, assignee_id, blocked, moscow, origin_tier, origin_operator_label, created_at, updated_at',
     )
     .single()
   if (error) throw new Error(error.message)
@@ -328,11 +344,34 @@ export async function fetchTicketsStaff(): Promise<TicketRowStaff[]> {
  * Update a ticket's status (operator → Supabase REST for the public, human-
  * owned columns per write-routing-convention). Only allowed for statuses in
  * DRAGGABLE_STATUSES (backlog, ready); callers MUST gate before calling.
+ *
+ * landr-yqqz — Actor exclusion: when `actorId` (public.users.id) is provided
+ * the call is routed through the `patch_ticket_status_as_actor` RPC, which
+ * wraps `set_config('app.current_user_id', actorId, true)` + the UPDATE in one
+ * transaction. The `z_trg_tickets_notify_status_change` trigger then reads that
+ * session var and excludes the actor from the watcher bell fan-out, matching
+ * the FastAPI middleware convention (Decision #67). Without `actorId` (legacy
+ * or test callers) the plain REST UPDATE is used and the trigger falls through
+ * to v_actor = NULL — the actor still receives a bell only if they happen to be
+ * watching the ticket they dragged, an acceptable, rare edge.
  */
 export async function patchTicketStatus(
   ticketId: string,
   status: TicketStatus,
+  actorId?: string | null,
 ): Promise<void> {
+  if (actorId) {
+    // RPC path: sets app.current_user_id so the trigger can exclude the actor.
+    const { error } = await supabase.rpc('patch_ticket_status_as_actor', {
+      p_ticket_id: ticketId,
+      p_status: status,
+      p_actor_id: actorId,
+    })
+    if (error) throw new Error(error.message)
+    return
+  }
+
+  // Plain REST path (no actor context — trigger uses v_actor = NULL).
   const { error } = await supabase
     .from('tickets')
     .update({ status })
@@ -835,6 +874,55 @@ export function parseMentionHandles(body: string): Set<string> {
     handles.add(m[1].toLowerCase())
   }
   return handles
+}
+
+// ---- mention rendering (landr-7dya.12) --------------------------------------
+//
+// To highlight @mentions in DISPLAYED comment bodies we split the body into an
+// ordered list of plain-text and mention segments. The renderer (CommentBubble)
+// maps each segment to a <span>, applying a highlight style to mention segments.
+// Kept here (pure, no React) so it is unit-testable without mounting the sheet.
+
+export type MentionSegment =
+  | { type: 'text'; value: string }
+  | { type: 'mention'; value: string; handle: string }
+
+/**
+ * Split a comment body into ordered text + mention segments.
+ *
+ * A mention segment is the literal matched token INCLUDING the leading '@'
+ * (e.g. `@alice`); `handle` is the lower-cased local-part (e.g. `alice`) so the
+ * renderer can key/title it. The same `@([^\s@]+)` grammar as
+ * parseMentionHandles is used, so what is highlighted exactly matches what is
+ * notified.
+ *
+ * Returns a single text segment (possibly empty) when there are no mentions.
+ */
+export function splitMentionSegments(body: string): MentionSegment[] {
+  const segments: MentionSegment[] = []
+  const re = /@([^\s@]+)/g
+  let lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(body)) !== null) {
+    if (m.index > lastIndex) {
+      segments.push({ type: 'text', value: body.slice(lastIndex, m.index) })
+    }
+    segments.push({
+      type: 'mention',
+      value: m[0],
+      handle: m[1].toLowerCase(),
+    })
+    lastIndex = m.index + m[0].length
+  }
+  if (lastIndex < body.length) {
+    segments.push({ type: 'text', value: body.slice(lastIndex) })
+  }
+  // Always return at least one (empty) text segment for an empty body so the
+  // renderer has something to map over.
+  if (segments.length === 0) {
+    segments.push({ type: 'text', value: body })
+  }
+  return segments
 }
 
 /**
