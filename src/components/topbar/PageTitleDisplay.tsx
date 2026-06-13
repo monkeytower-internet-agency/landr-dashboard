@@ -88,7 +88,7 @@ export function PageTitleDisplay() {
                           className={cn(
                             'truncate px-1 py-0.5',
                             isLast
-                              ? 'text-foreground font-medium'
+                              ? 'font-display text-foreground font-semibold'
                               : 'text-muted-foreground',
                           )}
                           aria-current={isLast ? 'page' : undefined}
@@ -121,7 +121,8 @@ export function PageTitleDisplay() {
     return (
       <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <h1 className="truncate text-sm font-medium" aria-live="polite">
+          {/* landr-hxnb.2 — display font on the page title for comic energy. */}
+          <h1 className="font-display truncate text-sm font-semibold" aria-live="polite">
             {title}
           </h1>
           {subtitleNode}
