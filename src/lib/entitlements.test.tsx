@@ -82,12 +82,17 @@ function Probe() {
   )
 }
 
-// ConfigProbe: tests useFeatureConfig hook via data-attr.
+// ConfigProbe: tests useFeatureConfig hook via data-attr. Also surfaces
+// isLoading so waitFor can gate on the entitlements query RESOLVING — before
+// it settles, getFeatureConfig returns {} (loading default), which would let an
+// assertion run against the not-yet-loaded value.
 function ConfigProbe({ featureKey }: { featureKey: string }) {
   const config = useFeatureConfig(featureKey)
+  const { isLoading } = useEntitlements()
   return (
     <div
       data-testid="config-probe"
+      data-loading={String(isLoading)}
       data-config={JSON.stringify(config)}
     />
   )
@@ -194,7 +199,7 @@ describe('useFeatureConfig (landr-72u2.2)', () => {
     mock.state.featureConfigs = {}
     renderConfigProvider('unknown-feature')
     await waitFor(() =>
-      screen.getByTestId('config-probe'),
+      expect(screen.getByTestId('config-probe').dataset.loading).toBe('false'),
     )
     const el = screen.getByTestId('config-probe')
     expect(JSON.parse(el.dataset.config ?? '{}')).toEqual({})
@@ -205,7 +210,7 @@ describe('useFeatureConfig (landr-72u2.2)', () => {
     mock.state.featureConfigs = {} // bookings has no config
     renderConfigProvider('bookings')
     await waitFor(() =>
-      screen.getByTestId('config-probe'),
+      expect(screen.getByTestId('config-probe').dataset.loading).toBe('false'),
     )
     const el = screen.getByTestId('config-probe')
     expect(JSON.parse(el.dataset.config ?? '{}')).toEqual({})
@@ -216,7 +221,7 @@ describe('useFeatureConfig (landr-72u2.2)', () => {
     mock.state.featureConfigs = { products: { max_products: 50 } }
     renderConfigProvider('products')
     await waitFor(() =>
-      screen.getByTestId('config-probe'),
+      expect(screen.getByTestId('config-probe').dataset.loading).toBe('false'),
     )
     const el = screen.getByTestId('config-probe')
     expect(JSON.parse(el.dataset.config ?? '{}')).toEqual({ max_products: 50 })
