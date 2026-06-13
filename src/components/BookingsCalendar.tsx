@@ -571,107 +571,114 @@ export function BookingsCalendar({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Toolbar row: view-mode tabs on the left + agenda toggle on the right. */}
-      {/* landr-3qkr.6 — flex-wrap so that if a phone user switches to grid
-          mode the grid/list toggle + the Month/Week/Day view tabs wrap to a
-          second line instead of being clipped by the page overflow-x-guard.
-          Desktop is unchanged (wraps only when the row can't fit). */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {/* Grid/List toggle — shown always so users can switch on any screen.
-            On mobile it defaults to List; on desktop it defaults to Grid. */}
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            size="sm"
-            variant={!agendaMode ? 'default' : 'outline'}
-            onClick={() => setAgendaMode(false)}
-            data-testid="calendar-grid-toggle"
-            aria-pressed={!agendaMode}
-          >
-            {t.calendar.agendaToggleToGrid}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={agendaMode ? 'default' : 'outline'}
-            onClick={() => setAgendaMode(true)}
-            data-testid="calendar-agenda-toggle"
-            aria-pressed={agendaMode}
-          >
-            {t.calendar.agendaToggleToList}
-          </Button>
+      {/* Single toolbar row: the status legend/filter sits on the LEFT (it
+          doubles as the colour key), and ALL view controls — the Grid/List
+          mode toggle and the Month/Week/Day tabs — are grouped together on the
+          RIGHT. landr-3qkr.6 — flex-wrap so the right cluster drops below the
+          legend on narrow screens instead of clipping. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        {/* landr — status legend + filter. Each chip shows the state's colour,
+            label and count; clicking toggles whether that state is shown. Works
+            in both grid and agenda modes (the filter drives calendarEvents).
+            The visible "Status" caption is intentionally omitted — the filter
+            bar above already has a "Status" control, so the colour swatches
+            speak for themselves (group still labelled for screen readers). */}
+        <div
+          className="flex flex-wrap items-center gap-1.5"
+          role="group"
+          aria-label={t.calendar.legend.title}
+          data-testid="calendar-legend"
+        >
+          {STATE_ORDER.map((state) => {
+            const shown = !hiddenStates.has(state)
+            const label = t.calendar.legend.states[state]
+            return (
+              <button
+                key={state}
+                type="button"
+                data-testid={`calendar-legend-${state}`}
+                data-active={shown}
+                aria-pressed={shown}
+                aria-label={t.calendar.legend.toggleAria(label, shown)}
+                onClick={() => toggleState(state)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs transition-colors',
+                  shown
+                    ? 'bg-background hover:bg-muted/60 border-border'
+                    : 'border-transparent opacity-45 hover:opacity-70',
+                )}
+              >
+                <span
+                  className={cn(
+                    'h-2.5 w-2.5 shrink-0 rounded-full border',
+                    STATE_SWATCH[state],
+                  )}
+                  aria-hidden="true"
+                />
+                <span className="font-medium">{label}</span>
+                <span className="text-muted-foreground tabular-nums">
+                  {stateCounts[state]}
+                </span>
+              </button>
+            )
+          })}
         </div>
 
-        {/* Grid-view tab switcher — only when showing the calendar grid. */}
-        {!agendaMode ? (
-          <Tabs
-            value={view}
-            onValueChange={(next) => handleViewChange(next as CalendarView)}
-          >
-            <TabsList
-              className="flex items-center gap-1 border-0 bg-transparent p-0"
-            >
-              {(Object.keys(VIEW_LABEL) as CalendarView[]).map((v) => (
-                <TabsTrigger key={v} value={v} asChild>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={view === v ? 'default' : 'outline'}
-                  >
-                    {VIEW_LABEL[v]}
-                  </Button>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        ) : null}
-      </div>
-
-      {/* landr — status legend + filter. Each chip shows the state's colour,
-          label and count; clicking toggles whether that state is shown. Works
-          in both grid and agenda modes (the filter drives calendarEvents). */}
-      <div
-        className="flex flex-wrap items-center gap-1.5"
-        role="group"
-        aria-label={t.calendar.legend.title}
-        data-testid="calendar-legend"
-      >
-        <span className="text-muted-foreground mr-0.5 text-xs font-medium">
-          {t.calendar.legend.title}
-        </span>
-        {STATE_ORDER.map((state) => {
-          const shown = !hiddenStates.has(state)
-          const label = t.calendar.legend.states[state]
-          return (
-            <button
-              key={state}
+        {/* View controls cluster — Grid/List mode toggle + Month/Week/Day tabs
+            grouped on the right, separated by a thin divider so they read as
+            one navigation control. */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Button
               type="button"
-              data-testid={`calendar-legend-${state}`}
-              data-active={shown}
-              aria-pressed={shown}
-              aria-label={t.calendar.legend.toggleAria(label, shown)}
-              onClick={() => toggleState(state)}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs transition-colors',
-                shown
-                  ? 'bg-background hover:bg-muted/60 border-border'
-                  : 'border-transparent opacity-45 hover:opacity-70',
-              )}
+              size="sm"
+              variant={!agendaMode ? 'default' : 'outline'}
+              onClick={() => setAgendaMode(false)}
+              data-testid="calendar-grid-toggle"
+              aria-pressed={!agendaMode}
             >
+              {t.calendar.agendaToggleToGrid}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={agendaMode ? 'default' : 'outline'}
+              onClick={() => setAgendaMode(true)}
+              data-testid="calendar-agenda-toggle"
+              aria-pressed={agendaMode}
+            >
+              {t.calendar.agendaToggleToList}
+            </Button>
+          </div>
+
+          {/* Grid-view tab switcher — only when showing the calendar grid. */}
+          {!agendaMode ? (
+            <>
               <span
-                className={cn(
-                  'h-2.5 w-2.5 shrink-0 rounded-full border',
-                  STATE_SWATCH[state],
-                )}
+                className="bg-border h-5 w-px shrink-0"
                 aria-hidden="true"
               />
-              <span className="font-medium">{label}</span>
-              <span className="text-muted-foreground tabular-nums">
-                {stateCounts[state]}
-              </span>
-            </button>
-          )
-        })}
+              <Tabs
+                value={view}
+                onValueChange={(next) => handleViewChange(next as CalendarView)}
+              >
+                <TabsList className="flex items-center gap-1 border-0 bg-transparent p-0">
+                  {(Object.keys(VIEW_LABEL) as CalendarView[]).map((v) => (
+                    <TabsTrigger key={v} value={v} asChild>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={view === v ? 'default' : 'outline'}
+                      >
+                        {VIEW_LABEL[v]}
+                      </Button>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </>
+          ) : null}
+        </div>
       </div>
 
       {!agendaMode && showOffHoursToggle ? (

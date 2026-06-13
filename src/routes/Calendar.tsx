@@ -99,10 +99,9 @@ export function Calendar() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* The topbar (PageTitleDisplay) already renders "Calendar" as the page
+          headline, so we don't repeat it in the body — just declare it. */}
       <PageTitle title={t.calendar.title} />
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">{t.calendar.title}</h1>
-      </header>
       {query.isError ? (
         <Card>
           <CardHeader>
