@@ -238,7 +238,7 @@ export function DataTable<TData>({
               <div
                 key={`card-skeleton-${i}`}
                 aria-hidden="true"
-                className="h-24 animate-pulse rounded-lg border bg-muted/40"
+                className="h-24 animate-pulse rounded-lg border bg-[var(--surface-dense-subtle)]"
               />
             ))}
           </div>
@@ -278,7 +278,7 @@ export function DataTable<TData>({
     <div className="flex flex-col gap-4">
       {searchRow}
       <div
-        className="overflow-x-auto rounded-md border"
+        className="surface-dense overflow-x-auto rounded-md border"
         data-testid={containerTestId}
       >
         <Table aria-label={tableAriaLabel}>

@@ -42,7 +42,6 @@ import {
   createSegment,
   deleteSegment,
   findActiveSegment,
-  readableTextOn,
   updateSegment,
   useSegments,
   type Segment,
@@ -115,9 +114,11 @@ export function SegmentChips({
         {t.contacts.segments.label}
       </span>
 
+      {/* hxnb.6 — segment chips use border-accent treatment (left border in
+          operator's color, neutral bg) to match the calm dense-ops approach.
+          Active state gets a ring matching the accent color. */}
       {segments.map((segment) => {
         const isActive = activeSegmentId === segment.id
-        const fg = readableTextOn(segment.color)
         return (
           <button
             key={segment.id}
@@ -130,29 +131,27 @@ export function SegmentChips({
                 : t.contacts.segments.ariaApply(segment.name)
             }
             data-testid={`${testIdPrefix}-segment-${segment.id}`}
-            className={`inline-flex h-7 max-w-[14rem] items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition ${
+            className={`inline-flex h-7 max-w-[14rem] items-center gap-1.5 rounded-sm px-2.5 text-xs font-medium text-foreground transition ${
               isActive
                 ? 'ring-2 ring-offset-1 ring-offset-background'
-                : 'hover:opacity-90'
+                : 'hover:opacity-80'
             }`}
             style={{
-              backgroundColor: segment.color,
-              color: fg,
-              // Tailwind's ring-color uses the --tw-ring-color CSS var;
-              // we set it inline so the ring matches the chip color even
-              // for non-palette hex values.
+              backgroundColor: 'var(--surface-dense-subtle)',
+              borderLeft: `3px solid ${segment.color}`,
+              // ring-color matches the segment's accent color for the active ring.
               ['--tw-ring-color' as string]: segment.color,
             }}
             title={segmentTooltip(segment, tagsById)}
           >
             <span
-              className="inline-block h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: fg }}
+              className="inline-block h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: segment.color }}
               aria-hidden="true"
             />
             <span className="truncate">{segment.name}</span>
             <span
-              className="ml-1 opacity-70"
+              className="ml-1 text-muted-foreground opacity-70"
               aria-hidden="true"
             >{`(${segment.tagIds.length})`}</span>
           </button>
