@@ -114,6 +114,19 @@ vi.mock('@/lib/booking-participants', async () => {
   }
 })
 
+// landr-6629 pattern — the Notes-tab "has notes" dot fires a useQuery on every
+// render (bookingNotesQueryKey). Mock listBookingNotes so it resolves to [] in
+// memory instead of going through raw fetch, which would otherwise consume a
+// fetchSpy.mockResolvedValueOnce and break the action tests' call assertions.
+vi.mock('@/lib/booking-notes', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/lib/booking-notes')>()
+  return {
+    ...actual,
+    listBookingNotes: vi.fn().mockResolvedValue([]),
+  }
+})
+
 vi.mock('@/lib/tags', () => ({
   fetchTags: vi.fn().mockResolvedValue([]),
   createTag: vi.fn(),

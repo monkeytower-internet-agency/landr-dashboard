@@ -9,6 +9,15 @@
 
 import { api } from '@/lib/api-client'
 
+// Shared TanStack Query key for a booking's notes list. Exported so the
+// BookingNotes panel and the BookingDetailSheet "Notes" tab badge read the
+// SAME cache entry (identical key ⇒ React Query dedupes the fetch and the
+// badge updates live after any create/delete).
+export const BOOKING_NOTES_QUERY_KEY = 'booking-notes'
+export function bookingNotesQueryKey(operatorId: string, bookingId: string) {
+  return [BOOKING_NOTES_QUERY_KEY, operatorId, bookingId] as const
+}
+
 export type BookingNote = {
   id: string
   booking_id: string

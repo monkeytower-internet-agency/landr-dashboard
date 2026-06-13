@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import {
   authorLabel,
+  bookingNotesQueryKey,
   createBookingNote,
   deleteBookingNote,
   listBookingNotes,
@@ -30,12 +31,6 @@ import { t } from '@/lib/strings'
 type Props = {
   operatorId: string
   bookingId: string
-}
-
-const NOTES_QUERY_KEY = 'booking-notes'
-
-function notesQueryKey(operatorId: string, bookingId: string) {
-  return [NOTES_QUERY_KEY, operatorId, bookingId] as const
 }
 
 function formatTimestamp(iso: string): string {
@@ -57,13 +52,13 @@ export function BookingNotes({ operatorId, bookingId }: Props) {
   const [draft, setDraft] = useState('')
 
   const notesQuery = useQuery({
-    queryKey: notesQueryKey(operatorId, bookingId),
+    queryKey: bookingNotesQueryKey(operatorId, bookingId),
     queryFn: () => listBookingNotes(operatorId, bookingId),
   })
 
   const invalidate = () => {
     queryClient.invalidateQueries({
-      queryKey: notesQueryKey(operatorId, bookingId),
+      queryKey: bookingNotesQueryKey(operatorId, bookingId),
     })
   }
 

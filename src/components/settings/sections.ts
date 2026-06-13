@@ -17,7 +17,6 @@ import {
   KeyRoundIcon,
   LinkIcon,
   MailIcon,
-  MailOpenIcon,
   MapPinIcon,
   MegaphoneIcon,
   MonitorIcon,
@@ -220,14 +219,7 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     label: t.settingsHub.sections.emailTemplates,
     icon: MailIcon,
   },
-  // landr-qg4q — Email log sits right after Email templates so operators
-  // who just edited a template can verify it shipped (or debug a failure)
-  // without leaving the settings IA.
-  {
-    to: '/settings/email-log',
-    label: t.settingsHub.sections.emailLog,
-    icon: MailOpenIcon,
-  },
+  // (Email log moved out of Settings → standalone /email-log admin route.)
   {
     to: '/settings/pricing',
     label: t.settingsHub.sections.pricing,

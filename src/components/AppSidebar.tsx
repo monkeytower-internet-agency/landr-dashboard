@@ -282,6 +282,16 @@ const primaryItems: NavItem[] = [
     exact: false,
     hue: 'neutral',
   },
+  // Email log — a LOG, not a setting: lives in the main-nav Admin tail,
+  // moved out of /settings (route /email-log). Gated by email_log via
+  // featureForRoute.
+  {
+    to: '/email-log',
+    label: t.settingsHub.sections.emailLog,
+    icon: InboxIcon,
+    exact: false,
+    hue: 'neutral',
+  },
 ]
 
 // landr-sbhz.8 — STAFF-ONLY primary nav items. These are Landr owner tooling
@@ -665,73 +675,55 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className="pt-0">
-          <SectionLabel label="Bookings" />
-          <SidebarGroupContent>
-            <NavMenu
-              items={visiblePrimaryItems.filter((item) =>
-                [
-                  '/bookings',
-                  '/calendar',
-                  '/analytics',
-                  '/approvals/general',
-                  '/retrieve',
-                ].includes(item.to),
-              )}
-              pathname={pathname}
-            />
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup className="pt-0">
-          <SectionLabel label="People" />
-          <SidebarGroupContent>
-            <NavMenu
-              items={visiblePrimaryItems.filter((item) =>
-                ['/contacts'].includes(item.to),
-              )}
-              pathname={pathname}
-            />
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup className="pt-0">
-          <SectionLabel label="Finance" />
-          <SidebarGroupContent>
-            <NavMenu
-              items={visiblePrimaryItems.filter((item) =>
-                ['/reporting', '/invoicing', '/revenue'].includes(item.to),
-              )}
-              pathname={pathname}
-            />
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup className="pt-0">
-          <SectionLabel label="Comms" />
-          <SidebarGroupContent>
-            <NavMenu
-              items={visiblePrimaryItems.filter((item) =>
-                ['/tickets', '/tickets/planning', TICKET_SYSTEM_PATH].includes(
-                  item.to,
-                ),
-              )}
-              pathname={pathname}
-            />
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Hue sections — render a section (label + group) ONLY when it has
+            at least one visible item, so entitlement-gated-empty sections
+            (e.g. "Comms" for an operator with tickets/campaigns disabled)
+            don't show an orphaned header. Mirrors the Admin-tail pattern. */}
+        {(
+          [
+            {
+              label: 'Bookings',
+              paths: [
+                '/bookings',
+                '/calendar',
+                '/analytics',
+                '/approvals/general',
+                '/retrieve',
+              ],
+            },
+            { label: 'People', paths: ['/contacts'] },
+            { label: 'Finance', paths: ['/reporting', '/invoicing', '/revenue'] },
+            {
+              label: 'Comms',
+              paths: ['/tickets', '/tickets/planning', TICKET_SYSTEM_PATH],
+            },
+          ] as { label: string; paths: string[] }[]
+        ).map((section) => {
+          const items = visiblePrimaryItems.filter((item) =>
+            section.paths.includes(item.to),
+          )
+          if (items.length === 0) return null
+          return (
+            <SidebarGroup key={section.label} className="pt-0">
+              <SectionLabel label={section.label} />
+              <SidebarGroupContent>
+                <NavMenu items={items} pathname={pathname} />
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )
+        })}
 
         {/* Admin tail (Audit, Trash, Release) — neutral hue, no section label
             to keep it visually quiet. Only render if any items exist. */}
         {visiblePrimaryItems.some((item) =>
-          ['/audit', '/trash', '/release'].includes(item.to),
+          ['/audit', '/trash', '/release', '/email-log'].includes(item.to),
         ) && (
           <SidebarGroup className="pt-0">
             <SectionLabel label="Admin" />
             <SidebarGroupContent>
               <NavMenu
                 items={visiblePrimaryItems.filter((item) =>
-                  ['/audit', '/trash', '/release'].includes(item.to),
+                  ['/audit', '/trash', '/release', '/email-log'].includes(item.to),
                 )}
                 pathname={pathname}
               />

@@ -170,11 +170,13 @@
   /* landr-hxnb.1 — page / card surface ramp (light, comic edition).
      Warm cream paper (#FFF6E3 ≈ oklch(0.975 0.025 92)) for the page so it
      reads like quality print stock. Cards pop as near-white. */
-  --bg-dark: oklch(0.972 0.022 92);
-  --bg: oklch(0.995 0.006 92);
-  --bg-light: oklch(1 0 92);
-  --text: oklch(0.22 0.01 50);
-  --text-muted: oklch(0.48 0.01 50);
+  /* brand-palette: pure-white surfaces (max contrast), near-black text.
+     Surface separation comes from borders + the comic outline, not bg tint. */
+  --bg-dark: oklch(1 0 0);
+  --bg: oklch(1 0 0);
+  --bg-light: oklch(0.985 0 0);
+  --text: oklch(0.145 0 0);
+  --text-muted: oklch(0.43 0 0);
 
   /* shadcn aliases mapped onto the ramp. */
   --background: var(--bg-dark);
@@ -189,39 +191,39 @@
      Contrast: white text (L 0.985) on L0.65 C0.18 H40 ≈ 4.6:1  ✓ WCAG AA.
      Hover (darker rust) handled via existing component patterns — the
      --accent warm tint below gives hover reads for menus/dropdowns. */
-  --primary: oklch(0.65 0.18 40);
-  --primary-foreground: oklch(0.985 0 0);
+  /* brand-palette: PRIMARY = EXACT logo sky-blue #12B5F0; near-black text. */
+  --primary: #12B5F0;
+  --primary-foreground: oklch(0.145 0 0);
 
   /* Secondary — soft warm golden tint for secondary actions. */
-  --secondary: oklch(0.955 0.03 88);
+  /* brand-palette: neutral light secondary (no warm cast on white). */
+  --secondary: oklch(0.965 0 0);
   --secondary-foreground: var(--text);
 
-  /* --muted — warm parchment, recessed (progress tracks, inputs). */
-  --muted: oklch(0.942 0.02 88);
+  --muted: oklch(0.96 0 0);
   --muted-foreground: var(--text-muted);
 
-  /* --accent — warm cream tint for hover/selected states on menus/dropdowns.
-     landr-hxnb.1: pulled toward golden family for warmth (was neutral gray). */
-  --accent: oklch(0.932 0.028 88);
+  /* --accent — light sky-blue tint for hover/selected (brand, subtle). */
+  --accent: oklch(0.955 0.025 233);
   --accent-foreground: var(--text);
 
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.900 0.018 88);
-  --input: oklch(0.895 0.018 88);
+  --border: oklch(0.89 0 0);
+  --input: oklch(0.87 0 0);
 
-  /* --ring — warm brand orange at reduced opacity for focus rings. */
-  --ring: oklch(0.65 0.18 40);
+  /* --ring — EXACT logo sky-blue focus ring. */
+  --ring: #12B5F0;
 
-  /* Sidebar — sits on warm cream page; primary pill uses brand orange. */
+  /* Sidebar — white page; active pill uses EXACT logo sky-blue. */
   --sidebar: var(--bg-dark);
   --sidebar-foreground: var(--text);
-  --sidebar-primary: oklch(0.65 0.18 40);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.928 0.028 88);
+  --sidebar-primary: #12B5F0;
+  --sidebar-primary-foreground: oklch(0.145 0 0);
+  --sidebar-accent: oklch(0.955 0.025 233);
   --sidebar-accent-foreground: var(--text);
-  --sidebar-border: oklch(0.900 0.018 88);
-  --sidebar-ring: oklch(0.65 0.18 40);
+  --sidebar-border: oklch(0.89 0 0);
+  --sidebar-ring: #12B5F0;
 
   /* -----------------------------------------------------------------------
    * landr-hxnb.1 — Section hue ramps (light mode).
@@ -232,16 +234,16 @@
    *   soft-bg: oklch(0.95 0.06 38)  — card tint, section bg
    *   on-color: near-white, contrast ≈ 4.6:1 on vivid  ✓ AA
    * ----------------------------------------------------------------------- */
-  --hue-bookings-vivid:    oklch(0.65 0.18 38);
-  --hue-bookings-soft-bg:  oklch(0.952 0.055 38);
-  --hue-bookings-on-color: oklch(0.985 0 0);
+  --hue-bookings-vivid:    #F5821F;
+  --hue-bookings-soft-bg:  oklch(0.955 0.05 53);
+  --hue-bookings-on-color: oklch(0.16 0 0);
 
   /* catalog — sky blue (hue 258)
    *   vivid:   oklch(0.58 0.14 258) — contrast with white ≈ 4.7:1  ✓ AA
    *   soft-bg: oklch(0.94 0.04 258) */
-  --hue-catalog-vivid:    oklch(0.58 0.14 258);
-  --hue-catalog-soft-bg:  oklch(0.946 0.038 258);
-  --hue-catalog-on-color: oklch(0.985 0 0);
+  --hue-catalog-vivid:    #12B5F0;
+  --hue-catalog-soft-bg:  oklch(0.95 0.035 233);
+  --hue-catalog-on-color: oklch(0.16 0 0);
 
   /* finance — meadow green (hue 140)
    *   vivid:   oklch(0.58 0.16 140) — contrast with white ≈ 4.6:1  ✓ AA
@@ -281,16 +283,16 @@
    *   surface-dense-subtle — nested row tint, striped rows
    *   surface-dense-border — hairline between rows/cells
    * ----------------------------------------------------------------------- */
-  --surface-dense:        oklch(0.960 0.010 88);
-  --surface-dense-subtle: oklch(0.975 0.006 88);
-  --surface-dense-border: oklch(0.880 0.012 88);
+  --surface-dense:        oklch(0.975 0 0);
+  --surface-dense-subtle: oklch(0.985 0 0);
+  --surface-dense-border: oklch(0.90 0 0);
 
   /* -----------------------------------------------------------------------
    * landr-hxnb.1 — comic outline token.
    * Bold-outline utility uses this as border color: dark brown-black (not
    * pure #000) matching the reference line-work, hue near 30 (warm brown).
    * ----------------------------------------------------------------------- */
-  --outline-comic: oklch(0.18 0.04 35);
+  --outline-comic: oklch(0 0 0);
 
   /* Light-mode shadow recipes — lower inset white opacity (surfaces
      already bright); darks unchanged. */
@@ -320,11 +322,13 @@
 .dark {
   /* landr-hxnb.1 — dark ramp. Warm-toned dark (hue 264 → shifted toward 40
      for warmth). Page recedes / card lifts — same hierarchy as light. */
-  --bg-dark: oklch(0.13 0.008 40);
-  --bg: oklch(0.205 0.010 40);
-  --bg-light: oklch(0.295 0.012 40);
-  --text: oklch(0.985 0 0);
-  --text-muted: oklch(0.72 0.008 40);
+  /* brand-palette: pure-black page (#000), near-black cards for separation,
+     pure-white text. Max contrast. */
+  --bg-dark: oklch(0 0 0);
+  --bg: oklch(0.17 0 0);
+  --bg-light: oklch(0.24 0 0);
+  --text: oklch(1 0 0);
+  --text-muted: oklch(0.70 0 0);
 
   --background: var(--bg-dark);
   --foreground: var(--text);
@@ -340,15 +344,16 @@
      button is still legible. Dark primary is best read as accent/highlight
      on dark bg, not as button bg with text. Components using bg-primary+text
      should use primary-foreground oklch(0.15 0.01 40) which gives ≈14:1. */
-  --primary: oklch(0.72 0.16 40);
-  --primary-foreground: oklch(0.15 0.01 40);
+  /* brand-palette: PRIMARY = EXACT logo sky-blue #12B5F0 on black, dark text. */
+  --primary: #12B5F0;
+  --primary-foreground: oklch(0.10 0 0);
 
   --secondary: var(--bg-light);
   --secondary-foreground: var(--text);
 
   /* --muted is recessed — progress tracks, input bg.
      ProgressBar in Onboarding.tsx relies on this token. */
-  --muted: oklch(0.18 0.008 40);
+  --muted: oklch(0.20 0 0);
   --muted-foreground: var(--text-muted);
 
   --accent: var(--bg-light);
@@ -359,17 +364,17 @@
 
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.72 0.16 40);
+  --ring: #12B5F0;
 
-  /* Sidebar dark — warm dark bg, brand orange primary. */
+  /* Sidebar dark — black bg, EXACT logo sky-blue active pill. */
   --sidebar: var(--bg-dark);
   --sidebar-foreground: var(--text);
-  --sidebar-primary: oklch(0.72 0.16 40);
-  --sidebar-primary-foreground: oklch(0.15 0.01 40);
-  --sidebar-accent: oklch(0.255 0.010 40);
+  --sidebar-primary: #12B5F0;
+  --sidebar-primary-foreground: oklch(0.10 0 0);
+  --sidebar-accent: oklch(0.22 0 0);
   --sidebar-accent-foreground: var(--text);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.72 0.16 40);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: #12B5F0;
 
   /* -----------------------------------------------------------------------
    * landr-hxnb.1 — Section hue ramps (dark mode, ~20% reduced chroma).
@@ -388,15 +393,15 @@
    *   not as heavy color blocks on a dark screen.
    * ----------------------------------------------------------------------- */
 
-  /* bookings dark */
-  --hue-bookings-vivid:    oklch(0.62 0.14 38);
-  --hue-bookings-soft-bg:  oklch(0.225 0.025 38);
-  --hue-bookings-on-color: oklch(0.985 0 0);
+  /* bookings dark — EXACT logo orange */
+  --hue-bookings-vivid:    #F5821F;
+  --hue-bookings-soft-bg:  oklch(0.225 0.025 53);
+  --hue-bookings-on-color: oklch(0.16 0 0);
 
-  /* catalog dark */
-  --hue-catalog-vivid:    oklch(0.62 0.11 258);
-  --hue-catalog-soft-bg:  oklch(0.225 0.022 258);
-  --hue-catalog-on-color: oklch(0.985 0 0);
+  /* catalog dark — EXACT logo sky-blue */
+  --hue-catalog-vivid:    #12B5F0;
+  --hue-catalog-soft-bg:  oklch(0.225 0.022 233);
+  --hue-catalog-on-color: oklch(0.16 0 0);
 
   /* finance dark */
   --hue-finance-vivid:    oklch(0.62 0.13 140);
@@ -420,12 +425,12 @@
 
   /* surface-dense dark — deep warm-neutral wells for tables.
      Slightly lighter than card so they read as a grounded surface. */
-  --surface-dense:        oklch(0.175 0.008 40);
-  --surface-dense-subtle: oklch(0.195 0.006 40);
-  --surface-dense-border: oklch(0.265 0.010 40);
+  --surface-dense:        oklch(0.135 0 0);
+  --surface-dense-subtle: oklch(0.175 0 0);
+  --surface-dense-border: oklch(0.26 0 0);
 
-  /* Comic outline — light on dark surfaces (cream/white-ish). */
-  --outline-comic: oklch(0.90 0.015 88);
+  /* Comic outline — pure white on black surfaces. */
+  --outline-comic: oklch(1 0 0);
 
   /* Dark-mode shadow recipes — inset top highlight grows with tier
      (30 / 50 / 70) per the Sajid recipe. */
