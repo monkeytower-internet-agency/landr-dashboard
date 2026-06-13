@@ -187,7 +187,7 @@ describe('useDragReschedule', () => {
       string,
       { action: { label: string; onClick: () => void } },
     ]
-    expect(message).toContain('Rescheduled Marie Curie — Tandem flight')
+    expect(message).toContain('Marie Curie — Tandem flight moved to')
     expect(message).toContain('Mon 8 Jun')
     expect(options.action.label).toBe('Undo')
   })

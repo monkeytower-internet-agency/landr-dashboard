@@ -136,7 +136,7 @@ describe('BookingProviderAssignments', () => {
       />,
     )
     expect(
-      await screen.findByText(/No providers in your roster yet/i),
+      await screen.findByText(/your roster is empty/i),
     ).toBeInTheDocument()
   })
 
@@ -152,7 +152,7 @@ describe('BookingProviderAssignments', () => {
       />,
     )
     expect(
-      await screen.findByText(/no scheduled days yet/i),
+      await screen.findByText(/no scheduled days on this booking yet/i),
     ).toBeInTheDocument()
   })
 

@@ -383,7 +383,7 @@ describe('SettingsLayout', () => {
   it('renders the Plan subsection placeholder when no package is embedded', async () => {
     renderSettingsTree('/account/plan')
     expect(
-      await screen.findByText(/no plan information available/i),
+      await screen.findByText(/no plan information on file/i),
     ).toBeInTheDocument()
   })
 

@@ -122,7 +122,7 @@ describe('RetrieveBoard — smoke', () => {
     mock.state.rows = []
     render(<RetrieveBoard />)
     expect(
-      await screen.findByText(/no check-ins for this day/i),
+      await screen.findByText(/no check-ins recorded for this day/i),
     ).toBeInTheDocument()
   })
 

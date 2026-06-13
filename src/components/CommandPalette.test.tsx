@@ -319,7 +319,7 @@ describe('CommandPalette — search filtering', () => {
     await screen.findByRole('dialog')
     const input = await screen.findByPlaceholderText(/type a command/i)
     await user.type(input, 'zzznever-matches-anything-xxx')
-    expect(await screen.findByText(/no results found/i)).toBeInTheDocument()
+    expect(await screen.findByText(/nothing found/i)).toBeInTheDocument()
   })
 })
 
