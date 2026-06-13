@@ -60,6 +60,8 @@ export const FEATURE_SECTIONS: Record<string, string[]> = {
   campaigns: ['/settings/campaigns'],
   tags: ['/settings/tags'],
   webhooks: ['/settings/webhooks'],
+  // landr-71kz — form builder + product flow tab (gated behind form_builder feature).
+  form_builder: ['/settings/forms'],
   // landr-ubqo — Gmail (sending mailbox) is intentionally UNGATED: connecting
   // your own Gmail to send branded booking emails is a prerequisite to
   // operate, not a paid upsell. Same rationale as the ungated Payments &
