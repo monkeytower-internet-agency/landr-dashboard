@@ -127,6 +127,10 @@ export function ConfigHealthBanners() {
       return fetchConfigHealth(currentOperatorId)
     },
     enabled: !!currentOperatorId,
+    // Refetch when the tab regains focus so returning from the Gmail OAuth
+    // popup (which triggers a focus event) clears a resolved banner immediately.
+    refetchOnWindowFocus: true,
+    staleTime: 0,
     // Errors are swallowed — banners are ambient health hints, not critical
     // path. The user can still use the app normally.
     throwOnError: false,

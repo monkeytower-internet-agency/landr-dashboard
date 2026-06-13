@@ -295,4 +295,41 @@ describe('ConfigHealthBanners (landr-y5si)', () => {
       })
     })
   })
+
+  // landr-v526 — verify the query is configured to refetch on focus so that
+  // returning from the Gmail OAuth popup (window focus event) clears a
+  // resolved banner without a full page reload.
+  describe('query options (landr-v526)', () => {
+    it('query cache entry has refetchOnWindowFocus: true and staleTime: 0', async () => {
+      // Render with a QueryClient we can inspect.
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false, gcTime: 0 } },
+      })
+      function Wrapper({ children }: { children: import('react').ReactNode }) {
+        return (
+          <QueryClientProvider client={client}>
+            <MemoryRouter>{children}</MemoryRouter>
+          </QueryClientProvider>
+        )
+      }
+
+      mockState.issues = [HOTEL_ERROR]
+      render(<ConfigHealthBanners />, { wrapper: Wrapper })
+
+      // Wait for the initial fetch to complete so the query cache entry exists.
+      await screen.findByTestId('config-health-banner-hotel_missing_email')
+
+      // Inspect the query's resolved options from the cache.
+      const queries = client.getQueryCache().getAll()
+      const healthQuery = queries.find(
+        (q) => q.queryKey[0] === 'config-health',
+      )
+      expect(healthQuery).toBeDefined()
+
+      // The component sets refetchOnWindowFocus: true and staleTime: 0.
+      // Both values must be reflected in the query's current options.
+      expect(healthQuery!.options.refetchOnWindowFocus).toBe(true)
+      expect(healthQuery!.options.staleTime).toBe(0)
+    })
+  })
 })
