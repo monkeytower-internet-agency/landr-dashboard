@@ -1390,6 +1390,8 @@ export const t = {
     // the customer; staff-side only.
     notes: {
       tabNotes: 'Notes',
+      // landr — accessible label for the "has notes" dot on the Notes tab.
+      hasNotesIndicator: 'has notes',
       sectionTitle: 'Internal notes',
       sectionHint:
         'Staff-only. Never shown to the customer.',
@@ -1673,6 +1675,29 @@ export const t = {
     viewMonth: 'Month',
     viewWeek: 'Week',
     viewDay: 'Day',
+    // landr — booking-state legend + status filter. Each calendar event is
+    // tinted by its semantic state; the legend chips double as toggle filters
+    // (click a state to show/hide it). Labels mirror the booking-detail stage
+    // labels so the vocabulary stays consistent across the app.
+    legend: {
+      title: 'Status',
+      states: {
+        pending: 'Pending',
+        confirmed: 'Confirmed',
+        finalised: 'Finalised',
+        cancelled: 'Cancelled',
+        no_show: 'No-show',
+      },
+      // aria for the toggle chips — `shown` reflects the CURRENT state.
+      toggleAria: (label: string, shown: boolean): string =>
+        shown ? `Hide ${label} bookings` : `Show ${label} bookings`,
+      // shown when the active filter hides every booking in range.
+      allHidden: 'All statuses hidden — tap a status to show bookings.',
+    },
+    // landr — internal-note indicator on calendar events / agenda rows. The
+    // dot signals "this booking has operator notes"; hovering shows them.
+    noteIndicatorAria: (n: number): string =>
+      `${n} internal note${n === 1 ? '' : 's'} — hover to read`,
     rescheduleError: 'Could not reschedule booking.',
     // landr-nnbm — drag-to-reschedule confirmation toast + Undo action.
     rescheduleToast: (label: string, dateLabel: string): string =>
@@ -1681,8 +1706,10 @@ export const t = {
     rescheduleUndone: 'Move undone.',
     rescheduleUndoError: 'Could not undo the reschedule.',
     // landr-f1s — off-hours expand/collapse for the time-grid views.
+    // start/end may arrive as 'HH:MM' or 'HH:MM:SS'; show only HH:MM with a
+    // spaced en-dash for readability ("08:00 – 20:00", never "08:00:00").
     expandOffHours: (start: string, end: string): string =>
-      `Show hours outside ${start}–${end}`,
+      `Show hours outside ${start.slice(0, 5)} – ${end.slice(0, 5)}`,
     collapseOffHours: 'Hide off-hours',
     // landr-3uai — per-day capacity pill rendered in the dayGrid view when
     // a product filter is active. Click → opens the Schedule editor for
