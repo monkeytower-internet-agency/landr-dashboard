@@ -1,6 +1,16 @@
 import '@testing-library/jest-dom/vitest'
 import { vi } from 'vitest'
 
+// canvas-confetti uses Canvas APIs that jsdom doesn't implement. Mock it
+// globally so any component that lazily imports it gets a silent no-op.
+// The dynamic import() in useOnboardingCelebrations is what triggers this.
+vi.mock('canvas-confetti', () => {
+  const noop = () => Promise.resolve(null)
+  noop.reset = () => {}
+  noop.create = () => noop
+  return { default: noop }
+})
+
 vi.stubEnv('VITE_SUPABASE_URL', 'http://stub.invalid')
 vi.stubEnv('VITE_SUPABASE_PUB_KEY', 'sb_publishable_stub')
 vi.stubEnv('VITE_API_BASE_URL', 'http://stub.invalid')
