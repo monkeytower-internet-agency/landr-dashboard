@@ -1,0 +1,50 @@
+<svg viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- SuccessScene — standalone SVG export for website reuse. -->
+  <!-- Comic Testival style: bold outlines, flat cel shadows, saturated palette. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7FA8E8"/>
+      <stop offset="100%" stop-color="#FFE9B8"/>
+    </linearGradient>
+    <linearGradient id="trophy" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#E8A000"/>
+      <stop offset="50%" stop-color="#FFD700"/>
+      <stop offset="100%" stop-color="#E8A000"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="200" rx="16" fill="url(#sky)"/>
+  <!-- ground -->
+  <path d="M0 168 Q60 158 120 165 Q180 172 240 162 L240 200 L0 200 Z" fill="#5DA53C"/>
+  <path d="M0 182 Q60 172 120 179 Q180 186 240 176 L240 200 L0 200 Z" fill="#2E6B3E"/>
+  <!-- sun burst -->
+  <line x1="120" y1="68" x2="120" y2="20" stroke="#F7B32B" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  <line x1="148" y1="76" x2="162" y2="34" stroke="#F7B32B" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  <line x1="168" y1="96" x2="210" y2="72" stroke="#F7B32B" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  <line x1="172" y1="122" x2="218" y2="122" stroke="#F7B32B" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  <line x1="92" y1="76" x2="78" y2="34" stroke="#F7B32B" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  <line x1="72" y1="96" x2="30" y2="72" stroke="#F7B32B" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  <line x1="68" y1="122" x2="22" y2="122" stroke="#F7B32B" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  <!-- trophy -->
+  <rect x="98" y="153" width="44" height="8" rx="4" fill="url(#trophy)" stroke="#2B1A0F" stroke-width="2.5"/>
+  <rect x="88" y="158" width="64" height="10" rx="5" fill="url(#trophy)" stroke="#2B1A0F" stroke-width="2.5"/>
+  <rect x="112" y="138" width="16" height="20" rx="4" fill="url(#trophy)" stroke="#2B1A0F" stroke-width="2.5"/>
+  <path d="M72 72 Q68 115 88 135 Q100 145 120 145 Q140 145 152 135 Q172 115 168 72 Z" fill="url(#trophy)" stroke="#2B1A0F" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M80 80 Q78 110 92 130 Q104 140 120 140" fill="none" stroke="#C87A00" stroke-width="6" opacity="0.35" stroke-linecap="round"/>
+  <path d="M72 80 Q52 80 52 100 Q52 120 72 118" fill="none" stroke="url(#trophy)" stroke-width="12" stroke-linecap="round"/>
+  <path d="M72 80 Q52 80 52 100 Q52 120 72 118" fill="none" stroke="#2B1A0F" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M168 80 Q188 80 188 100 Q188 120 168 118" fill="none" stroke="url(#trophy)" stroke-width="12" stroke-linecap="round"/>
+  <path d="M168 80 Q188 80 188 100 Q188 120 168 118" fill="none" stroke="#2B1A0F" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- paraglider wing in cup -->
+  <path d="M95 108 Q120 94 145 108 L142 114 Q120 100 98 114 Z" fill="#C4502A" stroke="#2B1A0F" stroke-width="2"/>
+  <!-- sparkle star with face -->
+  <polygon points="42,46 44.8,53.5 51.4,53.5 46.2,59 48.2,66.5 42,62.3 35.8,66.5 37.8,59 32.6,53.5 39.2,53.5" fill="#F7B32B" stroke="#2B1A0F" stroke-width="1.5"/>
+  <circle cx="39.5" cy="57" r="1.2" fill="#2B1A0F"/>
+  <circle cx="44.5" cy="57" r="1.2" fill="#2B1A0F"/>
+  <path d="M39.5,60 Q42,62.5 44.5,60" fill="none" stroke="#2B1A0F" stroke-width="1" stroke-linecap="round"/>
+  <!-- confetti -->
+  <rect x="28" y="46" width="12" height="6" rx="2" fill="#D9486E" stroke="#2B1A0F" stroke-width="1" transform="rotate(25,34,49)"/>
+  <rect x="195" y="44" width="10" height="5" rx="2" fill="#5DA53C" stroke="#2B1A0F" stroke-width="1" transform="rotate(70,200,47)"/>
+  <rect x="198" y="65" width="12" height="6" rx="2" fill="#D9486E" stroke="#2B1A0F" stroke-width="1" transform="rotate(40,204,68)"/>
+  <rect x="30" y="100" width="10" height="5" rx="2" fill="#4A7BD0" stroke="#2B1A0F" stroke-width="1" transform="rotate(60,35,103)"/>
+  <rect x="210" y="100" width="10" height="5" rx="2" fill="#5DA53C" stroke="#2B1A0F" stroke-width="1" transform="rotate(20,215,103)"/>
+</svg>

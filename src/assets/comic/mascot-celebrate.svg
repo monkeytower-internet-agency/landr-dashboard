@@ -1,0 +1,77 @@
+<svg viewBox="0 0 200 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Mascot — celebrate pose. Style: Comic Testival. -->
+  <!-- harness -->
+  <path d="M140 165 Q160 170 162 200 Q160 225 145 230 L142 230 L142 165 Z" fill="#5DA53C" stroke="#2B1A0F" stroke-width="2" stroke-linejoin="round"/>
+  <!-- body -->
+  <path d="M60 155 Q55 210 58 240 L142 240 Q145 210 140 155 Z" fill="#C4502A" stroke="#2B1A0F" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M70 160 Q67 195 68 225 L88 225 Q87 195 88 160 Z" fill="#8B3118" opacity="0.6"/>
+  <!-- left arm up -->
+  <path d="M62 165 Q38 135 32 108" stroke="#E8A87C" stroke-width="14" fill="none" stroke-linecap="round"/>
+  <path d="M62 165 Q38 135 32 108" stroke="#2B1A0F" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <ellipse cx="32" cy="104" rx="10" ry="9" fill="#E8A87C" stroke="#2B1A0F" stroke-width="2"/>
+  <path d="M27 97 Q25 88 27 83" stroke="#E8A87C" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M27 97 Q25 88 27 83" stroke="#2B1A0F" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M33 95 Q32 86 33 81" stroke="#E8A87C" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M33 95 Q32 86 33 81" stroke="#2B1A0F" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M38 97 Q38 88 38 83" stroke="#E8A87C" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M38 97 Q38 88 38 83" stroke="#2B1A0F" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <!-- right arm up -->
+  <path d="M138 165 Q162 135 168 108" stroke="#E8A87C" stroke-width="14" fill="none" stroke-linecap="round"/>
+  <path d="M138 165 Q162 135 168 108" stroke="#2B1A0F" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <ellipse cx="168" cy="104" rx="10" ry="9" fill="#E8A87C" stroke="#2B1A0F" stroke-width="2"/>
+  <path d="M162 97 Q160 88 162 83" stroke="#E8A87C" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M162 97 Q160 88 162 83" stroke="#2B1A0F" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M168 95 Q167 86 168 81" stroke="#E8A87C" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M168 95 Q167 86 168 81" stroke="#2B1A0F" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M173 97 Q173 88 173 83" stroke="#E8A87C" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M173 97 Q173 88 173 83" stroke="#2B1A0F" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <!-- legs (celebrate — wider) -->
+  <path d="M80 240 Q75 265 70 288" stroke="#2B4A7A" stroke-width="18" fill="none" stroke-linecap="round"/>
+  <path d="M80 240 Q75 265 70 288" stroke="#2B1A0F" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M120 240 Q125 265 130 288" stroke="#2B4A7A" stroke-width="18" fill="none" stroke-linecap="round"/>
+  <path d="M120 240 Q125 265 130 288" stroke="#2B1A0F" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <ellipse cx="70" cy="292" rx="14" ry="8" fill="#2B1A0F"/>
+  <ellipse cx="130" cy="292" rx="14" ry="8" fill="#2B1A0F"/>
+  <!-- head -->
+  <ellipse cx="100" cy="110" rx="42" ry="40" fill="#E8A87C" stroke="#2B1A0F" stroke-width="2.5"/>
+  <!-- cap -->
+  <path d="M60 98 Q62 82 100 78 Q138 82 140 98 L138 102 Q100 92 62 102 Z" fill="#4A7BD0" stroke="#2B1A0F" stroke-width="2.5"/>
+  <path d="M56 105 Q58 95 100 92 Q100 108 58 108 Z" fill="#3A6AC0" stroke="#2B1A0F" stroke-width="2"/>
+  <rect x="88" y="81" width="24" height="12" rx="3" fill="#1A3A7A" stroke="#2B1A0F" stroke-width="1.5"/>
+  <!-- hair -->
+  <path d="M60 105 Q64 118 68 120" stroke="#F7B32B" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M140 105 Q136 118 132 120" stroke="#F7B32B" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- ears -->
+  <ellipse cx="58" cy="112" rx="7" ry="9" fill="#E8A87C" stroke="#2B1A0F" stroke-width="2"/>
+  <ellipse cx="142" cy="112" rx="7" ry="9" fill="#E8A87C" stroke="#2B1A0F" stroke-width="2"/>
+  <!-- glasses -->
+  <rect x="68" y="108" width="26" height="19" rx="7" fill="#B8D4F0" stroke="#2B1A0F" stroke-width="3"/>
+  <rect x="106" y="108" width="26" height="19" rx="7" fill="#B8D4F0" stroke="#2B1A0F" stroke-width="3"/>
+  <line x1="94" y1="116" x2="106" y2="116" stroke="#2B1A0F" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="76" cy="112" rx="4" ry="3" fill="white" opacity="0.5"/>
+  <ellipse cx="114" cy="112" rx="4" ry="3" fill="white" opacity="0.5"/>
+  <!-- eyes -->
+  <ellipse cx="81" cy="117" rx="7" ry="7" fill="white"/>
+  <circle cx="83" cy="118" r="4.5" fill="#2B1A0F"/>
+  <circle cx="84.5" cy="116.5" r="1.5" fill="white"/>
+  <ellipse cx="119" cy="117" rx="7" ry="7" fill="white"/>
+  <circle cx="121" cy="118" r="4.5" fill="#2B1A0F"/>
+  <circle cx="122.5" cy="116.5" r="1.5" fill="white"/>
+  <!-- eyebrows (up — excited) -->
+  <path d="M70 107 Q81 103 89 106" fill="none" stroke="#2B1A0F" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M111 106 Q119 103 130 107" fill="none" stroke="#2B1A0F" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- blush -->
+  <ellipse cx="68" cy="126" rx="8" ry="5" fill="#D9486E" opacity="0.3"/>
+  <ellipse cx="132" cy="126" rx="8" ry="5" fill="#D9486E" opacity="0.3"/>
+  <!-- wide grin -->
+  <path d="M78 130 Q100 148 122 130" fill="white" stroke="#2B1A0F" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- sparkles -->
+  <polygon points="22,60 24.6,67.5 31.5,67.5 26.2,73 28.3,80.5 22,76.3 15.7,80.5 17.8,73 12.5,67.5 19.4,67.5" fill="#F7B32B" stroke="#2B1A0F" stroke-width="1.5"/>
+  <circle cx="14" cy="68" r="1.2" fill="#2B1A0F"/>
+  <circle cx="19" cy="68" r="1.2" fill="#2B1A0F"/>
+  <path d="M13.5,71 Q16,73.5 18.5,71" fill="none" stroke="#2B1A0F" stroke-width="1" stroke-linecap="round"/>
+  <polygon points="178,58 180.6,65.5 187.5,65.5 182.2,71 184.3,78.5 178,74.3 171.7,78.5 173.8,71 168.5,65.5 175.4,65.5" fill="#C4502A" stroke="#2B1A0F" stroke-width="1.5"/>
+  <!-- tiny gliders -->
+  <path d="M147,30 Q160,20 173,30 L171,36 Q160,26 149,36 Z" fill="#D9486E" stroke="#2B1A0F" stroke-width="1.5"/>
+  <path d="M27,38 Q40,28 53,38 L51,44 Q40,34 29,44 Z" fill="#C4502A" stroke="#2B1A0F" stroke-width="1.5"/>
+</svg>
