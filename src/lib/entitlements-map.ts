@@ -54,6 +54,9 @@ export const FEATURE_SECTIONS: Record<string, string[]> = {
   // Gated alongside Branding: both are paid "make the embedded widget yours"
   // surfaces. The feature key mirrors the API registry (landr-jb1k.1).
   widget_config: ['/settings/widget'],
+  // landr-71kz.5 — operator form library + field-builder editor.
+  // Beta, default off; enabled for business/enterprise tiers.
+  form_builder: ['/settings/forms'],
   team: ['/settings/team'],
   // OFF-set for Para42
   vouchers: ['/settings/vouchers'],

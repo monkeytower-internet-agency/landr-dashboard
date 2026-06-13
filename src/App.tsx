@@ -100,6 +100,9 @@ import { NotificationPrefsSettings } from '@/routes/settings/NotificationPrefsSe
 import { AccountLinkSettings } from '@/routes/settings/AccountLinkSettings'
 import { OperationsSettings } from '@/routes/settings/OperationsSettings'
 import { WebhooksSettings } from '@/routes/settings/WebhooksSettings'
+// landr-71kz.5 — Settings → Forms library (CRUD) + stub editor for /settings/forms/:formId.
+import { FormsSettings } from '@/routes/settings/FormsSettings'
+import { FormEditorStub } from '@/routes/settings/FormEditorStub'
 // landr-znzz.7 — Settings → Weather (opt-in forecast hint).
 import { WeatherSettings } from '@/routes/settings/WeatherSettings'
 // landr-sbhz.5 — staff-only tier/feature editor. Lazy: only Landr staff ever
@@ -363,6 +366,11 @@ function App() {
                 <Route path="categories" element={gatedSection('/settings/categories', <CategoriesSettings />)} />
                 {/* landr-up1b — booking-widget shortcode/iframe generator. */}
                 <Route path="embed" element={gatedSection('/settings/embed', <EmbedSettings />)} />
+                {/* landr-71kz.5 — Settings → Forms library (create/rename/retire/
+                    restore). Gated behind form_builder feature; the field-builder
+                    editor at /settings/forms/:formId ships in landr-71kz.6. */}
+                <Route path="forms" element={gatedSection('/settings/forms', <FormsSettings />)} />
+                <Route path="forms/:formId" element={gatedSection('/settings/forms', <FormEditorStub />)} />
                 {/* landr-znzz.5 — generic per-operator offers/upsells shown in
                     the AFTER phase of the customer event page. */}
                 <Route path="offers" element={<OffersSettings />} />
