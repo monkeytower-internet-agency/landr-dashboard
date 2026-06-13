@@ -172,11 +172,7 @@ export function Invoicing() {
       {/* In-page header: the prominent Sync-now action lives here (not only in
           the topbar PageTitle slot) so it is always visible on the page itself
           — including on mobile where the topbar action slot is cramped. */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold">{t.invoicing.title}</h1>
-          <p className="text-muted-foreground text-sm">{t.invoicing.subtitle}</p>
-        </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
         {syncAction}
       </div>
 

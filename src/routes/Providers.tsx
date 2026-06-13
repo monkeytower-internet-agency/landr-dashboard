@@ -24,7 +24,6 @@ export function Providers() {
       <div className="flex flex-col gap-6">
         {titleNode}
         <header>
-          <h1 className="text-xl font-semibold">{t.providers.title}</h1>
           <p className="text-muted-foreground text-sm">
             {t.providers.subtitle}
           </p>

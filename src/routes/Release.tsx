@@ -364,13 +364,7 @@ function StaffReleaseConsole() {
       <PageTitle title={t.release.title} subtitle={t.release.subtitle} />
       <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold">{t.release.title}</h1>
-            {tier ? <TierBadge tier={tier} showProd /> : null}
-          </div>
-          <p className="text-muted-foreground max-w-3xl text-sm">
-            {t.release.subtitle}
-          </p>
+          {tier ? <TierBadge tier={tier} showProd /> : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* Cross-tier jump links so staff can bounce between dev / staging
@@ -574,7 +568,6 @@ function CustomerReleaseConsole() {
       />
       <header className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold">{t.release.title}</h1>
           <TierBadge tier="staging" />
         </div>
       </header>

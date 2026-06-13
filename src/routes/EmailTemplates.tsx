@@ -209,7 +209,6 @@ export function EmailTemplates() {
         subtitle={t.settingsHub.sectionDescriptions.emailTemplates}
       />
       <header>
-        <h1 className="text-xl font-semibold">{t.emailTemplates.title}</h1>
         <p className="text-muted-foreground text-sm">{t.emailTemplates.subtitle}</p>
       </header>
 
