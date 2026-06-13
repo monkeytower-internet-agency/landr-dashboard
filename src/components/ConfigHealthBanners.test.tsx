@@ -327,9 +327,12 @@ describe('ConfigHealthBanners (landr-y5si)', () => {
       expect(healthQuery).toBeDefined()
 
       // The component sets refetchOnWindowFocus: true and staleTime: 0.
-      // Both values must be reflected in the query's current options.
-      expect(healthQuery!.options.refetchOnWindowFocus).toBe(true)
-      expect(healthQuery!.options.staleTime).toBe(0)
+      // Both values must be reflected in the query's current options. They are
+      // observer-level options not surfaced on the base QueryOptions type, so
+      // read them through a record cast (present at runtime).
+      const opts = healthQuery!.options as Record<string, unknown>
+      expect(opts.refetchOnWindowFocus).toBe(true)
+      expect(opts.staleTime).toBe(0)
     })
   })
 })
