@@ -351,18 +351,6 @@ function TierSettingsInner({ authUid }: { authUid: string | null }) {
         ]}
         subtitle={t.settingsHub.sectionDescriptions.tiers}
       />
-      {/* landr-hxnb.7 — comic page header: font-display, settings accent dot */}
-      <header className="flex flex-col gap-1">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">
-          <span
-            className="mr-2 inline-block size-2.5 rounded-full align-middle"
-            style={{ background: 'var(--hue-settings-vivid)' }}
-            aria-hidden="true"
-          />
-          {t.tierEditor.title}
-        </h1>
-        <p className="text-muted-foreground text-sm">{t.tierEditor.subtitle}</p>
-      </header>
 
       <FeatureCatalogPanel />
 

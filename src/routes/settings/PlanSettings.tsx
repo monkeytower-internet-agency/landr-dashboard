@@ -27,9 +27,6 @@ export function PlanSettings() {
               ]}
               subtitle={t.settingsHub.sectionDescriptions.plan}
             />
-            <h1 className="text-2xl font-semibold">
-              {t.settingsHub.plan.title}
-            </h1>
             <Card>
               <CardHeader>
                 <CardTitle>{t.settingsHub.plan.title}</CardTitle>

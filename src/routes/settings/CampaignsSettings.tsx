@@ -66,12 +66,6 @@ export function CampaignsSettings() {
     return (
       <div className="flex flex-col gap-6">
         {titleNode}
-        <header>
-          <h1 className="text-xl font-semibold">{t.campaignsSettings.title}</h1>
-          <p className="text-muted-foreground text-sm">
-            {t.campaignsSettings.subtitle}
-          </p>
-        </header>
         <p className="text-muted-foreground text-sm">
           {t.campaignsSettings.noOperator}
         </p>
@@ -102,13 +96,7 @@ export function CampaignsManager({ operatorId }: ManagerProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">{t.campaignsSettings.title}</h1>
-          <p className="text-muted-foreground text-sm">
-            {t.campaignsSettings.subtitle}
-          </p>
-        </div>
+      <header className="flex items-start justify-end gap-4">
         <Button
           type="button"
           size="sm"

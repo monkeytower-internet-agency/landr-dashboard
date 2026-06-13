@@ -67,12 +67,6 @@ export function EmbedSettings() {
     return (
       <div className="flex flex-col gap-6">
         {titleNode}
-        <header>
-          <h1 className="text-xl font-semibold">{t.embedSettings.title}</h1>
-          <p className="text-muted-foreground text-sm">
-            {t.embedSettings.subtitle}
-          </p>
-        </header>
         <p className="text-muted-foreground text-sm">
           {t.embedSettings.noOperator}
         </p>
@@ -195,13 +189,6 @@ export function EmbedGenerator({ operatorId }: GeneratorProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="text-xl font-semibold">{t.embedSettings.title}</h1>
-        <p className="text-muted-foreground text-sm">
-          {t.embedSettings.subtitle}
-        </p>
-      </header>
-
       {/* ---- Mode picker -------------------------------------------- */}
       <section className="rounded-md border p-4">
         <fieldset className="flex flex-col gap-2">

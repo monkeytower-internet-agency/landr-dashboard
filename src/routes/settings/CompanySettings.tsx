@@ -115,16 +115,6 @@ function CompanyForm({ operator, operatorId, onSaved }: FormProps) {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      {/* landr-hxnb.7 — comic page heading: font-display + settings accent dot. */}
-      <h1 className="font-display text-2xl font-semibold tracking-tight">
-        <span
-          className="mr-2 inline-block size-2.5 rounded-full align-middle"
-          style={{ background: 'var(--hue-settings-vivid)' }}
-          aria-hidden="true"
-        />
-        {t.settings.title}
-      </h1>
-
       <form onSubmit={handleSubmit(onSubmit)} aria-label={t.settings.title}>
         {/* Company */}
         <Card className="mb-6">

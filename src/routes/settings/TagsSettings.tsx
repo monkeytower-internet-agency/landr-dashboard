@@ -44,12 +44,6 @@ export function TagsSettings() {
     return (
       <div className="flex flex-col gap-6">
         {titleNode}
-        <header>
-          <h1 className="text-xl font-semibold">{t.tagsSettings.title}</h1>
-          <p className="text-muted-foreground text-sm">
-            {t.tagsSettings.subtitle}
-          </p>
-        </header>
         <p className="text-muted-foreground text-sm">
           {t.tagsSettings.noOperator}
         </p>
@@ -105,13 +99,6 @@ export function TagsManager({ operatorId }: ManagerProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="text-xl font-semibold">{t.tagsSettings.title}</h1>
-        <p className="text-muted-foreground text-sm">
-          {t.tagsSettings.subtitle}
-        </p>
-      </header>
-
       {/* ---- New tag form ------------------------------------------- */}
       <section
         className="rounded-md border p-4"

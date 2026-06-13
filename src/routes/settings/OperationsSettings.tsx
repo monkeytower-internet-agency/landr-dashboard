@@ -200,11 +200,6 @@ function ChecklistTemplateEditor({ operatorId, initialData }: EditorProps) {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold">{t.operationsSettings.title}</h1>
-      <p className="text-muted-foreground text-sm">
-        {t.operationsSettings.subtitle}
-      </p>
-
       <Card>
         <CardHeader>
           <CardTitle>{t.operationsSettings.sectionChecklist}</CardTitle>

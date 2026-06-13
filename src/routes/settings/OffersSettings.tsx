@@ -60,12 +60,6 @@ export function OffersSettings() {
     return (
       <div className="flex flex-col gap-6">
         {titleNode}
-        <header>
-          <h1 className="text-xl font-semibold">{t.offersSettings.title}</h1>
-          <p className="text-muted-foreground text-sm">
-            {t.offersSettings.subtitle}
-          </p>
-        </header>
         <p className="text-muted-foreground text-sm">
           {t.offersSettings.noOperator}
         </p>
@@ -150,13 +144,6 @@ export function OffersManager({ operatorId }: { operatorId: string }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="text-xl font-semibold">{t.offersSettings.title}</h1>
-        <p className="text-muted-foreground text-sm">
-          {t.offersSettings.subtitle}
-        </p>
-      </header>
-
       {/* ---- Add offer ----------------------------------------------- */}
       <section className="rounded-md border p-4" data-testid="offers-create">
         <h2 className="text-sm font-medium">{t.offersSettings.createTitle}</h2>
