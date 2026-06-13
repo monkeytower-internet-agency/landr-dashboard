@@ -130,8 +130,9 @@ export function FormEditor() {
         <p className="text-muted-foreground text-sm">{t.formEditor.notFound}</p>
       ) : (
         <>
+          {/* landr-hxnb.8 — back link with catalog-hue hover */}
           <div className="mb-4">
-            <Button asChild variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm" className="font-display border-hue-catalog-vivid/40 hover:bg-hue-catalog-soft-bg hover:text-hue-catalog-vivid">
               <Link to="/settings/forms">
                 <ArrowLeftIcon className="size-3.5" />
                 {t.formEditor.backToLibrary}
@@ -249,16 +250,17 @@ function FormEditorBody({ formId }: { formId: string }) {
     <div className="flex flex-col gap-6">
       {/* ── top row: field list + inspector ── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* ── left: field list + add ── */}
-        <section className="flex flex-col gap-3 rounded-md border p-4">
-          <h2 className="text-sm font-medium">{t.formEditor.fieldsPanel}</h2>
+        {/* ── left: field list + add ── landr-hxnb.8: catalog-hue panel border */}
+        <section className="flex flex-col gap-3 rounded-md border-2 border-hue-catalog-vivid/20 bg-hue-catalog-soft-bg/20 p-4 shadow-s">
+          <h2 className="font-display text-sm font-semibold text-hue-catalog-vivid">{t.formEditor.fieldsPanel}</h2>
 
           {fieldsQuery.isPending ? (
             <p className="text-muted-foreground text-sm">
               {t.formEditor.loading}
             </p>
           ) : displayFields.length === 0 ? (
-            <p className="text-muted-foreground rounded border border-dashed p-4 text-center text-sm">
+            // landr-hxnb.8 — catalog-hue empty state for the field list
+            <p className="rounded border-2 border-dashed border-hue-catalog-vivid/30 bg-hue-catalog-soft-bg/40 p-4 text-center text-sm text-muted-foreground">
               {t.formEditor.noFields}
             </p>
           ) : (
@@ -302,8 +304,8 @@ function FormEditorBody({ formId }: { formId: string }) {
           />
         </section>
 
-        {/* ── right: inspector ── */}
-        <section className="flex flex-col gap-3 rounded-md border p-4">
+        {/* ── right: inspector ── landr-hxnb.8: surface-dense for info density */}
+        <section className="surface-dense flex flex-col gap-3 rounded-md border p-4 shadow-s">
           {selectedField ? (
             <FieldInspector
               key={selectedField.id}
@@ -322,9 +324,15 @@ function FormEditorBody({ formId }: { formId: string }) {
         </section>
       </div>
 
-      {/* ── preview pane ── */}
-      <section className="rounded-md border p-4">
-        <h2 className="mb-3 text-sm font-medium">{t.formEditor.previewTitle}</h2>
+      {/* ── preview pane ── landr-hxnb.8: framed as a comic "device" — warm cream bg + thick outline */}
+      <section className="card-comic rounded-xl bg-[oklch(0.975_0.025_92)] p-4 shadow-m dark:bg-[oklch(0.16_0.008_35)]">
+        <div className="mb-3 flex items-center gap-2">
+          {/* "device" chrome strip */}
+          <div className="h-2 w-2 rounded-full bg-hue-catalog-vivid/60" aria-hidden="true" />
+          <div className="h-2 w-2 rounded-full bg-amber-400/60" aria-hidden="true" />
+          <div className="h-2 w-2 rounded-full bg-green-400/60" aria-hidden="true" />
+          <h2 className="font-display ml-2 text-sm font-semibold">{t.formEditor.previewTitle}</h2>
+        </div>
         {displayFields.length === 0 ? (
           <p className="text-muted-foreground text-sm">
             {t.formEditor.previewEmpty}
@@ -385,15 +393,18 @@ function SortableFieldRow({ field, formId: _formId, isSelected, onSelect, onDele
       ref={setNodeRef}
       style={style}
       className={cn(
+        // landr-hxnb.8 — field rows: selected = catalog-hue soft-bg; idle = card bg.
         'flex items-center gap-2 p-3 transition-colors',
-        isSelected && 'bg-accent',
+        isSelected
+          ? 'bg-hue-catalog-soft-bg'
+          : 'hover:bg-hue-catalog-soft-bg/40',
       )}
       data-testid={`field-row-${field.id}`}
     >
-      {/* Drag handle */}
+      {/* landr-hxnb.8 — characterful drag handle: catalog-hue on hover/grab */}
       <button
         type="button"
-        className="text-muted-foreground cursor-grab touch-none"
+        className="touch-none cursor-grab text-muted-foreground transition-colors hover:text-hue-catalog-vivid active:cursor-grabbing"
         aria-label="Drag to reorder"
         {...attributes}
         {...listeners}
@@ -408,10 +419,16 @@ function SortableFieldRow({ field, formId: _formId, isSelected, onSelect, onDele
         onClick={onSelect}
         aria-pressed={isSelected}
       >
-        <span className="block truncate text-sm font-medium">{field.label}</span>
-        <span className="text-muted-foreground truncate font-mono text-xs">
-          {field.key} · {FIELD_TYPE_LABELS[field.field_type]}
-          {field.required ? ' · *' : ''}
+        <span className="font-display block truncate text-sm font-medium">{field.label}</span>
+        {/* landr-hxnb.8 — field-type chip: catalog-hue pill, playful */}
+        <span className="mt-0.5 flex items-center gap-1.5">
+          <span className="font-display inline-flex items-center rounded-full bg-hue-catalog-soft-bg px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-hue-catalog-vivid">
+            {FIELD_TYPE_LABELS[field.field_type]}
+          </span>
+          <span className="text-muted-foreground truncate font-mono text-xs">
+            {field.key}
+            {field.required ? ' · *' : ''}
+          </span>
         </span>
       </button>
 
@@ -503,8 +520,9 @@ function AddFieldPanel({
   })
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-3">
-      <p className="text-xs font-medium">{t.formEditor.addField}</p>
+    // landr-hxnb.8 — "add field" panel: catalog-hue tint to signal "creation zone"
+    <div className="flex flex-col gap-3 rounded-md border-2 border-dashed border-hue-catalog-vivid/30 bg-hue-catalog-soft-bg/30 p-3">
+      <p className="font-display text-xs font-semibold text-hue-catalog-vivid">{t.formEditor.addField}</p>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="flex flex-col gap-1">
@@ -573,12 +591,14 @@ function AddFieldPanel({
           />
         </div>
 
+        {/* landr-hxnb.8 — catalog-hue CTA for field creation */}
         <Button
           type="button"
           size="sm"
           disabled={!canAdd || addMutation.isPending}
           onClick={() => addMutation.mutate()}
           data-testid="add-field-submit"
+          className="font-display bg-hue-catalog-vivid text-hue-catalog-on-color hover:opacity-90"
         >
           <PlusIcon className="size-4" />
           {addMutation.isPending
@@ -699,21 +719,22 @@ function FieldInspector({ field, precedingFields, onSaved }: InspectorProps) {
 
   return (
     <div className="flex flex-col gap-5">
-      <h2 className="text-sm font-medium">{field.label}</h2>
+      {/* landr-hxnb.8 — inspector header: display font + catalog-hue accent */}
+      <h2 className="font-display text-sm font-semibold">{field.label}</h2>
 
-      {/* ── field type (read-only display) ── */}
+      {/* ── field type (read-only display) ── landr-hxnb.8: playful catalog chip */}
       <div>
         <p className="mb-1 text-xs font-medium">{t.formEditor.sectionType}</p>
-        <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium">
+        <span className="font-display inline-flex items-center rounded-full bg-hue-catalog-soft-bg px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-hue-catalog-vivid">
           {FIELD_TYPE_LABELS[ft]}
         </span>
       </div>
 
-      {/* ── key (read-only) ── */}
+      {/* ── key (read-only) ── landr-hxnb.8: surface-dense code badge */}
       <div>
         <p className="mb-1 text-xs font-medium">{t.formEditor.sectionKey}</p>
-        <code className="bg-muted rounded px-2 py-0.5 text-xs">{field.key}</code>
-        <p className="text-muted-foreground mt-1 text-xs">
+        <code className="rounded bg-[var(--surface-dense)] px-2 py-0.5 font-mono text-xs">{field.key}</code>
+        <p className="mt-1 text-xs text-muted-foreground">
           {t.formEditor.keyImmutableWarning}
         </p>
       </div>

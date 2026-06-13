@@ -461,8 +461,9 @@ export function ProductsManager({
         ? selectedProduct.name
         : t.products.headingPick
 
+  // landr-hxnb.8 — card-comic frame for the product detail pane.
   const detailCard = (
-    <Card>
+    <Card className="card-comic">
       <CardHeader
         className={
           routed
@@ -485,7 +486,8 @@ export function ProductsManager({
             {t.products.backToList}
           </Button>
         ) : null}
-        <CardTitle>{detailHeading}</CardTitle>
+        {/* landr-hxnb.8 — display font on the detail pane heading */}
+        <CardTitle className="font-display">{detailHeading}</CardTitle>
         {/* landr-up1b — per-product shortcode menu: copy the single-product
             embed, or copy a shortcode for any category level in this
             product's breadcrumb (walks parent_id to the root). Only shown
@@ -677,9 +679,10 @@ export function ProductsManager({
   return (
     <div className="flex flex-col gap-6">
       {pageCrumbs ? <PageTitle crumbs={pageCrumbs} /> : null}
+      {/* landr-hxnb.8 — catalog-hue display-font page header */}
       {hideHeader ? null : (
         <header className="flex items-center justify-between gap-4">
-          <h1 className="text-xl font-semibold">{t.products.title}</h1>
+          <h1 className="font-display text-xl font-semibold">{t.products.title}</h1>
         </header>
       )}
 

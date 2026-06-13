@@ -64,12 +64,14 @@ type Props = {
 
 function PinnedRow({ label }: { label: string }) {
   return (
+    // landr-hxnb.8 — pinned steps use catalog-hue soft-bg + dashed border to convey
+    // non-draggable status. Display font keeps them readable at a glance.
     <div
       aria-disabled="true"
-      className="flex items-center gap-3 rounded-md border border-dashed px-3 py-2.5 text-sm text-muted-foreground opacity-60"
+      className="flex items-center gap-3 rounded-md border-2 border-dashed border-hue-catalog-vivid/40 bg-hue-catalog-soft-bg/50 px-3 py-2.5 text-sm opacity-70"
     >
       <GripVerticalIcon className="size-4 opacity-0" aria-hidden="true" />
-      <span>{label}</span>
+      <span className="font-display text-hue-catalog-vivid font-medium">{label}</span>
     </div>
   )
 }
@@ -104,35 +106,39 @@ function SortableModuleRow({ module, forms, onDelete }: SortableModuleRowProps) 
       : null
 
   return (
+    // landr-hxnb.8 — module cards: card-comic framing + catalog-hue handle affordance.
+    // isDragging lifts with shadow-l to hint the active drag.
     <div
       ref={setNodeRef}
       style={style}
       className={[
-        'flex items-center gap-3 rounded-md border bg-card px-3 py-2.5 text-sm',
-        isDragging ? 'opacity-50 shadow-lg' : '',
+        // landr-hxnb.8 — border-comic gives the draggable card its comic outline
+        'flex items-center gap-3 rounded-md border-comic bg-card px-3 py-2.5 text-sm transition-shadow',
+        isDragging ? 'opacity-50 shadow-l' : 'shadow-s',
       ]
         .filter(Boolean)
         .join(' ')}
     >
+      {/* landr-hxnb.8 — characterful drag handle: catalog-hue on hover */}
       <button
         type="button"
-        className="cursor-grab text-muted-foreground touch-none"
+        className="touch-none cursor-grab text-muted-foreground transition-colors hover:text-hue-catalog-vivid active:cursor-grabbing"
         aria-label="Drag to reorder"
         {...attributes}
         {...listeners}
       >
         <GripVerticalIcon className="size-4" aria-hidden="true" />
       </button>
-      <span className="flex-1 truncate">
+      <span className="font-display flex-1 truncate font-medium">
         {MODULE_KIND_LABELS[module.module_kind]}
         {formName ? (
-          <span className="ml-2 text-xs text-muted-foreground">({formName})</span>
+          <span className="ml-2 text-xs font-normal text-muted-foreground">({formName})</span>
         ) : null}
       </span>
       <button
         type="button"
         onClick={() => onDelete(module.id)}
-        className="text-muted-foreground hover:text-destructive transition-colors"
+        className="text-muted-foreground transition-colors hover:text-destructive"
         aria-label={`Remove ${MODULE_KIND_LABELS[module.module_kind]} step`}
       >
         <Trash2Icon className="size-4" />
@@ -284,11 +290,11 @@ export function ProductFlowTab({ productId, operatorId }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Empty state */}
+      {/* landr-hxnb.8 — empty state: catalog-hue framing */}
       {!isLoading && modules.length === 0 ? (
-        <Card>
+        <Card className="card-comic bg-hue-catalog-soft-bg/40">
           <CardHeader>
-            <CardTitle className="text-base">Default booking flow</CardTitle>
+            <CardTitle className="font-display text-base text-hue-catalog-vivid">Default booking flow</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
@@ -331,9 +337,9 @@ export function ProductFlowTab({ productId, operatorId }: Props) {
         <PinnedRow label="Review & checkout (pinned)" />
       </div>
 
-      {/* Add standard module */}
-      <div className="rounded-md border p-3 flex flex-col gap-2">
-        <p className="text-sm font-medium">Add step</p>
+      {/* landr-hxnb.8 — "Add step" panel: surface-dense for information density */}
+      <div className="surface-dense flex flex-col gap-2 rounded-md border p-3 shadow-s">
+        <p className="font-display text-sm font-semibold">Add step</p>
         <div className="flex items-end gap-2">
           <div className="flex-1">
             <NativeSelect
@@ -353,6 +359,7 @@ export function ProductFlowTab({ productId, operatorId }: Props) {
             size="sm"
             disabled={addModuleMutation.isPending}
             onClick={() => addModuleMutation.mutate({ kind: addKind })}
+            className="font-display bg-hue-catalog-vivid text-hue-catalog-on-color hover:opacity-90"
           >
             <PlusIcon className="size-4" />
             Add
@@ -360,10 +367,10 @@ export function ProductFlowTab({ productId, operatorId }: Props) {
         </div>
       </div>
 
-      {/* Add custom form module */}
+      {/* landr-hxnb.8 — "Attach custom form" panel: same dense well treatment */}
       {forms.length > 0 ? (
-        <div className="rounded-md border p-3 flex flex-col gap-2">
-          <p className="text-sm font-medium">Attach custom form</p>
+        <div className="surface-dense flex flex-col gap-2 rounded-md border p-3 shadow-s">
+          <p className="font-display text-sm font-semibold">Attach custom form</p>
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <NativeSelect
@@ -384,6 +391,7 @@ export function ProductFlowTab({ productId, operatorId }: Props) {
               size="sm"
               disabled={!selectedFormId || addModuleMutation.isPending}
               onClick={handleAddForm}
+              className="font-display bg-hue-catalog-vivid text-hue-catalog-on-color hover:opacity-90"
             >
               <PlusIcon className="size-4" />
               Add form
@@ -391,7 +399,7 @@ export function ProductFlowTab({ productId, operatorId }: Props) {
           </div>
         </div>
       ) : formsQuery.isSuccess && forms.length === 0 ? (
-        <p className="text-sm text-muted-foreground px-1">
+        <p className="px-1 text-sm text-muted-foreground">
           No forms in your library yet. Create one in Settings → Forms to attach it here.
         </p>
       ) : null}
