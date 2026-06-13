@@ -50,11 +50,15 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useQuery } from '@tanstack/react-query'
 
+import { TicketIcon } from 'lucide-react'
 import { PageTitle } from '@/lib/page-title'
 import { useOperator } from '@/lib/operator'
 import { useEntitlements } from '@/lib/entitlements'
 import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
+import { EmptyState } from '@/components/EmptyState'
+import { EmptyTickets } from '@/components/illustrations'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { t } from '@/lib/strings'
 import {
   TICKET_COLUMNS,
   fetchAssignableUsers,
@@ -327,6 +331,18 @@ export function TicketBoard() {
           </div>
         ) : null}
       </header>
+
+      {/* landr-hxnb.5 — comic empty state when no tickets exist at all. */}
+      {!query.isPending && localTickets.length === 0 ? (
+        <EmptyState
+          icon={TicketIcon}
+          illustration={<EmptyTickets className="h-full w-full" />}
+          accentHue="comms"
+          title={t.emptyStates.tickets.title}
+          description={t.emptyStates.tickets.description}
+          data-testid="tickets-empty-state"
+        />
+      ) : null}
 
       <DndContext
         sensors={sensors}

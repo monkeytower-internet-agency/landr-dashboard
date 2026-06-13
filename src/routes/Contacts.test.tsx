@@ -350,7 +350,7 @@ describe('Contacts route', () => {
     const empty = await screen.findByTestId('contacts-empty-state')
     expect(empty).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: /no contacts yet/i }),
+      screen.getByRole('heading', { name: /no adventurers yet/i }),
     ).toBeInTheDocument()
   })
 

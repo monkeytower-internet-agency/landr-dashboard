@@ -4034,31 +4034,36 @@ export const t = {
   // celebratory tone (nothing pending is the *good* state).
   emptyStates: {
     bookings: {
-      title: 'No bookings yet',
+      title: 'The skies are clear',
       description:
-        'New customer bookings will show up here. Share your booking link or create one manually to get started.',
+        'No bookings have landed yet. Share your booking link and watch the calendar fill up!',
     },
     contacts: {
-      title: 'No contacts yet',
+      title: 'No adventurers yet',
       description:
-        'Your customer list is empty. Contacts are added automatically when a booking comes in.',
+        'Your roster is wide open. Contacts appear here automatically when the first booking comes in.',
     },
     products: {
-      title: 'No products yet',
+      title: 'Nothing on the shelf',
       description:
-        'Add your first product so customers can book it from your widget.',
+        'Add your first product and let customers book their next adventure.',
       cta: 'New product',
     },
     views: {
-      title: 'No views yet',
+      title: 'No saved views yet',
       description:
         'Saved views let you filter and revisit the bookings that matter most. Create one or start from a template.',
       cta: '+ New view',
     },
     calendar: {
-      title: 'No bookings to show',
+      title: 'Wide-open skies',
       description:
-        'When you have scheduled bookings they will appear on the calendar.',
+        'No flights scheduled. Once bookings come in they\'ll appear right here on the calendar.',
+    },
+    tickets: {
+      title: 'All quiet in the inbox',
+      description:
+        'No support tickets yet. When customers need help, their messages will land here.',
     },
     recentlyViewed: {
       title: 'Nothing here yet',

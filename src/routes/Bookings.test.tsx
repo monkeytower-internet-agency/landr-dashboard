@@ -496,7 +496,7 @@ describe('Bookings route', () => {
     const empty = await screen.findByTestId('bookings-empty-state')
     expect(empty).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: /no bookings yet/i }),
+      screen.getByRole('heading', { name: /the skies are clear/i }),
     ).toBeInTheDocument()
     // The filter search input should be hidden (no rows to filter).
     expect(screen.queryByLabelText(/search bookings/i)).not.toBeInTheDocument()

@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-table'
 import { CalendarRangeIcon } from 'lucide-react'
 import { toast } from 'sonner'
+import { EmptyBookings } from '@/components/illustrations'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -517,6 +518,8 @@ export function BookingsTable({
     return (
       <EmptyState
         icon={CalendarRangeIcon}
+        illustration={<EmptyBookings className="h-full w-full" />}
+        accentHue="bookings"
         title={t.emptyStates.bookings.title}
         description={t.emptyStates.bookings.description}
         data-testid="bookings-empty-state"
