@@ -92,7 +92,7 @@ describe('ViewsIndex (landr-v0xg)', () => {
     render()
 
     expect(await screen.findByText(/no saved views yet/i)).toBeInTheDocument()
-    expect(screen.getByText(/start with a template/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/start from a template/i).length).toBeGreaterThanOrEqual(1)
 
     // landr-s1mr — the no-views state uses the shared <EmptyState> card.
     expect(screen.getByTestId('views-empty-state')).toBeInTheDocument()

@@ -73,7 +73,7 @@ describe('ForgotPassword', () => {
     await user.type(screen.getByLabelText(/email/i), 'seed@para42.example')
     await user.click(screen.getByRole('button', { name: /send reset link/i }))
     await waitFor(() =>
-      expect(screen.getByText(/check your email/i)).toBeInTheDocument(),
+      expect(screen.getByText(/check your inbox/i)).toBeInTheDocument(),
     )
     // No leak of whether the account exists.
     expect(screen.getByText(/if an account exists/i)).toBeInTheDocument()
@@ -86,7 +86,7 @@ describe('ForgotPassword', () => {
     await user.type(screen.getByLabelText(/email/i), 'seed@para42.example')
     await user.click(screen.getByRole('button', { name: /send reset link/i }))
     await waitFor(() =>
-      expect(screen.getByText(/check your email/i)).toBeInTheDocument(),
+      expect(screen.getByText(/check your inbox/i)).toBeInTheDocument(),
     )
   })
 })

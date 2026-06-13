@@ -433,7 +433,7 @@ describe('AppSidebar — 3-state collapse control (landr-fzcg)', () => {
   it('renders a radiogroup with the three modes', () => {
     renderSidebar()
     const group = screen.getByRole('radiogroup', {
-      name: /sidebar display mode/i,
+      name: /sidebar style/i,
     })
     const radios = within(group).getAllByRole('radio')
     expect(radios).toHaveLength(3)
@@ -442,7 +442,7 @@ describe('AppSidebar — 3-state collapse control (landr-fzcg)', () => {
   it('starts on the default mode (expanded)', () => {
     renderSidebar()
     const group = screen.getByRole('radiogroup', {
-      name: /sidebar display mode/i,
+      name: /sidebar style/i,
     })
     const expanded = within(group).getByRole('radio', {
       name: /always expanded/i,
@@ -455,10 +455,10 @@ describe('AppSidebar — 3-state collapse control (landr-fzcg)', () => {
     const user = userEvent.setup()
     renderSidebar()
     const group = screen.getByRole('radiogroup', {
-      name: /sidebar display mode/i,
+      name: /sidebar style/i,
     })
     const hover = within(group).getByRole('radio', {
-      name: /expand on hover/i,
+      name: /peek on hover/i,
     })
 
     await user.click(hover)
@@ -476,7 +476,7 @@ describe('AppSidebar — 3-state collapse control (landr-fzcg)', () => {
     // still in the DOM (we render both variants and toggle via CSS).
     // Assert via localStorage round-trip + the radiogroup state.
     const group = screen.getByRole('radiogroup', {
-      name: /sidebar display mode/i,
+      name: /sidebar style/i,
     })
     const collapsed = within(group).getByRole('radio', {
       name: /always collapsed/i,
@@ -487,10 +487,10 @@ describe('AppSidebar — 3-state collapse control (landr-fzcg)', () => {
   it('responds to cross-tab storage events', () => {
     renderSidebar()
     const group = screen.getByRole('radiogroup', {
-      name: /sidebar display mode/i,
+      name: /sidebar style/i,
     })
     const hover = within(group).getByRole('radio', {
-      name: /expand on hover/i,
+      name: /peek on hover/i,
     })
     expect(hover.getAttribute('aria-checked')).toBe('false')
 

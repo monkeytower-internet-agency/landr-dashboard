@@ -11,11 +11,11 @@ export const t = {
     name: 'LANDR Operator Dashboard',
     // landr-fzcg — 3-state sidebar collapse control.
     sidebarMode: {
-      groupLabel: 'Sidebar display mode',
+      groupLabel: 'Sidebar style',
       collapsed: 'Always collapsed',
       expanded: 'Always expanded',
-      hoverExpand: 'Expand on hover',
-      cycleHint: 'Cycle sidebar mode',
+      hoverExpand: 'Peek on hover',
+      cycleHint: 'Switch sidebar style',
     },
     settings: 'Settings',
     // landr-v0xg — Views section label (sidebar primary nav).
@@ -28,11 +28,11 @@ export const t = {
     menuLabel: 'Workspace',
     // Mode entries.
     operator: 'Operator dashboard',
-    operatorHint: 'Your normal operator-scoped workspace',
+    operatorHint: 'Your home turf — full operator workspace',
     viewAs: 'View as operator',
-    viewAsHint: 'Preview what a SaaS customer sees',
+    viewAsHint: 'See the dashboard exactly as your customer does',
     tickets: 'Ticket system',
-    ticketsHint: 'Full-screen support & feedback workspace',
+    ticketsHint: 'Full-screen support & feedback hub',
     // Ticket-system shell chrome.
     ticketSystemTitle: 'Ticket system',
     exitToOperator: 'Exit to dashboard',
@@ -86,9 +86,9 @@ export const t = {
   commandPalette: {
     dialogTitle: 'Command palette',
     dialogDescription:
-      'Search across bookings, contacts, products, and views. Jump to any page or run a quick action.',
-    inputPlaceholder: 'Type a command or search…',
-    empty: 'No results found.',
+      'Search bookings, contacts, products, and views — or run a quick action.',
+    inputPlaceholder: 'Where to? Type a command or search…',
+    empty: 'Nothing found. Try a different search.',
     groupNav: 'Navigation',
     groupActions: 'Quick actions',
     groupBookings: 'Bookings',
@@ -104,7 +104,7 @@ export const t = {
   keyboardShortcuts: {
     dialogTitle: 'Keyboard shortcuts',
     dialogDescription:
-      'Speed up navigation with these keyboard shortcuts. Press ? from anywhere to reopen this sheet.',
+      'Navigate at the speed of light. Press ? from anywhere to pull this back up.',
     groupGlobal: 'Global',
     groupNavigation: 'Navigation',
     // landr-euta — j/k/Enter/x row navigation on Bookings, Contacts,
@@ -129,8 +129,8 @@ export const t = {
     },
   },
   auth: {
-    signInHeading: 'Sign in',
-    signInDescription: 'Access your operator dashboard.',
+    signInHeading: 'Welcome back',
+    signInDescription: 'Sign in to your operator dashboard.',
     emailLabel: 'Email',
     emailPlaceholder: 'you@operator.example',
     passwordLabel: 'Password',
@@ -140,8 +140,8 @@ export const t = {
     signOut: 'Sign out',
     invalidEmail: 'Enter a valid email address.',
     passwordRequired: 'Password is required.',
-    genericError: 'Unable to sign in. Check your credentials and try again.',
-    loadingSession: 'Loading session…',
+    genericError: 'Could not sign in. Double-check your credentials and try again.',
+    loadingSession: 'Loading your session…',
     sessionExpired: 'Your session expired — please sign in again.',
     continueWith: (provider: string) => `Continue with ${provider}`,
     continueWithLoading: (provider: string) => `Connecting to ${provider}…`,
@@ -153,47 +153,47 @@ export const t = {
       'Sign-in did not complete. Please try again or use your password.',
     // landr — Forgot / reset password flow.
     forgotLink: 'Forgot password?',
-    forgotHeading: 'Reset your password',
+    forgotHeading: 'Forgot your password?',
     forgotDescription:
-      "Enter your email and we'll send you a link to choose a new password.",
+      "No worries — enter your email and we'll send you a link to set a new one.",
     forgotSubmit: 'Send reset link',
     forgotSubmitting: 'Sending…',
     // Neutral, account-enumeration-safe confirmation (shown regardless of
     // whether the address has an account).
-    forgotSentTitle: 'Check your email',
+    forgotSentTitle: 'Check your inbox',
     forgotSentBody: (email: string) =>
-      `If an account exists for ${email}, we've sent a link to reset your password. The link expires in one hour.`,
+      `If an account exists for ${email}, we've sent a reset link. It expires in one hour.`,
     forgotBackToLogin: 'Back to sign in',
-    resetHeading: 'Choose a new password',
-    resetDescription: 'Enter a new password for your account.',
+    resetHeading: 'Set a new password',
+    resetDescription: 'Pick something strong — you can do it.',
     resetNewPasswordLabel: 'New password',
     resetConfirmLabel: 'Confirm new password',
     resetSubmit: 'Update password',
     resetSubmitting: 'Updating…',
-    resetSuccess: 'Password updated — you are signed in.',
+    resetSuccess: "Password updated — you're in!",
     resetMismatch: 'Passwords do not match.',
     resetTooShort: 'Password must be at least 8 characters.',
     resetVerifying: 'Verifying your reset link…',
     resetLinkInvalidTitle: 'This reset link is invalid or has expired',
     resetLinkInvalidBody:
-      'Reset links expire after one hour and can only be used once. Request a new one to continue.',
-    resetRequestNew: 'Request a new link',
+      'Reset links expire after one hour and can only be used once. Grab a fresh one below.',
+    resetRequestNew: 'Get a new link',
     resetGenericError: 'Could not update your password. Please try again.',
   },
   // landr — logged-in change-password (Settings → Security). Re-enters the
   // current password (verified via signInWithPassword) before updateUser.
   security: {
     title: 'Security',
-    description: 'Manage your account password.',
+    description: 'Keep your account locked down.',
     changePasswordHeading: 'Change password',
     changePasswordDescription:
-      'Choose a strong password you do not use anywhere else.',
+      "Choose a strong password you don't use anywhere else.",
     currentPasswordLabel: 'Current password',
     newPasswordLabel: 'New password',
     confirmPasswordLabel: 'Confirm new password',
     submit: 'Update password',
     submitting: 'Updating…',
-    success: 'Password updated.',
+    success: 'Password updated. Nice work.',
     currentRequired: 'Enter your current password.',
     currentIncorrect: 'Current password is incorrect.',
     mismatch: 'New passwords do not match.',
@@ -203,18 +203,18 @@ export const t = {
     // Provider-only operators (e.g. Google sign-in) have no email/password
     // identity yet — they SET a password in-app instead of going through
     // "Forgot password?".
-    setPasswordHeading: 'Set a password',
+    setPasswordHeading: 'Add a password',
     setPasswordDescription:
-      'Add a password so you can sign in with your email and password as well as with Google. Choose a strong password you do not use anywhere else.',
+      "Add a password so you can sign in with email as well as Google. Make it strong — something only you'd know.",
     setSubmit: 'Set password',
     setSubmitting: 'Setting…',
     setSuccess:
-      'Password set. You can now sign in with your email and password.',
+      'Password set! You can now sign in with your email too.',
   },
   connectedAccounts: {
     title: 'Connected accounts',
     description:
-      'Link additional sign-in methods to your account. You can sign in with any linked provider.',
+      'Link extra sign-in methods to your account. Any linked provider works for sign-in.',
     loading: 'Loading connected accounts…',
     error: 'Failed to load connected accounts.',
     statusLinked: 'Linked',
@@ -225,7 +225,7 @@ export const t = {
     connecting: 'Connecting…',
     disconnect: 'Disconnect',
     disconnecting: 'Disconnecting…',
-    disconnectDisabledTooltip: 'Cannot remove your only sign-in method.',
+    disconnectDisabledTooltip: "You can't remove your only sign-in method.",
     confirmDisconnectTitle: 'Disconnect this provider?',
     confirmDisconnectBody: (provider: string) =>
       `You will no longer be able to sign in with ${provider}. You can re-connect later.`,
@@ -237,7 +237,7 @@ export const t = {
   },
   operator: {
     switcherLabel: 'Operator',
-    noOperators: 'No operators available for this account.',
+    noOperators: 'No operators linked to this account.',
     switchTo: 'Switch operator',
     loading: 'Loading operators…',
     // landr-2soj / landr-7dya.13 — staff "View as operator" mode.
@@ -333,11 +333,11 @@ export const t = {
   retrieve: {
     title: 'Retrieve board',
     subtitle:
-      "Who's down, who's still out, and where pickups are needed — for one day.",
+      "Who's down, who's still out, and where pickups are needed — at a glance.",
     dayLabel: 'Day',
     loading: 'Loading the board…',
     error: 'Failed to load the retrieve board.',
-    empty: 'No check-ins for this day yet.',
+    empty: 'No check-ins recorded for this day yet.',
     overdueHint: 'Not yet checked in — keep an eye out.',
     noteLabel: 'Note',
     mapLink: 'Open map',
@@ -353,16 +353,16 @@ export const t = {
   trash: {
     title: 'Recently deleted',
     subtitle:
-      'Soft-deleted items per category. Restore brings the row back. Server-side cleanup eventually empties the bin.',
+      'Soft-deleted items, sorted by category. Restore brings anything back; the bin clears itself over time.',
     loading: 'Loading…',
     error: 'Failed to load this category.',
-    empty: 'Nothing in the bin for this category.',
+    empty: 'Nothing in the bin here.',
     columnItem: 'Item',
     columnDeletedAt: 'Deleted',
     restore: 'Restore',
     restoring: 'Restoring…',
     restoreSuccess: 'Restored.',
-    restoreError: 'Failed to restore. Try again.',
+    restoreError: 'Restore failed. Try again.',
     tabs: {
       bookings: 'Bookings',
       contacts: 'Contacts',
@@ -461,92 +461,92 @@ export const t = {
     // topbar gives operators at-a-glance context about what the section
     // controls.
     sectionDescriptions: {
-      company: 'Legal entity, tax ID, and contact details on invoices.',
-      calendarDisplay: 'Default work hours and time format.',
-      displayPreferences: 'Toggles for dashboard hints and teasers.',
-      team: 'Add and remove operator staff members.',
+      company: 'Legal entity, tax ID, and contact details for invoices.',
+      calendarDisplay: 'Set your working hours and preferred time format.',
+      displayPreferences: 'Toggle dashboard hints and upgrade prompts.',
+      team: 'Add and remove staff members.',
       providers:
-        'Manage the people who deliver your service (instructors, pilots, drivers) and assign them to booking days.',
-      pickupLocations: 'Manage pickup sites and sub-points for bookings.',
+        'The people who deliver your service — instructors, pilots, drivers. Assign them to booking days.',
+      pickupLocations: 'Manage pickup sites and meeting points.',
       // landr-cyoi — Hotels settings section subtitle.
-      hotels: 'Manage your accommodation partners and their contact details.',
-      products: 'Configure bookable products and their availability rules.',
+      hotels: 'Manage accommodation partners and their contact details.',
+      products: 'Configure bookable products and availability rules.',
       categories:
-        'Organise products into a nested category tree. Drag-free reparenting, rename, and reorder.',
+        'Organise products into a nested category tree — rename, reorder, and reparent with ease.',
       // landr-ylvp — Embed code: how you install the widget.
       embed:
-        'Generate the [landr_booking] shortcode/iframe to embed your booking widget on any website.',
+        'Generate the [landr_booking] shortcode or iframe to drop your booking widget onto any website.',
       offers:
-        'Add-ons shown after the trip on the customer event page. Each links out to your own shop, merch store, or form.',
-      schedule: 'Plan capacity windows and one-off closures.',
+        'Post-trip add-ons on the customer event page. Each card links out to your shop, merch store, or form.',
+      schedule: 'Plan availability windows and one-off closures.',
       emailTemplates:
-        'Customise transactional emails sent to customers for each booking event.',
+        'Customise the transactional emails customers receive at each booking milestone.',
       // landr-qg4q — read-only audit surface for the outbound_emails queue.
       emailLog:
-        'Outbound email queue: see what was sent, what failed, and why.',
+        'Outbound email history: see what was sent, what failed, and why.',
       integrationsGmail:
-        'Send outbound booking emails from your Gmail account via OAuth.',
+        'Send booking emails from your own Gmail address via OAuth.',
       // landr-6ybs — per-operator subscribable ICS calendar feed.
       integrationsCalendar:
-        'Subscribe to a live ICS feed of all your bookings in Google, Apple, or Outlook calendar.',
+        'Subscribe to a live ICS feed of all your bookings in Google, Apple, or Outlook Calendar.',
       // landr-1nwu.2 — per-operator Stripe + Holded credentials (test/live).
       integrationsPayments:
-        'Enter your own Stripe (test + live) and Holded (demo + live) API keys. Secrets are encrypted and never shown again.',
+        'Add your Stripe and Holded API keys. Secrets are encrypted and never shown again.',
       connectedAccounts:
-        'Identity links (Google, Apple, GitHub) for this operator.',
-      security: 'Change your account password.',
+        'Sign-in methods linked to your account (Google, Apple, GitHub).',
+      security: 'Update your account password.',
       plan: 'Your current subscription plan.',
       pricing: 'Discounts, surcharges, and pricing modifiers.',
       // landr-9n0l — commission scheme editor + agent-earnings report.
       commissions:
-        'Commission schemes for agents, providers, and the platform, plus per-agent earnings.',
+        'Commission schemes for agents, providers, and the platform — plus per-agent earnings.',
       // landr-ylvp — Brand: who you are (logo + colours only). Widget text
       // moved to the Booking widget section.
-      branding: 'Apply your logo and brand theme (3 colours + dark mode) to the booking widget.',
+      branding: 'Your logo and brand colours (3 slots + dark mode) in the booking widget.',
       // landr-jb1k — booking-widget layout/density/title style.
       // landr-ylvp — also owns the widget text (headline/description/footer).
       widget:
-        'Choose the layout, grid columns, title typography, and the headline, description, and footer text shown around your booking widget.',
+        'Pick the widget layout, grid columns, title style, and the headline, description, and footer customers see.',
       // landr-znzz.7 — optional weather forecast hint for the conditions verdict.
       weather:
-        'Opt in to a weather forecast hint shown next to the conditions chips when setting daily updates.',
-      tags: 'Define operator-scoped tags to apply to bookings and contacts.',
+        'Show a one-line weather forecast hint when you set daily conditions updates.',
+      tags: 'Colour-coded labels to tag bookings and contacts.',
       // landr-1tqx — participant service-role catalogue read by the widget.
       serviceRoles:
-        'Define the participant roles (Pilot, Passenger, Diver…) customers pick on the booking form.',
+        'The participant roles customers choose on the booking form (Pilot, Passenger, Diver…).',
       // landr-sp4r — marketing campaigns for booking attribution.
       campaigns:
-        'Create marketing campaigns and codes to attribute bookings against.',
+        'Marketing campaigns and codes — attribute bookings back to the channel that brought them in.',
       // landr-v198 — promo-code editor.
       vouchers:
-        'Create and manage discount codes customers redeem at booking.',
+        'Discount codes customers redeem at checkout.',
       // landr-r87i — default per-booking checklist editor.
       operations:
-        'Default checklist items that seed every new booking. Per-booking progress stays local.',
+        'Default checklist items seeded into every new booking. Per-booking progress stays on-device.',
       // landr-ah9u — operator webhook configuration.
       webhooks:
-        'Subscribe an HTTPS endpoint to booking and payment events. Configuration is saved locally; server-side delivery ships in v2.',
+        'Subscribe an HTTPS endpoint to booking and payment events. Config is saved locally; server delivery ships in v2.',
       // landr-atwy — post-booking account-link prompt opt-in.
       accountLink:
-        'Control whether customers see a post-booking prompt to link their booking to the LANDR mobile app.',
+        'Show (or hide) the post-booking prompt inviting customers to track their trip in the LANDR app.',
       // landr-wwhn.16 — personal notification preferences.
       notifications:
-        'Choose how you receive notifications for ticket activity — bell, email, and mobile push.',
+        'Choose how you hear about ticket activity — bell, email, or mobile push.',
       // landr-sbhz.5 — staff-only tier/feature entitlement editor.
       tiers:
-        'Landr staff: enable features per subscription tier, or override a single operator one feature at a time.',
+        'Landr staff: enable features per subscription tier, or override individual operators one feature at a time.',
       // landr-71kz.5 — operator form library.
       forms:
-        'Build reusable booking forms with fields, validation, and conditional logic. Attach them to products in the Flow tab.',
+        'Reusable booking forms with fields, validation, and conditional logic. Attach them to products in the Flow tab.',
     },
     plan: {
       title: 'Plan',
       description: 'Your current subscription plan.',
       currentLabel: 'Current plan',
       slugLabel: 'Plan slug',
-      noPlan: 'No plan information available.',
+      noPlan: 'No plan information on file.',
       upgradeHint:
-        'Plan upgrades will land in a future release. Contact support to change your plan today.',
+        'Plan upgrades are coming in a future release. Reach out to support if you need to change your plan now.',
     },
   },
   // landr-sbhz.5 — STAFF-ONLY tier/feature editor (Settings → Tiers & features).
@@ -923,7 +923,7 @@ export const t = {
     open: 'Open notifications',
     badge: (n: number): string => `${n} unread notifications`,
     heading: 'Notifications',
-    empty: 'You are all caught up.',
+    empty: "You're all caught up — nothing new.",
     markAllRead: 'Mark all as read',
     loadError: 'Could not load notifications.',
   },
@@ -933,22 +933,22 @@ export const t = {
     triggerLabel: 'Report an issue or send feedback',
     triggerText: 'Feedback',
     // Dialog.
-    dialogTitle: 'Report an issue / Send feedback',
+    dialogTitle: 'Got something to say?',
     dialogDescription:
-      'We read everything and get back to you here in the dashboard.',
+      'We read everything and reply right here in the dashboard.',
     // Impact picker (replaces the old type toggle — the single classifier).
-    impactLabel: 'How is it affecting you?',
-    impactBlocking: 'Blocking — I cannot get work done',
+    impactLabel: "How's it hitting you?",
+    impactBlocking: "Blocking — I can't get work done",
     impactAnnoying: 'Annoying — it slows me down',
     impactIdea: 'Idea / suggestion',
     // Contextual hints shown below the body textarea.
     reproHintBlocking: 'What happened, what did you expect, and what were you trying to do?',
-    reproHintAnnoying: 'What is the friction — what did you expect to happen instead?',
+    reproHintAnnoying: "What's the friction — what did you expect to happen instead?",
     // Fields.
     titleLabel: 'Summary',
     titlePlaceholder: 'One-line summary',
     bodyLabel: 'Details',
-    bodyPlaceholder: 'More context, steps to reproduce, or background — the more, the better.',
+    bodyPlaceholder: 'More context, steps to reproduce, or background — the more the better.',
     // Attachment zone.
     attachLabel: 'Attach a file or screenshot',
     attachHint: 'Paste (Ctrl+V) or click to attach',
@@ -1131,7 +1131,7 @@ export const t = {
     // they're looking at without scanning the table.
     subtitleSummary: (count: number, revenue: string): string =>
       `${count} ${count === 1 ? 'booking' : 'bookings'} · ${revenue}`,
-    empty: 'No bookings yet.',
+    empty: 'No bookings here yet.',
     error: 'Failed to load bookings.',
     columnDate: 'Booked on',
     columnServiceDate: 'Service date',
@@ -1191,7 +1191,7 @@ export const t = {
       all: 'All',
       today: 'Today',
       thisWeek: 'This week',
-      pendingPayment: 'Pending payment',
+      pendingPayment: 'Awaiting payment',
       upcoming: 'Upcoming (next 30d)',
     },
     // landr-oxlk — right-click context menu on a Bookings row. Mark-no-
@@ -1281,7 +1281,7 @@ export const t = {
       sectionDates: 'Dates',
       // landr-iz58 — operator-applied tags.
       sectionTags: 'Tags',
-      tagsToastError: 'Failed to update booking tags.',
+      tagsToastError: 'Could not update booking tags.',
       sectionPricing: 'Pricing',
       customerFirstName: 'First name',
       customerLastName: 'Last name',
@@ -1298,7 +1298,7 @@ export const t = {
       rangeSummary: (range: string) => `Range: ${range}`,
       noSelectedDays: 'No specific days selected for this line item.',
       grossTotalLabel: 'Gross total',
-      recomputeHint: 'Recomputed automatically on save.',
+      recomputeHint: 'Recalculated automatically on save.',
       save: 'Save changes',
       saving: 'Saving…',
       cancel: 'Cancel',
@@ -1307,9 +1307,9 @@ export const t = {
       // the [data-print-target="booking-detail"] subtree so Ctrl+P or this
       // button produces a clean receipt.
       print: 'Print',
-      noChanges: 'No changes to save.',
-      saveToastSuccess: 'Booking updated.',
-      saveToastError: 'Failed to save booking.',
+      noChanges: 'Nothing to save yet.',
+      saveToastSuccess: 'Booking saved.',
+      saveToastError: 'Could not save booking.',
       stageTooltip: (code: string) => `Stage: ${code}`,
       itemHeading: (name: string | null, index: number) =>
         name ? name : `Line item ${index + 1}`,
@@ -1372,7 +1372,7 @@ export const t = {
       tabParticipants: 'Participants',
       loading: 'Loading participants…',
       error: 'Could not load participants.',
-      empty: 'No participants recorded.',
+      empty: 'No participants on this booking yet.',
       columnName: 'Name',
       columnRole: 'Role',
       columnEmail: 'Email',
@@ -1392,17 +1392,17 @@ export const t = {
       tabNotes: 'Notes',
       sectionTitle: 'Internal notes',
       sectionHint:
-        'Private to staff. Never sent to the customer.',
-      composerPlaceholder: 'Add an internal note…',
+        'Staff-only. Never shown to the customer.',
+      composerPlaceholder: 'Jot down an internal note…',
       composerSave: 'Save note',
       composerSaving: 'Saving…',
       composerError: 'Could not save note.',
       composerSuccess: 'Note saved.',
-      empty: 'No internal notes yet.',
+      empty: 'No notes yet. Write one above.',
       loading: 'Loading notes…',
       loadError: 'Could not load notes.',
       deleteLabel: 'Delete note',
-      deleteConfirm: 'Delete this note? This cannot be undone.',
+      deleteConfirm: "Delete this note? It's gone for good.",
       deleteSuccess: 'Note deleted.',
       deleteError: 'Could not delete note.',
       deletedUser: '(deleted user)',
@@ -1424,9 +1424,9 @@ export const t = {
     resendConfirmation: {
       action: 'Resend confirmation',
       working: 'Sending…',
-      toastSuccess: 'Confirmation resent.',
+      toastSuccess: 'Confirmation sent.',
       toastSuccessWithChanges: (n: number): string =>
-        `Confirmation resent · ${n} change${n === 1 ? '' : 's'} highlighted.`,
+        `Confirmation sent · ${n} change${n === 1 ? '' : 's'} highlighted.`,
       toastError: 'Could not resend confirmation.',
     },
     // landr-uzup — Payments tab inside BookingDetailSheet. Lists every
@@ -1564,13 +1564,13 @@ export const t = {
       progressAria: (done: number, total: number): string =>
         `${done} of ${total} checklist steps complete`,
       itemAria: (label: string): string => `Toggle "${label}"`,
-      addPlaceholder: 'Add a step (e.g. "Sign waiver")',
+      addPlaceholder: 'Add a step — e.g. "Sign waiver"',
       addAction: 'Add',
       addAria: 'Add a custom checklist step',
       removeAria: (label: string): string => `Remove "${label}"`,
-      empty: 'No checklist steps yet.',
+      empty: 'No steps yet. Add one above.',
       footnote:
-        'Saved on this device only. Switching devices or clearing site data resets the list.',
+        'Saved on this device. Switching devices or clearing site data resets the list.',
     },
     // landr-znzz.2 — Customer page tab: edits the customer-facing briefing
     // ("event") page — title/welcome/tone/publish/review nudge — plus the
@@ -1582,14 +1582,14 @@ export const t = {
       // Empty / create state.
       emptyTitle: 'No customer page yet',
       emptyBody:
-        'Create a customer-facing page for this booking. You’ll get a private link to share, plus a place to post nightly conditions, plans and meeting points.',
+        'Create a customer page for this booking — share a private link, post nightly conditions, plans, and meeting points.',
       createAction: 'Create customer page',
       createWorking: 'Creating…',
       createError: 'Could not create the customer page.',
       // Share / link section.
       shareTitle: 'Share link',
       shareHint:
-        'This is the customer’s private page. Anyone with the link can see published content — keep it to the booking’s group.',
+        "This is your customer's private page. Anyone with the link can view published content — share only within the booking group.",
       copyLink: 'Copy link',
       copyToastSuccess: 'Link copied.',
       copyToastError: 'Could not copy the link.',
@@ -1599,18 +1599,18 @@ export const t = {
       // Publish toggle.
       publishLabel: 'Published',
       publishHintOff:
-        'The page is private until you publish it. Customers see nothing yet.',
+        'The page is private for now — customers see nothing until you hit publish.',
       publishHintOn:
-        'The page is live. Customers with the link see all published content below.',
+        'The page is live! Customers with the link can see all published content below.',
       // Content section.
       contentTitle: 'Page content',
       contentHint:
-        'Pickup times come from the day / attendance editor and appear on the page automatically — you don’t set them here.',
+        'Pickup times are pulled in automatically from the day editor — no need to enter them here.',
       fieldTitle: 'Title',
       fieldTitlePlaceholder: 'e.g. Your sunrise paddle with LANDR',
       fieldWelcome: 'Welcome note',
       fieldWelcomePlaceholder:
-        'A short hello — what to expect, what to bring, how excited you are to host them.',
+        'A warm hello — what to expect, what to bring, how excited you are to have them.',
       fieldTone: 'Tone',
       toneOptionPlayful: 'Playful',
       toneOptionCalm: 'Calm',
@@ -1628,7 +1628,7 @@ export const t = {
       // Per-day section.
       daysTitle: 'Daily updates',
       daysHint:
-        'Post tonight’s verdict for tomorrow: is it a go? Add the plan and where to meet. Publish each day when it’s ready — pickup times are pulled in automatically.',
+        "Set tonight's verdict for tomorrow: is it a go? Add the plan and meeting point, then publish each day when ready. Pickup times come in automatically.",
       daysEmpty: 'This booking has no scheduled days.',
       dayConditionsLabel: 'Conditions',
       conditionPending: 'Pending',
@@ -1646,7 +1646,7 @@ export const t = {
       dayMeetingPointLabel: 'Meeting point',
       dayMeetingPointPlaceholder: 'e.g. North car park, by the kiosk.',
       dayPublishLabel: 'Published',
-      dayPublishHint: 'Customers only see this day once you publish it.',
+      dayPublishHint: 'Customers see this day only after you publish it.',
       daySave: 'Save day',
       daySaving: 'Saving…',
       daySaveToastSuccess: (day: string): string => `Saved ${day}.`,
@@ -1654,15 +1654,15 @@ export const t = {
       // Rotate token.
       rotateTitle: 'Reset link',
       rotateHint:
-        'If the link was over-shared, reset it to kill the old one. You’ll need to re-send the new link to the group.',
+        "If the link got out to the wrong people, reset it — the old one dies instantly. Send the new link to your group.",
       rotateAction: 'Reset link',
       rotateConfirmTitle: 'Reset the share link?',
       rotateConfirmBody:
-        'The current link will stop working immediately. Anyone you’ve already sent it to will need the new link.',
+        "The current link stops working immediately. Everyone you've already sent it to will need the new one.",
       rotateConfirmCancel: 'Keep current link',
       rotateConfirm: 'Reset link',
       rotateWorking: 'Resetting…',
-      rotateToastSuccess: 'Link reset. Share the new one.',
+      rotateToastSuccess: 'Link reset — share the new one with your group.',
       rotateToastError: 'Could not reset the link.',
     },
   },
@@ -1676,10 +1676,10 @@ export const t = {
     rescheduleError: 'Could not reschedule booking.',
     // landr-nnbm — drag-to-reschedule confirmation toast + Undo action.
     rescheduleToast: (label: string, dateLabel: string): string =>
-      `Rescheduled ${label} to ${dateLabel}`,
+      `${label} moved to ${dateLabel}`,
     rescheduleUndo: 'Undo',
-    rescheduleUndone: 'Reschedule undone.',
-    rescheduleUndoError: 'Could not undo reschedule.',
+    rescheduleUndone: 'Move undone.',
+    rescheduleUndoError: 'Could not undo the reschedule.',
     // landr-f1s — off-hours expand/collapse for the time-grid views.
     expandOffHours: (start: string, end: string): string =>
       `Show hours outside ${start}–${end}`,
@@ -1692,7 +1692,7 @@ export const t = {
     // landr-3qkr.5 — mobile agenda list mode.
     agendaToggleToGrid: 'Grid',
     agendaToggleToList: 'List',
-    agendaEmpty: 'No upcoming bookings.',
+    agendaEmpty: 'No upcoming bookings. Enjoy the calm!',
     agendaNoDate: 'Unscheduled',
     // landr-sr69 — per-day flying roster shown in each month-grid day cell
     // and the day-roster popover.
@@ -1715,7 +1715,7 @@ export const t = {
     // operator can eyeball list size without scrolling.
     subtitleCount: (n: number): string =>
       `${n} ${n === 1 ? 'contact' : 'contacts'}`,
-    empty: 'No contacts yet.',
+    empty: 'No contacts here yet.',
     error: 'Failed to load contacts.',
     columnName: 'Name',
     columnEmail: 'Email',
@@ -1810,22 +1810,22 @@ export const t = {
       clearTagFilter: 'Clear tag filter',
       saveDialogTitle: 'Save segment',
       saveDialogDescription:
-        'Save the current tag combination as a reusable quick-filter chip.',
+        'Turn the current tag filter into a one-click chip you can reuse any time.',
       saveNameLabel: 'Segment name',
       saveNamePlaceholder: 'e.g. VIP returning customers',
       saveTagsLabel: 'Tags in this segment',
       saveColorLabel: 'Chip color',
       saveSubmit: 'Save segment',
       saveCancel: 'Cancel',
-      saveValidationName: 'Give the segment a name to save it.',
+      saveValidationName: 'Give your segment a name first.',
       saveValidationTags: 'Pick at least one tag.',
-      toastCreated: (name: string): string => `Segment '${name}' saved.`,
-      toastUpdated: (name: string): string => `Segment '${name}' updated.`,
-      toastDeleted: (name: string): string => `Segment '${name}' deleted.`,
+      toastCreated: (name: string): string => `Segment "${name}" saved!`,
+      toastUpdated: (name: string): string => `Segment "${name}" updated.`,
+      toastDeleted: (name: string): string => `Segment "${name}" removed.`,
       manageDialogTitle: 'Manage segments',
       manageDialogDescription:
-        'Rename, recolor, or delete the segments saved for this operator.',
-      manageEmpty: 'No segments saved yet. Pick tags above and use “Save as segment…”.',
+        'Rename, recolor, or delete your saved segments.',
+      manageEmpty: 'No saved segments yet. Tag your bookings above and hit "Save as segment…" to keep a handy filter.',
       manageEdit: 'Edit',
       manageDelete: 'Delete',
       manageClose: 'Close',
@@ -1839,7 +1839,7 @@ export const t = {
   customerDetail: {
     title: 'Customer',
     loading: 'Loading customer…',
-    error: 'Failed to load customer.',
+    error: 'Could not load customer.',
     fieldFirstName: 'First name',
     fieldLastName: 'Last name',
     fieldEmail: 'Email',
@@ -1855,16 +1855,16 @@ export const t = {
     saving: 'Saving…',
     cancel: 'Cancel',
     close: 'Close',
-    noChanges: 'No changes to save.',
+    noChanges: 'Nothing to save yet.',
     invalidEmail: 'Enter a valid email address.',
     toastSuccess: 'Customer updated.',
-    toastError: 'Failed to update customer.',
+    toastError: 'Could not update customer.',
     // landr-iz58 — operator-scoped tag picker shown inside the form.
     tagsLabel: 'Tags',
-    tagsToastError: 'Failed to update tags.',
+    tagsToastError: 'Could not update tags.',
     discardTitle: 'Discard unsaved changes?',
     discardDescription:
-      'You have unsaved edits. Closing now will lose them.',
+      'You have unsaved edits — closing now will lose them.',
     discardCancel: 'Keep editing',
     discardConfirm: 'Discard',
     openAriaLabel: (name: string) => `Open customer ${name}`,
@@ -1898,8 +1898,8 @@ export const t = {
     title: 'Products & pricing',
     loading: 'Loading products…',
     error: 'Failed to load products.',
-    empty: 'No products yet. Create one to get started.',
-    noMatches: 'No products match your filter.',
+    empty: 'No products yet — create your first one to get started.',
+    noMatches: 'No products match your search.',
     filterPlaceholder: 'Search products…',
     listAriaLabel: 'Products',
     createNew: 'New product',
@@ -1915,8 +1915,8 @@ export const t = {
     unpublishProduct: 'Unpublish',
     publishingProduct: 'Publishing…',
     unpublishingProduct: 'Unpublishing…',
-    toastPublished: 'Product published.',
-    toastUnpublished: 'Product set to draft.',
+    toastPublished: "Product published — it's live!",
+    toastUnpublished: 'Product moved back to draft.',
     previewProductAria: (name: string) => `Preview draft — ${name}`,
 
     fieldName: 'Name',
@@ -1951,7 +1951,7 @@ export const t = {
     productGroupManagerTitle: 'Product groups',
     productGroupManagerDescription:
       'Marketing groupings shown as filter chips in the booking widget. Add, rename, or delete groups for this operator.',
-    productGroupManagerEmpty: 'No groups yet. Add one below.',
+    productGroupManagerEmpty: 'No groups yet — add one below.',
     productGroupManagerAddTitle: 'Add group',
     productGroupManagerEditTitle: 'Rename group',
     productGroupManagerNameLabel: 'Name',
@@ -2087,8 +2087,8 @@ export const t = {
     formCreateLabel: 'Create product form',
     formEditLabel: 'Edit product form',
 
-    toastCreated: 'Product created.',
-    toastUpdated: 'Product updated.',
+    toastCreated: 'Product created!',
+    toastUpdated: 'Product saved.',
     toastDeleted: 'Product deleted.',
     // landr-v6aq — fallback used in the undo toast when the product row
     // is no longer in cache (e.g. the operator typed in the filter so
@@ -2099,7 +2099,7 @@ export const t = {
       'A product with this slug already exists for your operator. Pick a different name or edit the slug.',
     duplicate: 'Duplicate',
     duplicating: 'Duplicating…',
-    toastDuplicated: 'Product duplicated — edit and save.',
+    toastDuplicated: 'Product duplicated — tweak it and save.',
 
     errorNameRequired: 'Name is required.',
     errorSlugRequired: 'Slug is required.',
@@ -2121,7 +2121,7 @@ export const t = {
     windowSaveAdd: 'Add',
     windowSaveEdit: 'Save',
     windowCancel: 'Cancel',
-    windowEmpty: 'No windows yet — add the first one to make this product bookable.',
+    windowEmpty: 'No windows yet — add one to make this product bookable.',
     windowFormStart: 'Start date',
     windowFormEnd: 'End date',
     windowFormCapacity: 'Capacity',
@@ -2170,14 +2170,14 @@ export const t = {
     overridePlaceholderPrefix: 'Translation for ',
   },
   generalApprovals: {
-    title: 'Pending approvals',
+    title: 'Approvals',
     // landr-fnhz — topbar subtitle. Mirrors the pendingCount badge in
     // the page header so the count is also visible when the user has
     // scrolled the page down.
     subtitleCount: (n: number): string =>
-      n === 0 ? 'No pending approvals' : `${n} pending`,
+      n === 0 ? "Nothing pending — you're all clear!" : `${n} pending`,
     // landr-aqn4 — friendlier empty state ('All caught up').
-    empty: 'All caught up — no pending approvals.',
+    empty: 'All clear — no pending approvals.',
     error: 'Failed to load approval queue.',
     // landr-aqn4 — count badge next to the page title.
     pendingCount: (n: number): string => `${n} pending`,
@@ -2333,10 +2333,10 @@ export const t = {
   staff: {
     title: 'Staff',
     subtitle:
-      'Manage operator memberships, roles and per-user permissions.',
+      'Manage your crew — memberships, roles, and per-user permissions all in one place.',
     loading: 'Loading staff…',
     error: 'Failed to load staff.',
-    empty: 'No staff yet. Use “Invite by email” to add a member.',
+    empty: 'No crew members yet. Use "Invite by email" to bring someone aboard.',
     listAriaLabel: 'Staff memberships',
     filterPlaceholder: 'Search staff…',
     matches: (n: number, total: number) => `${n} / ${total}`,
@@ -2354,7 +2354,7 @@ export const t = {
     // Invite sheet
     inviteTitle: 'Invite by email',
     inviteDescription:
-      'Add a user to this operator. The user must already exist in LANDR (signed-in once via the mobile app or dashboard).',
+      'Add someone to this operator account. They must have signed in to LANDR at least once (via the mobile app or dashboard).',
     inviteEmailLabel: 'Email',
     inviteEmailPlaceholder: 'staff@example.com',
     inviteRoleLabel: 'Role',
@@ -2364,10 +2364,10 @@ export const t = {
     inviteSubmit: 'Add membership',
     inviteSubmitting: 'Adding…',
     inviteCancel: 'Cancel',
-    inviteToastSuccess: 'Staff member added.',
-    inviteToastError: 'Failed to add staff member.',
+    inviteToastSuccess: 'Team member added.',
+    inviteToastError: 'Could not add team member.',
     inviteUserNotFound:
-      'No user found with that email. They must sign in to LANDR at least once first.',
+      'No account found with that email. They need to sign in to LANDR at least once first.',
     inviteEmailRequired: 'Enter a valid email address.',
     inviteRoleRequired: 'Role is required.',
 
@@ -2384,28 +2384,28 @@ export const t = {
     editSubmitting: 'Saving…',
     editCancel: 'Cancel',
     editToastSuccess: 'Membership updated.',
-    editToastError: 'Failed to update membership.',
+    editToastError: 'Could not update membership.',
 
     // Revoke confirm dialog
-    revokeTitle: 'Revoke staff access?',
+    revokeTitle: 'Revoke access?',
     revokeDescription:
-      'This removes the membership for this user. They will no longer see this operator. Their global LANDR account is not affected. This action cannot be undone.',
+      "This removes the membership for this user. They'll no longer see this operator. Their LANDR account is not affected.",
     revokeConfirm: 'Type REVOKE to confirm',
     revokeCancel: 'Cancel',
     revokeSubmit: 'Revoke access',
     revokeSubmitting: 'Revoking…',
-    revokeToastSuccess: 'Staff access revoked.',
-    revokeToastError: 'Failed to revoke staff access.',
+    revokeToastSuccess: 'Access revoked.',
+    revokeToastError: 'Could not revoke access.',
   },
   settings: {
-    title: 'Operator Settings',
+    title: 'Settings',
     noOperator: 'No operator selected.',
     loading: 'Loading settings…',
     error: 'Failed to load settings.',
     save: 'Save changes',
     saving: 'Saving…',
     toastSuccess: 'Settings saved.',
-    toastError: 'Failed to save settings.',
+    toastError: 'Could not save settings.',
 
     sectionCompany: 'Company',
     sectionCompanyDesc: 'Your public-facing company identity. Slug is read-only.',
@@ -2414,15 +2414,15 @@ export const t = {
     sectionLocale: 'Locale',
     sectionCalendar: 'Calendar & display',
     sectionCalendarDesc:
-      'Tune the calendar to your working day. The primary view shows the hours you choose; off-hours collapse to a strip you can expand.',
+      'Set your working hours and format. The primary view shows only your chosen window; off-hours tuck away into a strip you can expand.',
     sectionDisplayPrefs: 'Display preferences',
     sectionDisplayPrefsDesc:
-      'Control which product types and upgrade prompts appear in the dashboard.',
+      'Choose which product types and upgrade nudges appear in the dashboard.',
     fieldShowPremiumTeasers: 'Show upgrade prompts for premium features',
     fieldShowPremiumTeasersHint:
-      'When enabled, your dashboard shows product types available on higher plans.',
+      'When on, your dashboard surfaces product types available on higher plans.',
     fieldShowPremiumTeasersFreeLockedHint:
-      'Always shown on Free plan to highlight upgrade paths.',
+      "Always shown on Free plan so you know what's waiting for you.",
     sectionIntegrations: 'Integrations',
     sectionIntegrationsDesc: 'Connect third-party services to your operator account.',
 
@@ -2485,29 +2485,29 @@ export const t = {
     // landr-znzz.11 — 3-colour theme fields
     themeSectionTitle: 'Theme colours',
     themeSectionDesc:
-      "Three semantic slots control the widget's look. Brand is headings and text, Accent is buttons, Background is the page canvas.",
+      'Three colour slots shape the widget. Brand is headings and text, Accent is buttons, Background is the canvas.',
     fieldBrandColor: 'Brand colour (text / headings)',
     fieldAccentColor: 'Accent colour (buttons)',
     fieldBackgroundColor: 'Background colour',
     darkOverridesSectionTitle: 'Dark-mode overrides (optional)',
     darkOverridesSectionDesc:
-      "Leave blank to let the browser derive dark colours automatically. Override only if the default derivation doesn't match your brand.",
+      "Leave blank and the browser handles dark mode automatically. Only override if the auto-derived colours clash with your brand.",
     fieldDarkBrandColor: 'Dark brand colour',
     fieldDarkAccentColor: 'Dark accent colour',
     fieldDarkBackgroundColor: 'Dark background colour',
-    themeToastSaved: 'Theme saved.',
+    themeToastSaved: 'Theme colours saved.',
     // landr-sl7k — suggest theme colours from the uploaded logo.
     suggestColorsButton: '✨ Suggest colours',
     suggestColorsButtonLoading: 'Reading logo…',
     suggestColorsAriaLabel: 'Suggest theme colours from your uploaded logo',
     suggestColorsToastApplied:
-      'Suggested colours from your logo — review and Save to keep them.',
+      'Colours suggested from your logo — review them and Save to lock them in.',
     suggestColorsError:
       "Couldn't read the logo's colours — set them manually.",
     // landr-nils — operator-configurable copy around the embedded booking widget.
     widgetTextSectionTitle: 'Booking widget text',
     widgetTextSectionDesc:
-      'Optional copy shown around the embedded booking widget. Leave any field blank to hide it. The widget shows your logo (if uploaded), then this headline and description, then the booking steps, then the footer.',
+      'Optional text around the widget. Leave a field blank to hide it. Order: logo → headline → description → booking steps → footer.',
     widgetHeadlineLabel: 'Headline',
     widgetHeadlinePlaceholder: 'e.g. Book with us',
     widgetHeadlineHint:
@@ -2554,7 +2554,7 @@ export const t = {
     widgetConfigTitle: 'Booking widget',
     widgetLayoutTitle: 'Layout',
     widgetLayoutDesc:
-      'Pick the layout your booking widget showcases. You can change it any time.',
+      'Choose how your booking widget presents products. Change it any time.',
     // Descriptive card labels + subtitles (values: aurora / summit / alpine).
     widgetVariantAuroraLabel: 'Text overlay',
     widgetVariantAuroraDesc: 'Title over the image, rounded corners.',
@@ -2562,16 +2562,16 @@ export const t = {
     widgetVariantSummitDesc: 'Editorial — image on top, text underneath.',
     widgetVariantAlpineLabel: 'Compact cards',
     widgetVariantAlpineDesc: 'Dense bordered tiles.',
-    widgetVariantDefaultHint: 'Default — used when you haven’t picked one.',
+    widgetVariantDefaultHint: "Default — used when you haven't chosen a layout yet.",
     widgetVariantSelected: 'Selected',
     widgetVariantToastSaved: 'Widget layout saved.',
     // Category grid columns.
     widgetColumnsTitle: 'Category columns',
     widgetColumnsDesc:
-      'How many columns the category grid uses on larger screens. Mobile always shows one.',
+      'Columns in the category grid on wider screens. Mobile always stacks into one.',
     widgetColumnsLabel: 'Columns',
     widgetColumnsAuto: 'Auto (recommended)',
-    widgetColumnsHelper: 'Auto fits your category count.',
+    widgetColumnsHelper: 'Auto adapts to your category count.',
     widgetColumnsToastSaved: 'Category columns saved.',
     // Title typography.
     widgetTitleStyleTitle: 'Title style',
@@ -2627,7 +2627,7 @@ export const t = {
     // Preview-widget external link (opens the live widget with ?preview=1).
     widgetPreviewLinkTitle: 'Preview widget',
     widgetPreviewLinkDesc:
-      'Open your live booking widget in a new tab to see these settings applied.',
+      'See exactly how your widget looks with these settings — opens in a new tab.',
     widgetPreviewLinkButton: 'Preview widget',
 
     gmailLoading: 'Loading Gmail status…',
@@ -2645,7 +2645,7 @@ export const t = {
     // landr-6ybs — Calendar feed subsection.
     calendarFeedTitle: 'Calendar feed',
     calendarFeedDescription:
-      'A subscribable URL that streams every non-cancelled booking into your personal calendar app. Updates roughly hourly depending on your calendar client.',
+      'A subscribe URL that pushes every non-cancelled booking into your calendar app. Updates roughly hourly, depending on your calendar client.',
     calendarFeedUrlLabel: 'Subscribe URL',
     calendarFeedLoading: 'Loading feed URL…',
     calendarFeedError: 'Failed to load the feed URL.',
@@ -2655,16 +2655,16 @@ export const t = {
     calendarFeedRegenerate: 'Regenerate URL',
     calendarFeedRegenerating: 'Regenerating…',
     calendarFeedRegenerated:
-      'New URL issued. The previous URL has been invalidated.',
+      'New URL ready. The previous one is now invalid.',
     calendarFeedRegenerateError: 'Failed to regenerate the URL.',
     calendarFeedRegenerateConfirmTitle: 'Regenerate calendar URL?',
     calendarFeedRegenerateConfirmBody:
-      'This will invalidate the current URL. Any calendar app already subscribed will stop receiving updates until you re-subscribe with the new URL.',
+      'The current URL stops working immediately. Any subscribed calendar app will need re-subscribing with the new URL.',
     calendarFeedRegenerateConfirmCta: 'Regenerate',
     calendarFeedRegenerateCancelCta: 'Cancel',
     calendarFeedInstructionsHeading: 'How to subscribe',
     calendarFeedInstructionsIntro:
-      'Copy the URL above, then add it as a subscribed calendar (not an import — subscriptions auto-refresh).',
+      'Copy the URL, then subscribe to it in your calendar app (not import — subscriptions auto-refresh).',
     calendarFeedGoogleHeading: 'Google Calendar',
     calendarFeedGoogleSteps: [
       'Open Google Calendar in a browser (the mobile app cannot add subscriptions; once added on the web it syncs to mobile).',
@@ -2723,7 +2723,7 @@ export const t = {
     paymentsSaveError: 'Failed to save credentials.',
     paymentsNothingToSave: 'Nothing to save — enter or rotate a value first.',
     paymentsSecretNeverShown:
-      'For your security, saved secrets are never shown again. Enter a new value to replace one.',
+      'Saved secrets are never shown again. Enter a new value to rotate one.',
   },
   // landr-atwy — Settings → Account link prompt
   accountLinkSettings: {
@@ -2763,10 +2763,10 @@ export const t = {
   },
   pickupLocations: {
     title: 'Pickup locations',
-    subtitle: 'Manage pickup sites and sub-points for bookings.',
+    subtitle: 'Manage the sites and sub-points where customers meet you.',
     loading: 'Loading locations…',
     error: 'Failed to load locations.',
-    empty: 'No locations yet. Add one to get started.',
+    empty: 'No locations yet — add one to get started.',
     addLocation: 'Add location',
     columnName: 'Name',
     columnRoleType: 'Type',
@@ -2840,11 +2840,11 @@ export const t = {
   // missing-email error so booking confirmations don't silently drop.
   hotels: {
     title: 'Hotels',
-    subtitle: 'Manage your accommodation partners and their contact details.',
+    subtitle: 'Manage accommodation partners and their contact details.',
     addHotel: 'Add hotel',
     loading: 'Loading hotels…',
     error: 'Failed to load hotels.',
-    empty: 'No hotels yet. Add one to get started.',
+    empty: 'No hotels yet — add one to get started.',
 
     columnName: 'Name',
     columnEmail: 'Email',
@@ -2903,7 +2903,7 @@ export const t = {
     placesSearching: 'Searching…',
     placesNoResults: 'No results found.',
     placesNotConfigured: 'Google lookup is not set up yet — fill in fields manually.',
-    placesAutofilled: 'Fields pre-filled from Google Places. Edit as needed.',
+    placesAutofilled: "Fields filled from Google Places — edit anything that doesn't look right.",
     placesError: 'Google lookup failed — fill in fields manually.',
   },
   // landr-funh — delivery roster (Settings → Providers) + per-booking-day
@@ -2911,11 +2911,11 @@ export const t = {
   providers: {
     title: 'Providers',
     subtitle:
-      'The people who deliver your service — instructors, pilots, drivers. Assign them to booking days from the booking detail.',
+      'The people who deliver your experience — instructors, pilots, drivers. Assign them to booking days from the booking detail.',
     noOperator: 'Select an operator to manage providers.',
     loading: 'Loading providers…',
     error: 'Failed to load providers.',
-    empty: 'No providers yet. Add one to get started.',
+    empty: 'No providers yet — add one to get started.',
     addProvider: 'Add provider',
 
     columnName: 'Name',
@@ -2963,9 +2963,9 @@ export const t = {
     assignLoading: 'Loading assignments…',
     assignError: 'Failed to load assignments.',
     assignNoDays:
-      'This booking has no scheduled days yet. Pick dates above first.',
+      'No scheduled days on this booking yet — add dates above first.',
     assignNoProviders:
-      'No providers in your roster yet. Add some under Settings → Providers.',
+      'Your roster is empty. Add providers under Settings → Providers.',
     assignDayLabel: (day: string) => `Day — ${day}`,
     assignProviderPlaceholder: '— Assign a provider —',
     assignAdd: 'Assign',
@@ -2981,10 +2981,10 @@ export const t = {
   categoriesSettings: {
     title: 'Categories',
     subtitle:
-      'Organise products into a nested category tree. Categories drive the booking widget filter and the [landr_booking group="…"] shortcode.',
+      'Organise products into a nested tree. Categories power the booking widget filter and the [landr_booking group="…"] shortcode.',
     noOperator: 'Select an operator to manage categories.',
     loading: 'Loading categories…',
-    empty: 'No categories yet. Add your first one below.',
+    empty: 'No categories yet — add your first one below.',
     createTitle: 'Add category',
     fieldName: 'Name',
     fieldParent: 'Parent category',
@@ -3012,7 +3012,7 @@ export const t = {
     toastDeleted: 'Category deleted.',
     toastError: 'Could not save category.',
     toastReparentCycle: 'Cannot move a category under one of its own sub-categories.',
-    toastCopied: 'Shortcode copied.',
+    toastCopied: 'Shortcode copied!',
   },
   // landr-znzz.5 — generic per-operator offers/upsells editor. No defaults,
   // nothing vendor-specific; each offer links out to the operator's own
@@ -3020,10 +3020,10 @@ export const t = {
   offersSettings: {
     title: 'Upsells & offers',
     subtitle:
-      'Add-ons shown after the trip on the customer event page. Each offer links out to your own shop, merch store, or form — set the link, we render the card.',
+      'Post-trip add-ons on the customer event page. Each offer links to your shop, merch store, or form — set the link, we show the card.',
     noOperator: 'Select an operator to manage offers.',
     loading: 'Loading offers…',
-    empty: 'No offers yet. Add your first one below.',
+    empty: 'No offers yet — add your first one below.',
     createTitle: 'Add offer',
     fieldTitle: 'Title',
     fieldDescription: 'Description',
@@ -3059,7 +3059,7 @@ export const t = {
   embedSettings: {
     title: 'Embed your booking widget',
     subtitle:
-      'Generate the shortcode (and matching iframe) to embed your LANDR booking widget on any website. Paste the shortcode into a WordPress page with the LANDR Booking plugin installed.',
+      'Generate the shortcode (or raw iframe) to drop your LANDR booking widget onto any website. Paste the shortcode into WordPress with the LANDR Booking plugin installed.',
     noOperator: 'Select an operator to generate an embed.',
     modeLabel: 'What to show',
     modeAll: 'All products',
@@ -3083,8 +3083,8 @@ export const t = {
     copyIframeAria: 'Copy iframe HTML',
     loadingCategories: 'Loading categories…',
     loadingProducts: 'Loading products…',
-    noCategories: 'No categories yet — create some under Settings → Categories.',
-    noProducts: 'No products yet.',
+    noCategories: 'No categories yet — create some under Settings → Categories first.',
+    noProducts: 'No products yet — create one under Products.',
     toastCopied: 'Copied to clipboard.',
     toastCopyError: 'Could not copy to clipboard.',
     // landr-7zc5.4 — environment selector + raw URL + open button
@@ -3109,10 +3109,10 @@ export const t = {
   formsSettings: {
     title: 'Forms',
     subtitle:
-      'Reusable booking forms with fields, validation, and conditional logic. Attach them to products via the Flow tab.',
+      'Reusable booking forms with custom fields, validation, and conditional logic. Attach them to products via the Flow tab.',
     noOperator: 'Select an operator to manage forms.',
     loading: 'Loading forms…',
-    emptyActive: 'No forms yet. Create your first one below.',
+    emptyActive: 'No forms yet — create your first one below.',
     activeTitle: 'Your forms',
     retiredTitle: 'Retired forms',
     retiredBadge: 'Retired',
@@ -3137,7 +3137,7 @@ export const t = {
 
     dupeKey: 'A form with this key already exists on this operator.',
 
-    toastCreated: 'Form created.',
+    toastCreated: 'Form created!',
     toastCreateError: 'Could not create form.',
     toastRenamed: 'Form renamed.',
     toastRenameError: 'Could not rename form.',
@@ -3171,7 +3171,7 @@ export const t = {
     deletingField: 'Deleting…',
 
     // Right inspector
-    inspectorPlaceholder: 'Select a field to inspect.',
+    inspectorPlaceholder: 'Select a field on the left to inspect it.',
     sectionType: 'Type',
     sectionKey: 'Key',
     keyImmutableWarning: 'Keys are immutable after first save — answers reference them.',
@@ -3224,10 +3224,10 @@ export const t = {
   tagsSettings: {
     title: 'Tags',
     subtitle:
-      'Operator-scoped labels with a color. Apply to bookings or contacts to slice and filter.',
+      'Colour-coded labels for bookings and contacts — great for slicing and filtering.',
     noOperator: 'Select an operator to manage tags.',
     loading: 'Loading tags…',
-    empty: 'No tags yet. Create one above.',
+    empty: 'No tags yet — create one above.',
 
     createTitle: 'New tag',
     existingTitle: 'Your tags',
@@ -3257,10 +3257,10 @@ export const t = {
   serviceRolesSettings: {
     title: 'Service roles',
     subtitle:
-      'Participant roles customers choose on the booking form. Every operator starts with one role; add, rename, reorder, or deactivate them here.',
+      'Participant roles customers choose at booking. Every operator starts with one; add, rename, reorder, or deactivate as needed.',
     noOperator: 'Select an operator to manage service roles.',
     loading: 'Loading service roles…',
-    empty: 'No service roles yet. Add one above.',
+    empty: 'No service roles yet — add one above.',
 
     createTitle: 'New service role',
     existingTitle: 'Your service roles',
@@ -3286,7 +3286,7 @@ export const t = {
 
     dupeCode: 'A service role with this code already exists. Try a different label.',
     lastActiveRole:
-      'You must keep at least one active service role — the booking form needs it.',
+      'At least one active service role is required for the booking form to work.',
 
     toastCreated: 'Service role added.',
     toastCreateError: 'Could not add service role.',
@@ -3301,10 +3301,10 @@ export const t = {
   campaignsSettings: {
     title: 'Campaigns',
     subtitle:
-      'Marketing campaigns with a unique code per operator. Attribute bookings against them to measure reach.',
+      'Marketing campaigns, each with a unique code. Track which channel drove each booking.',
     noOperator: 'Select an operator to manage campaigns.',
     loading: 'Loading campaigns…',
-    empty: 'No campaigns yet. Create one to start attributing bookings.',
+    empty: 'No campaigns yet — create one to start tracking bookings.',
     errorTitle: 'Could not load campaigns.',
 
     newButton: 'New campaign',
@@ -3363,10 +3363,10 @@ export const t = {
   vouchersSettings: {
     title: 'Vouchers',
     subtitle:
-      'Discount codes customers redeem at booking. Percent or flat amount, with optional usage caps and a validity window.',
+      'Discount codes customers redeem at checkout — percent or flat off, with optional usage caps and an expiry window.',
     noOperator: 'Select an operator to manage vouchers.',
     loading: 'Loading vouchers…',
-    empty: 'No vouchers yet. Create one to start offering discount codes.',
+    empty: 'No vouchers yet — create one to start rewarding customers.',
 
     newVoucher: 'New voucher',
 
@@ -3436,16 +3436,16 @@ export const t = {
   operationsSettings: {
     title: 'Operations',
     subtitle:
-      'Default checklist items that seed every new booking. Per-booking progress + custom items stay on each device.',
+      'Default checklist items seeded into every new booking. Per-booking progress and custom items live on-device.',
     noOperator: 'Select an operator to manage the checklist template.',
     loading: 'Loading template…',
     error: 'Failed to load checklist template.',
 
     sectionChecklist: 'Default booking checklist',
     sectionChecklistDesc:
-      'Reorder, rename, add, or remove the items every new booking starts with.',
+      'Add, rename, reorder, or remove the items every new booking starts with.',
 
-    empty: 'No default items yet — add one below or save an empty list for fully bespoke checklists.',
+    empty: 'No default items yet — add one below, or save empty for fully custom checklists per booking.',
 
     addAction: 'Add item',
     addAria: 'Add a new default checklist item',
@@ -3587,7 +3587,7 @@ export const t = {
     holdedSyncTitle: 'Holded sync',
     holdedSyncBody:
       'Holded sync runs automatically after the Para42 cancellation period. ' +
-      'A manual “sync now” trigger from this screen is deferred until the ' +
+      'A manual "sync now" trigger from this screen is deferred until the ' +
       'matching FastAPI endpoint ships (landr-m05.9 carry-over).',
   },
   // landr-af6c — /analytics route copy. Lives next to the reporting bucket
@@ -3777,14 +3777,14 @@ export const t = {
     skip: 'Skip for now',
     saving: 'Saving…',
     saveError: 'Could not save your changes. Try again.',
-    rerunLink: 'Re-run onboarding',
+    rerunLink: 'Re-run setup',
 
     step1: {
-      heading: 'Welcome to LANDR',
+      heading: 'Welcome to LANDR!',
       body:
         'LANDR is the booking platform you use to take, confirm and run reservations for your activities. ' +
-        'This short setup walks you through the essentials so you can start taking bookings today.',
-      cta: "Let's get started",
+        'This quick setup walks you through the essentials so you can start taking bookings today.',
+      cta: 'Let\'s go!',
     },
     step2: {
       heading: 'Your company',
@@ -3797,8 +3797,8 @@ export const t = {
     step4: {
       heading: 'Pickup locations',
       body:
-        'Where do you pick customers up? Add at least one site so the booking widget can offer it ' +
-        '(hotels, meeting points, harbour, etc.). You can add more later.',
+        'Where do you pick customers up? Add at least one spot so the booking widget can offer it ' +
+        '(hotels, meeting points, harbour, etc.). You can always add more later.',
       count: (n: number) =>
         n === 0
           ? 'No pickup locations yet.'
@@ -3810,7 +3810,7 @@ export const t = {
     step5: {
       heading: 'Your first products',
       body:
-        'Products are the activities customers can book. Start with a template — you can tune ' +
+        'Products are the activities customers can book. Start with a template — you can fine-tune ' +
         'prices, durations and details later from the Products page.',
       templateGuided: 'Guided day',
       templateGuidedDesc: 'Single-day guided activity. Time-slot bookable, needs a guide.',
@@ -3820,7 +3820,7 @@ export const t = {
       templateHotelDesc: 'Day activity bundled with hotel pickup. Needs hotel coordination.',
       create: 'Create',
       creating: 'Creating…',
-      created: (name: string) => `Created “${name}”.`,
+      created: (name: string) => `Created '${name}'.`,
       createError: 'Could not create product. Open Products to add manually.',
       manage: 'Open products',
       count: (n: number) =>
@@ -3829,8 +3829,8 @@ export const t = {
     step6: {
       heading: 'Connect your Gmail',
       body:
-        'Send booking emails from YOUR Gmail address — not a generic no-reply. Customers see ' +
-        'emails coming from a real person at your company, which dramatically improves deliverability ' +
+        'Send booking emails from YOUR Gmail address — not a faceless no-reply. Customers see ' +
+        'emails from a real person at your company, which dramatically improves deliverability ' +
         'and replies. Free to set up; takes about a minute.',
       connect: 'Connect Gmail',
       connecting: 'Connecting…',
@@ -3842,28 +3842,28 @@ export const t = {
     step7: {
       heading: 'Email templates',
       body:
-        'LANDR ships with sensible default templates for the three customer-facing emails. ' +
-        'Open the Email templates page if you want to tweak the wording, otherwise the defaults are fine to ship with.',
+        'LANDR comes with sensible default templates for the three customer-facing emails. ' +
+        'Head to Email templates if you want to tweak the wording — otherwise the defaults are great to go with.',
       defaultKinds: 'Booking received · Hotel request · Booking confirmation',
       manage: 'Open email templates',
     },
     step8: {
       heading: 'Embed the booking widget',
       body:
-        'Paste this WordPress shortcode anywhere on your website to show the booking widget. ' +
-        'The widget reads your products, pickup locations and prices automatically.',
+        'Paste this WordPress shortcode anywhere on your site to show the booking widget. ' +
+        'It reads your products, pickup locations and prices automatically — nothing to configure.',
       copy: 'Copy',
       copied: 'Copied!',
       loading: 'Generating your embed code…',
-      tokenError: "Couldn't load your embed code — open Settings → Embed to copy it.",
+      tokenError: 'Couldn\'t load your embed code — open Settings → Embed to copy it.',
       filterHint:
         'Want to embed only a specific category or product? Generate filtered snippets any time under Settings → Embed.',
-      done: "I've embedded it",
+      done: 'I\'ve embedded it',
     },
     step9: {
-      heading: "You're ready to take bookings",
+      heading: 'You\'re ready to take bookings!',
       body:
-        'Setup complete. The dashboard is now your home base for managing reservations, ' +
+        'Setup complete. The dashboard is your home base for managing reservations, ' +
         'the calendar, and customer contacts.',
       ctaDashboard: 'Open dashboard',
       ctaBookings: 'See bookings',
@@ -3884,7 +3884,7 @@ export const t = {
 
     banner: {
       title: 'Finish setting up your account',
-      body: 'Complete the 9-step onboarding to start taking bookings.',
+      body: 'Complete the 9-step setup to start taking bookings.',
       resume: 'Resume',
       dismiss: 'Dismiss',
     },
@@ -3899,14 +3899,14 @@ export const t = {
   schedule: {
     title: 'Schedule',
     description:
-      'Manage bookable days for each product. Operators extend the seeded availability beyond the template window, block holidays, or adjust capacity per day.',
+      'Set bookable days for each product. Extend the default availability, block holidays, or tweak capacity per day.',
     productLabel: 'Product',
     productPlaceholder: 'Select a product…',
     noProducts: 'No products yet — create one in Products first.',
     loading: 'Loading availability…',
     error: 'Failed to load availability.',
     rangeHint:
-      'Showing the visible month. Drag-select a range or click a single day.',
+      'Showing the current month. Drag-select a range or click a single day.',
     addButton: 'Add availability',
 
     dayClosed: 'Closed',
@@ -3953,7 +3953,7 @@ export const t = {
     viewToggleMonth: 'Month',
     viewToggleList: 'List',
     viewToggleLabel: 'View',
-    listEmpty: 'No availability in the visible window yet.',
+    listEmpty: 'No availability in this window yet — add some above.',
     listOneDay: '1 day',
     listDayCount: (n: number) => `${n} days`,
     listSeatsPerDay: (n: number) => `${n} seats/day`,
@@ -3968,7 +3968,7 @@ export const t = {
   viewsIndex: {
     title: 'Views',
     newButton: '+ New view',
-    templateSectionTitle: 'Start with a template',
+    templateSectionTitle: 'Start from a template',
   },
   // landr-ne58 — Recently-viewed section in the app sidebar (last 5
   // detail surfaces the operator opened — bookings, contacts, products,
@@ -3977,7 +3977,7 @@ export const t = {
     heading: 'Recently viewed',
     collapse: 'Collapse Recently viewed',
     expand: 'Expand Recently viewed',
-    empty: 'Items you open will show up here.',
+    empty: "Open a booking, contact, or product — it'll show up here.",
     typeBooking: 'Booking',
     typeContact: 'Contact',
     typeProduct: 'Product',
@@ -4002,26 +4002,26 @@ export const t = {
   views: {
     rename: 'Rename view',
     renameSave: 'Save name',
-    renameCancel: 'Cancel rename',
+    renameCancel: 'Cancel',
     setDefaultLayout: 'Set as default layout',
     duplicate: 'Duplicate',
     duplicating: 'Duplicating…',
-    duplicateError: 'Failed to duplicate view.',
+    duplicateError: 'Could not duplicate view.',
     delete: 'Delete view',
     deleting: 'Deleting…',
-    deleteConfirm: 'Delete this view? This cannot be undone.',
-    deleteError: 'Failed to delete view.',
+    deleteConfirm: "Delete this view? It's gone for good.",
+    deleteError: 'Could not delete view.',
     notFoundTitle: 'View not found',
-    loadError: 'Failed to load view.',
+    loadError: 'Could not load view.',
     loading: 'Loading view…',
     unsavedTitle: 'Unsaved changes',
-    unsavedBody: 'Save or discard your changes before navigating away.',
+    unsavedBody: 'Save or discard your changes before leaving.',
     save: 'Save',
     saving: 'Saving…',
     discard: 'Discard',
     saved: 'Saved',
     saveError: 'Save failed',
-    leaveConfirm: 'You have unsaved changes — leave anyway?',
+    leaveConfirm: 'Unsaved changes will be lost — leave anyway?',
     layout: {
       groupLabel: 'View layout',
       table: 'Table',
@@ -4082,7 +4082,7 @@ export const t = {
         mustBeEnum: 'Column-by must be an enum field.',
         unknownField: (key: string) => `Unknown column-by field: ${key}.`,
         unsupportedField: (label: string) =>
-          `Column-by on “${label}” is not wired up yet — only Stage is supported in v1.`,
+          `Column-by on '${label}' is not wired up yet — only Stage is supported in v1.`,
         emptyColumn: 'No items',
         disallowedTarget: 'No supported transition into this column.',
         mutateError: 'Could not move card — change reverted.',
@@ -4121,9 +4121,9 @@ export const t = {
   dashboard: {
     title: 'Dashboard',
     loading: 'Loading dashboard…',
-    error: 'Failed to load dashboard data.',
+    error: 'Failed to load dashboard.',
     todayHeading: "Today's bookings",
-    todayEmpty: 'No bookings scheduled for today.',
+    todayEmpty: 'No bookings today — enjoy the quiet!',
     todayCount: (n: number): string =>
       n === 1 ? '1 booking' : `${n} bookings`,
     weekRevenueLabel: 'Revenue this week',
@@ -4135,36 +4135,36 @@ export const t = {
     statContextWeek: 'This week',
     pendingApprovalsLabel: 'Pending approvals',
     pendingApprovalsCta: 'Review queue',
-    pendingApprovalsEmpty: 'All caught up.',
+    pendingApprovalsEmpty: 'All clear — nothing pending.',
     pendingApprovalsCount: (n: number): string =>
       n === 1 ? '1 awaiting' : `${n} awaiting`,
     activityHeading: 'Recent activity',
-    activityEmpty: 'No activity yet.',
+    activityEmpty: 'Nothing yet — check back after your first booking.',
     activityBookingCreated: 'New booking',
     activityContactCreated: 'New contact',
     activityApprovalPending: 'Awaiting approval',
     customerFallback: 'Unknown customer',
     // landr-kav4 — today's-capacity card on the dashboard home.
     capacityHeading: "Today's capacity",
-    capacityEmpty: 'No schedulable products with a per-unit capacity yet.',
+    capacityEmpty: 'No schedulable products with per-unit capacity yet.',
     capacityRowAria: (name: string, booked: number, capacity: number): string =>
       `${name}: ${booked} of ${capacity} booked`,
     // landr-a99u.12 — operator go-live request banner on dashboard home.
-    goLiveBannerTitle: 'Ready for go-live?',
+    goLiveBannerTitle: 'Ready to go live?',
     goLiveBannerDescription:
-      'You\'re on staging. If everything looks good, request go-live and Landr staff will review and ship it.',
+      "You're on staging. Everything looking good? Request go-live and Landr staff will review and ship it.",
     goLiveBannerButton: 'Request go-live',
     goLiveBannerRequestedTitle: 'Go-live requested',
     goLiveBannerRequestedDescription:
       'Landr will review your staging environment and promote it to production.',
     goLiveDialogTitle: 'Request go-live?',
     goLiveDialogDescription:
-      'Landr staff will review staging and promote it to production. You can add a note for the reviewer.',
+      'Landr staff will review staging and promote to production. Add a note for the reviewer if you like.',
     goLiveNotesLabel: 'Notes for the reviewer (optional)',
     goLiveNotesPlaceholder: 'e.g. tested checkout, calendar, and email flows',
     goLiveConfirmAction: 'Send request',
-    goLiveAlreadyPending: 'A go-live request is already awaiting staff review.',
-    goLiveSuccessToast: 'Go-live requested — Landr will review and ship it.',
+    goLiveAlreadyPending: 'A go-live request is already pending — staff will get to it shortly.',
+    goLiveSuccessToast: 'Go-live requested — Landr will review and ship it!',
   },
   // landr-s1mr — Copy for the shared <EmptyState> cards across surfaces.
   // Each surface gets a friendly title + sub-copy + CTA so the empty
@@ -4217,12 +4217,12 @@ export const t = {
   // cancel, product delete, future trash kinds) speaks the same copy.
   undo: {
     action: 'Undo',
-    restored: 'Restored.',
-    restoreError: 'Could not undo — please try again from the Trash page.',
+    restored: 'Back again!',
+    restoreError: 'Could not undo — try restoring from the Trash page.',
     // Per-kind toast headers. Composed in the call site as
     // `t.undo.deleted(kind, label)` so the noun stays close to the action.
-    deletedBooking: (label: string): string => `Deleted booking — ${label}`,
-    deletedProduct: (label: string): string => `Deleted product — ${label}`,
+    deletedBooking: (label: string): string => `Booking deleted — ${label}`,
+    deletedProduct: (label: string): string => `Product deleted — ${label}`,
   },
   // landr-ah9u — Settings → Webhooks. v1 is a UI-only configuration
   // surface that persists the operator's webhook list to localStorage;
@@ -4280,9 +4280,9 @@ export const t = {
   errorHistory: {
     openLabel: 'Open error history',
     badgeLabel: (n: number): string =>
-      `${n} captured error${n === 1 ? '' : 's'}`,
+      `${n} error${n === 1 ? '' : 's'} captured`,
     heading: 'Recent errors',
-    empty: 'No errors captured this session.',
+    empty: 'No errors this session. All good!',
     clearAll: 'Clear all',
     copyLabel: 'Copy error details',
     reportLabel: 'Report this error',
@@ -4296,16 +4296,16 @@ export const t = {
   staffWidget: {
     // WidgetButton trigger (icon button) — replaces the old "open in new tab".
     openLabel: 'New booking (staff)',
-    openTitle: 'Create a booking on behalf of a customer',
+    openTitle: 'Book on behalf of a customer',
     // Modal chrome.
     dialogTitle: 'New booking',
     dialogDescription:
-      'Book on behalf of a customer. Operator overrides (force-book a full day, price override) are available in this staff session.',
+      'Book for a customer in staff mode. Operator overrides — force-book a full day, price override — are available here.',
     iframeTitle: 'Booking widget (staff mode)',
     // Mint failure (e.g. 503 session_signing_unavailable, or 403 membership).
     mintError: (msg: string): string =>
       `Couldn't start a staff booking session: ${msg}`,
     // Completion toast after the widget posts landr:booking-created.
-    createdToast: 'Booking created. Opening it now…',
+    createdToast: 'Booking created! Opening it now…',
   },
 } as const

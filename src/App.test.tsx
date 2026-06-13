@@ -187,7 +187,7 @@ describe('App routing', () => {
     )
 
     expect(
-      await screen.findByRole('heading', { name: /sign in/i }),
+      await screen.findByRole('heading', { name: /welcome back/i }),
     ).toBeInTheDocument()
   })
 
@@ -236,7 +236,7 @@ describe('Login form', () => {
       </MemoryRouter>,
     )
 
-    await screen.findByRole('heading', { name: /sign in/i })
+    await screen.findByRole('heading', { name: /welcome back/i })
     await user.type(screen.getByLabelText(/email/i), 'not-an-email')
     await user.type(screen.getByLabelText(/password/i, { selector: 'input' }), 'secret123')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
@@ -367,7 +367,7 @@ describe('Sign out', () => {
 
     expect(mock.supabase.auth.signOut).toHaveBeenCalled()
     expect(
-      await screen.findByRole('heading', { name: /sign in/i }),
+      await screen.findByRole('heading', { name: /welcome back/i }),
     ).toBeInTheDocument()
   })
 })

@@ -158,7 +158,7 @@ describe('Trash route', () => {
     render(<Trash />)
     await waitFor(() => {
       expect(
-        screen.getByText('Nothing in the bin for this category.'),
+        screen.getByText('Nothing in the bin here.'),
       ).toBeInTheDocument()
     })
   })

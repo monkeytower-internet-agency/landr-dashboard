@@ -89,7 +89,7 @@ describe('OperatorSwitcher (landr-fx2i)', () => {
     // The hint text from t.operator.noOperators ("No operators available
     // for this account.") should be visible.
     expect(
-      screen.getByText(/no operators available/i),
+      screen.getByText(/no operators linked/i),
     ).toBeInTheDocument()
   })
 
