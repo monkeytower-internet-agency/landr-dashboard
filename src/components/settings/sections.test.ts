@@ -134,7 +134,10 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // locations (first-class accommodation entity; a hotel is also a pickup).
   // landr-atwy — Account link prompt opt-in added after Webhooks
   // (per-operator toggle for the post-booking mobile app link prompt).
-  it('settings group contains the twenty-five program subsections', () => {
+  // landr-71kz.5 — Forms library joined the SETTINGS group between Embed
+  // code and Upsells & offers (operator-customisable booking forms; both
+  // Embed and Forms configure "what the booking widget uses").
+  it('settings group contains the twenty-six program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -157,6 +160,9 @@ describe('account/settings grouping (landr-fzcg)', () => {
       // generator, grouped right after Products.
       '/settings/categories',
       '/settings/embed',
+      // landr-71kz.5 — operator form library (custom booking forms). Sits
+      // after Embed code; both configure what the booking widget uses.
+      '/settings/forms',
       // landr-znzz.5 — generic per-operator offers/upsells for the event page.
       '/settings/offers',
       '/settings/schedule',
