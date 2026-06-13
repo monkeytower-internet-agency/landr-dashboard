@@ -137,7 +137,7 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // landr-71kz.5 — Forms library joined the SETTINGS group between Embed
   // code and Upsells & offers (operator-customisable booking forms; both
   // Embed and Forms configure "what the booking widget uses").
-  it('settings group contains the twenty-six program subsections', () => {
+  it('settings group contains the twenty-five program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -167,7 +167,6 @@ describe('account/settings grouping (landr-fzcg)', () => {
       '/settings/offers',
       '/settings/schedule',
       '/settings/email-templates',
-      '/settings/email-log',
       '/settings/pricing',
       '/settings/commissions',
       '/settings/vouchers',
@@ -207,11 +206,10 @@ describe('account/settings grouping (landr-fzcg)', () => {
     expect(entry?.label).toBe('Operations')
   })
 
-  // landr-qg4q — pin the Email log entry shape.
-  it('includes an Email log entry at /settings/email-log', () => {
+  // Email log moved OUT of Settings → standalone /email-log admin route.
+  it('does NOT include email-log in Settings (moved to /email-log)', () => {
     const entry = SETTINGS_SECTIONS.find((s) => s.to === '/settings/email-log')
-    expect(entry).toBeDefined()
-    expect(entry?.label).toBe('Email log')
+    expect(entry).toBeUndefined()
   })
 
   // landr-ah9u — pin the Webhooks entry shape.

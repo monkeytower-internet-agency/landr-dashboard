@@ -282,6 +282,16 @@ const primaryItems: NavItem[] = [
     exact: false,
     hue: 'neutral',
   },
+  // Email log — a LOG, not a setting: lives in the main-nav Admin tail,
+  // moved out of /settings (route /email-log). Gated by email_log via
+  // featureForRoute.
+  {
+    to: '/email-log',
+    label: t.settingsHub.sections.emailLog,
+    icon: InboxIcon,
+    exact: false,
+    hue: 'neutral',
+  },
 ]
 
 // landr-sbhz.8 — STAFF-ONLY primary nav items. These are Landr owner tooling
@@ -706,14 +716,14 @@ export function AppSidebar() {
         {/* Admin tail (Audit, Trash, Release) — neutral hue, no section label
             to keep it visually quiet. Only render if any items exist. */}
         {visiblePrimaryItems.some((item) =>
-          ['/audit', '/trash', '/release'].includes(item.to),
+          ['/audit', '/trash', '/release', '/email-log'].includes(item.to),
         ) && (
           <SidebarGroup className="pt-0">
             <SectionLabel label="Admin" />
             <SidebarGroupContent>
               <NavMenu
                 items={visiblePrimaryItems.filter((item) =>
-                  ['/audit', '/trash', '/release'].includes(item.to),
+                  ['/audit', '/trash', '/release', '/email-log'].includes(item.to),
                 )}
                 pathname={pathname}
               />

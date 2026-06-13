@@ -284,6 +284,9 @@ function App() {
               <Route path="/audit" element={gatedRoute('/audit', <Audit />)} />
               {/* landr-4pn1 — /trash (recently-deleted bin per category). */}
               <Route path="/trash" element={<Trash />} />
+              {/* Email log — a LOG, not a setting: standalone admin surface
+                  (moved out of /settings per ok). Gated by the email_log feature. */}
+              <Route path="/email-log" element={gatedRoute('/email-log', <EmailLog />)} />
               <Route path="/approvals/general" element={<GeneralApprovals />} />
               {/* landr-wwhn.11 — Ticket board (5-column kanban, realtime). */}
               <Route path="/tickets" element={gatedRoute('/tickets', <TicketBoard />)} />
@@ -380,8 +383,8 @@ function App() {
                     Schedule a setup tool, not a daily-ops view. */}
                 <Route path="schedule" element={gatedSection('/settings/schedule', <Schedule />)} />
                 <Route path="email-templates" element={gatedSection('/settings/email-templates', <EmailTemplates />)} />
-                {/* landr-qg4q — outbound_emails viewer (failed sends, retried, sent). */}
-                <Route path="email-log" element={gatedSection('/settings/email-log', <EmailLog />)} />
+                {/* email-log moved to a standalone /email-log admin route (a log
+                    is not a setting). See the top-level <Route path="/email-log">. */}
                 <Route path="pricing" element={gatedSection('/settings/pricing', <PricingSettings />)} />
                 {/* landr-9n0l — Settings → Commissions: scheme/rule/tier
                     editor + read-only agent-earnings report. */}

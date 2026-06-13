@@ -46,7 +46,7 @@ export const FEATURE_SECTIONS: Record<string, string[]> = {
   providers: ['/settings/providers'],
   embed: ['/settings/embed'],
   email_templates: ['/settings/email-templates'],
-  email_log: ['/settings/email-log'],
+  email_log: ['/email-log'],
   commission: ['/settings/commissions'],
   company: ['/account/company'],
   branding: ['/settings/branding'],
