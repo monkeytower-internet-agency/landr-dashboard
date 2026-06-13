@@ -18,6 +18,19 @@ import { supabase } from '@/lib/supabase'
 
 export type FeatureStatus = 'ga' | 'beta' | 'wip'
 
+export type ParamType = 'integer' | 'boolean' | 'string' | 'enum'
+
+export type ParamDef = {
+  key: string
+  type: ParamType
+  label: string
+  min?: number | null
+  default?: unknown
+  options?: string[] | null  // for enum type
+}
+
+export type ValueSchema = { params: ParamDef[] }
+
 export type Feature = {
   id: string
   key: string
@@ -28,6 +41,8 @@ export type Feature = {
   status: FeatureStatus
   default_enabled: boolean
   sort_order: number
+  value_schema: ValueSchema | null
+  active: boolean
 }
 
 /**
@@ -38,9 +53,24 @@ export async function fetchFeatures(): Promise<Feature[]> {
   const { data, error } = await supabase
     .from('features')
     .select(
-      'id, key, name, description, surface, category, status, default_enabled, sort_order',
+      'id, key, name, description, surface, category, status, default_enabled, sort_order, value_schema, active',
     )
     .eq('active', true)
+    .order('sort_order', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as Feature[]
+}
+
+/**
+ * Fetch ALL registry features including inactive, ordered by sort_order.
+ * Used by the Feature Catalog panel to show active + retired features.
+ */
+export async function fetchAllFeatures(): Promise<Feature[]> {
+  const { data, error } = await supabase
+    .from('features')
+    .select(
+      'id, key, name, description, surface, category, status, default_enabled, sort_order, value_schema, active',
+    )
     .order('sort_order', { ascending: true })
   if (error) throw new Error(error.message)
   return (data ?? []) as Feature[]
@@ -76,6 +106,7 @@ export type PackageFeature = {
   package_id: string
   feature_id: string
   enabled: boolean
+  config: Record<string, unknown> | null
 }
 
 /**
@@ -88,7 +119,7 @@ export async function fetchPackageFeatures(
 ): Promise<PackageFeature[]> {
   const { data, error } = await supabase
     .from('package_features')
-    .select('package_id, feature_id, enabled')
+    .select('package_id, feature_id, enabled, config')
     .eq('package_id', packageId)
   if (error) throw new Error(error.message)
   return (data ?? []) as PackageFeature[]
@@ -111,6 +142,42 @@ export async function setPackageFeature(args: {
     },
     { onConflict: 'package_id,feature_id' },
   )
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Upsert the config blob for a package_features row. Does not touch the
+ * `enabled` column — use setPackageFeature for that.
+ */
+export async function setPackageFeatureConfig(args: {
+  packageId: string
+  featureId: string
+  config: Record<string, unknown>
+}): Promise<void> {
+  const { error } = await supabase.from('package_features').upsert(
+    {
+      package_id: args.packageId,
+      feature_id: args.featureId,
+      config: args.config,
+    },
+    { onConflict: 'package_id,feature_id' },
+  )
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Clear the config blob on a package_features row (set to null), reverting
+ * that feature's params to the registry defaults.
+ */
+export async function clearPackageFeatureConfig(args: {
+  packageId: string
+  featureId: string
+}): Promise<void> {
+  const { error } = await supabase
+    .from('package_features')
+    .update({ config: null })
+    .eq('package_id', args.packageId)
+    .eq('feature_id', args.featureId)
   if (error) throw new Error(error.message)
 }
 
@@ -145,6 +212,7 @@ export type OperatorFeature = {
   feature_id: string
   enabled: boolean
   note: string | null
+  config: Record<string, unknown> | null
 }
 
 /**
@@ -158,7 +226,7 @@ export async function fetchOperatorFeatures(
 ): Promise<OperatorFeature[]> {
   const { data, error } = await supabase
     .from('operator_features')
-    .select('operator_id, feature_id, enabled, note')
+    .select('operator_id, feature_id, enabled, note, config')
     .eq('operator_id', operatorId)
   if (error) throw new Error(error.message)
   return (data ?? []) as OperatorFeature[]
@@ -207,14 +275,53 @@ export async function clearOperatorFeature(args: {
   if (error) throw new Error(error.message)
 }
 
+/**
+ * Upsert the config blob for an operator_features row. Creates the row if it
+ * does not exist yet (e.g. staff sets params before forcing the toggle).
+ */
+export async function setOperatorFeatureConfig(args: {
+  operatorId: string
+  featureId: string
+  config: Record<string, unknown>
+  enabledByUserId: string | null
+}): Promise<void> {
+  const { error } = await supabase.from('operator_features').upsert(
+    {
+      operator_id: args.operatorId,
+      feature_id: args.featureId,
+      config: args.config,
+      enabled_by_user_id: args.enabledByUserId,
+    },
+    { onConflict: 'operator_id,feature_id' },
+  )
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Clear the config blob on an operator_features row (set to null), reverting
+ * that feature's params to inherit from the tier.
+ */
+export async function clearOperatorFeatureConfig(args: {
+  operatorId: string
+  featureId: string
+}): Promise<void> {
+  const { error } = await supabase
+    .from('operator_features')
+    .update({ config: null })
+    .eq('operator_id', args.operatorId)
+    .eq('feature_id', args.featureId)
+  if (error) throw new Error(error.message)
+}
+
 // ---- effective resolution (display) -----------------------------------------
 
 export type EffectiveFeature = { feature_key: string; enabled: boolean }
 
 /**
- * Resolve an operator's EFFECTIVE entitlements via the resolver RPC, returning
- * a key→enabled map (override > tier > default). The override panel renders
- * this so staff see what the operator actually gets after precedence.
+ * Resolve an operator's EFFECTIVE entitlements via the OLD resolver RPC
+ * (operator_effective_features), returning a key→enabled map (override > tier
+ * > default). Kept for backward compat — mobile still calls it.
+ * For the richer config-aware resolution use fetchEffectiveEntitlements.
  */
 export async function fetchEffectiveFeatures(
   operatorId: string,
@@ -226,6 +333,30 @@ export async function fetchEffectiveFeatures(
   const rows = (data ?? []) as EffectiveFeature[]
   const m = new Map<string, boolean>()
   for (const row of rows) m.set(row.feature_key, row.enabled)
+  return m
+}
+
+export type EffectiveEntitlement = {
+  feature_key: string
+  enabled: boolean
+  config: Record<string, unknown>
+}
+
+/**
+ * Resolve an operator's EFFECTIVE entitlements via the NEW RPC
+ * (operator_effective_entitlements), returning a key→{enabled, config} map.
+ * Precedence: operator_features > package_features > registry default.
+ */
+export async function fetchEffectiveEntitlements(
+  operatorId: string,
+): Promise<Map<string, EffectiveEntitlement>> {
+  const { data, error } = await supabase.rpc('operator_effective_entitlements', {
+    p_operator_id: operatorId,
+  })
+  if (error) throw new Error(error.message)
+  const rows = (data ?? []) as EffectiveEntitlement[]
+  const m = new Map<string, EffectiveEntitlement>()
+  for (const row of rows) m.set(row.feature_key, row)
   return m
 }
 

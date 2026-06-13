@@ -587,6 +587,24 @@ export const t = {
     effectiveOff: 'effective: off',
     effectiveTooltip:
       'Effective entitlement after resolving override > tier > registry default.',
+    // v2 additions (landr-72u2.2)
+    catalogSectionTitle: 'Feature catalog',
+    catalogSectionHint:
+      'All features in the Landr registry — descriptions, surfaces, and status. Read-only reference.',
+    catalogSearchPlaceholder: 'Search features…',
+    catalogRetiredLabel: 'Retired features',
+    catalogParamChip: 'parametric',
+    matrixSectionTitle: 'Tier matrix',
+    matrixSectionHint:
+      'Toggle which features each subscription tier includes. For parametric features, set tier-level param values.',
+    paramChipLabel: 'params',
+    paramPopoverTitle: 'Tier param values',
+    paramPopoverSaveLabel: 'Save params',
+    paramPopoverClearLabel: 'Inherit default',
+    paramPopoverOperatorClearLabel: 'Inherit tier',
+    operatorParamChipLabel: 'params',
+    operatorParamPopoverTitle: 'Operator param override',
+    effectiveConfigLabel: 'effective config:',
   },
   // landr-sbhz.8 — /revenue: owner platform-commission overview (STAFF-ONLY).
   revenue: {
