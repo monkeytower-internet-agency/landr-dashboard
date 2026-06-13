@@ -40,8 +40,7 @@ export function ViewsIndex() {
   return (
     <div className="flex flex-col gap-6">
       <PageTitle title={t.viewsIndex.title} />
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">{t.viewsIndex.title}</h1>
+      <header className="flex items-center justify-end gap-4">
         <Button onClick={() => navigate('/views/new')}>
           {t.viewsIndex.newButton}
         </Button>

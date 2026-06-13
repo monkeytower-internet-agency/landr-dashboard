@@ -95,14 +95,15 @@ function makeRow(overrides: Partial<AuditRow> = {}): AuditRow {
 }
 
 describe('Audit route — smoke', () => {
-  it('renders the page title and filter card', async () => {
+  it('renders the filter card', async () => {
     render(<Audit />)
+    // The page title now lives in the AppShell topbar (PageTitle → topbar),
+    // not as a body <h1>, so it isn't rendered when the route is mounted in
+    // isolation. Pin to the entity-type dropdown as a load-bearing proof the
+    // filter UI mounted.
     expect(
-      await screen.findByRole('heading', { name: /audit log/i, level: 1 }),
+      await screen.findByLabelText(/entity type/i),
     ).toBeInTheDocument()
-    // Filter form labels live in a card; pin to the entity-type dropdown
-    // as a load-bearing proof the filter UI mounted.
-    expect(screen.getByLabelText(/entity type/i)).toBeInTheDocument()
   })
 
   it('renders rows returned by fetchAuditPage', async () => {

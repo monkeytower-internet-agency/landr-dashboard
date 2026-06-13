@@ -68,10 +68,6 @@ function RevenueInner() {
   return (
     <div className="flex flex-col gap-6">
       <PageTitle title={t.revenue.title} subtitle={t.revenue.subtitle} />
-      <header className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold">{t.revenue.title}</h1>
-        <p className="text-muted-foreground text-sm">{t.revenue.subtitle}</p>
-      </header>
 
       {query.isError ? (
         <Card>

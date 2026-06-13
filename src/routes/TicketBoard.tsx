@@ -254,9 +254,6 @@ export function TicketBoard() {
     return (
       <div className="flex flex-col gap-6">
         <PageTitle title="Tickets" />
-        <header>
-          <h1 className="text-xl font-semibold">Tickets</h1>
-        </header>
         <Card>
           <CardHeader>
             <CardTitle>Failed to load tickets</CardTitle>
@@ -285,9 +282,6 @@ export function TicketBoard() {
       />
 
       <header className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="text-xl font-semibold">Tickets</h1>
-        </div>
         {/* Operator filter chips — staff-only (landr-wwhn.31) */}
         {effectiveIsStaff && staffOperators.length > 0 ? (
           <div

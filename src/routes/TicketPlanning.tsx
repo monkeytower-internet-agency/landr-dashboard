@@ -143,9 +143,6 @@ export function TicketPlanning() {
     return (
       <div className="flex flex-col gap-6">
         <PageTitle title={t.ticketPlanning.pageTitle} />
-        <header>
-          <h1 className="text-xl font-semibold">{t.ticketPlanning.pageTitle}</h1>
-        </header>
         <Card>
           <CardHeader>
             <CardTitle>Failed to load tickets</CardTitle>
@@ -178,8 +175,7 @@ export function TicketPlanning() {
       />
 
       <header className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="text-xl font-semibold">{t.ticketPlanning.pageTitle}</h1>
+        <div className="flex items-center justify-end gap-4">
           {/* Type filter */}
           <select
             aria-label="Filter by ticket type"

@@ -52,10 +52,6 @@ export function Trash() {
     return (
       <div className="flex flex-col gap-6">
         {titleNode}
-        <header className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold">{t.trash.title}</h1>
-          <p className="text-muted-foreground text-sm">{t.trash.subtitle}</p>
-        </header>
         <p className="text-muted-foreground text-sm">{t.trash.loading}</p>
       </div>
     )
@@ -64,10 +60,6 @@ export function Trash() {
   return (
     <div className="flex flex-col gap-6">
       {titleNode}
-      <header className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold">{t.trash.title}</h1>
-        <p className="text-muted-foreground text-sm">{t.trash.subtitle}</p>
-      </header>
 
       <Tabs
         value={activeTab}

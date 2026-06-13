@@ -86,11 +86,7 @@ export function RetrieveBoard() {
   return (
     <div className="flex flex-col gap-6">
       <PageTitle title={t.retrieve.title} subtitle={t.retrieve.subtitle} />
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold">{t.retrieve.title}</h1>
-          <p className="text-muted-foreground text-sm">{t.retrieve.subtitle}</p>
-        </div>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-end">
         <label className="flex flex-col gap-1 text-xs">
           <span className="text-muted-foreground">{t.retrieve.dayLabel}</span>
           <Input
