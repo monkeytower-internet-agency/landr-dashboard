@@ -26,7 +26,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
@@ -296,7 +295,16 @@ export function TierSettings() {
 
   if (entLoading) {
     return (
-      <p className="text-muted-foreground p-6 text-sm">{t.tierEditor.loading}</p>
+      // landr-hxnb.7 — comic loading state: settings-hue soft-bg.
+      <p
+        className="rounded-xl px-6 py-6 text-sm"
+        style={{
+          background: 'var(--hue-settings-soft-bg)',
+          color: 'var(--hue-settings-vivid)',
+        }}
+      >
+        {t.tierEditor.loading}
+      </p>
     )
   }
   if (!effectiveIsStaff) return <Navigate to="/" replace />
@@ -318,16 +326,19 @@ function TierSettingsInner({ authUid }: { authUid: string | null }) {
 
   if (featuresQuery.isError) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{t.tierEditor.errorTitle}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-sm">
-            {(featuresQuery.error as Error | null)?.message ?? ''}
-          </p>
-        </CardContent>
-      </Card>
+      // landr-hxnb.7 — comic error card: settings-hue soft-bg.
+      <div
+        className="animate-slide-up-fade rounded-xl p-6 text-sm"
+        style={{
+          background: 'var(--hue-settings-soft-bg)',
+          color: 'var(--hue-settings-vivid)',
+        }}
+      >
+        <p className="font-display text-lg font-semibold">{t.tierEditor.errorTitle}</p>
+        <p className="text-muted-foreground mt-1">
+          {(featuresQuery.error as Error | null)?.message ?? ''}
+        </p>
+      </div>
     )
   }
 
@@ -340,8 +351,16 @@ function TierSettingsInner({ authUid }: { authUid: string | null }) {
         ]}
         subtitle={t.settingsHub.sectionDescriptions.tiers}
       />
+      {/* landr-hxnb.7 — comic page header: font-display, settings accent dot */}
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">{t.tierEditor.title}</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight">
+          <span
+            className="mr-2 inline-block size-2.5 rounded-full align-middle"
+            style={{ background: 'var(--hue-settings-vivid)' }}
+            aria-hidden="true"
+          />
+          {t.tierEditor.title}
+        </h1>
         <p className="text-muted-foreground text-sm">{t.tierEditor.subtitle}</p>
       </header>
 
@@ -399,9 +418,12 @@ function FeatureCatalogPanel() {
   )
 
   return (
+    // landr-hxnb.7 — Feature Catalog panel: comic section header via
+    // font-display + settings hue label; data rows use surface-dense for
+    // calm, legible density (information-dense, playfulness only in chrome).
     <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold">{t.tierEditor.catalogSectionTitle}</h2>
+        <h2 className="font-display text-lg font-semibold tracking-tight">{t.tierEditor.catalogSectionTitle}</h2>
         <p className="text-muted-foreground text-sm">
           {t.tierEditor.catalogSectionHint}
         </p>
@@ -417,7 +439,15 @@ function FeatureCatalogPanel() {
       </div>
 
       {allFeaturesQuery.isPending ? (
-        <p className="text-muted-foreground text-sm">{t.tierEditor.loading}</p>
+        <p
+          className="rounded-xl px-4 py-4 text-sm"
+          style={{
+            background: 'var(--hue-settings-soft-bg)',
+            color: 'var(--hue-settings-vivid)',
+          }}
+        >
+          {t.tierEditor.loading}
+        </p>
       ) : (
         <>
           <FeatureGroupedList
@@ -453,8 +483,11 @@ function CatalogFeatureRow({
   dimmed?: boolean
 }) {
   return (
+    // landr-hxnb.7 — surface-dense well for catalog rows: calm, desaturated,
+    // legible. Playfulness lives only in section/panel chrome above.
     <div
       className={`flex items-start gap-3 rounded-md border p-3 ${dimmed ? 'opacity-60' : ''}`}
+      style={{ background: 'var(--surface-dense)', borderColor: 'var(--surface-dense-border)' }}
     >
       <span className="flex flex-1 flex-col gap-1">
         <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
@@ -568,9 +601,11 @@ function TierMatrixPanel({ groups, features, loading }: PanelProps) {
     clearConfigMutation.isPending
 
   return (
+    // landr-hxnb.7 — Tier Matrix panel: comic header; dense feature rows use
+    // surface-dense so the matrix stays information-dense and calm.
     <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold">{t.tierEditor.matrixSectionTitle}</h2>
+        <h2 className="font-display text-lg font-semibold tracking-tight">{t.tierEditor.matrixSectionTitle}</h2>
         <p className="text-muted-foreground text-sm">
           {t.tierEditor.matrixSectionHint}
         </p>
@@ -594,7 +629,15 @@ function TierMatrixPanel({ groups, features, loading }: PanelProps) {
       </label>
 
       {loading || pkgFeaturesQuery.isPending ? (
-        <p className="text-muted-foreground text-sm">{t.tierEditor.loading}</p>
+        <p
+          className="rounded-xl px-4 py-4 text-sm"
+          style={{
+            background: 'var(--hue-settings-soft-bg)',
+            color: 'var(--hue-settings-vivid)',
+          }}
+        >
+          {t.tierEditor.loading}
+        </p>
       ) : (
         <FeatureGroupedList
           groups={groups}
@@ -603,9 +646,14 @@ function TierMatrixPanel({ groups, features, loading }: PanelProps) {
             const effective = setting?.enabled ?? feature.default_enabled
             const config = setting?.config ?? null
             return (
+              // landr-hxnb.7 — surface-dense for tier matrix rows.
               <label
                 key={feature.id}
-                className="flex cursor-pointer items-start gap-3 rounded-md border p-3 hover:bg-muted/40"
+                className="flex cursor-pointer items-start gap-3 rounded-md border p-3"
+                style={{
+                  background: 'var(--surface-dense)',
+                  borderColor: 'var(--surface-dense-border)',
+                }}
               >
                 <Checkbox
                   className="mt-0.5"
@@ -799,9 +847,11 @@ function OperatorOverridePanel({
   const effective = effectiveQuery.data
 
   return (
+    // landr-hxnb.7 — Operator Override panel: comic header; override rows use
+    // surface-dense for dense legible ops data.
     <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold">
+        <h2 className="font-display text-lg font-semibold tracking-tight">
           {t.tierEditor.overrideSectionTitle}
         </h2>
         <p className="text-muted-foreground text-sm">
@@ -831,11 +881,26 @@ function OperatorOverridePanel({
       </div>
 
       {!operatorId ? (
-        <p className="text-muted-foreground text-sm">
+        // landr-hxnb.7 — comic empty state with settings-hue tint.
+        <p
+          className="animate-slide-up-fade rounded-xl px-4 py-6 text-center text-sm font-medium"
+          style={{
+            background: 'var(--hue-settings-soft-bg)',
+            color: 'var(--hue-settings-vivid)',
+          }}
+        >
           {t.tierEditor.overrideEmpty}
         </p>
       ) : loading || overridesQuery.isPending ? (
-        <p className="text-muted-foreground text-sm">{t.tierEditor.loading}</p>
+        <p
+          className="rounded-xl px-4 py-4 text-sm"
+          style={{
+            background: 'var(--hue-settings-soft-bg)',
+            color: 'var(--hue-settings-vivid)',
+          }}
+        >
+          {t.tierEditor.loading}
+        </p>
       ) : (
         <>
           <label className="flex flex-col gap-1 text-xs">
@@ -857,9 +922,14 @@ function OperatorOverridePanel({
               const override = overrideByFeature.get(feature.id)
               const eff: EffectiveEntitlement | undefined = effective?.get(feature.key)
               return (
+                // landr-hxnb.7 — surface-dense for override rows: dense, calm, legible.
                 <div
                   key={feature.id}
                   className="flex flex-col gap-2 rounded-md border p-3"
+                  style={{
+                    background: 'var(--surface-dense)',
+                    borderColor: 'var(--surface-dense-border)',
+                  }}
                 >
                   <div className="flex items-start gap-3">
                     <span className="flex flex-1 flex-col gap-0.5">
@@ -996,11 +1066,16 @@ function FeatureGroupedList({
   renderFeature: (feature: Feature) => ReactNode
 }) {
   return (
+    // landr-hxnb.7 — category group headers use font-display and settings hue
+    // for comic identity; data rows inside each group stay dense via surface-dense.
     <div className="flex flex-col gap-5">
       {groups.map((group) => (
         <Fragment key={group.category}>
           <div className="flex flex-col gap-2">
-            <h3 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+            <h3
+              className="font-display text-xs font-semibold uppercase tracking-wider"
+              style={{ color: 'var(--hue-settings-vivid)' }}
+            >
               {group.category}
             </h3>
             <div className="flex flex-col gap-1.5">

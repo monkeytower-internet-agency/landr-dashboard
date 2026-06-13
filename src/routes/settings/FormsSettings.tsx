@@ -124,9 +124,18 @@ function FormsManager({ operatorId }: ManagerProps) {
   const retiredForms = forms.filter((f) => !f.active)
 
   return (
+    // landr-hxnb.7 — comic chrome: display font for headers, settings hue for
+    // empty states. Form inputs + list rows stay information-dense and legible.
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="text-xl font-semibold">{t.formsSettings.title}</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight">
+          <span
+            className="mr-2 inline-block size-2 rounded-full align-middle"
+            style={{ background: 'var(--hue-settings-vivid)' }}
+            aria-hidden="true"
+          />
+          {t.formsSettings.title}
+        </h1>
         <p className="text-muted-foreground text-sm">{t.formsSettings.subtitle}</p>
       </header>
 
@@ -135,7 +144,7 @@ function FormsManager({ operatorId }: ManagerProps) {
         className="rounded-md border p-4"
         data-testid="forms-settings-create"
       >
-        <h2 className="text-sm font-medium">{t.formsSettings.createTitle}</h2>
+        <h2 className="font-display text-sm font-semibold">{t.formsSettings.createTitle}</h2>
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium" htmlFor="form-new-name">
@@ -212,19 +221,33 @@ function FormsManager({ operatorId }: ManagerProps) {
 
       {/* ---- Active forms list --------------------------------------- */}
       <section data-testid="forms-settings-active-list">
-        <h2 className="text-sm font-medium">{t.formsSettings.activeTitle}</h2>
+        <h2 className="font-display text-sm font-semibold">{t.formsSettings.activeTitle}</h2>
         {formsQuery.isPending ? (
-          <p className="text-muted-foreground mt-2 text-sm">
+          <p
+            className="mt-2 rounded-xl px-4 py-3 text-sm"
+            style={{
+              background: 'var(--hue-settings-soft-bg)',
+              color: 'var(--hue-settings-vivid)',
+            }}
+          >
             {t.formsSettings.loading}
           </p>
         ) : formsQuery.isError ? (
-          <p className="text-destructive mt-2 text-sm" role="alert">
+          <p className="text-destructive mt-2 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm" role="alert">
             {(formsQuery.error as Error).message}
           </p>
         ) : activeForms.length === 0 ? (
-          <p className="text-muted-foreground mt-2 rounded-md border border-dashed p-4 text-center text-sm">
-            {t.formsSettings.emptyActive}
-          </p>
+          // landr-hxnb.7 — comic empty state: settings hue tint + slide-up-fade.
+          <div
+            className="animate-slide-up-fade mt-2 flex flex-col items-center gap-2 rounded-xl px-4 py-8 text-center text-sm font-medium"
+            style={{
+              background: 'var(--hue-settings-soft-bg)',
+              color: 'var(--hue-settings-vivid)',
+            }}
+          >
+            <span className="text-2xl" aria-hidden="true">📋</span>
+            <span className="font-display">{t.formsSettings.emptyActive}</span>
+          </div>
         ) : (
           <ul className="mt-3 flex flex-col divide-y rounded-md border">
             {activeForms.map((form) => (
@@ -242,7 +265,7 @@ function FormsManager({ operatorId }: ManagerProps) {
       {/* ---- Retired forms ------------------------------------------- */}
       {retiredForms.length > 0 && (
         <section data-testid="forms-settings-retired-list">
-          <h2 className="text-sm font-medium">{t.formsSettings.retiredTitle}</h2>
+          <h2 className="font-display text-sm font-semibold">{t.formsSettings.retiredTitle}</h2>
           <ul className="mt-3 flex flex-col divide-y rounded-md border">
             {retiredForms.map((form) => (
               <FormRow
