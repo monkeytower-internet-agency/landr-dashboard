@@ -116,6 +116,8 @@ type EffectiveFeatureRow = { feature_key: string; enabled: boolean }
  * `operator_effective_features` RPC. Returns the SET of ENABLED feature keys
  * (absent keys / disabled rows are simply not in the set, so membership ===
  * enabled). Throws on RPC error so TanStack Query surfaces it.
+ *
+ * KEPT for backward compat — mobile and existing callers still use this.
  */
 export async function fetchEnabledFeatures(
   operatorId: string,
@@ -130,4 +132,31 @@ export async function fetchEnabledFeatures(
     if (row.enabled) enabled.add(row.feature_key)
   }
   return enabled
+}
+
+type EffectiveEntitlementRow = {
+  feature_key: string
+  enabled: boolean
+  config: Record<string, unknown>
+}
+
+/**
+ * Resolve the operator's effective entitlements via the NEW
+ * `operator_effective_entitlements` RPC. Returns a Map of feature key →
+ * { enabled, config } so callers can read both the boolean gate and any
+ * parametric config blob. Throws on RPC error.
+ */
+export async function fetchEnabledEntitlements(
+  operatorId: string,
+): Promise<Map<string, { enabled: boolean; config: Record<string, unknown> }>> {
+  const { data, error } = await supabase.rpc('operator_effective_entitlements', {
+    p_operator_id: operatorId,
+  })
+  if (error) throw new Error(error.message)
+  const rows = (data ?? []) as EffectiveEntitlementRow[]
+  const m = new Map<string, { enabled: boolean; config: Record<string, unknown> }>()
+  for (const row of rows) {
+    m.set(row.feature_key, { enabled: row.enabled, config: row.config ?? {} })
+  }
+  return m
 }

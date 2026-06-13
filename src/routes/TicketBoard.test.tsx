@@ -334,6 +334,7 @@ function asStaff() {
   })
   vi.mocked(useEntitlements).mockReturnValue({
     isEnabled: () => true,
+    getFeatureConfig: () => ({}),
     isLandrStaff: true,
     effectiveIsStaff: true,
     isLoading: false,
