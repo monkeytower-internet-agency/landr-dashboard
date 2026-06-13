@@ -249,7 +249,8 @@ function FormsManager({ operatorId }: ManagerProps) {
             <span className="font-display">{t.formsSettings.emptyActive}</span>
           </div>
         ) : (
-          <ul className="mt-3 flex flex-col divide-y rounded-md border">
+          // landr-hxnb.8 — catalog-hue border on the form list
+          <ul className="mt-3 flex flex-col divide-y rounded-md border-2 border-hue-catalog-vivid/20">
             {activeForms.map((form) => (
               <FormRow
                 key={form.id}
@@ -386,18 +387,21 @@ function FormRow({ form, operatorId, onChanged }: RowProps) {
       className="flex flex-wrap items-center gap-2 p-3"
       data-testid={`form-row-${form.id}`}
     >
+      {/* landr-hxnb.8 — display font on form name; catalog-hue version chip */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-medium">
+        <span className="font-display truncate text-sm font-medium">
           {form.name}
           {!form.active && (
-            <span className="text-muted-foreground ml-2 text-[10px] uppercase tracking-wide">
+            <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground">
               {t.formsSettings.retiredBadge}
             </span>
           )}
         </span>
-        <span className="text-muted-foreground truncate font-mono text-xs">
-          {form.key}
-          <span className="ml-2">v{form.version}</span>
+        <span className="mt-0.5 flex items-center gap-1.5">
+          <span className="font-mono text-xs text-muted-foreground">{form.key}</span>
+          <span className="font-display inline-flex items-center rounded-full bg-hue-catalog-soft-bg px-1.5 py-px text-[10px] font-semibold tracking-wide text-hue-catalog-vivid">
+            v{form.version}
+          </span>
         </span>
       </div>
 
@@ -405,12 +409,14 @@ function FormRow({ form, operatorId, onChanged }: RowProps) {
         {form.active ? (
           <>
             {/* Link to the field-builder editor (landr-71kz.6 stub) */}
+            {/* landr-hxnb.8 — catalog-hue "Edit fields" CTA */}
             <Button
               asChild
               type="button"
               size="sm"
               variant="outline"
               data-testid={`form-row-${form.id}-edit-fields`}
+              className="font-display border-hue-catalog-vivid/40 hover:bg-hue-catalog-soft-bg hover:text-hue-catalog-vivid"
             >
               <Link to={`/settings/forms/${form.id}`}>
                 <WandSparklesIcon className="size-3.5" />
