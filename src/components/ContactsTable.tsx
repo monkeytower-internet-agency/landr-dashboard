@@ -23,6 +23,7 @@ import { ContactRowContextMenu } from '@/components/contacts/ContactRowContextMe
 import { DataTable } from '@/components/DataTable'
 import { selectColumn } from '@/components/data-table-select'
 import { EmptyState } from '@/components/EmptyState'
+import { EmptyContacts } from '@/components/illustrations'
 import {
   contactBookingWindow,
   contactDate,
@@ -356,6 +357,8 @@ export function ContactsTable({
     return (
       <EmptyState
         icon={UsersIcon}
+        illustration={<EmptyContacts className="h-full w-full" />}
+        accentHue="people"
         title={t.emptyStates.contacts.title}
         description={t.emptyStates.contacts.description}
         data-testid="contacts-empty-state"

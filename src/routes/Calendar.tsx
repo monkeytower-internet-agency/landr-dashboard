@@ -5,6 +5,7 @@ import { BookingsCalendar } from '@/components/BookingsCalendar'
 import { BookingsFilters } from '@/components/bookings/BookingsFilters'
 import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
 import { EmptyState } from '@/components/EmptyState'
+import { EmptyCalendar } from '@/components/illustrations'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { fetchBookings, type BookingRow } from '@/lib/bookings'
 import {
@@ -121,6 +122,8 @@ export function Calendar() {
         // bar + blank calendar grid, which read as "is it broken?".
         <EmptyState
           icon={CalendarRangeIcon}
+          illustration={<EmptyCalendar className="h-full w-full" />}
+          accentHue="bookings"
           title={t.emptyStates.calendar.title}
           description={t.emptyStates.calendar.description}
           data-testid="calendar-empty-state"

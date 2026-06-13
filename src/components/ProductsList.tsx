@@ -4,6 +4,7 @@ import { BedDoubleIcon, CopyIcon, EyeIcon, GlobeIcon, MoreHorizontalIcon, Packag
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { EmptyState } from '@/components/EmptyState'
+import { EmptyProducts } from '@/components/illustrations'
 import { SkeletonListRows } from '@/components/SkeletonTableRows'
 import {
   DropdownMenu,
@@ -217,6 +218,8 @@ export function ProductsList({
       <div className="flex h-full flex-col">
         <EmptyState
           icon={PackageIcon}
+          illustration={<EmptyProducts className="h-full w-full" />}
+          accentHue="catalog"
           title={t.emptyStates.products.title}
           description={t.emptyStates.products.description}
           action={{ label: t.emptyStates.products.cta, onClick: onCreate }}

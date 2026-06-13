@@ -326,7 +326,7 @@ describe('Calendar route', () => {
     const empty = await screen.findByTestId('calendar-empty-state')
     expect(empty).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: /no bookings to show/i }),
+      screen.getByRole('heading', { name: /wide-open skies/i }),
     ).toBeInTheDocument()
     // Calendar grid suppressed when the empty state shows.
     expect(screen.queryAllByTestId('booking-event').length).toBe(0)
