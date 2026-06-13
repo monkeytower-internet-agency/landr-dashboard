@@ -370,7 +370,7 @@ export function ContactsTable({
     const contact = row.original
     const checked = selectedIds.has(contact.id)
     return (
-      <div className="bg-card flex flex-col gap-2 rounded-lg border p-3 shadow-s">
+      <div className="surface-dense flex flex-col gap-2 rounded-lg border p-3 shadow-s">
         <div className="flex items-start gap-2">
           <Checkbox
             checked={checked}
