@@ -453,6 +453,8 @@ export const t = {
       // landr-sbhz.5 — STAFF-ONLY tier/feature editor. Hidden from non-staff
       // in the sub-sidebar; this is Landr platform tooling, not operator scope.
       tiers: 'Tiers & features',
+      // landr-71kz.5 — operator form library (custom booking forms).
+      forms: 'Forms',
     },
     // landr-fnhz — one-line description for each settings subsection,
     // rendered as the PageTitle subtitle on the matching sub-page so the
@@ -533,6 +535,9 @@ export const t = {
       // landr-sbhz.5 — staff-only tier/feature entitlement editor.
       tiers:
         'Landr staff: enable features per subscription tier, or override a single operator one feature at a time.',
+      // landr-71kz.5 — operator form library.
+      forms:
+        'Build reusable booking forms with fields, validation, and conditional logic. Attach them to products in the Flow tab.',
     },
     plan: {
       title: 'Plan',
@@ -3081,6 +3086,56 @@ export const t = {
     noCategory: 'This product has no category.',
     toastCopied: 'Shortcode copied.',
     toastError: 'Could not copy to clipboard.',
+  },
+  // landr-71kz.5 — Settings → Forms library CRUD.
+  formsSettings: {
+    title: 'Forms',
+    subtitle:
+      'Reusable booking forms with fields, validation, and conditional logic. Attach them to products via the Flow tab.',
+    noOperator: 'Select an operator to manage forms.',
+    loading: 'Loading forms…',
+    emptyActive: 'No forms yet. Create your first one below.',
+    activeTitle: 'Your forms',
+    retiredTitle: 'Retired forms',
+    retiredBadge: 'Retired',
+
+    createTitle: 'New form',
+    fieldName: 'Name',
+    fieldKey: 'Key (unique slug)',
+    placeholderName: 'e.g. Customer declarations, Age & weight',
+    placeholderKey: 'e.g. customer_declarations',
+    create: 'Create',
+    creating: 'Creating…',
+    rename: 'Rename',
+    save: 'Save',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+    retire: 'Retire',
+    retiring: 'Retiring…',
+    confirmRetire: 'Confirm retire',
+    restore: 'Restore',
+    restoring: 'Restoring…',
+    editFields: 'Edit fields',
+
+    dupeKey: 'A form with this key already exists on this operator.',
+
+    toastCreated: 'Form created.',
+    toastCreateError: 'Could not create form.',
+    toastRenamed: 'Form renamed.',
+    toastRenameError: 'Could not rename form.',
+    toastRetired: 'Form retired.',
+    toastRetireError: 'Could not retire form.',
+    toastRestored: 'Form restored.',
+    toastRestoreError: 'Could not restore form.',
+  },
+  // landr-71kz.5 — stub for the field-builder editor (/settings/forms/:id).
+  // The full editor ships in landr-71kz.6.
+  formEditorStub: {
+    crumb: 'Field editor',
+    title: 'Field editor coming soon',
+    description:
+      'The drag-and-drop field builder for this form is shipping in the next release. Return to the Forms library to manage your forms.',
+    backToLibrary: 'Back to Forms',
   },
   // landr-iz58 — operator-scoped tag CRUD (Settings → Tags).
   tagsSettings: {

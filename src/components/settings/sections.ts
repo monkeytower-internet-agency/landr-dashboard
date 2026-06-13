@@ -3,6 +3,7 @@ import {
   BedIcon,
   BellIcon,
   BuildingIcon,
+  ClipboardListIcon,
   CalendarClockIcon,
   CalendarDaysIcon,
   CheckSquareIcon,
@@ -193,6 +194,13 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/embed',
     label: t.settingsHub.sections.embed,
     icon: CodeIcon,
+  },
+  // landr-71kz.5 — operator form library (custom booking forms). Sits after
+  // Embed code because both are "what the widget uses" config surfaces.
+  {
+    to: '/settings/forms',
+    label: t.settingsHub.sections.forms,
+    icon: ClipboardListIcon,
   },
   // landr-znzz.5 — generic per-operator offers/upsells shown in the AFTER
   // phase of the customer event page. Each offer links out to the operator's
