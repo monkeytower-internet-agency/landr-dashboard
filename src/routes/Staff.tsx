@@ -42,11 +42,7 @@ export function Staff() {
         ]}
         subtitle={t.settingsHub.sectionDescriptions.team}
       />
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">{t.staff.title}</h1>
-          <p className="text-muted-foreground text-sm">{t.staff.subtitle}</p>
-        </div>
+      <header className="flex items-center justify-end gap-4">
         <Button
           type="button"
           onClick={() => setInviteOpen(true)}

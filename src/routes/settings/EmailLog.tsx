@@ -228,10 +228,6 @@ export function EmailLog() {
     return (
       <div className="flex flex-col gap-6">
         {titleNode}
-        <header>
-          <h1 className="text-xl font-semibold">{t.emailLog.title}</h1>
-          <p className="text-muted-foreground text-sm">{t.emailLog.subtitle}</p>
-        </header>
         <p className="text-muted-foreground text-sm">{t.emailLog.noOperator}</p>
       </div>
     )
@@ -259,10 +255,6 @@ export function EmailLog() {
   return (
     <div className="flex flex-col gap-6">
       {titleNode}
-      <header>
-        <h1 className="text-xl font-semibold">{t.emailLog.title}</h1>
-        <p className="text-muted-foreground text-sm">{t.emailLog.subtitle}</p>
-      </header>
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">

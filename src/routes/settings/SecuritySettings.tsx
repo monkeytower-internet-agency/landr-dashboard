@@ -295,7 +295,6 @@ export function SecuritySettings() {
         ]}
         subtitle={t.security.description}
       />
-      <h1 className="text-2xl font-semibold">{t.security.title}</h1>
 
       {isLoading ? null : hasPassword && email ? (
         <ChangePasswordCard email={email} />

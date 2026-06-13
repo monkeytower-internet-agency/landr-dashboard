@@ -403,8 +403,6 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
     // landr-3qkr.4 — full-bleed on mobile (no horizontal padding that fights
     // the AppShell safe-area padding); constrained to 2xl on larger screens.
     <div className="flex max-w-2xl flex-col gap-6">
-      <h1 className="text-2xl font-semibold">{t.settings.widgetConfigTitle}</h1>
-
       {/* ── Layout variant picker ── */}
       <Card>
         <CardHeader>

@@ -127,18 +127,6 @@ function FormsManager({ operatorId }: ManagerProps) {
     // landr-hxnb.7 — comic chrome: display font for headers, settings hue for
     // empty states. Form inputs + list rows stay information-dense and legible.
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="font-display text-xl font-semibold tracking-tight">
-          <span
-            className="mr-2 inline-block size-2 rounded-full align-middle"
-            style={{ background: 'var(--hue-settings-vivid)' }}
-            aria-hidden="true"
-          />
-          {t.formsSettings.title}
-        </h1>
-        <p className="text-muted-foreground text-sm">{t.formsSettings.subtitle}</p>
-      </header>
-
       {/* ---- Create form -------------------------------------------- */}
       <section
         className="rounded-md border p-4"
