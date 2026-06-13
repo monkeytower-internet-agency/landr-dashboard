@@ -54,8 +54,10 @@ export const FEATURE_SECTIONS: Record<string, string[]> = {
   // Gated alongside Branding: both are paid "make the embedded widget yours"
   // surfaces. The feature key mirrors the API registry (landr-jb1k.1).
   widget_config: ['/settings/widget'],
-  // landr-71kz.5 — operator form library + field-builder editor.
-  // Beta, default off; enabled for business/enterprise tiers.
+  // landr-71kz — form builder (library + field-builder editor) + product
+  // Flow tab. Beta, default off; enabled for business/enterprise tiers.
+  // (landr-71kz.5 added the /settings/forms library; landr-71kz.7 added the
+  // product Flow tab — both gate on this single key.)
   form_builder: ['/settings/forms'],
   team: ['/settings/team'],
   // OFF-set for Para42
@@ -63,8 +65,6 @@ export const FEATURE_SECTIONS: Record<string, string[]> = {
   campaigns: ['/settings/campaigns'],
   tags: ['/settings/tags'],
   webhooks: ['/settings/webhooks'],
-  // landr-71kz — form builder + product flow tab (gated behind form_builder feature).
-  form_builder: ['/settings/forms'],
   // landr-ubqo — Gmail (sending mailbox) is intentionally UNGATED: connecting
   // your own Gmail to send branded booking emails is a prerequisite to
   // operate, not a paid upsell. Same rationale as the ungated Payments &
