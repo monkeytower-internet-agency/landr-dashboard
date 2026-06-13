@@ -191,9 +191,8 @@
      Contrast: white text (L 0.985) on L0.65 C0.18 H40 ≈ 4.6:1  ✓ WCAG AA.
      Hover (darker rust) handled via existing component patterns — the
      --accent warm tint below gives hover reads for menus/dropdowns. */
-  /* brand-palette: PRIMARY = logo sky-blue #12B5F0; near-black text on it
-     (bright sky-blue + black = ~6:1, keeps the exact logo colour). */
-  --primary: oklch(0.715 0.135 233);
+  /* brand-palette: PRIMARY = EXACT logo sky-blue #12B5F0; near-black text. */
+  --primary: #12B5F0;
   --primary-foreground: oklch(0.145 0 0);
 
   /* Secondary — soft warm golden tint for secondary actions. */
@@ -213,18 +212,18 @@
   --border: oklch(0.89 0 0);
   --input: oklch(0.87 0 0);
 
-  /* --ring — logo sky-blue focus ring. */
-  --ring: oklch(0.715 0.135 233);
+  /* --ring — EXACT logo sky-blue focus ring. */
+  --ring: #12B5F0;
 
-  /* Sidebar — white page; active pill uses logo sky-blue. */
+  /* Sidebar — white page; active pill uses EXACT logo sky-blue. */
   --sidebar: var(--bg-dark);
   --sidebar-foreground: var(--text);
-  --sidebar-primary: oklch(0.715 0.135 233);
+  --sidebar-primary: #12B5F0;
   --sidebar-primary-foreground: oklch(0.145 0 0);
   --sidebar-accent: oklch(0.955 0.025 233);
   --sidebar-accent-foreground: var(--text);
   --sidebar-border: oklch(0.89 0 0);
-  --sidebar-ring: oklch(0.715 0.135 233);
+  --sidebar-ring: #12B5F0;
 
   /* -----------------------------------------------------------------------
    * landr-hxnb.1 — Section hue ramps (light mode).
@@ -235,16 +234,16 @@
    *   soft-bg: oklch(0.95 0.06 38)  — card tint, section bg
    *   on-color: near-white, contrast ≈ 4.6:1 on vivid  ✓ AA
    * ----------------------------------------------------------------------- */
-  --hue-bookings-vivid:    oklch(0.70 0.165 53);
+  --hue-bookings-vivid:    #F5821F;
   --hue-bookings-soft-bg:  oklch(0.955 0.05 53);
-  --hue-bookings-on-color: oklch(0.985 0 0);
+  --hue-bookings-on-color: oklch(0.16 0 0);
 
   /* catalog — sky blue (hue 258)
    *   vivid:   oklch(0.58 0.14 258) — contrast with white ≈ 4.7:1  ✓ AA
    *   soft-bg: oklch(0.94 0.04 258) */
-  --hue-catalog-vivid:    oklch(0.62 0.135 233);
+  --hue-catalog-vivid:    #12B5F0;
   --hue-catalog-soft-bg:  oklch(0.95 0.035 233);
-  --hue-catalog-on-color: oklch(0.985 0 0);
+  --hue-catalog-on-color: oklch(0.16 0 0);
 
   /* finance — meadow green (hue 140)
    *   vivid:   oklch(0.58 0.16 140) — contrast with white ≈ 4.6:1  ✓ AA
@@ -345,8 +344,8 @@
      button is still legible. Dark primary is best read as accent/highlight
      on dark bg, not as button bg with text. Components using bg-primary+text
      should use primary-foreground oklch(0.15 0.01 40) which gives ≈14:1. */
-  /* brand-palette: PRIMARY = logo sky-blue on black, near-black text. */
-  --primary: oklch(0.715 0.135 233);
+  /* brand-palette: PRIMARY = EXACT logo sky-blue #12B5F0 on black, dark text. */
+  --primary: #12B5F0;
   --primary-foreground: oklch(0.10 0 0);
 
   --secondary: var(--bg-light);
@@ -365,17 +364,17 @@
 
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.715 0.135 233);
+  --ring: #12B5F0;
 
-  /* Sidebar dark — black bg, logo sky-blue active pill. */
+  /* Sidebar dark — black bg, EXACT logo sky-blue active pill. */
   --sidebar: var(--bg-dark);
   --sidebar-foreground: var(--text);
-  --sidebar-primary: oklch(0.715 0.135 233);
+  --sidebar-primary: #12B5F0;
   --sidebar-primary-foreground: oklch(0.10 0 0);
   --sidebar-accent: oklch(0.22 0 0);
   --sidebar-accent-foreground: var(--text);
   --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.715 0.135 233);
+  --sidebar-ring: #12B5F0;
 
   /* -----------------------------------------------------------------------
    * landr-hxnb.1 — Section hue ramps (dark mode, ~20% reduced chroma).
@@ -394,15 +393,15 @@
    *   not as heavy color blocks on a dark screen.
    * ----------------------------------------------------------------------- */
 
-  /* bookings dark — logo orange */
-  --hue-bookings-vivid:    oklch(0.70 0.15 53);
-  --hue-bookings-soft-bg:  oklch(0.225 0.025 38);
-  --hue-bookings-on-color: oklch(0.985 0 0);
+  /* bookings dark — EXACT logo orange */
+  --hue-bookings-vivid:    #F5821F;
+  --hue-bookings-soft-bg:  oklch(0.225 0.025 53);
+  --hue-bookings-on-color: oklch(0.16 0 0);
 
-  /* catalog dark — logo sky-blue */
-  --hue-catalog-vivid:    oklch(0.68 0.12 233);
-  --hue-catalog-soft-bg:  oklch(0.225 0.022 258);
-  --hue-catalog-on-color: oklch(0.985 0 0);
+  /* catalog dark — EXACT logo sky-blue */
+  --hue-catalog-vivid:    #12B5F0;
+  --hue-catalog-soft-bg:  oklch(0.225 0.022 233);
+  --hue-catalog-on-color: oklch(0.16 0 0);
 
   /* finance dark */
   --hue-finance-vivid:    oklch(0.62 0.13 140);
