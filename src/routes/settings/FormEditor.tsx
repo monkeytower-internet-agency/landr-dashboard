@@ -487,6 +487,7 @@ function AddFieldPanel({
   nextPosition,
   onCreated,
 }: AddFieldPanelProps) {
+  const { currentOperatorId } = useOperator()
   const [type, setType] = useState<FieldType>('text')
   const [label, setLabel] = useState('')
   const [key, setKey] = useState('')
@@ -497,16 +498,20 @@ function AddFieldPanel({
   const canAdd =
     label.trim().length > 0 &&
     derivedKey.length > 0 &&
-    !dupeKey
+    !dupeKey &&
+    !!currentOperatorId
 
   const addMutation = useMutation({
-    mutationFn: () =>
-      createFormField(formId, {
+    mutationFn: () => {
+      // form_fields.operator_id is NOT NULL + tenant RLS — must pass it.
+      if (!currentOperatorId) throw new Error('No operator selected')
+      return createFormField(formId, {
         key: derivedKey,
         field_type: type,
         label: label.trim(),
         position: nextPosition,
-      }),
+      }, currentOperatorId)
+    },
     onSuccess: (field) => {
       onCreated(field)
       setLabel('')

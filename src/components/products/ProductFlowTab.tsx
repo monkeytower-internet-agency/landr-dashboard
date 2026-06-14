@@ -201,7 +201,7 @@ export function ProductFlowTab({ productId, operatorId }: Props) {
         const m = moduleById.get(id)!
         return { ...m, position: idx + 1 }
       })
-      await upsertFlowModulePositions(updatedModules)
+      await upsertFlowModulePositions(updatedModules, operatorId)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: modulesKey })
@@ -233,7 +233,7 @@ export function ProductFlowTab({ productId, operatorId }: Props) {
       const nextPosition = modules.length > 0
         ? Math.max(...modules.map((m) => m.position)) + 1
         : 1
-      return insertFlowModule(productId, kind, nextPosition, formId)
+      return insertFlowModule(productId, kind, nextPosition, operatorId, formId)
     },
     onSuccess: (inserted) => {
       qc.setQueryData<FlowModule[]>(modulesKey, (prev) =>

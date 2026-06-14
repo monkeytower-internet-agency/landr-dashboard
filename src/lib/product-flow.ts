@@ -82,11 +82,16 @@ export async function insertFlowModule(
   productId: string,
   moduleKind: ModuleKind,
   position: number,
+  operatorId: string,
   formId?: string,
 ): Promise<FlowModule> {
+  // operator_id is NOT NULL on product_flow_modules AND the apply_tenant_rls
+  // INSERT policy checks is_tenant_visible(operator_id) — omitting it fails the
+  // write (NOT NULL violation / RLS). Mirror forms.ts which threads operatorId.
   const { data, error } = await supabase
     .from('product_flow_modules')
     .insert({
+      operator_id: operatorId,
       product_id: productId,
       module_kind: moduleKind,
       position,
@@ -105,13 +110,18 @@ export async function insertFlowModule(
  */
 export async function upsertFlowModulePositions(
   modules: Pick<FlowModule, 'id' | 'product_id' | 'module_kind' | 'form_id' | 'position'>[],
+  operatorId: string,
 ): Promise<void> {
   if (modules.length === 0) return
+  // PostgREST upsert is INSERT ... ON CONFLICT, so each row's VALUES must carry
+  // operator_id (NOT NULL + RLS WITH CHECK) or the write fails before conflict
+  // resolution.
   const { error } = await supabase
     .from('product_flow_modules')
     .upsert(
       modules.map((m) => ({
         id: m.id,
+        operator_id: operatorId,
         product_id: m.product_id,
         module_kind: m.module_kind,
         form_id: m.form_id,
