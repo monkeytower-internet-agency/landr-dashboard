@@ -260,10 +260,13 @@ export async function fetchFormFields(formId: string): Promise<FormField[]> {
 export async function createFormField(
   formId: string,
   input: FormFieldInput,
+  operatorId: string,
 ): Promise<FormField> {
+  // form_fields.operator_id is NOT NULL + tenant RLS WITH CHECK — must be set
+  // (mirrors createForm). Omitting it fails every field insert.
   const { data, error } = await supabase
     .from('form_fields')
-    .insert({ ...input, form_id: formId })
+    .insert({ ...input, form_id: formId, operator_id: operatorId })
     .select(FIELD_SELECT)
     .single()
 
