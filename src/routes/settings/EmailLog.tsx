@@ -1,5 +1,5 @@
 /**
- * Settings → Email log (landr-qg4q, landr-0xo6).
+ * Settings → Email log (landr-qg4q, landr-0xo6, landr-rw7q).
  *
  * Read-only operator surface that surfaces the outbound_emails queue.
  * Helps operators debug "why didn't the customer get the email" without
@@ -9,7 +9,9 @@
  * UI:
  *   - status filter chips (queued/sending/sent/failed) — toggle to OR.
  *     Empty selection = all statuses.
- *   - newest-first table of subject / recipient / status / sent_at.
+ *   - type filter chips (booking_confirmation / booking_received / …) — OR.
+ *     Empty selection = all kinds. (landr-rw7q)
+ *   - newest-first table with Type column (badge) + subject / recipient / status / sent_at.
  *   - click a row → drawer with body_html + body_text + last_error.
  *   - drawer has Resend button (terminal rows) → edit-and-resend dialog.
  *   - sent_via='dev_fallback' → amber 'Captured (dev)' badge + drawer note.
@@ -23,6 +25,7 @@ import { t } from '@/lib/strings'
 import { cn } from '@/lib/utils'
 import { useOperator, useOperatorCalendarPrefs } from '@/lib/operator'
 import { contactDateTime } from '@/lib/contacts'
+import { buildPreviewSrcDoc } from '@/lib/emailPreview'
 import { useIsMobile } from '@/hooks/use-mobile'
 import {
   mobileSheetContent,
@@ -60,6 +63,37 @@ const STATUS_LABEL: Record<OutboundEmailStatus, string> = {
   sending: t.emailLog.statusLabels.sending,
   sent: t.emailLog.statusLabels.sent,
   failed: t.emailLog.statusLabels.failed,
+}
+
+// Known template_kind values with their friendly labels (landr-rw7q).
+// The humanizingFallback converts snake_case unknowns to Title Case words,
+// so future kinds (e.g. "payment_receipt") degrade gracefully rather than
+// breaking the UI.
+const KNOWN_TEMPLATE_KINDS = [
+  'booking_confirmation',
+  'booking_received',
+  'group_inquiry',
+  'account_link',
+] as const
+
+function humanizeKind(kind: string): string {
+  if (kind in t.emailLog.typeLabels) return t.emailLog.typeLabels[kind]
+  // Fallback: snake_case → Title Case words
+  return kind
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+function TypeBadge({ kind }: { kind: string }) {
+  return (
+    <span
+      className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground/80"
+      data-testid={`email-log-type-${kind}`}
+    >
+      {humanizeKind(kind)}
+    </span>
+  )
 }
 
 // Status badge palette — keep them low-contrast tints to stay aligned with
@@ -124,6 +158,7 @@ export function EmailLog() {
   const [activeStatuses, setActiveStatuses] = useState<OutboundEmailStatus[]>(
     [],
   )
+  const [activeKinds, setActiveKinds] = useState<string[]>([])
   const [sinceDate, setSinceDate] = useState<string>('')
   const [untilDate, setUntilDate] = useState<string>('')
   const [openRow, setOpenRow] = useState<OutboundEmailRow | null>(null)
@@ -136,10 +171,11 @@ export function EmailLog() {
       'outbound-emails',
       currentOperatorId ?? 'none',
       [...activeStatuses].sort().join(','),
+      [...activeKinds].sort().join(','),
       sinceIso ?? '',
       untilIso ?? '',
     ],
-    [currentOperatorId, activeStatuses, sinceIso, untilIso],
+    [currentOperatorId, activeStatuses, activeKinds, sinceIso, untilIso],
   )
 
   const query = useQuery({
@@ -147,6 +183,7 @@ export function EmailLog() {
     queryFn: () =>
       fetchOutboundEmails(currentOperatorId as string, {
         statuses: activeStatuses,
+        templateKinds: activeKinds,
         sinceIso,
         untilIso,
       }),
@@ -169,6 +206,14 @@ export function EmailLog() {
     return map
   }, [rows])
 
+  // Per-kind counts within the currently loaded result-set. Same pattern as
+  // statusCounts — drives the type filter chip badges.
+  const kindCounts = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const r of rows) map[r.template_kind] = (map[r.template_kind] ?? 0) + 1
+    return map
+  }, [rows])
+
   const titleNode = (
     <PageTitle
       crumbs={[
@@ -183,10 +228,6 @@ export function EmailLog() {
     return (
       <div className="flex flex-col gap-6">
         {titleNode}
-        <header>
-          <h1 className="text-xl font-semibold">{t.emailLog.title}</h1>
-          <p className="text-muted-foreground text-sm">{t.emailLog.subtitle}</p>
-        </header>
         <p className="text-muted-foreground text-sm">{t.emailLog.noOperator}</p>
       </div>
     )
@@ -198,8 +239,15 @@ export function EmailLog() {
     )
   }
 
+  function toggleKind(k: string) {
+    setActiveKinds((prev) =>
+      prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k],
+    )
+  }
+
   function clearFilters() {
     setActiveStatuses([])
+    setActiveKinds([])
     setSinceDate('')
     setUntilDate('')
   }
@@ -207,27 +255,43 @@ export function EmailLog() {
   return (
     <div className="flex flex-col gap-6">
       {titleNode}
-      <header>
-        <h1 className="text-xl font-semibold">{t.emailLog.title}</h1>
-        <p className="text-muted-foreground text-sm">{t.emailLog.subtitle}</p>
-      </header>
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div
-          role="group"
-          aria-label={t.emailLog.filtersLabel}
-          className="flex flex-wrap gap-2"
-        >
-          {OUTBOUND_EMAIL_STATUSES.map((s) => (
-            <CountedFilterChip
-              key={s}
-              label={STATUS_LABEL[s]}
-              count={statusCounts[s] ?? 0}
-              selected={activeStatuses.includes(s)}
-              onToggle={() => toggleStatus(s)}
-              testId={`email-log-filter-${s}`}
-            />
-          ))}
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <div
+            role="group"
+            aria-label={t.emailLog.filtersLabel}
+            className="flex flex-wrap gap-2"
+          >
+            {OUTBOUND_EMAIL_STATUSES.map((s) => (
+              <CountedFilterChip
+                key={s}
+                label={STATUS_LABEL[s]}
+                count={statusCounts[s] ?? 0}
+                selected={activeStatuses.includes(s)}
+                onToggle={() => toggleStatus(s)}
+                testId={`email-log-filter-${s}`}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div
+            role="group"
+            aria-label={t.emailLog.typeFiltersLabel}
+            className="flex flex-wrap gap-2"
+          >
+            {KNOWN_TEMPLATE_KINDS.map((k) => (
+              <CountedFilterChip
+                key={k}
+                label={humanizeKind(k)}
+                count={kindCounts[k] ?? 0}
+                selected={activeKinds.includes(k)}
+                onToggle={() => toggleKind(k)}
+                testId={`email-log-filter-kind-${k}`}
+              />
+            ))}
+          </div>
         </div>
         <div className="flex items-end gap-2">
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -250,7 +314,7 @@ export function EmailLog() {
               aria-label={t.emailLog.toLabel}
             />
           </label>
-          {(activeStatuses.length > 0 || sinceDate || untilDate) && (
+          {(activeStatuses.length > 0 || activeKinds.length > 0 || sinceDate || untilDate) && (
             <Button
               type="button"
               size="sm"
@@ -283,6 +347,7 @@ export function EmailLog() {
             <TableRow>
               <TableHead>{t.emailLog.columnSubject}</TableHead>
               <TableHead>{t.emailLog.columnRecipient}</TableHead>
+              <TableHead>{t.emailLog.columnType}</TableHead>
               <TableHead>{t.emailLog.columnStatus}</TableHead>
               <TableHead>{t.emailLog.columnSentAt}</TableHead>
               <TableHead>{t.emailLog.columnCreatedAt}</TableHead>
@@ -309,6 +374,9 @@ export function EmailLog() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {row.to_address}
+                </TableCell>
+                <TableCell>
+                  <TypeBadge kind={row.template_kind} />
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={row.status} sentVia={row.sent_via} />
@@ -456,9 +524,10 @@ function EmailLogDrawer({
                 </h3>
                 <iframe
                   title={t.emailLog.fieldBodyHtmlTitle}
-                  srcDoc={row.body_html}
+                  srcDoc={buildPreviewSrcDoc(row.body_html)}
                   sandbox=""
                   className="h-72 w-full rounded-md border bg-white"
+                  style={{ colorScheme: 'light' }}
                 />
               </section>
 

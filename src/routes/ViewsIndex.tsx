@@ -15,6 +15,7 @@ import { LayersIcon } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/EmptyState'
+import { EmptySearch } from '@/components/illustrations'
 import { useOperator } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import { listSavedViews } from '@/lib/saved-views'
@@ -39,8 +40,7 @@ export function ViewsIndex() {
   return (
     <div className="flex flex-col gap-6">
       <PageTitle title={t.viewsIndex.title} />
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">{t.viewsIndex.title}</h1>
+      <header className="flex items-center justify-end gap-4">
         <Button onClick={() => navigate('/views/new')}>
           {t.viewsIndex.newButton}
         </Button>
@@ -61,6 +61,8 @@ export function ViewsIndex() {
         <section className="flex flex-col gap-4">
           <EmptyState
             icon={LayersIcon}
+            illustration={<EmptySearch className="h-full w-full" />}
+            accentHue="catalog"
             title={t.emptyStates.views.title}
             description={t.emptyStates.views.description}
             action={{

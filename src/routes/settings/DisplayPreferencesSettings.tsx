@@ -80,8 +80,6 @@ function DisplayPreferencesForm({ operator, operatorId, onSaved }: FormProps) {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold">{t.settings.sectionDisplayPrefs}</h1>
-
       <form
         onSubmit={handleSubmit((values) => mutation.mutate(values))}
         aria-label={t.settings.sectionDisplayPrefs}

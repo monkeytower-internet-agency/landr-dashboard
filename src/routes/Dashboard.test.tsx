@@ -312,7 +312,7 @@ describe('Dashboard route', () => {
     mock.state.bookings = []
     render(<Dashboard />)
     expect(
-      await screen.findByText(/no bookings scheduled for today/i),
+      await screen.findByText(/no bookings today/i),
     ).toBeInTheDocument()
   })
 
@@ -337,7 +337,7 @@ describe('Dashboard route', () => {
 
     // No approvals yet -> "All caught up."
     const pending = screen.getByTestId('dashboard-pending-approvals')
-    expect(within(pending).getByText(/all caught up/i)).toBeInTheDocument()
+    expect(within(pending).getByText(/all clear/i)).toBeInTheDocument()
   })
 
   it('shows a pending-approvals badge + CTA link when any bookings await approval', async () => {
@@ -427,7 +427,7 @@ describe('Dashboard route', () => {
     mock.state.bookingsError = { message: 'Boom' }
     render(<Dashboard />)
     expect(
-      await screen.findByText(/failed to load dashboard data/i),
+      await screen.findByText(/failed to load dashboard/i),
     ).toBeInTheDocument()
     expect(screen.getByText(/boom/i)).toBeInTheDocument()
   })

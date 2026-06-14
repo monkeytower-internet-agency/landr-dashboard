@@ -115,8 +115,6 @@ function CompanyForm({ operator, operatorId, onSaved }: FormProps) {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold">{t.settings.title}</h1>
-
       <form onSubmit={handleSubmit(onSubmit)} aria-label={t.settings.title}>
         {/* Company */}
         <Card className="mb-6">

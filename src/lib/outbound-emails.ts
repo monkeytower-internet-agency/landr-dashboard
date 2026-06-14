@@ -69,6 +69,8 @@ const OUTBOUND_EMAIL_SELECT = `
 export type FetchOutboundEmailsOptions = {
   /** Filter to a subset of statuses (OR). Empty/undefined = all statuses. */
   statuses?: OutboundEmailStatus[]
+  /** Filter to a subset of template_kinds (OR). Empty/undefined = all kinds. */
+  templateKinds?: string[]
   /** Inclusive lower bound on created_at (ISO 8601). */
   sinceIso?: string
   /** Inclusive upper bound on created_at (ISO 8601). */
@@ -95,6 +97,10 @@ export async function fetchOutboundEmails(
 
   if (opts.statuses && opts.statuses.length > 0) {
     query = query.in('status', opts.statuses)
+  }
+
+  if (opts.templateKinds && opts.templateKinds.length > 0) {
+    query = query.in('template_kind', opts.templateKinds)
   }
 
   if (opts.sinceIso) {

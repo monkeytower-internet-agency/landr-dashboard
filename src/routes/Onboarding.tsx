@@ -19,22 +19,13 @@ import { Step6Gmail } from '@/components/onboarding/Step6Gmail'
 import { Step7Emails } from '@/components/onboarding/Step7Emails'
 import { Step8Embed } from '@/components/onboarding/Step8Embed'
 import { Step9Done } from '@/components/onboarding/Step9Done'
+import { OnboardingNodePath } from '@/components/onboarding/OnboardingNodePath'
+import { useOnboardingCelebrations } from '@/components/onboarding/useOnboardingCelebrations'
+import { Mascot } from '@/components/illustrations/Mascot'
 
 const TOTAL_STEPS = 9
 const STORAGE_PREFIX = 'landr.dashboard.onboarding'
 
-const STEP_LABELS = [
-  '',
-  'steps.welcome',
-  'steps.company',
-  'steps.address',
-  'steps.pickup',
-  'steps.products',
-  'steps.gmail',
-  'steps.emails',
-  'steps.embed',
-  'steps.done',
-] as const
 
 function storageKey(operatorId: string): string {
   return `${STORAGE_PREFIX}.${operatorId}.step`
@@ -69,6 +60,14 @@ function clearStoredStep(operatorId: string) {
   } catch {
     // ignore
   }
+}
+
+/** Energetic resume copy — shown when the user isn't on step 1. */
+function resumeLabel(step: number, total: number): string {
+  const pct = Math.round(((step - 1) / (total - 1)) * 100)
+  if (pct >= 80) return `Step ${step} of ${total} — almost there! 🚀`
+  if (pct >= 50) return `Step ${step} of ${total} — you're on a roll! ⚡`
+  return `Step ${step} of ${total}`
 }
 
 export function Onboarding() {
@@ -156,9 +155,14 @@ function OnboardingInner({
     }
   }, [step, operatorId, searchParams, setSearchParams, isCompleted])
 
+  const { justCompletedStep, triggerStepCelebration, triggerFinishConfetti } =
+    useOnboardingCelebrations()
+
   const advance = useCallback(() => {
+    // Mark the current step as just-completed for the pop-in animation.
+    triggerStepCelebration(step)
     setStep(step + 1)
-  }, [setStep, step])
+  }, [setStep, step, triggerStepCelebration])
 
   const back = useCallback(() => {
     setStep(step - 1)
@@ -171,6 +175,8 @@ function OnboardingInner({
       clearStoredStep(operatorId)
       refresh()
       setStep(TOTAL_STEPS)
+      // Trigger the full confetti burst — lazy-loaded, no-op on reduced-motion.
+      void triggerFinishConfetti()
     },
     onError: (err: Error) =>
       toast.error(t.onboarding.saveError, { description: err.message }),
@@ -205,14 +211,46 @@ function OnboardingInner({
     return <Navigate to="/" replace />
   }
 
+  // Mascot pose: wave on step 1 and 9 (done), celebrate on the last step,
+  // thinking on mid steps, empty-ish never — keep it encouraging.
+  const mascotPose =
+    step === 1
+      ? 'wave'
+      : step === TOTAL_STEPS
+        ? 'celebrate'
+        : step >= 7
+          ? 'celebrate'
+          : step >= 4
+            ? 'thinking'
+            : 'wave'
+
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-6">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">{t.onboarding.title}</h1>
-        <ProgressBar step={step} total={TOTAL_STEPS} />
-        <p className="text-xs text-muted-foreground">
-          {t.onboarding.progress(step, TOTAL_STEPS)}
-        </p>
+      {/* Mascot + header row */}
+      <header className="space-y-3">
+        <div className="flex items-end gap-4">
+          <Mascot
+            pose={mascotPose}
+            size={80}
+            className="flex-shrink-0 animate-slide-up-fade"
+            key={`mascot-${mascotPose}`}
+          />
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl font-semibold font-display">
+              {t.onboarding.title}
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {resumeLabel(step, TOTAL_STEPS)}
+            </p>
+          </div>
+        </div>
+
+        {/* Duolingo-style node progress path */}
+        <OnboardingNodePath
+          step={step}
+          total={TOTAL_STEPS}
+          justCompletedStep={justCompletedStep}
+        />
       </header>
 
       {step === 1 && <Step1Welcome onNext={advance} />}
@@ -267,42 +305,3 @@ function OnboardingInner({
   )
 }
 
-function ProgressBar({ step, total }: { step: number; total: number }) {
-  const pct = Math.round(((step - 1) / (total - 1)) * 100)
-  return (
-    <div className="space-y-1.5">
-      <div
-        className="h-2 w-full overflow-hidden rounded-full bg-muted"
-        role="progressbar"
-        aria-valuemin={1}
-        aria-valuemax={total}
-        aria-valuenow={step}
-      >
-        <div
-          className="h-full bg-primary transition-all"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <ol className="flex flex-wrap gap-x-2 gap-y-1 text-[0.65rem] text-muted-foreground">
-        {STEP_LABELS.slice(1).map((key, i) => {
-          const idx = i + 1
-          const label = t.onboarding.steps[key.split('.')[1] as keyof typeof t.onboarding.steps]
-          return (
-            <li
-              key={key}
-              className={
-                idx === step
-                  ? 'font-medium text-foreground'
-                  : idx < step
-                  ? 'text-foreground/70'
-                  : ''
-              }
-            >
-              {idx}. {label}
-            </li>
-          )
-        })}
-      </ol>
-    </div>
-  )
-}

@@ -92,6 +92,16 @@ export type BookingTagRef = {
   color: string
 }
 
+// landr — minimal booking_notes projection embedded in the list SELECT so
+// the calendar + table can show a "has notes" indicator (dot + hover) without
+// an extra per-booking round-trip. Full author metadata still comes from the
+// staff notes API when the Notes tab is opened (lib/booking-notes.ts).
+export type BookingNoteRef = {
+  id: string
+  content: string
+  created_at: string
+}
+
 export type BookingRow = {
   id: string
   created_at: string
@@ -146,6 +156,10 @@ export type BookingRow = {
   // existing fixtures / mocks don't have to populate it; extractors default
   // to 'none' when absent.
   holded_status?: HoldedStatus
+  // landr — operator-internal notes (newest first). Embedded by the list
+  // SELECT so the calendar/table can flag bookings that carry notes. Optional
+  // so legacy fixtures / mocks don't have to populate it; absent ⇒ no notes.
+  notes?: BookingNoteRef[]
 }
 
 // landr-iz58 — `tags` embed projects operator_tags through booking_tags.
@@ -175,7 +189,8 @@ const SELECT = `
   items:booking_products ( id, date_range_start, date_range_end, selected_days, products ( id, name, product_kind, service_time_shape ) ),
   participants:booking_participants ( id, pickup_location:locations!pickup_location_id ( id, name ) ),
   booking_tags ( operator_tags ( id, name, color, deleted_at ) ),
-  holded_sync:external_sync_log ( status, created_at )
+  holded_sync:external_sync_log ( status, created_at ),
+  booking_notes ( id, content, created_at )
 `
 
 type RawBookingTagEmbed = {
@@ -189,11 +204,14 @@ type RawHoldedSyncRow = {
   created_at: string
 }
 
-type RawBookingRow = Omit<BookingRow, 'tags' | 'holded_status'> & {
+type RawBookingRow = Omit<BookingRow, 'tags' | 'holded_status' | 'notes'> & {
   booking_tags?: RawBookingTagEmbed[] | null
   // landr-a4pl.3 — all embed rows returned by PostgREST; empty array when
   // the booking has no external_sync_log entry.
   holded_sync?: RawHoldedSyncRow[] | null
+  // landr — booking_notes embed (empty array when the booking has no notes).
+  // PostgREST returns embed rows in insertion order; we sort newest-first.
+  booking_notes?: BookingNoteRef[] | null
 }
 
 /** landr-a4pl.3 — derive HoldedStatus from the latest external_sync_log row.
@@ -230,8 +248,18 @@ function normaliseBookingRow(raw: RawBookingRow): BookingRow {
     tags.push({ id: ot.id, name: ot.name, color: ot.color })
   }
   const holded_status = deriveHoldedStatus(raw.holded_sync)
-  const { booking_tags: _omitTags, holded_sync: _omitSync, ...rest } = raw
-  return { ...rest, tags, holded_status }
+  // Sort notes newest-first to match the Notes panel + give the hover tooltip
+  // the most recent note first. ISO string compare is safe for timestamptz.
+  const notes = [...(raw.booking_notes ?? [])].sort((a, b) =>
+    a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0,
+  )
+  const {
+    booking_tags: _omitTags,
+    holded_sync: _omitSync,
+    booking_notes: _omitNotes,
+    ...rest
+  } = raw
+  return { ...rest, tags, holded_status, notes }
 }
 
 // Keep backward-compatible alias — previously callers inside this file used

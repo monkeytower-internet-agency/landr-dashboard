@@ -394,22 +394,11 @@ export function GeneralApprovals() {
         title={t.generalApprovals.title}
         subtitle={t.generalApprovals.subtitleCount(pendingCount)}
       />
-      {/* landr-3qkr.6 — flex-wrap so the title+badge and the Export CSV
-          button drop to two lines on a 360px phone instead of being clipped
-          when the localized title is long. Desktop stays single-row. */}
-      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">{t.generalApprovals.title}</h1>
-          {pendingCount > 0 ? (
-            <span
-              className="bg-muted text-muted-foreground inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-              data-testid="approvals-count-badge"
-              aria-label={t.generalApprovals.pendingCount(pendingCount)}
-            >
-              {t.generalApprovals.pendingCount(pendingCount)}
-            </span>
-          ) : null}
-        </div>
+      {/* landr-3qkr.6 — flex-wrap so the Export CSV button stays usable on a
+          360px phone. The page title + pending count now live in the topbar
+          (PageTitle subtitleCount), so the body header carries only the
+          Export CSV action, right-aligned. */}
+      <header className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
         <Button
           variant="outline"
           size="sm"

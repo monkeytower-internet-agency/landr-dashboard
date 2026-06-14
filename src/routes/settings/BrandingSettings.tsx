@@ -446,8 +446,6 @@ function BrandingForm({ operator, operatorId, onSaved }: FormProps) {
     // govern horizontal gutter on mobile. max-w-2xl still constrains on
     // larger screens. Cards already stack (space-y-6 flex-col).
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold">{t.settings.sectionBranding}</h1>
-
       {/* ── Light logo ── */}
       <LogoCard
         title={t.settings.fieldLogo}

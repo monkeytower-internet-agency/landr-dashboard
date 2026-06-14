@@ -18,9 +18,10 @@ const { mock } = vi.hoisted(() => {
     isLandrStaff: false,
     viewAsActive: false,
     currentOperatorId: 'op-x' as string | null,
-    // Set of ENABLED feature keys returned by the resolver for the current
-    // operator (mirrors fetchEnabledFeatures' Set<string> contract).
+    // Entitlements map returned by fetchEnabledEntitlements.
+    // enabledKeys drives isEnabled; featureConfigs drives getFeatureConfig.
     enabledKeys: ['bookings'] as string[],
+    featureConfigs: {} as Record<string, Record<string, unknown>>,
   }
   return { mock: { state } }
 })
@@ -50,10 +51,19 @@ vi.mock('@/lib/tickets', () => ({
 }))
 
 vi.mock('@/lib/entitlements-map', () => ({
+  // Old RPC — kept for backward compat (mobile callers).
   fetchEnabledFeatures: vi.fn(async () => new Set(mock.state.enabledKeys)),
+  // New RPC — used by EntitlementsProvider since landr-72u2.2.
+  fetchEnabledEntitlements: vi.fn(async () => {
+    const m = new Map<string, { enabled: boolean; config: Record<string, unknown> }>()
+    for (const key of mock.state.enabledKeys) {
+      m.set(key, { enabled: true, config: mock.state.featureConfigs[key] ?? {} })
+    }
+    return m
+  }),
 }))
 
-import { EntitlementsProvider, useEntitlements } from './entitlements'
+import { EntitlementsProvider, useEntitlements, useFeatureConfig } from './entitlements'
 
 // Probe component: renders the resolved gating decisions as data-attrs so the
 // tests can read them without poking context internals.
@@ -68,6 +78,22 @@ function Probe() {
       data-effective-staff={String(effectiveIsStaff)}
       data-bookings={String(isEnabled('bookings'))}
       data-vouchers={String(isEnabled('vouchers'))}
+    />
+  )
+}
+
+// ConfigProbe: tests useFeatureConfig hook via data-attr. Also surfaces
+// isLoading so waitFor can gate on the entitlements query RESOLVING — before
+// it settles, getFeatureConfig returns {} (loading default), which would let an
+// assertion run against the not-yet-loaded value.
+function ConfigProbe({ featureKey }: { featureKey: string }) {
+  const config = useFeatureConfig(featureKey)
+  const { isLoading } = useEntitlements()
+  return (
+    <div
+      data-testid="config-probe"
+      data-loading={String(isLoading)}
+      data-config={JSON.stringify(config)}
     />
   )
 }
@@ -90,6 +116,7 @@ beforeEach(() => {
   mock.state.viewAsActive = false
   mock.state.currentOperatorId = 'op-x'
   mock.state.enabledKeys = ['bookings']
+  mock.state.featureConfigs = {}
 })
 
 afterEach(() => {
@@ -150,5 +177,53 @@ describe('EntitlementsProvider — non-staff (control)', () => {
     expect(el.dataset.effectiveStaff).toBe('false')
     expect(el.dataset.bookings).toBe('true')
     expect(el.dataset.vouchers).toBe('false')
+  })
+})
+
+describe('useFeatureConfig (landr-72u2.2)', () => {
+  function renderConfigProvider(featureKey: string) {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    return render(
+      <QueryClientProvider client={client}>
+        <EntitlementsProvider>
+          <ConfigProbe featureKey={featureKey} />
+        </EntitlementsProvider>
+      </QueryClientProvider>,
+    )
+  }
+
+  it('returns {} for an unknown feature key when not loaded', async () => {
+    mock.state.enabledKeys = ['bookings']
+    mock.state.featureConfigs = {}
+    renderConfigProvider('unknown-feature')
+    await waitFor(() =>
+      expect(screen.getByTestId('config-probe').dataset.loading).toBe('false'),
+    )
+    const el = screen.getByTestId('config-probe')
+    expect(JSON.parse(el.dataset.config ?? '{}')).toEqual({})
+  })
+
+  it('returns {} for a feature key with no config set', async () => {
+    mock.state.enabledKeys = ['bookings']
+    mock.state.featureConfigs = {} // bookings has no config
+    renderConfigProvider('bookings')
+    await waitFor(() =>
+      expect(screen.getByTestId('config-probe').dataset.loading).toBe('false'),
+    )
+    const el = screen.getByTestId('config-probe')
+    expect(JSON.parse(el.dataset.config ?? '{}')).toEqual({})
+  })
+
+  it('returns the config blob when one is set for the feature', async () => {
+    mock.state.enabledKeys = ['products']
+    mock.state.featureConfigs = { products: { max_products: 50 } }
+    renderConfigProvider('products')
+    await waitFor(() =>
+      expect(screen.getByTestId('config-probe').dataset.loading).toBe('false'),
+    )
+    const el = screen.getByTestId('config-probe')
+    expect(JSON.parse(el.dataset.config ?? '{}')).toEqual({ max_products: 50 })
   })
 })

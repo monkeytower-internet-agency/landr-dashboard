@@ -219,7 +219,7 @@ describe('ReportFab', () => {
     render(<ReportFab />)
     await user.click(screen.getByTestId('report-fab-trigger'))
     expect(
-      screen.getByRole('heading', { name: /report an issue/i }),
+      screen.getByRole('heading', { name: /got something to say/i }),
     ).toBeInTheDocument()
   })
 
@@ -308,7 +308,7 @@ describe('ReportFab', () => {
     // Dialog closed
     await waitFor(() => {
       expect(
-        screen.queryByRole('heading', { name: /report an issue/i }),
+        screen.queryByRole('heading', { name: /got something to say/i }),
       ).not.toBeInTheDocument()
     })
   })
@@ -462,7 +462,7 @@ describe('ReportFab', () => {
 
     // Dialog stays open
     expect(
-      screen.getByRole('heading', { name: /report an issue/i }),
+      screen.getByRole('heading', { name: /got something to say/i }),
     ).toBeInTheDocument()
   })
 
@@ -505,7 +505,7 @@ describe('ReportFab', () => {
     resolve(makeTicketRow())
     await waitFor(() => {
       expect(
-        screen.queryByRole('heading', { name: /report an issue/i }),
+        screen.queryByRole('heading', { name: /got something to say/i }),
       ).not.toBeInTheDocument()
     })
   })

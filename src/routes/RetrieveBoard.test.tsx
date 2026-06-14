@@ -110,19 +110,20 @@ afterEach(() => {
 })
 
 describe('RetrieveBoard — smoke', () => {
-  it('renders the page heading and day picker', async () => {
+  it('renders the day picker', async () => {
     render(<RetrieveBoard />)
-    expect(
-      await screen.findByRole('heading', { name: /retrieve board/i, level: 1 }),
-    ).toBeInTheDocument()
-    expect(screen.getByLabelText(/^day$/i)).toBeInTheDocument()
+    // The page title now lives in the AppShell topbar (PageTitle → topbar),
+    // not as a body <h1>, so it isn't rendered when the route is mounted in
+    // isolation. Pin to the day picker as a load-bearing proof the board
+    // header mounted.
+    expect(await screen.findByLabelText(/^day$/i)).toBeInTheDocument()
   })
 
   it('shows the empty state when there are no check-ins', async () => {
     mock.state.rows = []
     render(<RetrieveBoard />)
     expect(
-      await screen.findByText(/no check-ins for this day/i),
+      await screen.findByText(/no check-ins recorded for this day/i),
     ).toBeInTheDocument()
   })
 

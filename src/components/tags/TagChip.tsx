@@ -1,14 +1,23 @@
 /**
  * Small color chip rendering an operator tag (landr-iz58).
  *
- * The chip uses the tag's stored hex color as background and picks
- * black/white text via WCAG luminance so it stays readable on any hue.
+ * hxnb.6 — Dense-ops restraint pass. The chip no longer fills with the
+ * operator's color (which read as loud blobs in dense tables). Instead:
+ *   • Calm neutral background (surface-dense-subtle) keeps tables quiet.
+ *   • A 3px left border uses the tag color as an accent stripe — the color
+ *     is still immediately visible and scannable.
+ *   • A small color dot (aria-hidden) precedes the name in the 'md' size
+ *     for quick color identification without full-fill saturation.
+ *   • Text stays in foreground (not forced black/white on saturated hue).
+ *
+ * This approach works for any operator-chosen color and is dark-mode safe
+ * because the background token flips automatically.
+ *
  * Optional onRemove turns the chip into a removable pill (×) — used
  * inside the TagPicker's selected-set strip.
  */
 import { X } from 'lucide-react'
 import type { Tag } from '@/lib/tags'
-import { readableTextOn } from '@/lib/tags'
 
 type Props = {
   tag: Pick<Tag, 'id' | 'name' | 'color'>
@@ -21,16 +30,25 @@ type Props = {
 }
 
 export function TagChip({ tag, onRemove, testId, size = 'md' }: Props) {
-  const fg = readableTextOn(tag.color)
   const padding = size === 'sm' ? 'px-1.5 py-0' : 'px-2 py-0.5'
   const text = size === 'sm' ? 'text-[10px]' : 'text-xs'
   return (
     <span
-      className={`inline-flex max-w-full items-center gap-1 rounded-full font-medium ${padding} ${text}`}
-      style={{ backgroundColor: tag.color, color: fg }}
+      className={`inline-flex max-w-full items-center gap-1 rounded-sm font-medium ${padding} ${text} text-foreground`}
+      style={{
+        backgroundColor: 'var(--surface-dense-subtle)',
+        borderLeft: `3px solid ${tag.color}`,
+      }}
       data-testid={testId ?? `tag-chip-${tag.id}`}
       title={tag.name}
     >
+      {size === 'md' ? (
+        <span
+          className="inline-block h-2 w-2 shrink-0 rounded-full"
+          style={{ backgroundColor: tag.color }}
+          aria-hidden="true"
+        />
+      ) : null}
       <span className="truncate">{tag.name}</span>
       {onRemove ? (
         <button
@@ -39,7 +57,7 @@ export function TagChip({ tag, onRemove, testId, size = 'md' }: Props) {
             e.stopPropagation()
             onRemove()
           }}
-          className="-mr-0.5 ml-0.5 inline-flex h-3 w-3 items-center justify-center rounded-full hover:bg-black/15"
+          className="-mr-0.5 ml-0.5 inline-flex h-3 w-3 items-center justify-center rounded-full hover:bg-foreground/10"
           aria-label={`Remove tag ${tag.name}`}
           data-testid={`${testId ?? `tag-chip-${tag.id}`}-remove`}
         >

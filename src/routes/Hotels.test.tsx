@@ -201,7 +201,7 @@ describe('Hotels route', () => {
     render(<Hotels />)
     await screen.findByText('Hotel Sol')
     expect(
-      screen.getByText(/manage your accommodation partners/i),
+      screen.getByText(/manage accommodation partners/i),
     ).toBeInTheDocument()
   })
 

@@ -89,12 +89,6 @@ export function VouchersSettings() {
     return (
       <div className="flex flex-col gap-6">
         {titleNode}
-        <header>
-          <h1 className="text-xl font-semibold">{t.vouchersSettings.title}</h1>
-          <p className="text-muted-foreground text-sm">
-            {t.vouchersSettings.subtitle}
-          </p>
-        </header>
         <p className="text-muted-foreground text-sm">
           {t.vouchersSettings.noOperator}
         </p>
@@ -128,13 +122,7 @@ export function VouchersManager({ operatorId }: ManagerProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">{t.vouchersSettings.title}</h1>
-          <p className="text-muted-foreground text-sm">
-            {t.vouchersSettings.subtitle}
-          </p>
-        </div>
+      <header className="flex flex-wrap items-start justify-end gap-3">
         <Button
           type="button"
           size="sm"

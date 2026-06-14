@@ -39,9 +39,6 @@ export function Products() {
           ]}
           subtitle={t.settingsHub.sectionDescriptions.products}
         />
-        <header>
-          <h1 className="text-xl font-semibold">{t.products.title}</h1>
-        </header>
         <p className="text-muted-foreground text-sm">{t.products.loading}</p>
       </div>
     )

@@ -19,6 +19,8 @@ function makeFeature(overrides: Partial<Feature> & { key: string; name: string }
     status: 'ga',
     default_enabled: false,
     sort_order: 0,
+    value_schema: null,
+    active: true,
   }
   return { ...defaults, ...overrides }
 }
@@ -109,5 +111,43 @@ describe('groupFeaturesByCategory', () => {
     const groups = groupFeaturesByCategory(features)
     expect(groups).toHaveLength(1)
     expect(groups[0]!.features).toHaveLength(3)
+  })
+
+  it('works with features that have value_schema', () => {
+    const features: Feature[] = [
+      makeFeature({
+        key: 'products',
+        name: 'Products',
+        category: 'core',
+        sort_order: 1,
+        value_schema: {
+          params: [
+            { key: 'max_products', type: 'integer', label: 'Max products', min: 1, default: 50 },
+          ],
+        },
+      }),
+      makeFeature({ key: 'team', name: 'Team', category: 'core', sort_order: 2 }),
+    ]
+    const groups = groupFeaturesByCategory(features)
+    expect(groups).toHaveLength(1)
+    expect(groups[0]!.category).toBe('core')
+    expect(groups[0]!.features).toHaveLength(2)
+    // value_schema is preserved in the output
+    expect(groups[0]!.features[0]!.value_schema).not.toBeNull()
+    expect(groups[0]!.features[1]!.value_schema).toBeNull()
+  })
+
+  it('works with features that have active=false (included when passed in)', () => {
+    // groupFeaturesByCategory is a pure grouping function — it groups whatever
+    // features are passed in, regardless of the active flag. fetchAllFeatures
+    // passes inactive features; the catalog panel handles the split.
+    const features: Feature[] = [
+      makeFeature({ key: 'active-one', name: 'Active', category: 'core', active: true }),
+      makeFeature({ key: 'retired-one', name: 'Retired', category: 'core', active: false }),
+    ]
+    const groups = groupFeaturesByCategory(features)
+    expect(groups).toHaveLength(1)
+    expect(groups[0]!.features).toHaveLength(2)
+    expect(groups[0]!.features.map((f) => f.active)).toEqual([true, false])
   })
 })

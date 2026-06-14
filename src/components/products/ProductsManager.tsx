@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { FixedDateWindowsTable } from '@/components/FixedDateWindowsTable'
 import { ProductForm } from '@/components/ProductForm'
 import type {
@@ -20,6 +21,7 @@ import type {
 } from '@/components/ProductForm'
 import { ProductsList } from '@/components/ProductsList'
 import { ProductsFilters } from '@/components/products/ProductsFilters'
+import { ProductFlowTab } from '@/components/products/ProductFlowTab'
 import {
   createProduct,
   duplicateProduct,
@@ -48,6 +50,7 @@ import { useRealtimeQuery } from '@/lib/useRealtimeQuery'
 import { useOperator } from '@/lib/operator'
 import { ProductShortcodeMenu } from '@/components/products/ProductShortcodeMenu'
 import { fetchWidgetToken, fetchWidgetPreviewToken } from '@/lib/shortcode'
+import { useEntitlements } from '@/lib/entitlements'
 import { t } from '@/lib/strings'
 
 const NEW_PRODUCT = 'new' as const
@@ -83,6 +86,9 @@ export function ProductsManager({
   // the current operator, so the context slug matches operatorId here.
   const { currentOperator } = useOperator()
   const operatorSlug = currentOperator?.slug ?? ''
+  // landr-71kz.7 — check form_builder entitlement for the Flow tab.
+  const { isEnabled: isFeatureEnabled } = useEntitlements()
+  const showFlowTab = isFeatureEnabled('form_builder')
   // landr-il9f.3 — opaque widget token replaces the slug in shortcode output.
   const tokenQuery = useQuery<string | null>({
     queryKey: ['operator-widget-token', operatorId],
@@ -455,8 +461,9 @@ export function ProductsManager({
         ? selectedProduct.name
         : t.products.headingPick
 
+  // landr-hxnb.8 — card-comic frame for the product detail pane.
   const detailCard = (
-    <Card>
+    <Card className="card-comic">
       <CardHeader
         className={
           routed
@@ -479,7 +486,8 @@ export function ProductsManager({
             {t.products.backToList}
           </Button>
         ) : null}
-        <CardTitle>{detailHeading}</CardTitle>
+        {/* landr-hxnb.8 — display font on the detail pane heading */}
+        <CardTitle className="font-display">{detailHeading}</CardTitle>
         {/* landr-up1b — per-product shortcode menu: copy the single-product
             embed, or copy a shortcode for any category level in this
             product's breadcrumb (walks parent_id to the root). Only shown
@@ -501,50 +509,92 @@ export function ProductsManager({
       </CardHeader>
       <CardContent>
         {resolvedSelection === NEW_PRODUCT || selectedProduct ? (
-          <>
-            <ProductForm
-              product={
-                resolvedSelection === NEW_PRODUCT
-                  ? null
-                  : selectedProduct
-              }
-              pricingSchemes={pricingSchemesQuery.data ?? []}
-              productGroups={productGroupsQuery.data ?? []}
-              operatorId={operatorId}
-              hotelLocations={hotelLocations}
-              // landr-u34k — pass the full product roster so the
-              // Add-ons section can populate its addon-product
-              // picker. We pass `rows` (not `rows.filter(...)`)
-              // because the Add-ons section already filters out
-              // the parent itself; addon_only candidates are
-              // explicitly allowed (Breakfast linked to Rooms).
-              allProducts={rows}
-              onSubmit={handleSubmit}
-              onDelete={
-                resolvedSelection !== NEW_PRODUCT && selectedProduct
-                  ? handleDelete
-                  : undefined
-              }
-              submitting={submitting}
-              deleting={deleting}
-            />
-            {mutationError ? (
-              <p
-                role="alert"
-                className="text-destructive mt-4 text-sm"
-              >
-                {mutationError.message}
-              </p>
-            ) : null}
-            {feedback ? (
-              <p
-                role="status"
-                className="text-muted-foreground mt-4 text-sm"
-              >
-                {feedback}
-              </p>
-            ) : null}
-          </>
+          /* landr-71kz.7 — For saved products with form_builder entitlement,
+             show Details / Flow tabs. For new products (no id yet) there is
+             nothing to configure in Flow, so skip tabs entirely. */
+          selectedProduct && showFlowTab ? (
+            <Tabs defaultValue="details">
+              <TabsList className="mb-4">
+                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="flow">Flow</TabsTrigger>
+              </TabsList>
+              <TabsContent value="details">
+                <ProductForm
+                  product={selectedProduct}
+                  pricingSchemes={pricingSchemesQuery.data ?? []}
+                  productGroups={productGroupsQuery.data ?? []}
+                  operatorId={operatorId}
+                  hotelLocations={hotelLocations}
+                  allProducts={rows}
+                  onSubmit={handleSubmit}
+                  onDelete={handleDelete}
+                  submitting={submitting}
+                  deleting={deleting}
+                />
+                {mutationError ? (
+                  <p role="alert" className="text-destructive mt-4 text-sm">
+                    {mutationError.message}
+                  </p>
+                ) : null}
+                {feedback ? (
+                  <p role="status" className="text-muted-foreground mt-4 text-sm">
+                    {feedback}
+                  </p>
+                ) : null}
+              </TabsContent>
+              <TabsContent value="flow">
+                <ProductFlowTab
+                  productId={selectedProduct.id}
+                  operatorId={operatorId}
+                />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <>
+              <ProductForm
+                product={
+                  resolvedSelection === NEW_PRODUCT
+                    ? null
+                    : selectedProduct
+                }
+                pricingSchemes={pricingSchemesQuery.data ?? []}
+                productGroups={productGroupsQuery.data ?? []}
+                operatorId={operatorId}
+                hotelLocations={hotelLocations}
+                // landr-u34k — pass the full product roster so the
+                // Add-ons section can populate its addon-product
+                // picker. We pass `rows` (not `rows.filter(...)`)
+                // because the Add-ons section already filters out
+                // the parent itself; addon_only candidates are
+                // explicitly allowed (Breakfast linked to Rooms).
+                allProducts={rows}
+                onSubmit={handleSubmit}
+                onDelete={
+                  resolvedSelection !== NEW_PRODUCT && selectedProduct
+                    ? handleDelete
+                    : undefined
+                }
+                submitting={submitting}
+                deleting={deleting}
+              />
+              {mutationError ? (
+                <p
+                  role="alert"
+                  className="text-destructive mt-4 text-sm"
+                >
+                  {mutationError.message}
+                </p>
+              ) : null}
+              {feedback ? (
+                <p
+                  role="status"
+                  className="text-muted-foreground mt-4 text-sm"
+                >
+                  {feedback}
+                </p>
+              ) : null}
+            </>
+          )
         ) : (
           <p className="text-muted-foreground text-sm">
             {t.products.pickHint}
@@ -629,9 +679,10 @@ export function ProductsManager({
   return (
     <div className="flex flex-col gap-6">
       {pageCrumbs ? <PageTitle crumbs={pageCrumbs} /> : null}
+      {/* landr-hxnb.8 — catalog-hue display-font page header */}
       {hideHeader ? null : (
         <header className="flex items-center justify-between gap-4">
-          <h1 className="text-xl font-semibold">{t.products.title}</h1>
+          <h1 className="font-display text-xl font-semibold">{t.products.title}</h1>
         </header>
       )}
 

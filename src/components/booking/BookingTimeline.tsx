@@ -31,6 +31,7 @@ import { resendEmail } from '@/lib/outbound-emails'
 import { useOperator } from '@/lib/operator'
 import { t } from '@/lib/strings'
 import { cn } from '@/lib/utils'
+import { buildPreviewSrcDoc } from '@/lib/emailPreview'
 import { Button } from '@/components/ui/button'
 import { ResendDialog } from '@/components/email/ResendDialog'
 import {
@@ -295,11 +296,16 @@ function EmailEventActions({
             <h4 className="text-muted-foreground mb-1 text-xs font-semibold uppercase tracking-wide">
               {t.bookings.timeline.email.previewBodyHtmlLabel}
             </h4>
+            {/* landr-ri8a — wrap the body in buildPreviewSrcDoc + bg-white so
+                the light-themed email renders on a white surface in BOTH app
+                themes (otherwise dark-on-dark inside the iframe is unreadable),
+                matching EmailTemplatePreview. */}
             <iframe
               title={_previewIframeTitle}
-              srcDoc={email.bodyHtml}
+              srcDoc={buildPreviewSrcDoc(email.bodyHtml)}
               sandbox=""
-              className="bg-background h-56 w-full rounded-md border"
+              className="h-56 w-full rounded-md border bg-white"
+              style={{ colorScheme: 'light' }}
               data-testid="timeline-email-iframe"
             />
           </section>

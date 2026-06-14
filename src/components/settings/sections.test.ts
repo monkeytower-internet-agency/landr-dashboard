@@ -134,6 +134,9 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // locations (first-class accommodation entity; a hotel is also a pickup).
   // landr-atwy — Account link prompt opt-in added after Webhooks
   // (per-operator toggle for the post-booking mobile app link prompt).
+  // landr-71kz.5 — Forms library joined the SETTINGS group between Embed
+  // code and Upsells & offers (operator-customisable booking forms; both
+  // Embed and Forms configure "what the booking widget uses").
   it('settings group contains the twenty-five program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
@@ -157,11 +160,13 @@ describe('account/settings grouping (landr-fzcg)', () => {
       // generator, grouped right after Products.
       '/settings/categories',
       '/settings/embed',
+      // landr-71kz.5 — operator form library (custom booking forms). Sits
+      // after Embed code; both configure what the booking widget uses.
+      '/settings/forms',
       // landr-znzz.5 — generic per-operator offers/upsells for the event page.
       '/settings/offers',
       '/settings/schedule',
       '/settings/email-templates',
-      '/settings/email-log',
       '/settings/pricing',
       '/settings/commissions',
       '/settings/vouchers',
@@ -201,11 +206,10 @@ describe('account/settings grouping (landr-fzcg)', () => {
     expect(entry?.label).toBe('Operations')
   })
 
-  // landr-qg4q — pin the Email log entry shape.
-  it('includes an Email log entry at /settings/email-log', () => {
+  // Email log moved OUT of Settings → standalone /email-log admin route.
+  it('does NOT include email-log in Settings (moved to /email-log)', () => {
     const entry = SETTINGS_SECTIONS.find((s) => s.to === '/settings/email-log')
-    expect(entry).toBeDefined()
-    expect(entry?.label).toBe('Email log')
+    expect(entry).toBeUndefined()
   })
 
   // landr-ah9u — pin the Webhooks entry shape.

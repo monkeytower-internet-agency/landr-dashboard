@@ -102,6 +102,9 @@ function HotelFormSheetBody({ operatorId, editTarget, onClose }: BodyProps) {
         editTarget ? t.hotels.toastUpdated : t.hotels.toastCreated,
       )
       queryClient.invalidateQueries({ queryKey: ['hotels', operatorId] })
+      // Invalidate config-health so the hotel_missing_email banner disappears
+      // immediately when the operator adds a missing booking email (landr-v526).
+      queryClient.invalidateQueries({ queryKey: ['config-health'] })
       onClose()
     },
     onError: (err: Error) => {

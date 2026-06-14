@@ -376,4 +376,57 @@ describe('BookingPayments', () => {
       await screen.findByText(/€40\.00 refunded · €110\.00 remaining/i),
     ).toBeInTheDocument()
   })
+
+  // -----------------------------------------------------------------------
+  // landr-v9e4.11 — refund error branch.
+  // A 4xx rejection from the server must surface the `detail` string as
+  // the toast description and must NOT trigger any optimistic cache update.
+  // -----------------------------------------------------------------------
+
+  it('refund 4xx → surfaces server detail in error toast, no optimistic update', async () => {
+    const user = userEvent.setup()
+    const { toast: sonnerToast } = await import('sonner')
+    mocks.fetchBookingPayments.mockResolvedValue({
+      payments: [makePayment()],
+      refunds: [],
+    })
+    mocks.refundPayment.mockRejectedValueOnce(
+      new Error('Refund amount exceeds refundable balance'),
+    )
+    render(
+      <BookingPayments
+        operatorId={OP_ID}
+        bookingId={BOOKING_ID}
+        bookingCurrency="EUR"
+      />,
+    )
+
+    const btn = await screen.findByTestId(
+      `booking-payment-refund-btn-${PAYMENT_ID}`,
+    )
+    await user.click(btn)
+    await user.click(await screen.findByTestId('booking-refund-confirm'))
+
+    // The error toast must include the server's message.
+    await waitFor(() => {
+      expect(sonnerToast.error).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          description: 'Refund amount exceeds refundable balance',
+        }),
+      )
+    })
+
+    // The refund dialog stays open on error (setRefundTarget is NOT cleared in
+    // onError — the operator can adjust the amount and retry without losing
+    // context). The confirm button remains present.
+    expect(screen.getByTestId('booking-refund-confirm')).toBeInTheDocument()
+
+    // No optimistic mutation: the payments list was NOT invalidated by the
+    // mutation (invalidateQueries only fires in onSuccess).
+    // The payment row's Refund button is still there (no list re-fetch cleared it).
+    expect(
+      screen.getByTestId(`booking-payment-refund-btn-${PAYMENT_ID}`),
+    ).toBeInTheDocument()
+  })
 })

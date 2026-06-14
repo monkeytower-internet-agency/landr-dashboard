@@ -42,17 +42,60 @@ function toFcTime(value: string): string {
 
 type CalendarView = 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay'
 
+// landr — each semantic state gets its OWN dedicated colour, independent of
+// the brand button tokens (--primary / --destructive). Those tokens shifted
+// when the palette was re-based on the LANDR logo, which collapsed the
+// state colours into each other (confirmed → blue, cancelled/no-show → orange)
+// and stripped no-show of its red "alarm" read. Pinning fixed Tailwind hues
+// keeps the five states visually distinct and stable across palette changes:
+//   pending=amber · confirmed=sky · finalised=emerald · cancelled=zinc ·
+//   no_show=red. The legend (STATE_SWATCH) uses the same hue families.
 const STATE_CLASS: Record<BookingSemanticState, string> = {
   pending:
-    'bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700',
+    'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700',
   confirmed:
-    'bg-primary text-primary-foreground border-primary hover:bg-primary/90',
+    'bg-sky-100 text-sky-900 border-sky-300 hover:bg-sky-200 dark:bg-sky-900/30 dark:text-sky-200 dark:border-sky-700',
   finalised:
-    'bg-accent text-accent-foreground border-accent hover:bg-accent/80',
+    'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-700',
   cancelled:
-    'bg-destructive/10 text-destructive border-destructive/30 line-through hover:bg-destructive/20',
+    'bg-zinc-100 text-zinc-500 border-zinc-300 line-through hover:bg-zinc-200 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700',
   no_show:
-    'bg-destructive text-destructive-foreground border-destructive hover:bg-destructive/90',
+    'bg-red-100 text-red-900 border-red-400 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-200 dark:border-red-700',
+}
+
+// landr — solid swatch fills for the legend dots. Saturated single colours so
+// the five states read at a glance even in a tiny 10px dot.
+const STATE_SWATCH: Record<BookingSemanticState, string> = {
+  pending: 'bg-amber-400 border-amber-500',
+  confirmed: 'bg-sky-500 border-sky-600',
+  finalised: 'bg-emerald-500 border-emerald-600',
+  cancelled: 'bg-zinc-400 border-zinc-500',
+  no_show: 'bg-red-500 border-red-600',
+}
+
+// Stable legend / filter order (lifecycle order, terminal states last).
+const STATE_ORDER: readonly BookingSemanticState[] = [
+  'pending',
+  'confirmed',
+  'finalised',
+  'cancelled',
+  'no_show',
+]
+
+// landr — build the hover-tooltip text for a booking's internal notes. Notes
+// arrive newest-first (sorted in normaliseBookingRow); we cap the tooltip at a
+// few entries so a chatty booking doesn't produce a wall of text. Returns ''
+// when there are none (caller skips the dot).
+const NOTE_TOOLTIP_MAX = 5
+function notesTooltip(row: BookingRow): string {
+  const notes = row.notes ?? []
+  if (notes.length === 0) return ''
+  const shown = notes
+    .slice(0, NOTE_TOOLTIP_MAX)
+    .map((n) => `• ${n.content}`)
+    .join('\n')
+  const extra = notes.length - NOTE_TOOLTIP_MAX
+  return extra > 0 ? `${shown}\n+${extra} more…` : shown
 }
 
 const VIEW_LABEL: Record<CalendarView, string> = {
@@ -244,9 +287,47 @@ export function BookingsCalendar({
   // can come later if users actually request it.
   const [offHoursExpanded, setOffHoursExpanded] = useState(false)
 
-  const calendarEvents = useMemo<BookingCalendarEvent[]>(
+  // landr — per-state visibility filter. The legend chips toggle these; an
+  // empty set means "show everything" (the default). Stored as the set of
+  // HIDDEN states so the common case (nothing filtered) is the empty set.
+  const [hiddenStates, setHiddenStates] = useState<Set<BookingSemanticState>>(
+    () => new Set(),
+  )
+  function toggleState(state: BookingSemanticState) {
+    setHiddenStates((prev) => {
+      const next = new Set(prev)
+      if (next.has(state)) next.delete(state)
+      else next.add(state)
+      return next
+    })
+  }
+
+  const allCalendarEvents = useMemo<BookingCalendarEvent[]>(
     () => bookingsToCalendarEvents(rows),
     [rows],
+  )
+
+  // landr — counts per state across the full (unfiltered) set, shown on the
+  // legend chips so the operator sees the mix at a glance.
+  const stateCounts = useMemo(() => {
+    const counts: Record<BookingSemanticState, number> = {
+      pending: 0,
+      confirmed: 0,
+      finalised: 0,
+      cancelled: 0,
+      no_show: 0,
+    }
+    for (const e of allCalendarEvents) counts[e.state] += 1
+    return counts
+  }, [allCalendarEvents])
+
+  // landr — events actually rendered after applying the status filter.
+  const calendarEvents = useMemo<BookingCalendarEvent[]>(
+    () =>
+      hiddenStates.size === 0
+        ? allCalendarEvents
+        : allCalendarEvents.filter((e) => !hiddenStates.has(e.state)),
+    [allCalendarEvents, hiddenStates],
   )
   const eventById = useMemo(() => {
     const map = new Map<string, BookingCalendarEvent>()
@@ -308,6 +389,8 @@ export function BookingsCalendar({
           productName: e.productName,
           customerName: e.customerName,
           contactId: e.raw.customer?.id ?? null,
+          noteCount: e.raw.notes?.length ?? 0,
+          noteText: notesTooltip(e.raw),
         },
       })),
     [calendarEvents],
@@ -366,15 +449,29 @@ export function BookingsCalendar({
       | string
       | null
       | undefined
+    const noteCount = (arg.event.extendedProps.noteCount as number) ?? 0
+    const noteText = (arg.event.extendedProps.noteText as string) ?? ''
     return (
       <div
         data-testid="booking-event"
         data-state={state ?? 'pending'}
+        data-has-notes={noteCount > 0 ? 'true' : undefined}
+        // Native title = hover the whole event to read its internal notes,
+        // no click needed. (Reliable inside FullCalendar's overflow context
+        // where a positioned popover would clip.)
+        title={noteText || undefined}
         className={cn(
-          'flex flex-col gap-0.5 overflow-hidden rounded-md border px-1.5 py-0.5 text-xs leading-tight',
+          'relative flex flex-col gap-0.5 overflow-hidden rounded-md border px-1.5 py-0.5 text-xs leading-tight',
           cls,
         )}
       >
+        {noteCount > 0 ? (
+          <span
+            data-testid="booking-note-dot"
+            aria-label={t.calendar.noteIndicatorAria(noteCount)}
+            className="bg-foreground/70 ring-background absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full ring-1"
+          />
+        ) : null}
         {arg.timeText ? (
           <span className="font-mono text-[10px] opacity-80">
             {arg.timeText}
@@ -474,60 +571,114 @@ export function BookingsCalendar({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Toolbar row: view-mode tabs on the left + agenda toggle on the right. */}
-      {/* landr-3qkr.6 — flex-wrap so that if a phone user switches to grid
-          mode the grid/list toggle + the Month/Week/Day view tabs wrap to a
-          second line instead of being clipped by the page overflow-x-guard.
-          Desktop is unchanged (wraps only when the row can't fit). */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {/* Grid/List toggle — shown always so users can switch on any screen.
-            On mobile it defaults to List; on desktop it defaults to Grid. */}
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            size="sm"
-            variant={!agendaMode ? 'default' : 'outline'}
-            onClick={() => setAgendaMode(false)}
-            data-testid="calendar-grid-toggle"
-            aria-pressed={!agendaMode}
-          >
-            {t.calendar.agendaToggleToGrid}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={agendaMode ? 'default' : 'outline'}
-            onClick={() => setAgendaMode(true)}
-            data-testid="calendar-agenda-toggle"
-            aria-pressed={agendaMode}
-          >
-            {t.calendar.agendaToggleToList}
-          </Button>
+      {/* Single toolbar row: the status legend/filter sits on the LEFT (it
+          doubles as the colour key), and ALL view controls — the Grid/List
+          mode toggle and the Month/Week/Day tabs — are grouped together on the
+          RIGHT. landr-3qkr.6 — flex-wrap so the right cluster drops below the
+          legend on narrow screens instead of clipping. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        {/* landr — status legend + filter. Each chip shows the state's colour,
+            label and count; clicking toggles whether that state is shown. Works
+            in both grid and agenda modes (the filter drives calendarEvents).
+            The visible "Status" caption is intentionally omitted — the filter
+            bar above already has a "Status" control, so the colour swatches
+            speak for themselves (group still labelled for screen readers). */}
+        <div
+          className="flex flex-wrap items-center gap-1.5"
+          role="group"
+          aria-label={t.calendar.legend.title}
+          data-testid="calendar-legend"
+        >
+          {STATE_ORDER.map((state) => {
+            const shown = !hiddenStates.has(state)
+            const label = t.calendar.legend.states[state]
+            return (
+              <button
+                key={state}
+                type="button"
+                data-testid={`calendar-legend-${state}`}
+                data-active={shown}
+                aria-pressed={shown}
+                aria-label={t.calendar.legend.toggleAria(label, shown)}
+                onClick={() => toggleState(state)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs transition-colors',
+                  shown
+                    ? 'bg-background hover:bg-muted/60 border-border'
+                    : 'border-transparent opacity-45 hover:opacity-70',
+                )}
+              >
+                <span
+                  className={cn(
+                    'h-2.5 w-2.5 shrink-0 rounded-full border',
+                    STATE_SWATCH[state],
+                  )}
+                  aria-hidden="true"
+                />
+                <span className="font-medium">{label}</span>
+                <span className="text-muted-foreground tabular-nums">
+                  {stateCounts[state]}
+                </span>
+              </button>
+            )
+          })}
         </div>
 
-        {/* Grid-view tab switcher — only when showing the calendar grid. */}
-        {!agendaMode ? (
-          <Tabs
-            value={view}
-            onValueChange={(next) => handleViewChange(next as CalendarView)}
-          >
-            <TabsList
-              className="flex items-center gap-1 border-0 bg-transparent p-0"
+        {/* View controls cluster — Grid/List mode toggle + Month/Week/Day tabs
+            grouped on the right, separated by a thin divider so they read as
+            one navigation control. */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant={!agendaMode ? 'default' : 'outline'}
+              onClick={() => setAgendaMode(false)}
+              data-testid="calendar-grid-toggle"
+              aria-pressed={!agendaMode}
             >
-              {(Object.keys(VIEW_LABEL) as CalendarView[]).map((v) => (
-                <TabsTrigger key={v} value={v} asChild>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={view === v ? 'default' : 'outline'}
-                  >
-                    {VIEW_LABEL[v]}
-                  </Button>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        ) : null}
+              {t.calendar.agendaToggleToGrid}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={agendaMode ? 'default' : 'outline'}
+              onClick={() => setAgendaMode(true)}
+              data-testid="calendar-agenda-toggle"
+              aria-pressed={agendaMode}
+            >
+              {t.calendar.agendaToggleToList}
+            </Button>
+          </div>
+
+          {/* Grid-view tab switcher — only when showing the calendar grid. */}
+          {!agendaMode ? (
+            <>
+              <span
+                className="bg-border h-5 w-px shrink-0"
+                aria-hidden="true"
+              />
+              <Tabs
+                value={view}
+                onValueChange={(next) => handleViewChange(next as CalendarView)}
+              >
+                <TabsList className="flex items-center gap-1 border-0 bg-transparent p-0">
+                  {(Object.keys(VIEW_LABEL) as CalendarView[]).map((v) => (
+                    <TabsTrigger key={v} value={v} asChild>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={view === v ? 'default' : 'outline'}
+                      >
+                        {VIEW_LABEL[v]}
+                      </Button>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </>
+          ) : null}
+        </div>
       </div>
 
       {!agendaMode && showOffHoursToggle ? (
@@ -755,6 +906,8 @@ function AgendaRow({
   const state = event.state
   const cls = STATE_CLASS[state]
   const contactId = event.raw.customer?.id ?? null
+  const noteCount = event.raw.notes?.length ?? 0
+  const noteText = notesTooltip(event.raw)
 
   return (
     <button
@@ -762,6 +915,8 @@ function AgendaRow({
       data-testid="agenda-row"
       data-state={state}
       data-booking-id={event.id}
+      data-has-notes={noteCount > 0 ? 'true' : undefined}
+      title={noteText || undefined}
       onClick={() => onEventClick?.(event.raw)}
       className={cn(
         'flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/20 min-h-[44px]',
@@ -776,18 +931,27 @@ function AgendaRow({
         aria-hidden="true"
       />
       <div className="min-w-0 flex-1">
-        {contactId && event.customerName && onCustomerClick ? (
-          <CustomerNameLink
-            contactId={contactId}
-            display={event.customerName}
-            onClick={onCustomerClick}
-            className="truncate font-medium text-sm"
-          />
-        ) : (
-          <span className="truncate font-medium text-sm block">
-            {event.title}
-          </span>
-        )}
+        <span className="flex items-center gap-1.5">
+          {contactId && event.customerName && onCustomerClick ? (
+            <CustomerNameLink
+              contactId={contactId}
+              display={event.customerName}
+              onClick={onCustomerClick}
+              className="truncate font-medium text-sm"
+            />
+          ) : (
+            <span className="truncate font-medium text-sm block">
+              {event.title}
+            </span>
+          )}
+          {noteCount > 0 ? (
+            <span
+              data-testid="agenda-note-dot"
+              aria-label={t.calendar.noteIndicatorAria(noteCount)}
+              className="bg-foreground/60 size-1.5 shrink-0 rounded-full"
+            />
+          ) : null}
+        </span>
         {event.productName ? (
           <span className="truncate text-xs text-muted-foreground block">
             {event.productName}

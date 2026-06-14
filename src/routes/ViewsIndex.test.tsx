@@ -91,8 +91,8 @@ describe('ViewsIndex (landr-v0xg)', () => {
 
     render()
 
-    expect(await screen.findByText(/no views yet/i)).toBeInTheDocument()
-    expect(screen.getByText(/start with a template/i)).toBeInTheDocument()
+    expect(await screen.findByText(/no saved views yet/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/start from a template/i).length).toBeGreaterThanOrEqual(1)
 
     // landr-s1mr — the no-views state uses the shared <EmptyState> card.
     expect(screen.getByTestId('views-empty-state')).toBeInTheDocument()
@@ -122,7 +122,7 @@ describe('ViewsIndex (landr-v0xg)', () => {
     ])
 
     render()
-    expect(await screen.findByText(/no views yet/i)).toBeInTheDocument()
+    expect(await screen.findByText(/no saved views yet/i)).toBeInTheDocument()
   })
 
   it('renders a card grid when the user has at least one visible view (landr-8ou3)', async () => {
@@ -145,7 +145,7 @@ describe('ViewsIndex (landr-v0xg)', () => {
     render()
     expect(await screen.findByText('My view')).toBeInTheDocument()
     expect(screen.getByTestId('views-grid')).toBeInTheDocument()
-    expect(screen.queryByText(/no views yet/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/no saved views yet/i)).not.toBeInTheDocument()
     // The grid replaces the pre-landr-8ou3 helper text.
     expect(
       screen.queryByText(/pick a view from the sidebar/i),
@@ -223,7 +223,7 @@ describe('ViewsIndex (landr-v0xg)', () => {
 
     render()
 
-    await screen.findByText(/no views yet/i)
+    await screen.findByText(/no saved views yet/i)
     await user.click(screen.getByRole('button', { name: /\+ new view/i }))
 
     await waitFor(() => {

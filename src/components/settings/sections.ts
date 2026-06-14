@@ -3,6 +3,7 @@ import {
   BedIcon,
   BellIcon,
   BuildingIcon,
+  ClipboardListIcon,
   CalendarClockIcon,
   CalendarDaysIcon,
   CheckSquareIcon,
@@ -16,7 +17,6 @@ import {
   KeyRoundIcon,
   LinkIcon,
   MailIcon,
-  MailOpenIcon,
   MapPinIcon,
   MegaphoneIcon,
   MonitorIcon,
@@ -194,6 +194,13 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     label: t.settingsHub.sections.embed,
     icon: CodeIcon,
   },
+  // landr-71kz.5 — operator form library (custom booking forms). Sits after
+  // Embed code because both are "what the widget uses" config surfaces.
+  {
+    to: '/settings/forms',
+    label: t.settingsHub.sections.forms,
+    icon: ClipboardListIcon,
+  },
   // landr-znzz.5 — generic per-operator offers/upsells shown in the AFTER
   // phase of the customer event page. Each offer links out to the operator's
   // own shop/merch/form via cta_url. No defaults, nothing vendor-specific.
@@ -212,14 +219,7 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     label: t.settingsHub.sections.emailTemplates,
     icon: MailIcon,
   },
-  // landr-qg4q — Email log sits right after Email templates so operators
-  // who just edited a template can verify it shipped (or debug a failure)
-  // without leaving the settings IA.
-  {
-    to: '/settings/email-log',
-    label: t.settingsHub.sections.emailLog,
-    icon: MailOpenIcon,
-  },
+  // (Email log moved out of Settings → standalone /email-log admin route.)
   {
     to: '/settings/pricing',
     label: t.settingsHub.sections.pricing,

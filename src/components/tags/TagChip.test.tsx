@@ -14,10 +14,17 @@ describe('TagChip', () => {
     expect(screen.getByText('VIP')).toBeInTheDocument()
   })
 
-  it('applies the tag color as background', () => {
+  // hxnb.6 — chips now use border-accent (left border) instead of full fill.
+  // The operator's color appears as the border-left-color, not as bg.
+  it('applies the tag color as left-border accent (not full fill)', () => {
     render(<TagChip tag={TAG} testId="t-chip" />)
     const el = screen.getByTestId('t-chip')
-    expect(el.style.backgroundColor).toMatch(/rgb\(59,\s?130,\s?246\)/)
+    // JSDOM normalises hex → rgb in computed style. border-left-color holds
+    // the tag's color; background-color must be the surface-dense-subtle token
+    // (a CSS var ref) rather than the raw tag color.
+    expect(el.style.borderLeftColor).toMatch(/rgb\(59,\s?130,\s?246\)/)
+    // Background must NOT be the raw tag color — it should be the token ref.
+    expect(el.style.backgroundColor).not.toMatch(/rgb\(59,\s?130,\s?246\)/)
   })
 
   it('renders a remove button when onRemove is provided', () => {

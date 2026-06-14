@@ -353,13 +353,11 @@ describe('GeneralApprovals route', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('shows the pending count badge in the header', async () => {
-    mock.state.rows = [sampleRow, newCustomerRow]
-    render(<GeneralApprovals />)
-
-    const badge = await screen.findByTestId('approvals-count-badge')
-    expect(badge).toHaveTextContent('2 pending')
-  })
+  // The pending count moved out of the body header and into the topbar
+  // (PageTitle subtitleCount → PageTitleDisplay), which isn't rendered when
+  // the route mounts in isolation. The former 'approvals-count-badge' body
+  // badge assertion was removed with that body header; the empty-state test
+  // above still pins that the badge is absent.
 
   it('renders the new Activity-date column', async () => {
     mock.state.rows = [sampleRow]

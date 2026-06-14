@@ -75,7 +75,7 @@ describe('BookingParticipants', () => {
     renderWithClient(<BookingParticipants bookingId={BOOKING_ID} />)
 
     await waitFor(() =>
-      expect(screen.getByText(/No participants recorded/i)).toBeInTheDocument(),
+      expect(screen.getByText(/No participants on this booking yet/i)).toBeInTheDocument(),
     )
     expect(screen.getByTestId('booking-participants-empty')).toBeInTheDocument()
     expect(mocks.fetchBookingParticipants).toHaveBeenCalledWith(BOOKING_ID)

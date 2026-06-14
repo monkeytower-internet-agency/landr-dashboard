@@ -63,6 +63,13 @@ export const OperatorSettingsSchema = z.object({
   widget_headline: z.string().max(200).nullable().optional(),
   widget_description: z.string().max(2000).nullable().optional(),
   widget_footer: z.string().max(2000).nullable().optional(),
+  // landr-dnzd — first-page-only switches. When true the corresponding text
+  // field is shown only on the product-selection screen (page 1 of the booking
+  // flow), not throughout the subsequent booking steps. Default false (= shown
+  // everywhere, matching the pre-existing behaviour).
+  widget_headline_first_page_only: z.boolean().optional(),
+  widget_description_first_page_only: z.boolean().optional(),
+  widget_footer_first_page_only: z.boolean().optional(),
   // landr-znzz.7 — opt-in weather forecast hint for the conditions verdict
   // pre-fill. OFF by default; operator enables in Settings → Weather.
   // weather_provider is the provider slug (currently only 'open_meteo').
