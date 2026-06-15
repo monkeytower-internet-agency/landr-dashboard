@@ -1,8 +1,23 @@
-// Unit tests for tiers.ts groupFeaturesByCategory — pure grouping helper.
-// landr-v9e4.10 coverage pass.
+// Unit tests for tiers.ts.
+// landr-v9e4.10 coverage pass; landr-cpcd bug-fix coverage added.
 
-import { describe, expect, it } from 'vitest'
-import { groupFeaturesByCategory, type Feature } from '@/lib/tiers'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+
+// ---------------------------------------------------------------------------
+// Supabase mock — must be declared before any tiers import so the module
+// resolver picks up the mock when tiers.ts is loaded.
+// ---------------------------------------------------------------------------
+
+const mockUpsert = vi.fn().mockResolvedValue({ error: null })
+
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    from: vi.fn(() => ({ upsert: mockUpsert })),
+  },
+}))
+
+import { supabase } from '@/lib/supabase'
+import { groupFeaturesByCategory, setPackageFeatureConfig, type Feature } from '@/lib/tiers'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -149,5 +164,76 @@ describe('groupFeaturesByCategory', () => {
     expect(groups).toHaveLength(1)
     expect(groups[0]!.features).toHaveLength(2)
     expect(groups[0]!.features.map((f) => f.active)).toEqual([true, false])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// setPackageFeatureConfig — landr-cpcd bug-fix regression test
+// ---------------------------------------------------------------------------
+//
+// Bug: upserting config on a feature with no explicit package_features row
+// (default-ON feature) omitted `enabled` from the payload, so the DB inserted
+// a row with enabled=false/default and silently DISABLED the feature.
+//
+// Fix: the caller passes the resolved effective enabled state
+//   (setting?.enabled ?? feature.default_enabled)
+// and setPackageFeatureConfig includes it in the upsert so new rows are
+// inserted with the correct enabled value.
+
+describe('setPackageFeatureConfig (landr-cpcd)', () => {
+  beforeEach(() => {
+    mockUpsert.mockReset()
+    mockUpsert.mockResolvedValue({ error: null })
+    vi.mocked(supabase.from).mockReturnValue({ upsert: mockUpsert } as unknown as ReturnType<typeof supabase.from>)
+  })
+
+  it('includes enabled=true in the upsert when the feature has no explicit row (default-ON)', async () => {
+    // Simulates: feature.default_enabled = true, setting = undefined
+    // Caller computes: setting?.enabled ?? feature.default_enabled = true
+    await setPackageFeatureConfig({
+      packageId: 'pkg-1',
+      featureId: 'feat-1',
+      config: { max_products: 50 },
+      enabled: true,
+    })
+
+    expect(supabase.from).toHaveBeenCalledWith('package_features')
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        package_id: 'pkg-1',
+        feature_id: 'feat-1',
+        enabled: true,
+        config: { max_products: 50 },
+      }),
+      expect.objectContaining({ onConflict: 'package_id,feature_id' }),
+    )
+  })
+
+  it('preserves enabled=false for a feature that is explicitly disabled', async () => {
+    // Simulates: existing row with enabled=false, caller passes that value
+    await setPackageFeatureConfig({
+      packageId: 'pkg-1',
+      featureId: 'feat-disabled',
+      config: {},
+      enabled: false,
+    })
+
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: false }),
+      expect.anything(),
+    )
+  })
+
+  it('throws when supabase returns an error', async () => {
+    mockUpsert.mockResolvedValue({ error: { message: 'RLS denied' } })
+
+    await expect(
+      setPackageFeatureConfig({
+        packageId: 'pkg-1',
+        featureId: 'feat-1',
+        config: {},
+        enabled: true,
+      }),
+    ).rejects.toThrow('RLS denied')
   })
 })

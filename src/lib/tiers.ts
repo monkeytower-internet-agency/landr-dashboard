@@ -146,18 +146,29 @@ export async function setPackageFeature(args: {
 }
 
 /**
- * Upsert the config blob for a package_features row. Does not touch the
- * `enabled` column — use setPackageFeature for that.
+ * Upsert the config blob for a package_features row. Also persists the
+ * resolved `enabled` value so that upserting config on a feature with no
+ * explicit package_features row (i.e. one that is default-ON in the registry)
+ * does NOT silently insert a row with enabled=false/DB-default.
+ *
+ * Callers MUST pass the currently-effective enabled state:
+ *   setting?.enabled ?? feature.default_enabled
+ *
+ * For existing rows the round-trip is safe: the upsert overwrites enabled with
+ * the same value that is already stored (existing-row setting?.enabled).
+ * For new rows it preserves the registry default (feature.default_enabled).
  */
 export async function setPackageFeatureConfig(args: {
   packageId: string
   featureId: string
   config: Record<string, unknown>
+  enabled: boolean
 }): Promise<void> {
   const { error } = await supabase.from('package_features').upsert(
     {
       package_id: args.packageId,
       feature_id: args.featureId,
+      enabled: args.enabled,
       config: args.config,
     },
     { onConflict: 'package_id,feature_id' },
