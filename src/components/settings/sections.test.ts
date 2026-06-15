@@ -63,17 +63,29 @@ describe('ACCOUNT_SECTIONS (landr-fzcg)', () => {
   // third-party integration the operator wires up once).
   // landr — Security (change password) added after Connected accounts; both
   // manage how the operator authenticates into the dashboard.
-  it('contains exactly company/connected/security/gmail/calendar/payments/plan/notifications in that order', () => {
+  // landr-resend-sender — Email sending added after Gmail (per-operator Resend
+  // sending domain; the domain-based successor to the Gmail OAuth integration).
+  it('contains exactly company/connected/security/gmail/email-sender/calendar/payments/plan/notifications in that order', () => {
     expect(ACCOUNT_SECTIONS.map((s) => s.to)).toEqual([
       '/account/company',
       '/account/connected-accounts',
       '/account/security',
       '/account/integrations/gmail',
+      '/account/integrations/email-sender',
       '/account/integrations/calendar',
       '/account/integrations/payments',
       '/account/plan',
       '/account/notifications',
     ])
+  })
+
+  // landr-resend-sender — pin the Email sending entry shape.
+  it('includes an Email sending entry at /account/integrations/email-sender', () => {
+    const entry = ACCOUNT_SECTIONS.find(
+      (s) => s.to === '/account/integrations/email-sender',
+    )
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Email sending')
   })
 
   it('includes a Security entry at /account/security', () => {

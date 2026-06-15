@@ -407,6 +407,10 @@ export const t = {
       // landr-qg4q — outbound_emails viewer (failed sends, retried, sent).
       emailLog: 'Email log',
       integrationsGmail: 'Gmail',
+      // landr-resend-sender — per-operator Resend sending domain. Sends
+      // booking emails from the operator's own domain (replaces the Gmail
+      // OAuth integration).
+      emailSender: 'Email sending',
       // landr-6ybs — per-operator subscribable ICS calendar feed.
       integrationsCalendar: 'Calendar feed',
       // landr-1nwu.2 — per-operator Stripe + Holded credentials.
@@ -486,6 +490,9 @@ export const t = {
         'Outbound email history: see what was sent, what failed, and why.',
       integrationsGmail:
         'Send booking emails from your own Gmail address via OAuth.',
+      // landr-resend-sender — per-operator Resend sending domain.
+      emailSender:
+        'Send booking emails from your own domain. Add a few DNS records and we verify it with Resend.',
       // landr-6ybs — per-operator subscribable ICS calendar feed.
       integrationsCalendar:
         'Subscribe to a live ICS feed of all your bookings in Google, Apple, or Outlook Calendar.',
@@ -605,6 +612,62 @@ export const t = {
     operatorParamChipLabel: 'params',
     operatorParamPopoverTitle: 'Operator param override',
     effectiveConfigLabel: 'effective config:',
+  },
+  // landr-resend-sender — Account → Email sending (per-operator Resend
+  // sending domain). Send booking emails from the operator's own domain.
+  emailSenderSettings: {
+    title: 'Email sending',
+    loading: 'Loading…',
+    errorTitle: 'Failed to load email sending settings',
+
+    // --- Unconfigured: explainer + setup form ---
+    introTitle: 'Send from your own domain',
+    introBody:
+      'Booking emails currently send from a Landr address. Connect your own domain so confirmations, reminders, and updates arrive from you — better deliverability and a more professional look.',
+    domainLabel: 'Sending domain',
+    domainHint: 'The root domain you own, e.g. para42.com — not a full email address.',
+    domainPlaceholder: 'para42.com',
+    localPartLabel: 'From address (optional)',
+    localPartHint: 'The part before the @. Defaults to “bookings”.',
+    localPartPlaceholder: 'bookings',
+    previewLabel: 'Emails will send from',
+    previewPending: 'Enter a domain to preview your From address.',
+    setupButton: 'Set up',
+    setupSubmitting: 'Setting up…',
+    setupError: 'Could not set up sending domain',
+    domainRequired: 'Enter the domain you want to send from.',
+    domainInvalid: 'That doesn’t look like a domain. Use something like para42.com.',
+
+    // --- After setup: DNS records ---
+    autodnsTitle: 'Records added automatically — verifying…',
+    autodnsBody:
+      'We added the required DNS records to your zone for you. Verification with Resend usually completes within a few minutes.',
+    manualTitle: 'Add these DNS records',
+    manualBody:
+      'Add the records below to your domain’s DNS, then click Verify. Changes can take a few minutes to propagate.',
+    dnsColType: 'Type',
+    dnsColName: 'Name',
+    dnsColValue: 'Value',
+    copyValue: 'Copy value',
+    copied: 'Copied to clipboard',
+    copyFailed: 'Could not copy — copy it manually',
+    verifyButton: 'Verify',
+    recheckButton: 'Re-check',
+    verifying: 'Verifying…',
+    verifyError: 'Verification failed',
+
+    // --- Configured: status + active From ---
+    statusVerified: 'Verified',
+    statusPending: 'Verifying',
+    statusFailed: 'Verification failed',
+    statusUnverified: 'Not verified',
+    activeFromLabel: 'Sending from',
+    fallbackNotice:
+      'Until your domain is verified, emails still send from the Landr fallback address.',
+    lastErrorLabel: 'Last error',
+    changeDomainButton: 'Change domain',
+    changeDomainCancel: 'Cancel',
+    reverifyButton: 'Re-verify',
   },
   // landr-sbhz.8 — /revenue: owner platform-commission overview (STAFF-ONLY).
   revenue: {
