@@ -32,6 +32,9 @@ export const FEATURE_ROUTES: Record<string, string[]> = {
   audit: ['/audit'],
   tickets: ['/tickets'],
   release_planning: ['/tickets/planning'],
+  // email_log moved out of /settings to a top-level admin route (landr-p0hu).
+  // Must live here so featureForRoute('/email-log') resolves → gating works.
+  email_log: ['/email-log'],
 }
 
 // `FEATURE_SECTIONS` — settings sub-sidebar entries (the `to` field in
@@ -46,7 +49,6 @@ export const FEATURE_SECTIONS: Record<string, string[]> = {
   providers: ['/settings/providers'],
   embed: ['/settings/embed'],
   email_templates: ['/settings/email-templates'],
-  email_log: ['/email-log'],
   commission: ['/settings/commissions'],
   company: ['/account/company'],
   branding: ['/settings/branding'],

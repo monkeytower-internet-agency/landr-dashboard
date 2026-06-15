@@ -33,6 +33,12 @@ describe('featureForRoute', () => {
     expect(featureForRoute('/contacts')).toBe('contacts')
   })
 
+  // landr-p0hu — /email-log is a top-level route (moved out of /settings);
+  // its feature key must resolve so the gatedRoute guard in App.tsx fires.
+  it('maps /email-log to email_log (landr-p0hu regression)', () => {
+    expect(featureForRoute('/email-log')).toBe('email_log')
+  })
+
   it('returns null for ungated routes (always visible)', () => {
     // Dashboard home, Views, Approvals, Retrieve, Trash have no gating feature.
     expect(featureForRoute('/')).toBeNull()
