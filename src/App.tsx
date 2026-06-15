@@ -82,6 +82,7 @@ import { CalendarDisplaySettings } from '@/routes/settings/CalendarDisplaySettin
 import { DisplayPreferencesSettings } from '@/routes/settings/DisplayPreferencesSettings'
 import { IntegrationsCalendarSettings } from '@/routes/settings/IntegrationsCalendarSettings'
 import { IntegrationsGmailSettings } from '@/routes/settings/IntegrationsGmailSettings'
+import { EmailSenderSettings } from '@/routes/settings/EmailSenderSettings'
 import { IntegrationsPaymentsSettings } from '@/routes/settings/IntegrationsPaymentsSettings'
 import { ConnectedAccountsSettings } from '@/routes/settings/ConnectedAccountsSettings'
 import { SecuritySettings } from '@/routes/settings/SecuritySettings'
@@ -326,6 +327,11 @@ function App() {
                     (logged-in). Personal scope; ungated. */}
                 <Route path="security" element={<SecuritySettings />} />
                 <Route path="integrations/gmail" element={gatedSection('/account/integrations/gmail', <IntegrationsGmailSettings />)} />
+                {/* landr-resend-sender — per-operator Resend sending domain.
+                    Ungated: every operator needs to wire up their own sending
+                    domain (like Gmail / payments), so no feature-entitlement
+                    gate. Replaces the Gmail OAuth integration. */}
+                <Route path="integrations/email-sender" element={<EmailSenderSettings />} />
                 {/* landr-6ybs — per-operator subscribable ICS calendar feed. */}
                 <Route path="integrations/calendar" element={gatedSection('/account/integrations/calendar', <IntegrationsCalendarSettings />)} />
                 {/* landr-1nwu.2 — per-operator Stripe + Holded credentials.
