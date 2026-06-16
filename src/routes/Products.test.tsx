@@ -436,7 +436,7 @@ describe('Products route', () => {
     const slugInput = screen.getByLabelText(/slug/i) as HTMLInputElement
     expect(slugInput.value).toBe('beginner-kayak')
 
-    await user.click(screen.getByRole('button', { name: /create product/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
 
     await waitFor(() => {
       expect(mock.state.inserts.length).toBe(1)
