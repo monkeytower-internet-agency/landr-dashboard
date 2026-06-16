@@ -5,10 +5,11 @@
 // /api/operator/email-sender. The operator is resolved from the JWT
 // (NOT from a URL path param), so none of these calls carry an operator id.
 //
-//   GET  /api/operator/email-sender         — current config + status + records.
-//   POST /api/operator/email-sender/setup   — create the Resend domain, store
+//   GET  /api/operator/email-sender                — current config + status + records.
+//   GET  /api/operator/email-sender/eligibility   — classify domain path, no side effects.
+//   POST /api/operator/email-sender/setup          — create the Resend domain, store
 //        + return the required DNS records (manual) or push them via autoDNS.
-//   POST /api/operator/email-sender/verify  — re-check Resend verification.
+//   POST /api/operator/email-sender/verify         — re-check Resend verification.
 //
 // Field names mirror the server's EmailSenderStatus model 1:1 so the wire
 // shape and the TS type never drift. The query is scoped by operatorId only
@@ -68,6 +69,23 @@ export type EmailSenderConfig = {
   last_error: string | null
 }
 
+/**
+ * Response of GET /api/operator/email-sender/eligibility (landr-oqrz.6).
+ * Tells the operator whether their domain will be set up automatically
+ * (path='auto') or requires manual DNS records (path='manual').
+ * No side effects — safe to call before the operator commits to setup.
+ */
+export type EmailSenderEligibility = {
+  /** Normalised domain that was classified. */
+  domain: string
+  /** 'auto' — Landr will set up DNS; 'manual' — operator must publish records. */
+  path: 'auto' | 'manual'
+  /** Detected DNS provider: 'cloudflare' | 'autodns' | 'manual'. */
+  provider: 'cloudflare' | 'autodns' | 'manual'
+  /** autoDNS pool probe result; null when not applicable or probe unconfigured. */
+  in_pool: boolean | null
+}
+
 /** Body of POST /api/operator/email-sender/setup. */
 export type SetupEmailSenderBody = {
   /** Root domain to send from, e.g. `para42.com`. */
@@ -91,6 +109,18 @@ const BASE = '/api/operator/email-sender'
 
 export async function fetchEmailSenderConfig(): Promise<EmailSenderConfig> {
   return api<EmailSenderConfig>('GET', BASE)
+}
+
+/**
+ * Classify whether a domain will be set up automatically (path='auto') or
+ * requires manual DNS records (path='manual'). No side effects — safe to call
+ * at any time before the operator commits to setup.
+ */
+export async function fetchEmailSenderEligibility(
+  domain: string,
+): Promise<EmailSenderEligibility> {
+  const params = new URLSearchParams({ domain })
+  return api<EmailSenderEligibility>('GET', `${BASE}/eligibility?${params}`)
 }
 
 export async function setupEmailSender(

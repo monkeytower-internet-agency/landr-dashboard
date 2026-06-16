@@ -17,7 +17,7 @@
 // See @/lib/email-sender for the typed client + hooks, and the landr-api
 // router app/routers/operator_email_sender.py for the field contract.
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   AlertCircleIcon,
   CheckCircle2Icon,
@@ -48,11 +48,13 @@ import {
 import { useOperator } from '@/lib/operator'
 import {
   DEFAULT_FROM_LOCAL_PART,
+  fetchEmailSenderEligibility,
   useEmailSenderConfig,
   useSetupEmailSender,
   useVerifyEmailSender,
   type EmailSenderConfig,
   type EmailSenderDnsRecord,
+  type EmailSenderEligibility,
   type EmailSenderVerificationStatus,
 } from '@/lib/email-sender'
 import { PageTitle } from '@/lib/page-title'
@@ -132,11 +134,52 @@ function SetupForm({ operatorId }: { operatorId: string }) {
   const [domainError, setDomainError] = useState<string | null>(null)
   const setup = useSetupEmailSender(operatorId)
 
+  // Eligibility pre-check state (landr-oqrz.6)
+  const [eligibility, setEligibility] = useState<EmailSenderEligibility | null>(null)
+  const [eligibilityChecking, setEligibilityChecking] = useState(false)
+  // Track which domain the last check was for so we clear the hint if it changes.
+  const eligibilityDomainRef = useRef<string>('')
+
   const effectiveLocalPart = localPart.trim() || DEFAULT_FROM_LOCAL_PART
   const cleanDomain = normaliseDomain(domain)
   const preview = cleanDomain
     ? `${effectiveLocalPart}@${cleanDomain}`
     : null
+
+  function handleDomainChange(raw: string) {
+    setDomain(raw)
+    if (domainError) setDomainError(null)
+    // Clear eligibility hint when the operator edits the domain.
+    const normalised = normaliseDomain(raw)
+    if (normalised !== eligibilityDomainRef.current) {
+      setEligibility(null)
+      eligibilityDomainRef.current = ''
+    }
+  }
+
+  async function handleCheckDomain() {
+    const d = normaliseDomain(domain)
+    if (!d) {
+      setDomainError(t.emailSenderSettings.domainRequired)
+      return
+    }
+    if (!DOMAIN_RE.test(d)) {
+      setDomainError(t.emailSenderSettings.domainInvalid)
+      return
+    }
+    setDomainError(null)
+    setEligibilityChecking(true)
+    try {
+      const result = await fetchEmailSenderEligibility(d)
+      setEligibility(result)
+      eligibilityDomainRef.current = d
+    } catch {
+      // Silently ignore — the eligibility check is optional/informational.
+      setEligibility(null)
+    } finally {
+      setEligibilityChecking(false)
+    }
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -181,23 +224,48 @@ function SetupForm({ operatorId }: { operatorId: string }) {
             <Label htmlFor="email-sender-domain">
               {t.emailSenderSettings.domainLabel}
             </Label>
-            <Input
-              id="email-sender-domain"
-              value={domain}
-              autoComplete="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              placeholder={t.emailSenderSettings.domainPlaceholder}
-              onChange={(e) => {
-                setDomain(e.target.value)
-                if (domainError) setDomainError(null)
-              }}
-              aria-invalid={domainError ? 'true' : undefined}
-              className="font-mono text-sm"
-            />
+            <div className="flex gap-2">
+              <Input
+                id="email-sender-domain"
+                value={domain}
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                placeholder={t.emailSenderSettings.domainPlaceholder}
+                onChange={(e) => handleDomainChange(e.target.value)}
+                aria-invalid={domainError ? 'true' : undefined}
+                className="font-mono text-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCheckDomain}
+                disabled={eligibilityChecking || !domain.trim()}
+                data-testid="check-domain-button"
+              >
+                {eligibilityChecking
+                  ? t.emailSenderSettings.checkDomainChecking
+                  : t.emailSenderSettings.checkDomainButton}
+              </Button>
+            </div>
             {domainError ? (
               <p className="text-destructive text-xs" role="alert">
                 {domainError}
+              </p>
+            ) : eligibility ? (
+              <p
+                className={
+                  eligibility.path === 'auto'
+                    ? 'text-xs text-emerald-700 dark:text-emerald-400'
+                    : 'text-muted-foreground text-xs'
+                }
+                role="status"
+                data-testid="eligibility-hint"
+              >
+                {eligibility.path === 'auto'
+                  ? t.emailSenderSettings.checkDomainHintAuto
+                  : t.emailSenderSettings.checkDomainHintManual}
               </p>
             ) : (
               <p className="text-muted-foreground text-xs">
