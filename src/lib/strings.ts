@@ -632,6 +632,12 @@ export const t = {
     localPartPlaceholder: 'bookings',
     previewLabel: 'Emails will send from',
     previewPending: 'Enter a domain to preview your From address.',
+    checkDomainButton: 'Check domain',
+    checkDomainChecking: 'Checking…',
+    checkDomainHintAuto:
+      'This domain is in our network — we’ll set it up automatically.',
+    checkDomainHintManual:
+      'You’ll add a few DNS records at your provider — we’ll show them after you continue.',
     setupButton: 'Set up',
     setupSubmitting: 'Setting up…',
     setupError: 'Could not set up sending domain',
