@@ -645,10 +645,16 @@ export const t = {
     manualTitle: 'Add these DNS records',
     manualBody:
       'Add the records below to your domain’s DNS, then click Verify. Changes can take a few minutes to propagate.',
+    manualSteps: [
+      'Log in to your domain’s DNS provider (e.g. Cloudflare, GoDaddy, Namecheap).',
+      'For each row below, add a new DNS record with the given Type, Name, and Value.',
+      'Save your changes, then click Verify below — propagation can take a few minutes.',
+    ] as string[],
     dnsColType: 'Type',
     dnsColName: 'Name',
     dnsColValue: 'Value',
     copyValue: 'Copy value',
+    copyRow: 'Copy full row',
     copied: 'Copied to clipboard',
     copyFailed: 'Could not copy — copy it manually',
     verifyButton: 'Verify',
