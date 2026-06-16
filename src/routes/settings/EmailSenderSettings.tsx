@@ -457,6 +457,11 @@ function ManualDnsCard({
         <CardDescription>{t.emailSenderSettings.manualBody}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <ol className="text-muted-foreground space-y-1 text-sm list-decimal list-inside">
+          {t.emailSenderSettings.manualSteps.map((step, i) => (
+            <li key={i}>{step}</li>
+          ))}
+        </ol>
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
@@ -466,6 +471,9 @@ function ManualDnsCard({
                 </TableHead>
                 <TableHead>{t.emailSenderSettings.dnsColName}</TableHead>
                 <TableHead>{t.emailSenderSettings.dnsColValue}</TableHead>
+                <TableHead className="w-16 sr-only">
+                  {t.emailSenderSettings.copyRow}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -491,10 +499,23 @@ function DnsRow({ record }: { record: EmailSenderDnsRecord }) {
   // Resend names DNS records as a bare host (e.g. "resend._domainkey"); render
   // verbatim so the operator can paste exactly what their DNS provider wants.
   const valueText = useMemo(() => String(record.value ?? ''), [record.value])
+  const rowText = useMemo(
+    () => `${record.type.toUpperCase()} / ${record.name} / ${valueText}`,
+    [record.type, record.name, valueText],
+  )
 
-  async function handleCopy() {
+  async function handleCopyValue() {
     try {
       await navigator.clipboard.writeText(valueText)
+      toast.success(t.emailSenderSettings.copied)
+    } catch {
+      toast.error(t.emailSenderSettings.copyFailed)
+    }
+  }
+
+  async function handleCopyRow() {
+    try {
+      await navigator.clipboard.writeText(rowText)
       toast.success(t.emailSenderSettings.copied)
     } catch {
       toast.error(t.emailSenderSettings.copyFailed)
@@ -518,11 +539,23 @@ function DnsRow({ record }: { record: EmailSenderDnsRecord }) {
             variant="ghost"
             className="shrink-0"
             aria-label={t.emailSenderSettings.copyValue}
-            onClick={handleCopy}
+            onClick={handleCopyValue}
           >
             <CopyIcon className="size-3" aria-hidden />
           </Button>
         </div>
+      </TableCell>
+      <TableCell>
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          className="shrink-0"
+          aria-label={t.emailSenderSettings.copyRow}
+          onClick={handleCopyRow}
+        >
+          <CopyIcon className="size-3" aria-hidden />
+        </Button>
       </TableCell>
     </TableRow>
   )
