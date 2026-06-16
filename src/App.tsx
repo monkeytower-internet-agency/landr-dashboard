@@ -332,6 +332,13 @@ function App() {
                     domain (like Gmail / payments), so no feature-entitlement
                     gate. Replaces the Gmail OAuth integration. */}
                 <Route path="integrations/email-sender" element={<EmailSenderSettings />} />
+                {/* landr — flat /account/email-sender shorthand (and older
+                    "set up branded sending" nudges) redirect to the canonical
+                    integrations path so the link never 404s. */}
+                <Route
+                  path="email-sender"
+                  element={<Navigate to="/account/integrations/email-sender" replace />}
+                />
                 {/* landr-6ybs — per-operator subscribable ICS calendar feed. */}
                 <Route path="integrations/calendar" element={gatedSection('/account/integrations/calendar', <IntegrationsCalendarSettings />)} />
                 {/* landr-1nwu.2 — per-operator Stripe + Holded credentials.
