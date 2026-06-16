@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -49,6 +49,7 @@ import { useOperator } from '@/lib/operator'
 import { SortableRuleItem } from './SortableRuleItem'
 import { SimulateDialog } from './SimulateDialog'
 import { diffSortChanges } from './pricing-reorder-math'
+import { t } from '@/lib/strings'
 
 type Props = {
   schemeId: string | null
@@ -68,11 +69,31 @@ const RULE_KIND_OPTIONS: RuleKind[] = [
 
 export function PricingSchemeEditorSheet({ schemeId, operatorId, onClose }: Props) {
   const open = schemeId !== null
+  // landr-0ulh — guard against discarding unsaved name/notes edits when the
+  // operator clicks outside the sheet or presses Esc. The dirty flag is lifted
+  // up from the editor body via onDirtyChange and read from a ref so the Radix
+  // interaction handlers always see the latest value.
+  const dirtyRef = useRef(false)
+  const handleOpenChange = useCallback(
+    (o: boolean) => {
+      if (o) return
+      if (dirtyRef.current && !window.confirm(t.products.confirmDiscardChanges)) return
+      dirtyRef.current = false
+      onClose()
+    },
+    [onClose],
+  )
   return (
-    <Sheet open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       {/* landr-3qkr.3 — full-screen below md. */}
       <SheetContent
         className={cn('w-full sm:max-w-lg flex flex-col overflow-hidden', mobileSheetContent)}
+        onInteractOutside={(e) => {
+          if (dirtyRef.current) e.preventDefault()
+        }}
+        onEscapeKeyDown={(e) => {
+          if (dirtyRef.current) e.preventDefault()
+        }}
       >
         {schemeId ? (
           <PricingSchemeEditorBody
@@ -80,6 +101,9 @@ export function PricingSchemeEditorSheet({ schemeId, operatorId, onClose }: Prop
             schemeId={schemeId}
             operatorId={operatorId}
             onClose={onClose}
+            onDirtyChange={(d) => {
+              dirtyRef.current = d
+            }}
           />
         ) : null}
       </SheetContent>
@@ -91,9 +115,15 @@ type BodyProps = {
   schemeId: string
   operatorId: string
   onClose: () => void
+  onDirtyChange: (dirty: boolean) => void
 }
 
-function PricingSchemeEditorBody({ schemeId, operatorId, onClose: _onClose }: BodyProps) {
+function PricingSchemeEditorBody({
+  schemeId,
+  operatorId,
+  onClose: _onClose,
+  onDirtyChange,
+}: BodyProps) {
   const qc = useQueryClient()
   const queryKey = ['pricing-scheme-tree', operatorId, schemeId] as const
 
@@ -145,6 +175,7 @@ function PricingSchemeEditorBody({ schemeId, operatorId, onClose: _onClose }: Bo
       scheme={scheme}
       operatorId={operatorId}
       onRefetch={onRefetch}
+      onDirtyChange={onDirtyChange}
     />
   )
 }
@@ -153,11 +184,22 @@ type EditorProps = {
   scheme: PricingScheme
   operatorId: string
   onRefetch: () => void
+  onDirtyChange: (dirty: boolean) => void
 }
 
-function SchemeEditor({ scheme, operatorId, onRefetch }: EditorProps) {
+function SchemeEditor({ scheme, operatorId, onRefetch, onDirtyChange }: EditorProps) {
   const [nameVal, setNameVal] = useState(scheme.name)
   const [notesVal, setNotesVal] = useState(scheme.notes ?? '')
+  // landr-0ulh — report unsaved name/notes edits up so the Sheet wrapper can
+  // confirm before discarding them on outside-click/Esc. (Rules + reorder
+  // auto-save via their own per-action mutations, so only the name/notes
+  // local edits need tracking here.)
+  const isDirty =
+    nameVal.trim() !== scheme.name ||
+    (notesVal.trim() || null) !== (scheme.notes ?? null)
+  useEffect(() => {
+    onDirtyChange(isDirty)
+  }, [isDirty, onDirtyChange])
   const [newRuleKind, setNewRuleKind] = useState<RuleKind>('per_day_base')
   const [simulateOpen, setSimulateOpen] = useState(false)
   // landr-5gk7 — the simulator dialog hits the public estimate endpoint,

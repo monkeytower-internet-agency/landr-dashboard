@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -101,6 +101,10 @@ export function Step5Products({ operatorId, onAdvance, onBack }: Props) {
   const qc = useQueryClient()
   const [busyKey, setBusyKey] = useState<Template['key'] | null>(null)
   const [manageOpen, setManageOpen] = useState(false)
+  // landr-0ulh — tracks whether the ProductForm inside the overlay has
+  // unsaved edits. Updated via onDirtyChange; stored in a ref so the Sheet
+  // interaction handlers read the latest value without causing re-renders.
+  const manageDirtyRef = useRef(false)
 
   // Single source of truth for the wizard count: this same TanStack
   // Query key (`['products', operatorId]`) is also used by ProductsManager
@@ -191,8 +195,14 @@ export function Step5Products({ operatorId, onAdvance, onBack }: Props) {
   }
 
   function handleManageOpenChange(open: boolean) {
+    // landr-0ulh — guard programmatic close (X button, Sheet onOpenChange)
+    // when the ProductForm has unsaved edits.
+    if (!open && manageDirtyRef.current) {
+      if (!window.confirm(t.products.confirmDiscardChanges)) return
+    }
     setManageOpen(open)
     if (!open) {
+      manageDirtyRef.current = false
       // Refresh the wizard's count display when the overlay closes so any
       // create/edit/delete done in the manager is reflected immediately.
       qc.invalidateQueries({ queryKey: ['products', operatorId] })
@@ -250,13 +260,27 @@ export function Step5Products({ operatorId, onAdvance, onBack }: Props) {
         <SheetContent
           side="right"
           className="flex w-full flex-col gap-0 overflow-y-auto sm:max-w-3xl"
+          // landr-0ulh — prevent the Sheet from closing on outside-click or
+          // Esc when the ProductForm has unsaved edits.
+          onInteractOutside={(e) => {
+            if (manageDirtyRef.current) e.preventDefault()
+          }}
+          onEscapeKeyDown={(e) => {
+            if (manageDirtyRef.current) e.preventDefault()
+          }}
         >
           <SheetHeader>
             <SheetTitle>{t.products.title}</SheetTitle>
             <SheetDescription>{t.onboarding.step5.body}</SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-4 pb-4">
-            <ProductsManager operatorId={operatorId} hideHeader />
+            <ProductsManager
+              operatorId={operatorId}
+              hideHeader
+              onDirtyChange={(dirty) => {
+                manageDirtyRef.current = dirty
+              }}
+            />
           </div>
         </SheetContent>
       </Sheet>
