@@ -2185,6 +2185,11 @@ export const t = {
     deleting: 'Deleting…',
     confirmDelete:
       'Delete this product? This is a soft delete — it can be restored from the database if needed.',
+    confirmDiscardChanges: 'You have unsaved changes. Discard them?',
+
+    saveAndContinue: 'Save',
+    saveKeepsOpenHint:
+      'Saved — the panel stays open so you can add add-on products below.',
 
     formCreateLabel: 'Create product form',
     formEditLabel: 'Edit product form',
