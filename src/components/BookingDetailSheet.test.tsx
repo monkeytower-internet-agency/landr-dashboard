@@ -174,12 +174,20 @@ const resendConfirmationSpy = vi.fn().mockResolvedValue({
   changes: [],
 })
 
+// landr-uvfg.8 (T8) — spies for the free-form set-stage hooks. Default to an
+// empty stages list so existing tests' supabase-from-spy count is unaffected;
+// individual set-stage tests override fetchBookingStagesSpy.mockResolvedValue.
+const fetchBookingStagesSpy = vi.fn().mockResolvedValue([])
+const setBookingStageSpy = vi.fn()
+
 vi.mock('@/lib/bookings', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/bookings')>()
   return {
     ...actual,
     getConfirmationStatus: (...args: unknown[]) => confirmationStatusSpy(...args),
     resendConfirmation: (...args: unknown[]) => resendConfirmationSpy(...args),
+    fetchBookingStages: (...args: unknown[]) => fetchBookingStagesSpy(...args),
+    setBookingStage: (...args: unknown[]) => setBookingStageSpy(...args),
   }
 })
 
@@ -277,6 +285,9 @@ beforeEach(() => {
     has_prior_confirmation: true,
   })
   resendConfirmationSpy.mockResolvedValue({ changes_detected: false, changes: [] })
+  // landr-uvfg.8: reset set-stage spies to their defaults.
+  fetchBookingStagesSpy.mockResolvedValue([])
+  setBookingStageSpy.mockReset()
 })
 
 afterEach(() => {
@@ -1347,5 +1358,93 @@ describe('BookingDetailSheet', () => {
     // operator can retry without re-typing the reason.
     const reasonAfter = within(dialog).getByLabelText(/reason/i) as HTMLTextAreaElement
     expect(reasonAfter.value).toBe('weather abort')
+  })
+
+  // -----------------------------------------------------------------------
+  // landr-uvfg.8 (T8) — free-form set-stage Select + non-canonical confirm.
+  // -----------------------------------------------------------------------
+
+  it('renders the stage Select when operator stages are loaded', async () => {
+    fetchBookingStagesSpy.mockResolvedValue([
+      { id: 's1', code: 'draft', label: 'Draft', semantic_state: 'pending', sort_order: 1 },
+      { id: 's2', code: 'awaiting_payment', label: 'Awaiting payment', semantic_state: 'pending', sort_order: 2 },
+    ])
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    const select = await screen.findByTestId('booking-stage-select')
+    expect(select).toBeInTheDocument()
+  })
+
+  it('non-canonical target: requires_confirmation true shows warning dialog, confirm fires force call', async () => {
+    const user = userEvent.setup()
+    const { toast: sonnerToast } = await import('sonner')
+
+    fetchBookingStagesSpy.mockResolvedValue([
+      { id: 's1', code: 'draft', label: 'Draft', semantic_state: 'pending', sort_order: 1 },
+      { id: 's2', code: 'awaiting_payment', label: 'Awaiting payment', semantic_state: 'pending', sort_order: 2 },
+      { id: 's3', code: 'finalised', label: 'Finalised', semantic_state: 'finalised', sort_order: 3 },
+    ])
+
+    // First call (force:false) returns requires_confirmation.
+    setBookingStageSpy.mockResolvedValueOnce({
+      ok: true,
+      applied: false,
+      requires_confirmation: true,
+      warning: "Setting 'draft' to 'finalised' skips stages in the normal flow.",
+      side_effects_skipped: ['customer confirmation email'],
+      current_stage_code: 'draft',
+      semantic_state: 'pending',
+    })
+
+    // Second call (force:true) succeeds.
+    setBookingStageSpy.mockResolvedValueOnce({
+      ok: true,
+      applied: true,
+      requires_confirmation: false,
+      warning: null,
+      side_effects_skipped: [],
+      current_stage_code: 'finalised',
+      semantic_state: 'finalised',
+    })
+
+    render(
+      <BookingDetailSheet
+        row={makeRow({ current_stage: { code: 'draft' } })}
+        onOpenChange={() => {}}
+      />,
+    )
+
+    const select = await screen.findByTestId('booking-stage-select')
+    await user.selectOptions(select, 'finalised')
+
+    // Warning dialog must appear.
+    const dialog = await screen.findByRole('alertdialog')
+    expect(
+      within(dialog).getByText(/skips stages in the normal flow/i),
+    ).toBeInTheDocument()
+    expect(
+      within(dialog).getByText(/customer confirmation email/i),
+    ).toBeInTheDocument()
+
+    // Confirm the forced transition.
+    const confirmBtn = within(dialog).getByRole('button', { name: /move anyway/i })
+    await user.click(confirmBtn)
+
+    // The second (force:true) call must be the last one made.
+    await waitFor(() => {
+      expect(setBookingStageSpy).toHaveBeenCalledTimes(2)
+      expect(setBookingStageSpy).toHaveBeenLastCalledWith(
+        'op-test',
+        'b-12345678-aaaa-bbbb-cccc-dddddddddddd',
+        expect.objectContaining({ target_stage_code: 'finalised', force: true }),
+      )
+    })
+
+    // Success toast fires with the stage label.
+    await waitFor(() => {
+      expect(sonnerToast.success).toHaveBeenCalledWith(
+        expect.stringContaining('Finalised'),
+      )
+    })
   })
 })

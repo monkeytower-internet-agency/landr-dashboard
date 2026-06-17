@@ -36,6 +36,16 @@ import {
 } from '@/components/ui/sheet'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { ConfirmActionDialog } from '@/components/ConfirmActionDialog'
 import { CopyLinkButton } from '@/components/CopyLinkButton'
 import { CustomerNameLink } from '@/components/CustomerNameLink'
@@ -56,6 +66,7 @@ import { MultiDayPicker } from '@/components/booking/MultiDayPicker'
 import { StageBadge } from '@/components/booking/StageBadge'
 import {
   customerDisplay,
+  fetchBookingStages,
   priceDisplay,
   stageCode,
   type BookingRow,
@@ -64,6 +75,7 @@ import { bookingDayOptions } from '@/lib/providers'
 import { t } from '@/lib/strings'
 import {
   useBookingActions,
+  useSetStage,
   customerDraftFromRow,
   itemDraftsFromRow,
   type CustomerDraft,
@@ -261,6 +273,71 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   })
 
   const code = stageCode(row)
+
+  // landr-uvfg.8 (T8) — free-form set-stage control. Drives a generic stage
+  // Select in the Status card; non-canonical jumps come back with
+  // requires_confirmation=true, which opens the confirm dialog below.
+  const [pendingStageCode, setPendingStageCode] = useState<string | null>(null)
+  const [showStageConfirm, setShowStageConfirm] = useState(false)
+  const [stageWarning, setStageWarning] = useState<string | null>(null)
+  const [stageSideEffects, setStageSideEffects] = useState<string[]>([])
+
+  const stagesQuery = useQuery({
+    queryKey: ['booking-lifecycle-stages', currentOperatorId],
+    queryFn: () => fetchBookingStages(currentOperatorId!),
+    enabled: !!currentOperatorId,
+  })
+
+  const setStageMutation = useSetStage(
+    currentOperatorId ?? null,
+    row.id,
+    invalidateAll,
+  )
+
+  async function handleStageSelect(targetCode: string) {
+    if (!currentOperatorId || targetCode === code) return
+    try {
+      const result = await setStageMutation.mutateAsync({
+        target_stage_code: targetCode,
+        force: false,
+      })
+      if (result.requires_confirmation) {
+        setPendingStageCode(targetCode)
+        setStageWarning(result.warning)
+        setStageSideEffects(result.side_effects_skipped)
+        setShowStageConfirm(true)
+      } else {
+        const stageName =
+          stagesQuery.data?.find((s) => s.code === targetCode)?.label ??
+          targetCode
+        toast.success(t.bookings.setStage.toastSuccess(stageName))
+      }
+    } catch (err) {
+      toast.error(t.bookings.setStage.toastError, {
+        description: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
+  async function handleStageConfirm() {
+    if (!pendingStageCode) return
+    try {
+      await setStageMutation.mutateAsync({
+        target_stage_code: pendingStageCode,
+        force: true,
+      })
+      const stageName =
+        stagesQuery.data?.find((s) => s.code === pendingStageCode)?.label ??
+        pendingStageCode
+      toast.success(t.bookings.setStage.toastSuccess(stageName))
+      setShowStageConfirm(false)
+      setPendingStageCode(null)
+    } catch (err) {
+      toast.error(t.bookings.setStage.toastError, {
+        description: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
 
   function updateItem(itemId: string, updater: (it: ItemDraft) => ItemDraft) {
     setItems((prev) => prev.map((it) => (it.id === itemId ? updater(it) : it)))
@@ -548,6 +625,41 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
               stageCode={code}
               className="self-start"
             />
+            {/* landr-uvfg.8 (T8) — free-form stage Select on every booking.
+                POSTs set-stage with force:false; a non-canonical jump comes
+                back with requires_confirmation and opens the confirm dialog
+                rendered alongside the other dialogs below. */}
+            {currentOperatorId &&
+            stagesQuery.data &&
+            stagesQuery.data.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                <Label
+                  htmlFor="booking-stage-select"
+                  className="text-xs text-muted-foreground"
+                >
+                  {t.bookings.setStage.label}
+                </Label>
+                <NativeSelect
+                  id="booking-stage-select"
+                  className="max-w-xs"
+                  value={code ?? ''}
+                  onChange={(e) => void handleStageSelect(e.target.value)}
+                  disabled={busy || setStageMutation.isPending}
+                  data-testid="booking-stage-select"
+                >
+                  {code ? null : (
+                    <option value="" disabled>
+                      {t.bookings.setStage.selectPlaceholder}
+                    </option>
+                  )}
+                  {stagesQuery.data.map((stage) => (
+                    <option key={stage.code} value={stage.code}>
+                      {stage.label ?? stage.code}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
+            ) : null}
             {canUnblock ? (
               <Button
                 type="button"
@@ -1198,6 +1310,60 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           />
         </div>
       </ConfirmActionDialog>
+
+      {/* landr-uvfg.8 (T8) — non-canonical stage transition confirm. Opened
+          when set-stage returns requires_confirmation; confirming re-POSTs
+          the same target with force:true. */}
+      <AlertDialog
+        open={showStageConfirm}
+        onOpenChange={(next) => {
+          if (setStageMutation.isPending) return
+          setShowStageConfirm(next)
+          if (!next) setPendingStageCode(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t.bookings.setStage.confirmTitle}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                {stageWarning}
+                {stageSideEffects.length > 0 ? (
+                  <div className="mt-2">
+                    {t.bookings.setStage.sideEffectsLabel}
+                    <ul className="mt-1 list-disc pl-4">
+                      {stageSideEffects.map((e) => (
+                        <li key={e}>{e}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setShowStageConfirm(false)
+                setPendingStageCode(null)
+              }}
+              disabled={setStageMutation.isPending}
+            >
+              {t.bookings.setStage.cancel}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleStageConfirm()}
+              disabled={setStageMutation.isPending}
+            >
+              {setStageMutation.isPending
+                ? t.bookings.setStage.working
+                : t.bookings.setStage.confirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

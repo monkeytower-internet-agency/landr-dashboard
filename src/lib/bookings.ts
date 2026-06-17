@@ -929,6 +929,65 @@ export function canMarkAsNoShow(row: BookingRow, today?: Date): boolean {
   return false
 }
 
+// ----- Free-form set-stage (landr-uvfg.8 / T8) ----------------------------
+// Operator moves a booking to an arbitrary lifecycle stage from the detail
+// sheet. Hits POST /api/staff/operators/{op}/bookings/{id}/set-stage (T7).
+// The server returns requires_confirmation=true for non-canonical jumps; the
+// UI then re-POSTs with force=true after the operator confirms in a dialog.
+
+export type SetStageRequest = {
+  target_stage_code: string
+  force?: boolean
+  note?: string | null
+}
+
+export type SetStageResult = {
+  ok: boolean
+  applied: boolean
+  requires_confirmation: boolean
+  warning: string | null
+  side_effects_skipped: string[]
+  current_stage_code: string
+  semantic_state: string | null
+}
+
+export async function setBookingStage(
+  operatorId: string,
+  bookingId: string,
+  body: SetStageRequest,
+): Promise<SetStageResult> {
+  return api<SetStageResult>(
+    'POST',
+    `/api/staff/operators/${operatorId}/bookings/${bookingId}/set-stage`,
+    body,
+  )
+}
+
+/** The operator's active, non-deleted lifecycle stages, in sort order — the
+ *  option list for the free-form stage Select. Read straight from Supabase
+ *  (RLS-scoped) since it's a plain projection with no side effects. */
+export async function fetchBookingStages(
+  operatorId: string,
+): Promise<
+  Array<{
+    id: string
+    code: string
+    label: string | null
+    semantic_state: string
+    sort_order: number
+  }>
+> {
+  const { data, error } = await supabase
+    .from('booking_lifecycle_stages')
+    .select('id, code, label, semantic_state, sort_order')
+    .eq('operator_id', operatorId)
+    .is('deleted_at', null)
+    .eq('active', true)
+    .order('sort_order')
+  if (error) throw error
+  return data ?? []
+}
+
 // ----- Mark-as-paid (landr-okxm) ------------------------------------------
 // Operator records a manual payment (cash / bank transfer / other) taken
 // outside Stripe. Hits POST /api/staff/operators/{op}/bookings/{id}/mark-paid

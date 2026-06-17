@@ -1602,6 +1602,20 @@ export const t = {
       toastSuccess: 'Marked as no-show.',
       toastError: 'Failed to mark as no-show.',
     },
+    // landr-uvfg.8 — free-form set-stage control on every booking's detail sheet.
+    setStage: {
+      label: 'Move to stage',
+      selectPlaceholder: 'Select stage…',
+      confirmTitle: 'Non-standard transition',
+      confirmDescription: (from: string, to: string, warning: string): string =>
+        `${warning} This transition skips the normal flow from "${from}" to "${to}".`,
+      sideEffectsLabel: 'Side effects that will be skipped:',
+      cancel: 'Cancel',
+      confirm: 'Move anyway',
+      working: 'Moving…',
+      toastSuccess: (stage: string): string => `Moved to "${stage}".`,
+      toastError: 'Failed to move booking.',
+    },
     stage: {
       pending: 'Pending',
       awaitingGeneralApproval: 'Awaiting approval',
