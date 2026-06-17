@@ -3959,6 +3959,8 @@ export const t = {
       templateCourseDesc: 'Multi-day course over a fixed date range.',
       templateHotel: 'Hotel package',
       templateHotelDesc: 'Day activity bundled with hotel pickup. Needs hotel coordination.',
+      templateTandem: 'Tandem flight',
+      templateTandemDesc: 'Single tandem flight, time-slot bookable with a pilot.',
       create: 'Create',
       creating: 'Creating…',
       created: (name: string) => `Created '${name}'.`,
