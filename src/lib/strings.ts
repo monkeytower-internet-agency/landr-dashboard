@@ -680,6 +680,18 @@ export const t = {
     changeDomainButton: 'Change domain',
     changeDomainCancel: 'Cancel',
     reverifyButton: 'Re-verify',
+
+    // --- Test email card (landr-gp0v) — visible only when domain is verified ---
+    testEmailTitle: 'Send a test email',
+    testEmailDescription:
+      'Send a test message from your verified sending domain to confirm delivery is working.',
+    testEmailLabel: 'Recipient address',
+    testEmailPlaceholder: 'you@example.com',
+    testEmailButton: 'Send test',
+    testEmailSending: 'Sending…',
+    testEmailSuccessPrefix: 'Sent:',
+    testEmailFailedPrefix: 'Failed:',
+    testEmailMessageId: 'Message ID:',
   },
   // landr-sbhz.8 — /revenue: owner platform-commission overview (STAFF-ONLY).
   revenue: {

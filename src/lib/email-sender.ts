@@ -86,6 +86,17 @@ export type EmailSenderEligibility = {
   in_pool: boolean | null
 }
 
+/**
+ * Result of POST /api/operator/email-sender/test (landr-gp0v).
+ * Always 200 — use `status` to distinguish success from failure.
+ */
+export type TestEmailResult = {
+  status: 'sent' | 'failed'
+  detail: string
+  message_id: string | null
+  from_address: string | null
+}
+
 /** Body of POST /api/operator/email-sender/setup. */
 export type SetupEmailSenderBody = {
   /** Root domain to send from, e.g. `para42.com`. */
@@ -184,5 +195,24 @@ export function useVerifyEmailSender(operatorId: string | null) {
     onSuccess: (config) => {
       qc.setQueryData(EMAIL_SENDER_QUERY_KEY(operatorId), config)
     },
+  })
+}
+
+/**
+ * Send a test email from the operator's verified sending domain (landr-gp0v).
+ * Always resolves to a `TestEmailResult` — never rejects for business failures
+ * (the API returns 200 with status='failed' for those).
+ */
+export async function sendEmailSenderTest(to: string): Promise<TestEmailResult> {
+  return api<TestEmailResult>('POST', `${BASE}/test`, { to })
+}
+
+/**
+ * Mutation hook for sending a test email (landr-gp0v).
+ * Mirrors the shape of useSetupEmailSender / useVerifyEmailSender.
+ */
+export function useSendEmailSenderTest(_operatorId: string | null) {
+  return useMutation({
+    mutationFn: (to: string) => sendEmailSenderTest(to),
   })
 }
