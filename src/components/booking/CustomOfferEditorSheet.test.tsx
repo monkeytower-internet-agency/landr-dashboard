@@ -23,15 +23,17 @@ vi.mock('sonner', () => ({
   toast: { success: toastSuccessMock, error: toastErrorMock },
 }))
 
-const { fetchMock, putMock, clearMock } = vi.hoisted(() => ({
+const { fetchMock, putMock, clearMock, sendOfferMock } = vi.hoisted(() => ({
   fetchMock: vi.fn(),
   putMock: vi.fn(),
   clearMock: vi.fn(),
+  sendOfferMock: vi.fn(),
 }))
 vi.mock('@/lib/customOffer', () => ({
   fetchCustomOffer: fetchMock,
   putCustomOffer: putMock,
   clearCustomOffer: clearMock,
+  sendOffer: sendOfferMock,
 }))
 
 // invalidateBookingCaches touches react-query only; stub to a no-op.
@@ -178,5 +180,112 @@ describe('CustomOfferEditorSheet', () => {
     )
     fireEvent.click(screen.getByTestId('custom-offer-clear'))
     await waitFor(() => expect(clearMock).toHaveBeenCalledTimes(1))
+  })
+
+  // ── landr-uvfg.4 send-offer tests ──────────────────────────────────────────
+
+  it('send-offer button is absent when offer is NOT applied', async () => {
+    fetchMock.mockResolvedValue(emptyOffer())
+    render(
+      <CustomOfferEditorSheet bookingId="b-1" operatorId="op-1" onClose={() => {}} />,
+    )
+    await waitFor(() =>
+      expect(screen.getAllByTestId('custom-offer-line').length).toBeGreaterThan(0),
+    )
+    expect(screen.queryByTestId('custom-offer-send')).not.toBeInTheDocument()
+  })
+
+  it('send-offer button is visible when custom_offer_applied is true', async () => {
+    fetchMock.mockResolvedValue({
+      ...emptyOffer(),
+      custom_offer_applied: true,
+      lines: [
+        {
+          id: 'l1',
+          booking_participant_id: null,
+          label: 'Pilot',
+          unit_price: '100.00',
+          regular_unit_price: null,
+          is_free: false,
+          sort_order: 0,
+          notes: null,
+        },
+      ],
+    })
+    render(
+      <CustomOfferEditorSheet bookingId="b-1" operatorId="op-1" onClose={() => {}} />,
+    )
+    await waitFor(() =>
+      expect(screen.getByTestId('custom-offer-send')).toBeInTheDocument(),
+    )
+    expect(screen.getByTestId('custom-offer-send')).toBeEnabled()
+  })
+
+  it('clicking send-offer calls sendOffer and shows a success toast', async () => {
+    const closeFn = vi.fn()
+    fetchMock.mockResolvedValue({
+      ...emptyOffer(),
+      custom_offer_applied: true,
+      lines: [
+        {
+          id: 'l1',
+          booking_participant_id: null,
+          label: 'Pilot',
+          unit_price: '100.00',
+          regular_unit_price: null,
+          is_free: false,
+          sort_order: 0,
+          notes: null,
+        },
+      ],
+    })
+    sendOfferMock.mockResolvedValue({
+      ok: true,
+      sent_to: 'customer@example.com',
+      token_preview: 'abc...',
+    })
+    render(
+      <CustomOfferEditorSheet bookingId="b-1" operatorId="op-1" onClose={closeFn} />,
+    )
+    await waitFor(() =>
+      expect(screen.getByTestId('custom-offer-send')).toBeInTheDocument(),
+    )
+    fireEvent.click(screen.getByTestId('custom-offer-send'))
+    await waitFor(() => expect(sendOfferMock).toHaveBeenCalledOnce())
+    expect(sendOfferMock).toHaveBeenCalledWith('op-1', 'b-1')
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      expect.stringContaining('customer@example.com'),
+    )
+    expect(closeFn).toHaveBeenCalled()
+  })
+
+  it('clicking send-offer shows an error toast on failure', async () => {
+    fetchMock.mockResolvedValue({
+      ...emptyOffer(),
+      custom_offer_applied: true,
+      lines: [
+        {
+          id: 'l1',
+          booking_participant_id: null,
+          label: 'Pilot',
+          unit_price: '100.00',
+          regular_unit_price: null,
+          is_free: false,
+          sort_order: 0,
+          notes: null,
+        },
+      ],
+    })
+    sendOfferMock.mockRejectedValue(new Error('Network failure'))
+    render(
+      <CustomOfferEditorSheet bookingId="b-1" operatorId="op-1" onClose={() => {}} />,
+    )
+    await waitFor(() =>
+      expect(screen.getByTestId('custom-offer-send')).toBeInTheDocument(),
+    )
+    fireEvent.click(screen.getByTestId('custom-offer-send'))
+    await waitFor(() =>
+      expect(toastErrorMock).toHaveBeenCalledWith('Network failure'),
+    )
   })
 })
