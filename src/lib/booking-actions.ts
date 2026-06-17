@@ -31,9 +31,11 @@ import {
   postGeneralApprovalDecision,
   postHotelApprovalDecision,
   resendConfirmation,
+  setBookingStage,
   stageCode,
   type BookingRow,
   type MarkAsPaidMethod,
+  type SetStageRequest,
 } from '@/lib/bookings'
 import { downloadInvoicePdf } from '@/lib/invoice-download'
 import { t } from '@/lib/strings'
@@ -551,4 +553,36 @@ export function useBookingActions({
     isDirty,
     invalidateAll,
   }
+}
+
+// ---------------------------------------------------------------------------
+// useSetStage (landr-uvfg.8 / T8)
+// ---------------------------------------------------------------------------
+
+/**
+ * Hook for the free-form set-stage control in BookingDetailSheet. Standalone
+ * (not folded into useBookingActions) because the detail sheet drives the
+ * two-step force flow itself — it reads the SetStageResult to decide whether
+ * to open the non-canonical confirm dialog and re-POST with force:true.
+ *
+ * onSuccess runs after every applied transition (force or not) so the sheet
+ * can invalidate caches; the caller still inspects mutateAsync's return value
+ * for requires_confirmation.
+ */
+export function useSetStage(
+  operatorId: string | null,
+  bookingId: string,
+  onSuccess: () => void,
+) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: SetStageRequest) => {
+      if (!operatorId) throw new Error('No operator selected.')
+      return setBookingStage(operatorId, bookingId, body)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      onSuccess()
+    },
+  })
 }
