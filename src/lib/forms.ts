@@ -301,29 +301,74 @@ export async function deleteFormField(fieldId: string): Promise<void> {
 }
 
 /** Evaluate a single visibility rule against the current answer map.
- *  Returns true when the field should be VISIBLE.
- *  A null rule means always visible. */
+ *  Returns true when the field should be VISIBLE. A null rule means always
+ *  visible.
+ *
+ *  CANONICAL CONTRACT (landr-noyq) — this FormEditor PREVIEW evaluator must
+ *  return the SAME boolean as the customer-facing widget
+ *  (landr-booking-widget fieldVisibility.ts) and the server twin
+ *  (landr-api form_responses.py is_field_visible). It previously diverged on:
+ *    1. truthy of an EMPTY ARRAY: `Boolean([])` === true SHOWED the field;
+ *       the widget/server use `length > 0` and HIDE it. Now `length > 0`.
+ *    2. eq/neq/in against a LIST answer (checkbox/multiselect): the old
+ *       `String([...]) === String(value)` was always-false; now MEMBERSHIP
+ *       (value ∈ list), matching the widget/server.
+ *    3. absent answers: `String(answer ?? '')` coerced an absent answer to ''
+ *       (so eq against value '' matched). Now an absent answer matches nothing
+ *       (eq hidden, neq visible) — the widget's behaviour, adopted as canonical.
+ *    4. NULL rule value: matches nothing → eq hidden, neq visible.
+ *  Whole-number-float values (e.g. 3.0) canonicalise natively in JS —
+ *  `String(3.0) === "3"` — matching the answer string "3" (the server collapses
+ *  N.0 floats explicitly in _canon; JS gets it for free). */
 export function isFieldVisible(
   rule: VisibilityRule | null | undefined,
   answers: Record<string, unknown>,
 ): boolean {
-  if (!rule) return true
+  if (!rule || typeof rule !== 'object') return true
   const { field_key, op, value } = rule
+  // Fail-open on a malformed rule (missing field_key / non-string op), mirroring
+  // the widget/server — a bad config never silently hides a field.
+  if (typeof field_key !== 'string' || !field_key) return true
+  if (typeof op !== 'string') return true
+
   const answer = answers[field_key]
 
   switch (op) {
-    case 'truthy':
+    case 'truthy': {
+      // JS Boolean() semantics, EXCEPT an empty array is falsy (hidden) — a
+      // non-empty string (incl. whitespace-only) is truthy.
+      if (answer === undefined || answer === null) return false
+      if (Array.isArray(answer)) return answer.length > 0
       return Boolean(answer)
-    case 'eq':
-      return String(answer ?? '') === String(value ?? '')
-    case 'neq':
-      return String(answer ?? '') !== String(value ?? '')
-    case 'in': {
-      const vals = Array.isArray(value) ? value : [String(value ?? '')]
+    }
+    case 'eq': {
+      if (value == null) return false // null rule value matches nothing
       if (Array.isArray(answer)) {
+        // List answer → membership.
+        return answer.some((a) => String(a) === String(value))
+      }
+      if (answer === undefined || answer === null) return false
+      return String(answer) === String(value)
+    }
+    case 'neq': {
+      if (value == null) return true // null rule value ≠ everything → visible
+      if (Array.isArray(answer)) {
+        // List answer → NOT-member.
+        return !answer.some((a) => String(a) === String(value))
+      }
+      if (answer === undefined || answer === null) return true // absent ≠ anything
+      return String(answer) !== String(value)
+    }
+    case 'in': {
+      // `value` must be an array; fail-open if not (matches widget/server).
+      if (!Array.isArray(value)) return true
+      const vals = value.map((v) => String(v))
+      if (Array.isArray(answer)) {
+        // List answer → any intersection → visible.
         return answer.some((a) => vals.includes(String(a)))
       }
-      return vals.includes(String(answer ?? ''))
+      if (answer === undefined || answer === null) return false
+      return vals.includes(String(answer))
     }
     default:
       return true

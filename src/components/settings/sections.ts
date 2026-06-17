@@ -23,6 +23,7 @@ import {
   PackageIcon,
   PaletteIcon,
   PlugIcon,
+  SendIcon,
   SlidersHorizontalIcon,
   SmartphoneIcon,
   SparklesIcon,
@@ -76,6 +77,14 @@ export const ACCOUNT_SECTIONS: SettingsSubSection[] = [
     to: '/account/integrations/gmail',
     label: t.settingsHub.sections.integrationsGmail,
     icon: PlugIcon,
+  },
+  // landr-resend-sender — per-operator Resend sending domain. Sits next to
+  // Gmail because both control where the operator's booking emails send
+  // from; this is the domain-based successor to the Gmail OAuth integration.
+  {
+    to: '/account/integrations/email-sender',
+    label: t.settingsHub.sections.emailSender,
+    icon: SendIcon,
   },
   // landr-6ybs — per-operator subscribable ICS calendar feed. Sits in
   // the ACCOUNT group next to Gmail because both are personal third-

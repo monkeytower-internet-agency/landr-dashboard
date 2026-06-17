@@ -558,11 +558,12 @@ function TierMatrixPanel({ groups, features, loading }: PanelProps) {
   })
 
   const configMutation = useMutation({
-    mutationFn: (args: { featureId: string; config: Record<string, unknown> }) =>
+    mutationFn: (args: { featureId: string; config: Record<string, unknown>; enabled: boolean }) =>
       setPackageFeatureConfig({
         packageId,
         featureId: args.featureId,
         config: args.config,
+        enabled: args.enabled,
       }),
     onSuccess: () => {
       invalidateAfterTierWrite()
@@ -679,7 +680,7 @@ function TierMatrixPanel({ groups, features, loading }: PanelProps) {
                       schema={feature.value_schema}
                       currentConfig={config}
                       onSave={(cfg) =>
-                        configMutation.mutate({ featureId: feature.id, config: cfg })
+                        configMutation.mutate({ featureId: feature.id, config: cfg, enabled: effective })
                       }
                       onClear={() => clearConfigMutation.mutate(feature.id)}
                       busy={busy}

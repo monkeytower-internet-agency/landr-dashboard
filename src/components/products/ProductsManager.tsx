@@ -72,6 +72,10 @@ type Props = {
    */
   urlSelection?: Selection
   onUrlSelect?: (id: string | null) => void
+  /** landr-0ulh — optional pass-through to the active ProductForm's
+   *  onDirtyChange. Sheet wrappers (e.g. onboarding Step5) use this to
+   *  gate their close handlers against unsaved-edit loss. */
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 export function ProductsManager({
@@ -79,6 +83,7 @@ export function ProductsManager({
   hideHeader = false,
   urlSelection,
   onUrlSelect,
+  onDirtyChange,
 }: Props) {
   const queryClient = useQueryClient()
   // landr-up1b — operator slug feeds the per-product copy-shortcode menus
@@ -530,6 +535,7 @@ export function ProductsManager({
                   onDelete={handleDelete}
                   submitting={submitting}
                   deleting={deleting}
+                  onDirtyChange={onDirtyChange}
                 />
                 {mutationError ? (
                   <p role="alert" className="text-destructive mt-4 text-sm">
@@ -576,6 +582,7 @@ export function ProductsManager({
                 }
                 submitting={submitting}
                 deleting={deleting}
+                onDirtyChange={onDirtyChange}
               />
               {mutationError ? (
                 <p
