@@ -277,7 +277,7 @@ describe('Onboarding wizard', () => {
 
     await screen.findByText(/step 5 of 9/i)
     const createButtons = await screen.findAllByRole('button', { name: /^create$/i })
-    expect(createButtons.length).toBe(3)
+    expect(createButtons.length).toBe(4)
 
     await user.click(createButtons[0])
     await waitFor(() => {
