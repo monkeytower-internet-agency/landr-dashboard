@@ -234,6 +234,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     clearOverrideMutation,
     invoiceMutation,
     resendConfirmationMutation,
+    sendConfirmationMutation,
     busy,
     showClearOverride,
     canUnblock,
@@ -971,6 +972,26 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
           ) : null}
         </div>
         <div className="flex items-center gap-2">
+          {/* landr-uvfg.6 — send the FIRST confirmation for never-confirmed
+              bookings (staff/custom). Shown only when no prior confirmation
+              has been sent. On success, confirmation-status refetches and this
+              button flips to the Resend button below. */}
+          {currentOperatorId && !hasPriorConfirmation ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => sendConfirmationMutation.mutate()}
+              disabled={busy}
+              aria-label={t.bookings.sendConfirmation.action}
+              title={t.bookings.sendConfirmation.action}
+              data-testid="booking-send-confirmation-btn"
+            >
+              <Mail className="size-4" />
+              {sendConfirmationMutation.isPending
+                ? t.bookings.sendConfirmation.working
+                : t.bookings.sendConfirmation.action}
+            </Button>
+          ) : null}
           {/* landr-6629 — resend booking confirmation with old→new diff.
               Highlighted with a dot-badge when material fields changed
               since the last confirmation was sent. Hidden when no operator

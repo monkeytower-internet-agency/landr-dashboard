@@ -1526,6 +1526,15 @@ export const t = {
         `Confirmation sent · ${n} change${n === 1 ? '' : 's'} highlighted.`,
       toastError: 'Could not resend confirmation.',
     },
+    // landr-uvfg.6 — send the FIRST confirmation for never-confirmed bookings.
+    // Button renders in place of "Resend confirmation" when hasPriorConfirmation=false.
+    sendConfirmation: {
+      action: 'Send confirmation',
+      working: 'Sending…',
+      toastSuccess: (customer: string): string =>
+        `Confirmation sent to ${customer}.`,
+      toastError: 'Could not send confirmation.',
+    },
     // landr-uzup — Payments tab inside BookingDetailSheet. Lists every
     // payments + payment_refunds row with a Refund button on succeeded
     // payments. Hits POST /api/staff/operators/{op}/bookings/{bid}/

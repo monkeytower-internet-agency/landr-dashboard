@@ -1829,3 +1829,23 @@ export async function getConfirmationStatus(
   )
 }
 
+// landr-uvfg.6 — send the FIRST booking confirmation for never-confirmed
+// (staff/custom) bookings. The server returns {sent, email_id}. The dashboard
+// only needs to know it succeeded; it refetches confirmation-status so the
+// button flips from "Send confirmation" to "Resend confirmation".
+
+export type SendConfirmationResult = {
+  sent: boolean
+  email_id: string | null
+}
+
+export async function sendConfirmation(
+  operatorId: string,
+  bookingId: string,
+): Promise<SendConfirmationResult> {
+  return api<SendConfirmationResult>(
+    'POST',
+    `/api/staff/operators/${operatorId}/bookings/${bookingId}/send-confirmation`,
+  )
+}
+

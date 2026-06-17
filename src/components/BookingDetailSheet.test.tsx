@@ -173,6 +173,11 @@ const resendConfirmationSpy = vi.fn().mockResolvedValue({
   changes_detected: false,
   changes: [],
 })
+// landr-uvfg.6 — send-confirmation spy. Default resolves successfully.
+const sendConfirmationSpy = vi.fn().mockResolvedValue({
+  sent: true,
+  email_id: 'email-abc',
+})
 
 // landr-uvfg.8 (T8) — spies for the free-form set-stage hooks. Default to an
 // empty stages list so existing tests' supabase-from-spy count is unaffected;
@@ -186,6 +191,7 @@ vi.mock('@/lib/bookings', async (importOriginal) => {
     ...actual,
     getConfirmationStatus: (...args: unknown[]) => confirmationStatusSpy(...args),
     resendConfirmation: (...args: unknown[]) => resendConfirmationSpy(...args),
+    sendConfirmation: (...args: unknown[]) => sendConfirmationSpy(...args),
     fetchBookingStages: (...args: unknown[]) => fetchBookingStagesSpy(...args),
     setBookingStage: (...args: unknown[]) => setBookingStageSpy(...args),
   }
@@ -1150,6 +1156,85 @@ describe('BookingDetailSheet', () => {
     await waitFor(() => {
       expect(sonnerToast.success).toHaveBeenCalledWith(
         expect.stringContaining('1 change'),
+      )
+    })
+  })
+
+  // -----------------------------------------------------------------------
+  // landr-uvfg.6 — Send confirmation (first send for never-confirmed bookings)
+  // -----------------------------------------------------------------------
+
+  it('shows Send confirmation button when no prior confirmation exists', async () => {
+    confirmationStatusSpy.mockResolvedValue({
+      last_sent_at: null,
+      has_material_changes: false,
+      has_prior_confirmation: false,
+    })
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    await waitFor(() => expect(confirmationStatusSpy).toHaveBeenCalled())
+    expect(
+      await screen.findByTestId('booking-send-confirmation-btn'),
+    ).toBeInTheDocument()
+    // Resend button must NOT appear alongside it.
+    expect(
+      screen.queryByTestId('booking-resend-confirmation-btn'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('hides Send confirmation button when a prior confirmation exists', async () => {
+    // Default mock has has_prior_confirmation: true — resend button renders instead.
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    // Wait for the resend button to appear (query resolved → hasPriorConfirmation=true).
+    await screen.findByTestId('booking-resend-confirmation-btn')
+    // Once the query has resolved and the resend button is visible, the send
+    // button must have been replaced.
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId('booking-send-confirmation-btn'),
+      ).not.toBeInTheDocument()
+    })
+  })
+
+  it('Send confirmation calls sendConfirmation() with operator + booking ID', async () => {
+    const user = userEvent.setup()
+    confirmationStatusSpy.mockResolvedValue({
+      last_sent_at: null,
+      has_material_changes: false,
+      has_prior_confirmation: false,
+    })
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    await user.click(
+      await screen.findByTestId('booking-send-confirmation-btn'),
+    )
+
+    await waitFor(() => {
+      expect(sendConfirmationSpy).toHaveBeenCalledWith(
+        'op-test',
+        'b-12345678-aaaa-bbbb-cccc-dddddddddddd',
+      )
+    })
+  })
+
+  it('shows success toast with customer name after send confirmation', async () => {
+    const user = userEvent.setup()
+    const { toast: sonnerToast } = await import('sonner')
+    confirmationStatusSpy.mockResolvedValue({
+      last_sent_at: null,
+      has_material_changes: false,
+      has_prior_confirmation: false,
+    })
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    await user.click(
+      await screen.findByTestId('booking-send-confirmation-btn'),
+    )
+
+    await waitFor(() => {
+      expect(sonnerToast.success).toHaveBeenCalledWith(
+        expect.stringContaining('Confirmation sent to'),
       )
     })
   })
