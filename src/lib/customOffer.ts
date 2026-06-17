@@ -88,3 +88,26 @@ export async function clearCustomOffer(
 ): Promise<CustomOffer> {
   return api<CustomOffer>('DELETE', base(operatorId, bookingId))
 }
+
+// ── landr-uvfg.4 ─────────────────────────────────────────────────────────────
+
+export type SendOfferResponse = {
+  ok: boolean
+  sent_to: string
+  token_preview: string
+}
+
+/**
+ * Send the custom offer email to the customer (landr-uvfg.4).
+ * POST /api/staff/operators/{op}/bookings/{id}/send-offer
+ * Requires custom_offer_applied=true on the booking; returns {ok, sent_to}.
+ */
+export async function sendOffer(
+  operatorId: string,
+  bookingId: string,
+): Promise<SendOfferResponse> {
+  return api<SendOfferResponse>(
+    'POST',
+    `/api/staff/operators/${operatorId}/bookings/${bookingId}/send-offer`,
+  )
+}

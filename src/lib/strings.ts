@@ -1364,6 +1364,11 @@ export const t = {
       regularPrice: 'Regular',
       resetToRegular: 'Reset to regular',
       resetAllToRegular: 'Reset all to regular',
+      // landr-uvfg.4 — send-offer button
+      sendOffer: 'Send offer to customer',
+      sendOfferTitle: 'Send offer',
+      sendOfferSuccess: (email: string) => `Offer sent to ${email}.`,
+      sendOfferFailed: 'Could not send the offer.',
     },
     detail: {
       sectionStatus: 'Status',

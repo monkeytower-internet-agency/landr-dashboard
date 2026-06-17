@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Plus, RotateCcw, Send, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -27,6 +27,7 @@ import {
   clearCustomOffer,
   fetchCustomOffer,
   putCustomOffer,
+  sendOffer,
   type CustomOffer,
   type CustomOfferLineInput,
 } from '@/lib/customOffer'
@@ -194,7 +195,17 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
     onError: (e) => toast.error((e as Error).message || t.bookings.customOffer.saveFailed),
   })
 
-  const busy = saveMutation.isPending || clearMutation.isPending
+  // landr-uvfg.4: send the custom offer email to the customer.
+  const sendOfferMutation = useMutation({
+    mutationFn: () => sendOffer(operatorId, bookingId),
+    onSuccess: (result) => {
+      toast.success(t.bookings.customOffer.sendOfferSuccess(result.sent_to))
+      onClose()
+    },
+    onError: (e) => toast.error((e as Error).message || t.bookings.customOffer.sendOfferFailed),
+  })
+
+  const busy = saveMutation.isPending || clearMutation.isPending || sendOfferMutation.isPending
 
   function updateLine(key: string, patch: Partial<DraftLine>) {
     setLines((cur) =>
@@ -487,6 +498,20 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
           >
             {saveMutation.isPending ? t.bookings.detail.saving : t.bookings.customOffer.apply}
           </Button>
+          {/* landr-uvfg.4: send offer email — only once the offer is applied */}
+          {data.custom_offer_applied ? (
+            <Button
+              type="button"
+              onClick={() => sendOfferMutation.mutate()}
+              disabled={busy}
+              data-testid="custom-offer-send"
+            >
+              <Send className="size-4 mr-1" />
+              {sendOfferMutation.isPending
+                ? t.bookings.detail.saving
+                : t.bookings.customOffer.sendOffer}
+            </Button>
+          ) : null}
         </div>
       </SheetFooter>
     </>
