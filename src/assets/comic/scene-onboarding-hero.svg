@@ -1,0 +1,91 @@
+<svg viewBox="0 0 360 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- OnboardingHero — standalone SVG for website reuse. Comic Testival style. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4A7BD0"/>
+      <stop offset="50%" stop-color="#F7B32B"/>
+      <stop offset="100%" stop-color="#C4502A"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFE9B8"/>
+      <stop offset="100%" stop-color="#F7B32B"/>
+    </linearGradient>
+  </defs>
+  <rect width="360" height="240" rx="20" fill="url(#sky)"/>
+  <!-- sun -->
+  <circle cx="280" cy="80" r="38" fill="url(#sun)" stroke="#2B1A0F" stroke-width="2"/>
+  <line x1="280" y1="35" x2="280" y2="22" stroke="#F7B32B" stroke-width="3" stroke-linecap="round"/>
+  <line x1="307" y1="48" x2="318" y2="38" stroke="#F7B32B" stroke-width="3" stroke-linecap="round"/>
+  <line x1="318" y1="75" x2="332" y2="70" stroke="#F7B32B" stroke-width="3" stroke-linecap="round"/>
+  <line x1="307" y1="112" x2="318" y2="122" stroke="#F7B32B" stroke-width="3" stroke-linecap="round"/>
+  <line x1="253" y1="48" x2="242" y2="38" stroke="#F7B32B" stroke-width="3" stroke-linecap="round"/>
+  <line x1="242" y1="75" x2="228" y2="70" stroke="#F7B32B" stroke-width="3" stroke-linecap="round"/>
+  <!-- mountains far -->
+  <path d="M0 160 L50 100 L100 155 L150 95 L200 148 L250 90 L305 150 L360 105 L360 200 L0 200 Z" fill="#2E6B3E" stroke="#2B1A0F" stroke-width="2"/>
+  <path d="M50 100 L65 118 L35 118 Z" fill="#FFF6E3" stroke="#2B1A0F" stroke-width="1.5"/>
+  <path d="M150 95 L168 116 L132 116 Z" fill="#FFF6E3" stroke="#2B1A0F" stroke-width="1.5"/>
+  <path d="M250 90 L268 112 L232 112 Z" fill="#FFF6E3" stroke="#2B1A0F" stroke-width="1.5"/>
+  <!-- mid mountains -->
+  <path d="M0 175 L30 145 L70 172 L110 138 L155 170 L195 140 L240 175 L285 142 L330 172 L360 148 L360 210 L0 210 Z" fill="#5DA53C" stroke="#2B1A0F" stroke-width="2"/>
+  <!-- meadow -->
+  <path d="M0 192 Q90 180 180 192 Q270 204 360 188 L360 240 L0 240 Z" fill="#5DA53C"/>
+  <path d="M0 208 Q90 196 180 208 Q270 220 360 204 L360 240 L0 240 Z" fill="#2E6B3E"/>
+  <!-- alpine hut -->
+  <rect x="240" y="158" width="55" height="38" rx="3" fill="#C87A4A" stroke="#2B1A0F" stroke-width="2"/>
+  <path d="M235 162 L267 138 L300 162 Z" fill="#8B3118" stroke="#2B1A0F" stroke-width="2"/>
+  <rect x="257" y="172" width="20" height="24" rx="2" fill="#2B1A0F" stroke="#2B1A0F" stroke-width="1.5"/>
+  <rect x="243" y="168" width="10" height="10" rx="2" fill="#FFE9B8" stroke="#2B1A0F" stroke-width="1.5"/>
+  <rect x="283" y="168" width="10" height="10" rx="2" fill="#FFE9B8" stroke="#2B1A0F" stroke-width="1.5"/>
+  <!-- banner poles -->
+  <line x1="38" y1="205" x2="38" y2="148" stroke="#2B1A0F" stroke-width="3" stroke-linecap="round"/>
+  <path d="M38 148 L66 155 L38 162 Z" fill="#C4502A" stroke="#2B1A0F" stroke-width="1.5"/>
+  <line x1="75" y1="205" x2="75" y2="152" stroke="#2B1A0F" stroke-width="3" stroke-linecap="round"/>
+  <path d="M75 152 L103 159 L75 166 Z" fill="#4A7BD0" stroke="#2B1A0F" stroke-width="1.5"/>
+  <!-- big paraglider wing -->
+  <path d="M110 70 Q180 44 250 70 L245 82 Q180 58 115 82 Z" fill="#C4502A" stroke="#2B1A0F" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M110 70 Q180 46 250 70 L248 74 Q180 50 112 74 Z" fill="#E8702E" opacity="0.5"/>
+  <line x1="145" y1="82" x2="172" y2="102" stroke="#2B1A0F" stroke-width="1.2"/>
+  <line x1="180" y1="78" x2="180" y2="102" stroke="#2B1A0F" stroke-width="1.2"/>
+  <line x1="215" y1="82" x2="188" y2="102" stroke="#2B1A0F" stroke-width="1.2"/>
+  <circle cx="180" cy="106" r="6" fill="#2B1A0F"/>
+  <!-- small 2nd glider -->
+  <path d="M30 88 Q55 78 80 88 L78 94 Q55 84 32 94 Z" fill="#D9486E" stroke="#2B1A0F" stroke-width="1.5"/>
+  <!-- mascot simplified — wave pose, small -->
+  <g transform="translate(28,152) scale(0.55)">
+    <path d="M60 155 Q55 210 58 240 L142 240 Q145 210 140 155 Z" fill="#C4502A" stroke="#2B1A0F" stroke-width="2.5"/>
+    <path d="M62 168 Q42 140 50 115" stroke="#E8A87C" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <path d="M62 168 Q42 140 50 115" stroke="#2B1A0F" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <ellipse cx="51" cy="110" rx="10" ry="8" fill="#E8A87C" stroke="#2B1A0F" stroke-width="2"/>
+    <path d="M138 170 Q152 185 148 210" stroke="#E8A87C" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <path d="M138 170 Q152 185 148 210" stroke="#2B1A0F" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M80 240 Q78 265 78 288" stroke="#2B4A7A" stroke-width="18" fill="none" stroke-linecap="round"/>
+    <path d="M80 240 Q78 265 78 288" stroke="#2B1A0F" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M120 240 Q122 265 122 288" stroke="#2B4A7A" stroke-width="18" fill="none" stroke-linecap="round"/>
+    <path d="M120 240 Q122 265 122 288" stroke="#2B1A0F" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <ellipse cx="78" cy="292" rx="14" ry="8" fill="#2B1A0F"/>
+    <ellipse cx="122" cy="292" rx="14" ry="8" fill="#2B1A0F"/>
+    <ellipse cx="100" cy="110" rx="42" ry="40" fill="#E8A87C" stroke="#2B1A0F" stroke-width="2.5"/>
+    <path d="M60 98 Q62 82 100 78 Q138 82 140 98 L138 102 Q100 92 62 102 Z" fill="#4A7BD0" stroke="#2B1A0F" stroke-width="2.5"/>
+    <path d="M56 105 Q58 95 100 92 Q100 108 58 108 Z" fill="#3A6AC0" stroke="#2B1A0F" stroke-width="2"/>
+    <rect x="68" y="108" width="26" height="19" rx="7" fill="#B8D4F0" stroke="#2B1A0F" stroke-width="3"/>
+    <rect x="106" y="108" width="26" height="19" rx="7" fill="#B8D4F0" stroke="#2B1A0F" stroke-width="3"/>
+    <line x1="94" y1="116" x2="106" y2="116" stroke="#2B1A0F" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="81" cy="117" rx="7" ry="7" fill="white"/>
+    <circle cx="83" cy="118" r="4.5" fill="#2B1A0F"/>
+    <circle cx="84.5" cy="116.5" r="1.5" fill="white"/>
+    <ellipse cx="119" cy="117" rx="7" ry="7" fill="white"/>
+    <circle cx="121" cy="118" r="4.5" fill="#2B1A0F"/>
+    <circle cx="122.5" cy="116.5" r="1.5" fill="white"/>
+    <path d="M82 130 Q100 142 118 130" fill="white" stroke="#2B1A0F" stroke-width="2" stroke-linejoin="round"/>
+    <ellipse cx="68" cy="126" rx="8" ry="5" fill="#D9486E" opacity="0.3"/>
+    <ellipse cx="132" cy="126" rx="8" ry="5" fill="#D9486E" opacity="0.3"/>
+  </g>
+  <!-- sparkle star with face -->
+  <polygon points="320,36 322.8,43.5 329.4,43.5 324.2,49 326.2,56.5 320,52.3 313.8,56.5 315.8,49 310.6,43.5 317.2,43.5" fill="#F7B32B" stroke="#2B1A0F" stroke-width="2"/>
+  <circle cx="317.5" cy="45" r="1.5" fill="#2B1A0F"/>
+  <circle cx="322.5" cy="45" r="1.5" fill="#2B1A0F"/>
+  <path d="M317.5,48 Q320,50.5 322.5,48" fill="none" stroke="#2B1A0F" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- emphasis dashes -->
+  <line x1="306" y1="62" x2="316" y2="55" stroke="#F7B32B" stroke-width="3" stroke-linecap="round"/>
+  <line x1="302" y1="72" x2="314" y2="70" stroke="#F7B32B" stroke-width="3" stroke-linecap="round"/>
+</svg>

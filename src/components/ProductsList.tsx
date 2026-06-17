@@ -4,6 +4,7 @@ import { BedDoubleIcon, CopyIcon, EyeIcon, GlobeIcon, MoreHorizontalIcon, Packag
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { EmptyState } from '@/components/EmptyState'
+import { EmptyProducts } from '@/components/illustrations'
 import { SkeletonListRows } from '@/components/SkeletonTableRows'
 import {
   DropdownMenu,
@@ -18,6 +19,13 @@ import { productSummaryLine, type ProductRow } from '@/lib/products'
 import { ProductShortcodeMenu } from '@/components/products/ProductShortcodeMenu'
 import { buildPreviewUrl } from '@/lib/embed-hosts'
 import { t } from '@/lib/strings'
+
+// landr-hxnb.8 — catalog-hue helper for chip active state.
+function catalogChipClasses(isSelected: boolean) {
+  return isSelected
+    ? 'border-hue-catalog-vivid bg-hue-catalog-soft-bg ring-1 ring-hue-catalog-vivid'
+    : 'border-border bg-card hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring'
+}
 
 // landr-u34k — persist the "show add-on products" toggle per user so
 // flipping it on one tab survives reloads and other dashboard surfaces.
@@ -217,6 +225,8 @@ export function ProductsList({
       <div className="flex h-full flex-col">
         <EmptyState
           icon={PackageIcon}
+          illustration={<EmptyProducts className="h-full w-full" />}
+          accentHue="catalog"
           title={t.emptyStates.products.title}
           description={t.emptyStates.products.description}
           action={{ label: t.emptyStates.products.cta, onClick: onCreate }}
@@ -242,10 +252,12 @@ export function ProductsList({
             className="pl-8"
           />
         </div>
+        {/* landr-hxnb.8 — catalog-hue primary CTA */}
         <Button
           size="sm"
           onClick={onCreate}
           aria-label={t.products.createNew}
+          className="font-display bg-hue-catalog-vivid text-hue-catalog-on-color hover:opacity-90"
         >
           <PlusIcon className="size-4" />
           <span className="hidden sm:inline">{t.products.createNew}</span>
@@ -299,7 +311,8 @@ export function ProductsList({
                   // option to AT users navigating the listbox; the rooms
                   // beneath it stay individually selectable.
                   role="presentation"
-                  className="text-muted-foreground mt-2 flex items-center gap-2 px-1 pt-2 text-xs font-medium uppercase tracking-wide"
+                  // landr-hxnb.8 — catalog-hue hotel group header
+                  className="font-display mt-2 flex items-center gap-2 px-1 pt-2 text-xs font-semibold uppercase tracking-wide text-hue-catalog-vivid"
                 >
                   <BedDoubleIcon aria-hidden="true" className="size-3.5" />
                   <span>
@@ -342,13 +355,15 @@ export function ProductsList({
                     }
                   }}
                   className={cn(
-                    'group flex w-full cursor-pointer flex-col gap-1 rounded-md border bg-card p-3 text-left transition-colors',
-                    'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    isSelected && 'border-primary ring-1 ring-primary',
+                    // landr-hxnb.8 — catalog-hue accent on selection; comic framing (border-comic) on hover.
+                    'group flex w-full cursor-pointer flex-col gap-1 rounded-md border p-3 text-left transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    catalogChipClasses(isSelected),
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {/* landr-hxnb.8 — display font for product names */}
+                    <span className="font-display min-w-0 flex-1 truncate text-sm font-medium">
                       {row.name}
                     </span>
                     <div
@@ -359,10 +374,10 @@ export function ProductsList({
                       onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => e.stopPropagation()}
                     >
-                      {/* landr-7zc5.2 — Draft badge on unpublished products */}
+                      {/* landr-7zc5.2 / landr-hxnb.8 — Draft badge: warm amber, comic font */}
                       {isDraft ? (
                         <span
-                          className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                          className="font-display shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                           data-testid={`draft-badge-${row.id}`}
                         >
                           {t.products.statusDraft}
@@ -384,11 +399,12 @@ export function ProductsList({
                           <EyeIcon className="size-3.5" />
                         </a>
                       ) : null}
+                      {/* landr-hxnb.8 — active/inactive badge: catalog-hue for active, muted for inactive */}
                       <span
                         className={cn(
-                          'shrink-0 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide',
+                          'font-display shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
                           row.active
-                            ? 'bg-primary/10 text-primary'
+                            ? 'bg-hue-catalog-soft-bg text-hue-catalog-vivid'
                             : 'bg-muted text-muted-foreground',
                         )}
                       >

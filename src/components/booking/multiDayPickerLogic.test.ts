@@ -35,16 +35,32 @@ describe('parseIso', () => {
     expect(parseIso('2025-01')).toBeNull()
   })
 
-  it('returns null for an invalid calendar date like month 13', () => {
-    // Month 13 overflows into the next year in the Date constructor — the
-    // function should still return a Date because the regex passes and JS
-    // overflows gracefully; document the actual behavior.
-    const d = parseIso('2025-13-01')
-    // Month 13 means JS Date overflows: 2026-01-01 UTC.
-    if (d !== null) {
-      expect(d.toISOString()).toBe('2026-01-01T00:00:00.000Z')
-    }
-    // Not strictly null — just documenting the overflow behavior.
+  it('returns null for month 13 (out of range)', () => {
+    // Month 13 is invalid; parseIso should reject it.
+    expect(parseIso('2025-13-01')).toBeNull()
+  })
+
+  it('returns null for month 0 (out of range)', () => {
+    // Month 0 is invalid; parseIso should reject it.
+    expect(parseIso('2025-00-01')).toBeNull()
+  })
+
+  it('returns null for invalid day like Feb 30 (date rolls to next month)', () => {
+    // February 30 doesn't exist; Date.UTC would roll it to March 1.
+    // parseIso should detect the roll and reject it.
+    expect(parseIso('2025-02-30')).toBeNull()
+  })
+
+  it('parses valid Feb 28 correctly (non-leap year)', () => {
+    const d = parseIso('2025-02-28')
+    expect(d).not.toBeNull()
+    expect(d!.toISOString()).toBe('2025-02-28T00:00:00.000Z')
+  })
+
+  it('parses valid Feb 29 in a leap year correctly', () => {
+    const d = parseIso('2024-02-29')
+    expect(d).not.toBeNull()
+    expect(d!.toISOString()).toBe('2024-02-29T00:00:00.000Z')
   })
 
   it('strips time portion and treats as UTC date', () => {

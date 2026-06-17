@@ -323,7 +323,7 @@ describe('ProductsList — chip click target (landr-sydf)', () => {
       )
       expect(screen.getByTestId('products-empty-state')).toBeInTheDocument()
       expect(
-        screen.getByRole('heading', { name: /no products yet/i }),
+        screen.getByRole('heading', { name: /nothing on the shelf/i }),
       ).toBeInTheDocument()
       // The search input is suppressed — the friendly card replaces the
       // full list chrome until the operator creates something.

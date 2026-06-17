@@ -187,7 +187,7 @@ describe('App routing', () => {
     )
 
     expect(
-      await screen.findByRole('heading', { name: /sign in/i }),
+      await screen.findByRole('heading', { name: /welcome back/i }),
     ).toBeInTheDocument()
   })
 
@@ -225,6 +225,28 @@ describe('App routing', () => {
       await screen.findByRole('heading', { name: /Not found/i }),
     ).toBeInTheDocument()
   })
+
+  it('redirects flat /account/email-sender to the canonical integrations path', async () => {
+    mock.state.session = mock.makeSession()
+    mock.state.operatorRows = [
+      { operator_id: 'op-1', operators: { id: 'op-1', slug: 'para42', name: 'Para42', onboarded_at: '2026-05-01T00:00:00Z' } },
+    ]
+
+    render(
+      <MemoryRouter initialEntries={['/account/email-sender']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    // Pre-fix this flat path fell through to the catch-all NotFound (a bare
+    // full-screen with no settings chrome). The redirect resolves it to
+    // /account/integrations/email-sender, which renders the "Email sending"
+    // section title + sub-sidebar entry and never the NotFound screen.
+    expect((await screen.findAllByText(/email sending/i)).length).toBeGreaterThan(0)
+    expect(
+      screen.queryByRole('heading', { name: /not found/i }),
+    ).not.toBeInTheDocument()
+  })
 })
 
 describe('Login form', () => {
@@ -236,7 +258,7 @@ describe('Login form', () => {
       </MemoryRouter>,
     )
 
-    await screen.findByRole('heading', { name: /sign in/i })
+    await screen.findByRole('heading', { name: /welcome back/i })
     await user.type(screen.getByLabelText(/email/i), 'not-an-email')
     await user.type(screen.getByLabelText(/password/i, { selector: 'input' }), 'secret123')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
@@ -367,7 +389,7 @@ describe('Sign out', () => {
 
     expect(mock.supabase.auth.signOut).toHaveBeenCalled()
     expect(
-      await screen.findByRole('heading', { name: /sign in/i }),
+      await screen.findByRole('heading', { name: /welcome back/i }),
     ).toBeInTheDocument()
   })
 })

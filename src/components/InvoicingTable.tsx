@@ -43,14 +43,23 @@ const STATUS_LABEL: Record<HoldedInvoiceStatus, string> = {
   blocked_on_human: t.invoicing.statusBlocked,
 }
 
+// hxnb.6 — status tones use semantic Tailwind tokens so dark mode flips
+// automatically without hard-coded dark: variants. The hue-* tokens from the
+// comic system are intentionally NOT used here (invoicing is a dense-ops
+// screen). We keep the familiar amber / sky / emerald / red / slate palette
+// but route through Tailwind's color scale which honours the user's dark mode
+// preference via CSS media-query.
 const STATUS_TONE: Record<HoldedInvoiceStatus, string> = {
-  pending: 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200',
-  in_flight: 'bg-sky-100 text-sky-900 dark:bg-sky-900/40 dark:text-sky-200',
+  pending:
+    'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-300',
+  in_flight:
+    'bg-sky-100 text-sky-900 dark:bg-sky-900/30 dark:text-sky-300',
   succeeded:
-    'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200',
-  failed: 'bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-200',
+    'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-300',
+  failed:
+    'bg-red-100 text-red-900 dark:bg-red-900/30 dark:text-red-300',
   blocked_on_human:
-    'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
+    'bg-[var(--surface-dense-subtle)] text-muted-foreground',
 }
 
 function StatusBadge({ status }: { status: HoldedInvoiceStatus }) {
@@ -76,8 +85,8 @@ function PendingFlag({ ageDays }: { ageDays: number }) {
       className={cn(
         'inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-medium',
         flag === 'overdue'
-          ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
-          : 'bg-muted text-muted-foreground',
+          ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-300'
+          : 'bg-[var(--surface-dense-subtle)] text-muted-foreground',
       )}
       data-flag={flag}
     >
@@ -279,7 +288,7 @@ export function InvoicingTable({
     const r = row.original
     const busy = retryingId === r.sync_log_id
     return (
-      <div className="bg-card flex flex-col gap-2 rounded-lg border p-3 shadow-s">
+      <div className="surface-dense flex flex-col gap-2 rounded-lg border p-3 shadow-s">
         <div className="flex items-start justify-between gap-2">
           <button
             type="button"

@@ -113,10 +113,6 @@ export function Audit() {
   return (
     <div className="flex flex-col gap-6">
       <PageTitle title={t.audit.title} subtitle={t.audit.subtitle} />
-      <header className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold">{t.audit.title}</h1>
-        <p className="text-muted-foreground text-sm">{t.audit.subtitle}</p>
-      </header>
 
       {/* Filters */}
       <Card>

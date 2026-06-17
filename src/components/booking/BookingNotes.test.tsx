@@ -95,7 +95,7 @@ describe('BookingNotes', () => {
     renderWithClient(<BookingNotes operatorId={OP_ID} bookingId={BOOKING_ID} />)
 
     await waitFor(() =>
-      expect(screen.getByText(/No internal notes yet/i)).toBeInTheDocument(),
+      expect(screen.getByText(/No notes yet/i)).toBeInTheDocument(),
     )
     expect(mocks.listBookingNotes).toHaveBeenCalledWith(OP_ID, BOOKING_ID)
   })
@@ -131,12 +131,12 @@ describe('BookingNotes', () => {
     renderWithClient(<BookingNotes operatorId={OP_ID} bookingId={BOOKING_ID} />)
 
     await waitFor(() =>
-      expect(screen.getByText(/No internal notes yet/i)).toBeInTheDocument(),
+      expect(screen.getByText(/No notes yet/i)).toBeInTheDocument(),
     )
     const saveButton = screen.getByRole('button', { name: /Save note/i })
     expect(saveButton).toBeDisabled()
 
-    const textarea = screen.getByPlaceholderText(/Add an internal note/i)
+    const textarea = screen.getByPlaceholderText(/Jot down an internal note/i)
     await userEvent.type(textarea, '   ')
     expect(saveButton).toBeDisabled()
 
@@ -150,9 +150,9 @@ describe('BookingNotes', () => {
     renderWithClient(<BookingNotes operatorId={OP_ID} bookingId={BOOKING_ID} />)
 
     await waitFor(() =>
-      expect(screen.getByText(/No internal notes yet/i)).toBeInTheDocument(),
+      expect(screen.getByText(/No notes yet/i)).toBeInTheDocument(),
     )
-    const textarea = screen.getByPlaceholderText(/Add an internal note/i)
+    const textarea = screen.getByPlaceholderText(/Jot down an internal note/i)
     await userEvent.type(textarea, '  hello  ')
 
     await userEvent.click(screen.getByRole('button', { name: /Save note/i }))

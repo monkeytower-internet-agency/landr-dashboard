@@ -73,6 +73,10 @@ function GmailCard({ operatorId }: { operatorId: string }) {
     onSuccess: () => {
       toast.success(t.settings.gmailDisconnected)
       qc.invalidateQueries({ queryKey: ['operator-gmail-status', operatorId] })
+      // Belt-and-suspenders: clear the gmail_not_connected banner immediately
+      // (the focus refetch in ConfigHealthBanners is the primary path for
+      // connect; disconnect is same-page so no focus event fires) (landr-v526).
+      qc.invalidateQueries({ queryKey: ['config-health'] })
     },
     onError: (err: Error) => {
       toast.error(t.settings.gmailDisconnectError, { description: err.message })

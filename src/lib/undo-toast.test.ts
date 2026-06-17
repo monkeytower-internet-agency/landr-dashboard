@@ -110,7 +110,7 @@ describe('showDeleteUndoToast', () => {
       expect(toastMock.success).toHaveBeenCalledTimes(2),
     )
     // The second success toast is the post-restore confirmation.
-    expect(toastMock.success.mock.calls[1]?.[0]).toBe('Restored.')
+    expect(toastMock.success.mock.calls[1]?.[0]).toBe('Back again!')
 
     // Both registered keys are invalidated so the row reappears in any
     // surface that depended on it.

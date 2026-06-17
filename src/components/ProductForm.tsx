@@ -97,6 +97,10 @@ type Props = {
    *  hide the Add-ons section entirely (e.g. tests / wizards that don't
    *  load products). */
   allProducts?: ProductRow[]
+  /** landr-0ulh — optional callback that fires whenever the form's isDirty
+   *  flag changes. Callers (e.g. onboarding Step5) use this to gate the
+   *  Sheet close guard against losing unsaved edits. */
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 export function ProductForm({
@@ -111,6 +115,7 @@ export function ProductForm({
   operatorId,
   hotelLocations = [],
   allProducts,
+  onDirtyChange,
 }: Props) {
   const operatorAllowedKinds = useOperatorAllowedProductKinds()
   // The form prop overrides the operator context — useful in tests + the
@@ -154,6 +159,13 @@ export function ProductForm({
     form.reset(defaultValues(product, defaultKind))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id ?? 'new', defaultKind])
+
+  // landr-0ulh — notify the parent whenever isDirty flips so Sheet wrappers
+  // can gate their close handlers against unsaved-edit loss.
+  const isDirty = form.formState.isDirty
+  useEffect(() => {
+    onDirtyChange?.(isDirty)
+  }, [isDirty, onDirtyChange])
 
   const productKind = form.watch('product_kind')
   const serviceTimeShape = form.watch('service_time_shape')
@@ -871,9 +883,17 @@ export function ProductForm({
               ? t.products.saving
               : product
                 ? t.products.save
-                : t.products.create}
+                : t.products.saveAndContinue}
           </Button>
         </div>
+        {/* landr-l4iw — hint below the action row for the new-product path:
+            clarifies that the panel stays open after saving so the operator
+            can add add-on products without having to re-open anything. */}
+        {!product ? (
+          <p className="text-muted-foreground text-xs">
+            {t.products.saveKeepsOpenHint}
+          </p>
+        ) : null}
       </form>
     </Form>
   )

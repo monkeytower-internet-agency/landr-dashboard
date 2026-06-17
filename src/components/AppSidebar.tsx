@@ -33,6 +33,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -58,6 +59,18 @@ import { ViewsSidebar } from '@/components/views/ViewsSidebar'
 // primary nav, before the footer.
 import { RecentlyViewedList } from '@/components/RecentlyViewedList'
 
+// landr-hxnb.2 — Section hue identifiers.
+// Each maps to the --hue-<section>-* CSS tokens from the comic token
+// foundation (C0). "neutral" uses the sidebar's standard accent (no hue).
+type SectionHue =
+  | 'bookings'
+  | 'catalog'
+  | 'finance'
+  | 'people'
+  | 'comms'
+  | 'settings'
+  | 'neutral'
+
 type NavItem = {
   to: string
   label: string
@@ -68,6 +81,61 @@ type NavItem = {
   // URL group (account vs settings) rather than the literal `to` path,
   // because both groups share /settings/* leaf URLs. Optional override.
   matchGroup?: 'account' | 'settings'
+  // landr-hxnb.2 — comic section hue for this nav item.
+  hue?: SectionHue
+}
+
+// landr-hxnb.2 — Tailwind color classes per section hue.
+// vivid: active pill background + border
+// onColor: text on vivid background
+// softBg: hover tint background
+// iconActive: icon color when active
+const HUE_CLASSES: Record<
+  SectionHue,
+  { vivid: string; onColor: string; softBg: string; iconActive: string }
+> = {
+  bookings: {
+    vivid: 'bg-hue-bookings-vivid border-hue-bookings-vivid',
+    onColor: 'text-hue-bookings-on-color',
+    softBg: 'hover:bg-hue-bookings-soft-bg',
+    iconActive: 'text-hue-bookings-on-color',
+  },
+  catalog: {
+    vivid: 'bg-hue-catalog-vivid border-hue-catalog-vivid',
+    onColor: 'text-hue-catalog-on-color',
+    softBg: 'hover:bg-hue-catalog-soft-bg',
+    iconActive: 'text-hue-catalog-on-color',
+  },
+  finance: {
+    vivid: 'bg-hue-finance-vivid border-hue-finance-vivid',
+    onColor: 'text-hue-finance-on-color',
+    softBg: 'hover:bg-hue-finance-soft-bg',
+    iconActive: 'text-hue-finance-on-color',
+  },
+  people: {
+    vivid: 'bg-hue-people-vivid border-hue-people-vivid',
+    onColor: 'text-hue-people-on-color',
+    softBg: 'hover:bg-hue-people-soft-bg',
+    iconActive: 'text-hue-people-on-color',
+  },
+  comms: {
+    vivid: 'bg-hue-comms-vivid border-hue-comms-vivid',
+    onColor: 'text-hue-comms-on-color',
+    softBg: 'hover:bg-hue-comms-soft-bg',
+    iconActive: 'text-hue-comms-on-color',
+  },
+  settings: {
+    vivid: 'bg-hue-settings-vivid border-hue-settings-vivid',
+    onColor: 'text-hue-settings-on-color',
+    softBg: 'hover:bg-hue-settings-soft-bg',
+    iconActive: 'text-hue-settings-on-color',
+  },
+  neutral: {
+    vivid: 'bg-sidebar-primary border-sidebar-primary',
+    onColor: 'text-sidebar-primary-foreground',
+    softBg: 'hover:bg-sidebar-accent',
+    iconActive: 'text-sidebar-primary-foreground',
+  },
 }
 
 // Primary nav — daily-use items. Order chosen per landr-wjd briefing:
@@ -84,8 +152,24 @@ type NavItem = {
 // landr-3uai capacity pills live on the main Calendar, the Schedule
 // page is a setup/management surface (define windows, edit capacity)
 // rather than a daily-ops view. Same rarely-used → settings pattern.
+//
+// landr-hxnb.2 — each item gains a `hue` field that maps to the C0
+// section color tokens. Route→hue assignments:
+//   bookings/calendar/views/analytics → bookings (orange)
+//   contacts → people (indigo)
+//   reporting → finance (meadow)
+//   invoicing → finance (meadow)
+//   approvals/retrieve → bookings (orange — operational cluster)
+//   tickets/ticket-planning → comms (magenta)
+//   audit/trash → neutral (no section hue)
 const primaryItems: NavItem[] = [
-  { to: '/', label: t.nav.dashboard, icon: LayoutDashboardIcon, exact: true },
+  {
+    to: '/',
+    label: t.nav.dashboard,
+    icon: LayoutDashboardIcon,
+    exact: true,
+    hue: 'neutral',
+  },
   // landr-v0xg — Views (saved-view system, Phase 1). Position-A per
   // ADR-0001: between Dashboard and Bookings, so the new top-level
   // section sits next to the existing daily-use cluster without
@@ -96,18 +180,21 @@ const primaryItems: NavItem[] = [
     label: t.app.views,
     icon: LayersIcon,
     exact: false,
+    hue: 'bookings',
   },
   {
     to: '/bookings',
     label: t.nav.bookings,
     icon: CalendarRangeIcon,
     exact: false,
+    hue: 'bookings',
   },
   {
     to: '/calendar',
     label: t.nav.calendar,
     icon: CalendarIcon,
     exact: false,
+    hue: 'bookings',
   },
   // landr-af6c — Analytics surface (operational insight dashboard).
   // Sits between Calendar and Contacts per the briefing: keeps the
@@ -118,18 +205,21 @@ const primaryItems: NavItem[] = [
     label: t.nav.analytics,
     icon: ChartColumnIcon,
     exact: false,
+    hue: 'bookings',
   },
   {
     to: '/contacts',
     label: t.nav.contacts,
     icon: UsersIcon,
     exact: false,
+    hue: 'people',
   },
   {
     to: '/reporting',
     label: t.nav.reporting,
     icon: ChartAreaIcon,
     exact: false,
+    hue: 'finance',
   },
   // landr-a4pl.2 — Invoicing (Holded transfer status + manual Sync-now).
   // Finance surface; sits after Reporting in the primary cluster. Ungated
@@ -139,12 +229,14 @@ const primaryItems: NavItem[] = [
     label: t.nav.invoicing,
     icon: ReceiptTextIcon,
     exact: false,
+    hue: 'finance',
   },
   {
     to: '/approvals/general',
     label: t.nav.generalApprovals,
     icon: CheckCircleIcon,
     exact: false,
+    hue: 'bookings',
   },
   // landr-znzz.8 — Retrieve board. Daily-ops field surface (a guide watches
   // who's down / still out for a given day), so it sits in the daily-use
@@ -154,6 +246,7 @@ const primaryItems: NavItem[] = [
     label: t.nav.retrieve,
     icon: MapPinnedIcon,
     exact: false,
+    hue: 'bookings',
   },
   // landr-wwhn.11 — Ticket board. Customer support / feedback tracking.
   {
@@ -161,6 +254,7 @@ const primaryItems: NavItem[] = [
     label: t.nav.tickets,
     icon: MessageSquareIcon,
     exact: true,
+    hue: 'comms',
   },
   // landr-wwhn.23 — MoSCoW release-planning overlay.
   {
@@ -168,6 +262,7 @@ const primaryItems: NavItem[] = [
     label: t.nav.ticketPlanning,
     icon: FlagIcon,
     exact: false,
+    hue: 'comms',
   },
   // landr-aref — Audit log viewer. Sits at the end of the primary nav
   // (compliance/forensics surface, used less than the daily-ops items).
@@ -176,6 +271,7 @@ const primaryItems: NavItem[] = [
     label: t.nav.audit,
     icon: ScrollTextIcon,
     exact: false,
+    hue: 'neutral',
   },
   // landr-4pn1 — Recently-deleted bin. Same rare-use cluster as Audit;
   // operators visit only to undo an accidental delete.
@@ -184,6 +280,17 @@ const primaryItems: NavItem[] = [
     label: t.nav.trash,
     icon: Trash2Icon,
     exact: false,
+    hue: 'neutral',
+  },
+  // Email log — a LOG, not a setting: lives in the main-nav Admin tail,
+  // moved out of /settings (route /email-log). Gated by email_log via
+  // featureForRoute.
+  {
+    to: '/email-log',
+    label: t.settingsHub.sections.emailLog,
+    icon: InboxIcon,
+    exact: false,
+    hue: 'neutral',
   },
 ]
 
@@ -198,6 +305,7 @@ const staffItems: NavItem[] = [
     label: t.nav.revenue,
     icon: BanknoteIcon,
     exact: false,
+    hue: 'finance',
   },
   // landr-wwhn.28 — cross-operator feedback triage inbox.
   // landr-7dya.10 — the inbox is now a FIRST-CLASS APP-VIEW (full-screen
@@ -210,6 +318,7 @@ const staffItems: NavItem[] = [
     label: t.nav.feedbackInbox,
     icon: InboxIcon,
     exact: false,
+    hue: 'comms',
   },
   // landr-a99u.6 — release promotion console (dev → staging → main).
   {
@@ -217,6 +326,7 @@ const staffItems: NavItem[] = [
     label: t.nav.release,
     icon: RocketIcon,
     exact: false,
+    hue: 'neutral',
   },
 ]
 
@@ -231,6 +341,7 @@ const signerItem: NavItem = {
   label: t.nav.release,
   icon: RocketIcon,
   exact: false,
+  hue: 'neutral',
 }
 
 // Secondary nav — rarely-used admin items in the bottom footer cluster.
@@ -258,6 +369,7 @@ const secondaryItems: NavItem[] = [
     icon: UserCircleIcon,
     exact: false,
     matchGroup: 'account',
+    hue: 'settings',
   },
   {
     to: landingPathFor('settings'),
@@ -265,6 +377,7 @@ const secondaryItems: NavItem[] = [
     icon: SettingsIcon,
     exact: false,
     matchGroup: 'settings',
+    hue: 'settings',
   },
 ]
 
@@ -285,22 +398,57 @@ function isMatch(pathname: string, item: NavItem): boolean {
   return pathname === item.to || pathname.startsWith(`${item.to}/`)
 }
 
+// landr-hxnb.2 — comic nav menu.
+// Active item: filled pill in section vivid color with on-color text.
+// Hover: playful pop-in scale + soft section tint background.
+// Icon wiggles on hover (respects prefers-reduced-motion via the global
+// kill switch in index.css).
 function NavMenu({ items, pathname }: { items: NavItem[]; pathname: string }) {
   return (
     <SidebarMenu>
       {items.map((item) => {
         const active = isMatch(pathname, item)
         const Icon = item.icon
+        const hue = item.hue ?? 'neutral'
+        const hueClasses = HUE_CLASSES[hue]
+
         return (
           <SidebarMenuItem key={item.to}>
             <SidebarMenuButton
               asChild
               isActive={active}
               tooltip={item.label}
+              className={cn(
+                // Base: rounded pill shape, display font for labels.
+                'group/nav-btn rounded-lg font-display text-sm font-medium transition-all duration-150',
+                // Hover: soft section bg tint + subtle pop scale.
+                'hover:scale-[1.02] hover:shadow-s',
+                hueClasses.softBg,
+                // Active: vivid filled pill with on-color text + comic border.
+                active && [
+                  hueClasses.vivid,
+                  hueClasses.onColor,
+                  'border border-solid shadow-cel',
+                  'scale-[1.01]',
+                ],
+              )}
             >
               <Link to={item.to}>
-                <Icon className="size-4" />
-                <span>{item.label}</span>
+                <Icon
+                  className={cn(
+                    'size-4 transition-transform duration-150',
+                    // Wiggle on hover for playful feel (reduced-motion killed globally).
+                    'group-hover/nav-btn:animate-wiggle',
+                    active ? hueClasses.iconActive : 'text-sidebar-foreground/70',
+                  )}
+                />
+                <span
+                  className={cn(
+                    active ? hueClasses.onColor : 'text-sidebar-foreground',
+                  )}
+                >
+                  {item.label}
+                </span>
               </Link>
             </SidebarMenuButton>
             {/* landr-c58d — render the Views sub-list directly under the
@@ -315,6 +463,22 @@ function NavMenu({ items, pathname }: { items: NavItem[]; pathname: string }) {
         )
       })}
     </SidebarMenu>
+  )
+}
+
+// landr-hxnb.2 — section separator label (thin pill style, collapsed-rail
+// hidden). Used to visually group nav clusters in the primary nav.
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <SidebarGroupLabel
+      className={cn(
+        'font-display text-[10px] font-semibold uppercase tracking-widest',
+        'text-sidebar-foreground/40 px-2 pb-0.5 pt-2',
+        'group-data-[collapsible=icon]:hidden',
+      )}
+    >
+      {label}
+    </SidebarGroupLabel>
   )
 }
 
@@ -363,7 +527,7 @@ function SidebarModeControl() {
         role="radiogroup"
         aria-label={t.app.sidebarMode.groupLabel}
         className={cn(
-          'flex items-center justify-center gap-1 rounded-md border bg-sidebar-accent/30 p-0.5',
+          'flex items-center justify-center gap-1 rounded-lg border-comic bg-sidebar-accent/30 p-0.5',
           'group-data-[collapsible=icon]:hidden',
         )}
       >
@@ -380,8 +544,8 @@ function SidebarModeControl() {
                   aria-label={opt.label}
                   onClick={() => setMode(opt.mode)}
                   className={cn(
-                    'flex h-7 flex-1 cursor-pointer items-center justify-center rounded-sm text-sidebar-foreground/70 transition-colors',
-                    'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                    'flex h-7 flex-1 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground/70 transition-all duration-150',
+                    'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:scale-110',
                     'focus-visible:outline-2 focus-visible:outline-sidebar-ring',
                     active &&
                       'bg-sidebar text-sidebar-accent-foreground shadow-s',
@@ -474,7 +638,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" {...hoverHandlers}>
-      <SidebarHeader>
+      {/* landr-hxnb.2 — comic header: logo with a subtle comic border
+          underline to visually anchor it from the nav below. */}
+      <SidebarHeader className="border-b border-sidebar-border/60">
         {/* Logo top-left. Expanded sidebar shows the full colored logo;
             collapsed (icon-only) sidebar shows a small square version
             so it doesn't get squished. Toggle via the sidebar's
@@ -494,11 +660,77 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
+        {/* landr-hxnb.2 — primary nav split into logical section groups.
+            Section labels are hidden on the collapsed icon rail
+            (group-data-[collapsible=icon]:hidden). */}
+        <SidebarGroup className="pt-2">
+          {/* Home / cross-cutting */}
           <SidebarGroupContent>
-            <NavMenu items={visiblePrimaryItems} pathname={pathname} />
+            <NavMenu
+              items={visiblePrimaryItems.filter((item) =>
+                ['/', '/views'].includes(item.to),
+              )}
+              pathname={pathname}
+            />
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Hue sections — render a section (label + group) ONLY when it has
+            at least one visible item, so entitlement-gated-empty sections
+            (e.g. "Comms" for an operator with tickets/campaigns disabled)
+            don't show an orphaned header. Mirrors the Admin-tail pattern. */}
+        {(
+          [
+            {
+              label: 'Bookings',
+              paths: [
+                '/bookings',
+                '/calendar',
+                '/analytics',
+                '/approvals/general',
+                '/retrieve',
+              ],
+            },
+            { label: 'People', paths: ['/contacts'] },
+            { label: 'Finance', paths: ['/reporting', '/invoicing', '/revenue'] },
+            {
+              label: 'Comms',
+              paths: ['/tickets', '/tickets/planning', TICKET_SYSTEM_PATH],
+            },
+          ] as { label: string; paths: string[] }[]
+        ).map((section) => {
+          const items = visiblePrimaryItems.filter((item) =>
+            section.paths.includes(item.to),
+          )
+          if (items.length === 0) return null
+          return (
+            <SidebarGroup key={section.label} className="pt-0">
+              <SectionLabel label={section.label} />
+              <SidebarGroupContent>
+                <NavMenu items={items} pathname={pathname} />
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )
+        })}
+
+        {/* Admin tail (Audit, Trash, Release) — neutral hue, no section label
+            to keep it visually quiet. Only render if any items exist. */}
+        {visiblePrimaryItems.some((item) =>
+          ['/audit', '/trash', '/release', '/email-log'].includes(item.to),
+        ) && (
+          <SidebarGroup className="pt-0">
+            <SectionLabel label="Admin" />
+            <SidebarGroupContent>
+              <NavMenu
+                items={visiblePrimaryItems.filter((item) =>
+                  ['/audit', '/trash', '/release', '/email-log'].includes(item.to),
+                )}
+                pathname={pathname}
+              />
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
         {/* landr-ne58 — Recently viewed (last 5 detail surfaces the user
             opened). Sits under the primary nav cluster and before the
             footer (Account / Settings / mode control) per the ticket
@@ -510,7 +742,8 @@ export function AppSidebar() {
         {/* Account + Settings live above the mode control. They are
             sibling nav rows so they align pixel-perfectly with the
             primary nav above. */}
-        <SidebarGroup className="p-0">
+        <SidebarGroup className="p-0 pt-1">
+          <SectionLabel label="Account" />
           <SidebarGroupContent>
             <NavMenu items={secondaryItems} pathname={pathname} />
           </SidebarGroupContent>

@@ -62,12 +62,6 @@ export function CategoriesSettings() {
     return (
       <div className="flex flex-col gap-6">
         {titleNode}
-        <header>
-          <h1 className="text-xl font-semibold">{t.categoriesSettings.title}</h1>
-          <p className="text-muted-foreground text-sm">
-            {t.categoriesSettings.subtitle}
-          </p>
-        </header>
         <p className="text-muted-foreground text-sm">
           {t.categoriesSettings.noOperator}
         </p>
@@ -145,13 +139,6 @@ export function CategoryTreeManager({ operatorId, operatorSlug: _operatorSlug }:
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="text-xl font-semibold">{t.categoriesSettings.title}</h1>
-        <p className="text-muted-foreground text-sm">
-          {t.categoriesSettings.subtitle}
-        </p>
-      </header>
-
       {/* ---- Add category ------------------------------------------- */}
       <section className="rounded-md border p-4" data-testid="categories-create">
         <h2 className="text-sm font-medium">{t.categoriesSettings.createTitle}</h2>

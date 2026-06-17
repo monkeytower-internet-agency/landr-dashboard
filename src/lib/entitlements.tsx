@@ -7,7 +7,7 @@
 // featureForSection from here for convenience (re-exported below).
 //
 // CONTRACT (from landr-sbhz.1 migration 20260525160000_feature_entitlements):
-//   - The RPC `operator_effective_features` returns rows for ACTIVE features
+//   - The RPC `operator_effective_entitlements` returns rows for ACTIVE features
 //     only. A key ABSENT from the result is treated as DISABLED.
 //   - Gating is GENERIC: any feature whose effective `enabled` is false (or
 //     absent) is hidden. Nothing here is hardcoded to Para42.
@@ -24,7 +24,7 @@
 //   When a staff user enters "view as operator X", the staff bypass is
 //   DROPPED for the duration. We compute `effectiveIsStaff = isLandrStaff &&
 //   !viewAsActive`; gating then resolves against operator X's
-//   `operator_effective_features` exactly as a real operator would see it
+//   `operator_effective_entitlements` exactly as a real operator would see it
 //   (nav/routes become X's tier-gated view). On exit, the bypass returns and
 //   the full staff view is restored. This is purely a VISIBILITY change — the
 //   session stays the staff user and reads still use the staff RLS bypass.
@@ -34,7 +34,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/lib/auth'
 import { useOperator } from '@/lib/operator'
 import { fetchCurrentPublicUser } from '@/lib/tickets'
-import { fetchEnabledFeatures } from '@/lib/entitlements-map'
+import { fetchEnabledEntitlements } from '@/lib/entitlements-map'
 
 type EntitlementsContextValue = {
   /** True for any feature the current operator's tier enables. Staff bypass
@@ -42,6 +42,9 @@ type EntitlementsContextValue = {
    *  operator" mode (landr-2soj), where gating falls back to the viewed-as
    *  operator's effective set. Absent key ⇒ false. */
   isEnabled: (featureKey: string) => boolean
+  /** Returns the resolved config blob for a feature key, or {} if not found
+   *  or still loading. Uses the new operator_effective_entitlements RPC data. */
+  getFeatureConfig: (featureKey: string) => Record<string, unknown>
   /** True iff the current session user is Landr staff (raw flag — unaffected
    *  by view-as). Kept for surfaces that genuinely need the underlying
    *  identity. Most UI callers want `effectiveIsStaff` instead. */
@@ -82,18 +85,19 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
   // should see exactly what the operator sees, so we drop the staff bypass.
   const effectiveIsStaff = isLandrStaff && !viewAsActive
 
-  // Effective entitlements for the selected operator. Skipped for staff (they
-  // bypass gating) and when no operator is selected yet — but in view-as mode
-  // `effectiveIsStaff` is false, so the fetch RUNS and gating applies to the
-  // viewed-as operator (currentOperatorId resolves to X via OperatorProvider).
+  // Effective entitlements for the selected operator (new RPC with config).
+  // Skipped for staff (they bypass gating) and when no operator is selected
+  // yet — but in view-as mode `effectiveIsStaff` is false, so the fetch RUNS
+  // and gating applies to the viewed-as operator (currentOperatorId resolves
+  // to X via OperatorProvider).
   const featuresQuery = useQuery({
-    queryKey: ['operator-effective-features', currentOperatorId],
-    queryFn: () => fetchEnabledFeatures(currentOperatorId as string),
+    queryKey: ['operator-effective-entitlements', currentOperatorId],
+    queryFn: () => fetchEnabledEntitlements(currentOperatorId as string),
     enabled: !!currentOperatorId && !effectiveIsStaff,
     staleTime: 1000 * 60 * 5,
   })
 
-  const enabledSet = featuresQuery.data
+  const entitlementsMap = featuresQuery.data
 
   const isEnabled = useCallback(
     (featureKey: string): boolean => {
@@ -106,15 +110,23 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
       // hiding a module the operator legitimately has. The server-side
       // defense-in-depth (RLS / endpoint guards) is the real enforcement; the
       // client gating is UX. Once resolved, absent/disabled ⇒ hidden.
-      if (!enabledSet) return true
-      return enabledSet.has(featureKey)
+      if (!entitlementsMap) return true
+      return entitlementsMap.get(featureKey)?.enabled ?? false
     },
-    [effectiveIsStaff, enabledSet],
+    [effectiveIsStaff, entitlementsMap],
+  )
+
+  const getFeatureConfig = useCallback(
+    (featureKey: string): Record<string, unknown> => {
+      return entitlementsMap?.get(featureKey)?.config ?? {}
+    },
+    [entitlementsMap],
   )
 
   const value = useMemo<EntitlementsContextValue>(
     () => ({
       isEnabled,
+      getFeatureConfig,
       isLandrStaff,
       effectiveIsStaff,
       isLoading:
@@ -125,6 +137,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
     }),
     [
       isEnabled,
+      getFeatureConfig,
       isLandrStaff,
       effectiveIsStaff,
       authLoading,
@@ -150,6 +163,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
 // fallback never fires in production.
 const PERMISSIVE_FALLBACK: EntitlementsContextValue = {
   isEnabled: () => true,
+  getFeatureConfig: () => ({}),
   isLandrStaff: false,
   effectiveIsStaff: false,
   isLoading: false,
@@ -158,4 +172,14 @@ const PERMISSIVE_FALLBACK: EntitlementsContextValue = {
 // eslint-disable-next-line react-refresh/only-export-components
 export function useEntitlements(): EntitlementsContextValue {
   return useContext(EntitlementsContext) ?? PERMISSIVE_FALLBACK
+}
+
+/**
+ * Returns the resolved config blob for a feature key, or {} if not found or
+ * still loading. Uses the new operator_effective_entitlements RPC data.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useFeatureConfig(key: string): Record<string, unknown> {
+  const { getFeatureConfig } = useEntitlements()
+  return getFeatureConfig(key)
 }

@@ -1,0 +1,61 @@
+<svg viewBox="0 0 200 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Mascot — empty/shrug pose. Style: Comic Testival. -->
+  <!-- harness -->
+  <path d="M140 165 Q160 170 162 200 Q160 225 145 230 L142 230 L142 165 Z" fill="#5DA53C" stroke="#2B1A0F" stroke-width="2" stroke-linejoin="round"/>
+  <!-- body -->
+  <path d="M60 155 Q55 210 58 240 L142 240 Q145 210 140 155 Z" fill="#C4502A" stroke="#2B1A0F" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M70 160 Q67 195 68 225 L88 225 Q87 195 88 160 Z" fill="#8B3118" opacity="0.6"/>
+  <!-- left arm shrug -->
+  <path d="M62 168 Q38 172 30 160" stroke="#E8A87C" stroke-width="14" fill="none" stroke-linecap="round"/>
+  <path d="M62 168 Q38 172 30 160" stroke="#2B1A0F" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <ellipse cx="27" cy="157" rx="10" ry="9" fill="#E8A87C" stroke="#2B1A0F" stroke-width="2"/>
+  <!-- right arm shrug -->
+  <path d="M138 168 Q162 172 170 160" stroke="#E8A87C" stroke-width="14" fill="none" stroke-linecap="round"/>
+  <path d="M138 168 Q162 172 170 160" stroke="#2B1A0F" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <ellipse cx="173" cy="157" rx="10" ry="9" fill="#E8A87C" stroke="#2B1A0F" stroke-width="2"/>
+  <!-- legs -->
+  <path d="M80 240 Q78 265 78 288" stroke="#2B4A7A" stroke-width="18" fill="none" stroke-linecap="round"/>
+  <path d="M80 240 Q78 265 78 288" stroke="#2B1A0F" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M120 240 Q122 265 122 288" stroke="#2B4A7A" stroke-width="18" fill="none" stroke-linecap="round"/>
+  <path d="M120 240 Q122 265 122 288" stroke="#2B1A0F" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <ellipse cx="78" cy="292" rx="14" ry="8" fill="#2B1A0F"/>
+  <ellipse cx="122" cy="292" rx="14" ry="8" fill="#2B1A0F"/>
+  <!-- head -->
+  <ellipse cx="100" cy="110" rx="42" ry="40" fill="#E8A87C" stroke="#2B1A0F" stroke-width="2.5"/>
+  <!-- cap -->
+  <path d="M60 98 Q62 82 100 78 Q138 82 140 98 L138 102 Q100 92 62 102 Z" fill="#4A7BD0" stroke="#2B1A0F" stroke-width="2.5"/>
+  <path d="M56 105 Q58 95 100 92 Q100 108 58 108 Z" fill="#3A6AC0" stroke="#2B1A0F" stroke-width="2"/>
+  <rect x="88" y="81" width="24" height="12" rx="3" fill="#1A3A7A" stroke="#2B1A0F" stroke-width="1.5"/>
+  <!-- hair -->
+  <path d="M60 105 Q64 118 68 120" stroke="#F7B32B" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M140 105 Q136 118 132 120" stroke="#F7B32B" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- ears -->
+  <ellipse cx="58" cy="112" rx="7" ry="9" fill="#E8A87C" stroke="#2B1A0F" stroke-width="2"/>
+  <ellipse cx="142" cy="112" rx="7" ry="9" fill="#E8A87C" stroke="#2B1A0F" stroke-width="2"/>
+  <!-- glasses -->
+  <rect x="68" y="108" width="26" height="19" rx="7" fill="#B8D4F0" stroke="#2B1A0F" stroke-width="3"/>
+  <rect x="106" y="108" width="26" height="19" rx="7" fill="#B8D4F0" stroke="#2B1A0F" stroke-width="3"/>
+  <line x1="94" y1="116" x2="106" y2="116" stroke="#2B1A0F" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="76" cy="112" rx="4" ry="3" fill="white" opacity="0.5"/>
+  <ellipse cx="114" cy="112" rx="4" ry="3" fill="white" opacity="0.5"/>
+  <!-- eyes (a bit sad) -->
+  <ellipse cx="81" cy="117" rx="7" ry="7" fill="white"/>
+  <circle cx="81" cy="119" r="4.5" fill="#2B1A0F"/>
+  <circle cx="82.5" cy="117.5" r="1.5" fill="white"/>
+  <ellipse cx="119" cy="117" rx="7" ry="7" fill="white"/>
+  <circle cx="119" cy="119" r="4.5" fill="#2B1A0F"/>
+  <circle cx="120.5" cy="117.5" r="1.5" fill="white"/>
+  <!-- eyebrows (sad — angled down in middle) -->
+  <path d="M70 107 Q81 111 89 108" fill="none" stroke="#2B1A0F" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M111 108 Q119 111 130 107" fill="none" stroke="#2B1A0F" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- blush (lighter) -->
+  <ellipse cx="68" cy="126" rx="8" ry="5" fill="#D9486E" opacity="0.2"/>
+  <ellipse cx="132" cy="126" rx="8" ry="5" fill="#D9486E" opacity="0.2"/>
+  <!-- frown -->
+  <path d="M84 136 Q100 128 116 136" fill="none" stroke="#2B1A0F" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- sweat drop -->
+  <path d="M143 105 Q146 112 143 118 Q140 112 143 105 Z" fill="#7FA8E8" stroke="#2B1A0F" stroke-width="1.5" stroke-linejoin="round"/>
+  <!-- empty swirls -->
+  <path d="M24 140 Q30 130 36 140" fill="none" stroke="#2B1A0F" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+  <path d="M164 140 Q170 130 176 140" fill="none" stroke="#2B1A0F" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+</svg>

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { BadgeEuro, CheckCircle, Download, Mail, Printer, Unlock, UserX, XCircle } from 'lucide-react'
 
@@ -43,6 +43,10 @@ import { BookingChecklist } from '@/components/booking/BookingChecklist'
 import { CustomOfferEditorSheet } from '@/components/booking/CustomOfferEditorSheet'
 import { BookingCustomerPage } from '@/components/booking/BookingCustomerPage'
 import { BookingNotes } from '@/components/booking/BookingNotes'
+import {
+  bookingNotesQueryKey,
+  listBookingNotes,
+} from '@/lib/booking-notes'
 import { BookingParticipants } from '@/components/booking/BookingParticipants'
 import { BookingPayments } from '@/components/booking/BookingPayments'
 import { BookingProviderAssignments } from '@/components/booking/BookingProviderAssignments'
@@ -143,6 +147,20 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   // outside tests); the checklist hook handles that gracefully.
   const { currentOperatorId } = useOperator()
   const { isEnabled } = useEntitlements()
+
+  // landr — drive the "has notes" dot on the Notes tab. Shares the SAME query
+  // key as the BookingNotes panel (bookingNotesQueryKey) so React Query
+  // dedupes the fetch and the dot updates live after a note is added/deleted.
+  // Until the fetch resolves we fall back to the count embedded in the
+  // bookings list row (row.notes) so the dot appears immediately on open.
+  const notesQuery = useQuery({
+    queryKey: bookingNotesQueryKey(currentOperatorId ?? '_', row.id),
+    queryFn: () => listBookingNotes(currentOperatorId as string, row.id),
+    enabled: !!currentOperatorId,
+  })
+  const hasNotes = notesQuery.data
+    ? notesQuery.data.length > 0
+    : (row.notes?.length ?? 0) > 0
 
   // ---- Form draft state ----
   const [customer, setCustomer] = useState<CustomerDraft>(() =>
@@ -267,7 +285,19 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     label: string
     testId: string
     render: () => ReactNode
+    // landr — optional indicator rendered next to the tab label (e.g. the
+    // "has notes" dot on the Notes tab).
+    badge?: ReactNode
   }
+
+  // landr — small notification dot shown next to a tab label.
+  const tabDot = (label: string) => (
+    <span
+      data-testid="tab-note-dot"
+      aria-label={label}
+      className="bg-primary ml-1.5 inline-block size-1.5 shrink-0 rounded-full align-middle"
+    />
+  )
 
   const tabPanels: TabConfig[] = [
     {
@@ -381,6 +411,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
       key: 'notes',
       label: t.bookings.notes.tabNotes,
       testId: 'booking-tab-notes',
+      badge: hasNotes ? tabDot(t.bookings.notes.hasNotesIndicator) : undefined,
       render: () => (
         <div
           role="tabpanel"
@@ -486,6 +517,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
               data-testid={panel.testId}
             >
               {panel.label}
+              {panel.badge}
             </TabsTrigger>
           ))}
         </TabsList>

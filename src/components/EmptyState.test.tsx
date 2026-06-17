@@ -1,4 +1,5 @@
 // landr-s1mr — Component tests for the shared EmptyState card.
+// landr-hxnb.5 — Extended with illustration slot + accentHue prop tests.
 //
 // Covers:
 //   - Renders icon + title + optional description + testid.
@@ -7,6 +8,9 @@
 //   - Action with onClick fires a button.
 //   - Action with internal href renders a router Link.
 //   - Action with external href renders an anchor with rel/target.
+//   - illustration prop renders the illustration slot (not the icon) in card mode.
+//   - illustration prop is ignored in compact mode (icon still renders).
+//   - accentHue prop applies the correct hue class to the wrapper.
 
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -103,5 +107,57 @@ describe('<EmptyState>', () => {
     const link = screen.getByRole('link', { name: /read docs/i })
     expect(link.getAttribute('target')).toBe('_blank')
     expect(link.getAttribute('rel')).toContain('noopener')
+  })
+
+  it('renders the illustration slot instead of the icon in card mode', () => {
+    render(
+      withRouter(
+        <EmptyState
+          icon={CalendarIcon}
+          illustration={<svg data-testid="test-scene" aria-hidden />}
+          title="Illustrated empty"
+          data-testid="card-with-illustration"
+        />,
+      ),
+    )
+    // The illustration should be present
+    expect(screen.getByTestId('test-scene')).toBeInTheDocument()
+    // The icon wrapper should NOT be rendered (it's replaced by the illustration)
+    expect(
+      screen.queryByRole('img', { hidden: true }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('ignores the illustration prop in compact mode (icon renders instead)', () => {
+    render(
+      withRouter(
+        <EmptyState
+          icon={CalendarIcon}
+          illustration={<svg data-testid="compact-scene" aria-hidden />}
+          title="Compact"
+          size="compact"
+          data-testid="compact-empty"
+        />,
+      ),
+    )
+    // In compact mode the scene is suppressed
+    expect(screen.queryByTestId('compact-scene')).not.toBeInTheDocument()
+    // The wrapper renders correctly
+    expect(screen.getByTestId('compact-empty').getAttribute('data-size')).toBe('compact')
+  })
+
+  it('applies the hue-bookings soft-bg class when accentHue="bookings"', () => {
+    render(
+      withRouter(
+        <EmptyState
+          icon={CalendarIcon}
+          title="Bookings"
+          accentHue="bookings"
+          data-testid="hue-test"
+        />,
+      ),
+    )
+    const node = screen.getByTestId('hue-test')
+    expect(node.className).toMatch(/hue-bookings/)
   })
 })

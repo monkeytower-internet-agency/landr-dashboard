@@ -82,6 +82,7 @@ import { CalendarDisplaySettings } from '@/routes/settings/CalendarDisplaySettin
 import { DisplayPreferencesSettings } from '@/routes/settings/DisplayPreferencesSettings'
 import { IntegrationsCalendarSettings } from '@/routes/settings/IntegrationsCalendarSettings'
 import { IntegrationsGmailSettings } from '@/routes/settings/IntegrationsGmailSettings'
+import { EmailSenderSettings } from '@/routes/settings/EmailSenderSettings'
 import { IntegrationsPaymentsSettings } from '@/routes/settings/IntegrationsPaymentsSettings'
 import { ConnectedAccountsSettings } from '@/routes/settings/ConnectedAccountsSettings'
 import { SecuritySettings } from '@/routes/settings/SecuritySettings'
@@ -100,6 +101,10 @@ import { NotificationPrefsSettings } from '@/routes/settings/NotificationPrefsSe
 import { AccountLinkSettings } from '@/routes/settings/AccountLinkSettings'
 import { OperationsSettings } from '@/routes/settings/OperationsSettings'
 import { WebhooksSettings } from '@/routes/settings/WebhooksSettings'
+// landr-71kz.5 — Settings → Forms library (CRUD).
+import { FormsSettings } from '@/routes/settings/FormsSettings'
+// landr-71kz.6 — full field-builder editor replacing the stub.
+import { FormEditor } from '@/routes/settings/FormEditor'
 // landr-znzz.7 — Settings → Weather (opt-in forecast hint).
 import { WeatherSettings } from '@/routes/settings/WeatherSettings'
 // landr-sbhz.5 — staff-only tier/feature editor. Lazy: only Landr staff ever
@@ -280,6 +285,9 @@ function App() {
               <Route path="/audit" element={gatedRoute('/audit', <Audit />)} />
               {/* landr-4pn1 — /trash (recently-deleted bin per category). */}
               <Route path="/trash" element={<Trash />} />
+              {/* Email log — a LOG, not a setting: standalone admin surface
+                  (moved out of /settings per ok). Gated by the email_log feature. */}
+              <Route path="/email-log" element={gatedRoute('/email-log', <EmailLog />)} />
               <Route path="/approvals/general" element={<GeneralApprovals />} />
               {/* landr-wwhn.11 — Ticket board (5-column kanban, realtime). */}
               <Route path="/tickets" element={gatedRoute('/tickets', <TicketBoard />)} />
@@ -319,6 +327,18 @@ function App() {
                     (logged-in). Personal scope; ungated. */}
                 <Route path="security" element={<SecuritySettings />} />
                 <Route path="integrations/gmail" element={gatedSection('/account/integrations/gmail', <IntegrationsGmailSettings />)} />
+                {/* landr-resend-sender — per-operator Resend sending domain.
+                    Ungated: every operator needs to wire up their own sending
+                    domain (like Gmail / payments), so no feature-entitlement
+                    gate. Replaces the Gmail OAuth integration. */}
+                <Route path="integrations/email-sender" element={<EmailSenderSettings />} />
+                {/* landr — flat /account/email-sender shorthand (and older
+                    "set up branded sending" nudges) redirect to the canonical
+                    integrations path so the link never 404s. */}
+                <Route
+                  path="email-sender"
+                  element={<Navigate to="/account/integrations/email-sender" replace />}
+                />
                 {/* landr-6ybs — per-operator subscribable ICS calendar feed. */}
                 <Route path="integrations/calendar" element={gatedSection('/account/integrations/calendar', <IntegrationsCalendarSettings />)} />
                 {/* landr-1nwu.2 — per-operator Stripe + Holded credentials.
@@ -363,6 +383,11 @@ function App() {
                 <Route path="categories" element={gatedSection('/settings/categories', <CategoriesSettings />)} />
                 {/* landr-up1b — booking-widget shortcode/iframe generator. */}
                 <Route path="embed" element={gatedSection('/settings/embed', <EmbedSettings />)} />
+                {/* landr-71kz.5 — Settings → Forms library (create/rename/retire/
+                    restore). Gated behind form_builder feature; the field-builder
+                    editor at /settings/forms/:formId ships in landr-71kz.6. */}
+                <Route path="forms" element={gatedSection('/settings/forms', <FormsSettings />)} />
+                <Route path="forms/:formId" element={gatedSection('/settings/forms', <FormEditor />)} />
                 {/* landr-znzz.5 — generic per-operator offers/upsells shown in
                     the AFTER phase of the customer event page. */}
                 <Route path="offers" element={<OffersSettings />} />
@@ -371,8 +396,8 @@ function App() {
                     Schedule a setup tool, not a daily-ops view. */}
                 <Route path="schedule" element={gatedSection('/settings/schedule', <Schedule />)} />
                 <Route path="email-templates" element={gatedSection('/settings/email-templates', <EmailTemplates />)} />
-                {/* landr-qg4q — outbound_emails viewer (failed sends, retried, sent). */}
-                <Route path="email-log" element={gatedSection('/settings/email-log', <EmailLog />)} />
+                {/* email-log moved to a standalone /email-log admin route (a log
+                    is not a setting). See the top-level <Route path="/email-log">. */}
                 <Route path="pricing" element={gatedSection('/settings/pricing', <PricingSettings />)} />
                 {/* landr-9n0l — Settings → Commissions: scheme/rule/tier
                     editor + read-only agent-earnings report. */}

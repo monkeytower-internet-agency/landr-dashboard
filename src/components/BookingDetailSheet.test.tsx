@@ -114,6 +114,19 @@ vi.mock('@/lib/booking-participants', async () => {
   }
 })
 
+// landr-6629 pattern — the Notes-tab "has notes" dot fires a useQuery on every
+// render (bookingNotesQueryKey). Mock listBookingNotes so it resolves to [] in
+// memory instead of going through raw fetch, which would otherwise consume a
+// fetchSpy.mockResolvedValueOnce and break the action tests' call assertions.
+vi.mock('@/lib/booking-notes', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/lib/booking-notes')>()
+  return {
+    ...actual,
+    listBookingNotes: vi.fn().mockResolvedValue([]),
+  }
+})
+
 vi.mock('@/lib/tags', () => ({
   fetchTags: vi.fn().mockResolvedValue([]),
   createTag: vi.fn(),
@@ -1258,5 +1271,81 @@ describe('BookingDetailSheet', () => {
     )
     expect(invalidatedKeys).toContainEqual(['bookings'])
     expect(invalidatedKeys).toContainEqual(['views-bookings'])
+  })
+
+  // -----------------------------------------------------------------------
+  // landr-v9e4.11 — error-branch tests.
+  // -----------------------------------------------------------------------
+
+  it('mark-paid POST rejection → shows error toast, dialog stays open, no invalidation', async () => {
+    const user = userEvent.setup()
+    const { toast: sonnerToast } = await import('sonner')
+    // Reject with a 422 carrying a server detail string.
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ detail: 'Booking already paid' }),
+        { status: 422 },
+      ),
+    )
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_payment' },
+      balance_due: '300.00',
+    })
+    const { invalidateSpy } = renderWithInvalidationSpy(
+      <BookingDetailSheet row={row} onOpenChange={() => {}} />,
+    )
+
+    await user.click(screen.getByTestId('booking-mark-paid-btn'))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByTestId('mark-paid-confirm'))
+
+    // Error toast must fire with the server's detail string.
+    await waitFor(() => {
+      expect(sonnerToast.error).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ description: 'Booking already paid' }),
+      )
+    })
+
+    // The dialog must remain open (button still present).
+    expect(screen.queryByTestId('mark-paid-confirm')).toBeInTheDocument()
+
+    // No cache invalidation on error.
+    expect(invalidateSpy).not.toHaveBeenCalled()
+  })
+
+  it('cancel-with-reason rejection → shows error toast, reason preserved for retry', async () => {
+    const user = userEvent.setup()
+    const { toast: sonnerToast } = await import('sonner')
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ detail: 'Cannot cancel at this stage' }),
+        { status: 409 },
+      ),
+    )
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+
+    await user.click(screen.getByRole('button', { name: /^cancel booking$/i }))
+    const dialog = await screen.findByRole('alertdialog')
+
+    const reason = within(dialog).getByLabelText(/reason/i)
+    await user.type(reason, 'weather abort')
+
+    const confirmBtn = within(dialog).getByRole('button', { name: /^cancel booking$/i })
+    await user.click(confirmBtn)
+
+    // Error toast with the server message.
+    await waitFor(() => {
+      expect(sonnerToast.error).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ description: 'Cannot cancel at this stage' }),
+      )
+    })
+
+    // Dialog still open — reason input still shows the typed text so the
+    // operator can retry without re-typing the reason.
+    const reasonAfter = within(dialog).getByLabelText(/reason/i) as HTMLTextAreaElement
+    expect(reasonAfter.value).toBe('weather abort')
   })
 })

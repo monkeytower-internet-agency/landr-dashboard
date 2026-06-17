@@ -16,9 +16,6 @@ export function ConnectedAccountsSettings() {
         ]}
         subtitle={t.settingsHub.sectionDescriptions.connectedAccounts}
       />
-      <h1 className="text-2xl font-semibold">
-        {t.settingsHub.sections.connectedAccounts}
-      </h1>
       <ConnectedAccounts />
     </div>
   )

@@ -96,7 +96,7 @@ describe('ProductForm — package gating (landr-5eb)', () => {
       screen.getByText(/coming soon — shop ui/i),
     ).toBeInTheDocument()
     // Submit button is disabled with the upgrade-prompt tooltip.
-    const submit = screen.getByRole('button', { name: /create product/i })
+    const submit = screen.getByRole('button', { name: /save/i })
     expect(submit).toBeDisabled()
     expect(submit).toHaveAttribute(
       'title',
@@ -271,7 +271,7 @@ describe('ProductForm — kind/shape/contiguous progression', () => {
     await user.click(
       screen.getByLabelText(/whole-range \(contiguous days\)/i),
     )
-    await user.click(screen.getByRole('button', { name: /create product/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(submitted.length).toBe(1)
     expect(submitted[0]).toMatchObject({
@@ -368,7 +368,7 @@ describe('ProductForm — hotel_room kind (landr-ssrx)', () => {
       'hotel-1',
     )
 
-    await user.click(screen.getByRole('button', { name: /create product/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(submitted).toHaveLength(1)
     expect(submitted[0]).toMatchObject({
@@ -404,7 +404,7 @@ describe('ProductForm — hotel_room kind (landr-ssrx)', () => {
 
     await user.type(screen.getByLabelText(/^name$/i), 'Single Room')
     // Intentionally skip the hotel picker.
-    await user.click(screen.getByRole('button', { name: /create product/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(submitted).toHaveLength(0)
     // The validation message renders inside the FormMessage <p
@@ -502,7 +502,7 @@ describe('ProductForm — hotel_offering on services (landr-ssrx)', () => {
       'optional',
     )
 
-    await user.click(screen.getByRole('button', { name: /create product/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(submitted).toHaveLength(1)
     expect(submitted[0]).toMatchObject({
@@ -578,7 +578,7 @@ describe('ProductForm — room capacity (landr-knm0)', () => {
     expect(capacity.value).toBe('2')
 
     await user.selectOptions(screen.getByLabelText(/^hotel$/i), 'hotel-1')
-    await user.click(screen.getByRole('button', { name: /create product/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(submitted).toHaveLength(1)
     expect(submitted[0]).toMatchObject({
@@ -634,7 +634,7 @@ describe('ProductForm — room capacity (landr-knm0)', () => {
     await user.clear(capacity)
     await user.type(capacity, '0')
 
-    await user.click(screen.getByRole('button', { name: /create product/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(submitted).toHaveLength(0)
     const messages = await screen.findAllByText(
@@ -671,7 +671,7 @@ describe('ProductForm — room capacity (landr-knm0)', () => {
     ).not.toBeInTheDocument()
 
     await user.type(screen.getByLabelText(/^name$/i), 'Tandem Flight')
-    await user.click(screen.getByRole('button', { name: /create product/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(submitted).toHaveLength(1)
     expect(submitted[0]).toMatchObject({
@@ -725,7 +725,7 @@ describe('ProductForm — room capacity (landr-knm0)', () => {
     const hotelPicker = screen.getByLabelText(/^hotel$/i) as HTMLSelectElement
     expect(hotelPicker.value).toBe('hotel-1')
 
-    await user.click(screen.getByRole('button', { name: /create product/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
     expect(submitted).toHaveLength(1)
     expect(submitted[0]).toMatchObject({
       product_kind: 'hotel_room',
@@ -766,7 +766,7 @@ describe('ProductForm — room capacity (landr-knm0)', () => {
     ) as HTMLSelectElement
     expect(offering.value).toBe('optional')
 
-    await user.click(screen.getByRole('button', { name: /create product/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
     expect(submitted).toHaveLength(1)
     expect(submitted[0]).toMatchObject({
       product_kind: 'service',
@@ -831,7 +831,7 @@ describe('ProductForm — addon-only flag + add-ons section (landr-u34k)', () =>
     const addonOnly = screen.getByLabelText(/add-on only/i)
     expect(addonOnly).toBeInTheDocument()
     await user.click(addonOnly)
-    await user.click(screen.getByRole('button', { name: /create product/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(submitted).toHaveLength(1)
     expect(submitted[0]).toMatchObject({
@@ -936,7 +936,7 @@ describe('ProductForm — discount scheme (landr-wto)', () => {
     })
 
     await user.type(screen.getByLabelText(/^name$/i), 'Tandem Flight')
-    await user.click(screen.getByRole('button', { name: /create/i }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(submitted).toHaveLength(1)
     expect(submitted[0].default_pricing_scheme_id).toBeNull()

@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-table'
 import { CalendarRangeIcon } from 'lucide-react'
 import { toast } from 'sonner'
+import { EmptyBookings } from '@/components/illustrations'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -517,6 +518,8 @@ export function BookingsTable({
     return (
       <EmptyState
         icon={CalendarRangeIcon}
+        illustration={<EmptyBookings className="h-full w-full" />}
+        accentHue="bookings"
         title={t.emptyStates.bookings.title}
         description={t.emptyStates.bookings.description}
         data-testid="bookings-empty-state"
@@ -542,7 +545,7 @@ export function BookingsTable({
         : null
     const overridden = hasPriceOverride(booking)
     return (
-      <div className="bg-card flex flex-col gap-2 rounded-lg border p-3 shadow-s">
+      <div className="surface-dense flex flex-col gap-2 rounded-lg border p-3 shadow-s">
         <div className="flex items-start gap-2">
           <Checkbox
             checked={checked}

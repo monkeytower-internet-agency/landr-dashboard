@@ -42,6 +42,11 @@ export function SettingsSubSidebar() {
   const navLabel =
     group === 'account' ? t.accountHub.navLabel : t.settingsHub.navLabel
   return (
+    // landr-hxnb.7 — comic pass: the nav label uses font-display (Space
+    // Grotesk) and the active pill adopts the settings section hue
+    // (slate/cool, hue 230) instead of the generic brand orange, so the
+    // nav reads as belonging to the settings zone. Inactive items keep the
+    // soft warm-cream hover for legibility.
     <nav aria-label={navLabel} className="w-full shrink-0 md:w-56">
       {/*
        * landr-3qkr.4 — Mobile (<md): horizontally scrollable chip strip so
@@ -49,6 +54,9 @@ export function SettingsSubSidebar() {
        * same active-pill language (bg-primary, font-medium) that desktop uses.
        *
        * Desktop (md+): vertical pill list, same as before.
+       *
+       * landr-hxnb.7 — on desktop, a left border in the settings hue gives
+       * the vertical rail a subtle comic identity cue.
        */}
       <ul className="flex gap-1 overflow-x-auto pb-1 md:flex-col md:gap-0.5 md:overflow-x-visible md:pb-0">
         {sections.map((section) => {
@@ -59,15 +67,25 @@ export function SettingsSubSidebar() {
                 to={section.to}
                 className={({ isActive }) =>
                   cn(
-                    // landr-ar44 — settings section nav matches the app
-                    // sidebar's visual language: soft hover tint for
-                    // inactive rows, a filled primary pill for the active
+                    // landr-ar44 — settings section nav: soft hover tint for
+                    // inactive rows, a filled section-hue pill for the active
                     // section so it reads as the current location.
-                    'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors',
+                    // landr-hxnb.7 — active pill uses settings vivid hue
+                    // (--hue-settings-vivid) instead of generic --primary so
+                    // the nav matches the settings comic identity.
+                    'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors font-display',
                     'text-muted-foreground hover:bg-accent hover:text-foreground',
                     isActive &&
-                      'bg-primary font-medium text-primary-foreground shadow-s hover:bg-primary hover:text-primary-foreground',
+                      'font-medium shadow-s hover:text-hue-settings-on-color',
                   )
+                }
+                style={({ isActive }) =>
+                  isActive
+                    ? {
+                        background: 'var(--hue-settings-vivid)',
+                        color: 'var(--hue-settings-on-color)',
+                      }
+                    : {}
                 }
               >
                 <Icon className="size-4 shrink-0" aria-hidden="true" />

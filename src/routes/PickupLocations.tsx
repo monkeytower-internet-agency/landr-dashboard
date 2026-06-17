@@ -23,7 +23,6 @@ export function PickupLocations() {
       <div className="flex flex-col gap-6">
         {titleNode}
         <header>
-          <h1 className="text-xl font-semibold">{t.pickupLocations.title}</h1>
           <p className="text-muted-foreground text-sm">
             {t.pickupLocations.subtitle}
           </p>

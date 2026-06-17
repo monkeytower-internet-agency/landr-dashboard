@@ -61,14 +61,6 @@ export function ServiceRolesSettings() {
     return (
       <div className="flex flex-col gap-6">
         {titleNode}
-        <header>
-          <h1 className="text-xl font-semibold">
-            {t.serviceRolesSettings.title}
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            {t.serviceRolesSettings.subtitle}
-          </p>
-        </header>
         <p className="text-muted-foreground text-sm">
           {t.serviceRolesSettings.noOperator}
         </p>
@@ -147,15 +139,6 @@ export function ServiceRolesManager({ operatorId }: ManagerProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="text-xl font-semibold">
-          {t.serviceRolesSettings.title}
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          {t.serviceRolesSettings.subtitle}
-        </p>
-      </header>
-
       {/* ---- New role form ----------------------------------------- */}
       <section
         className="rounded-md border p-4"

@@ -162,7 +162,7 @@ describe('AppShell mobile drawer (landr-3qkr.1)', () => {
 
     // Footer (sidebar display-mode control) carries over into the drawer.
     expect(
-      within(drawer).getByRole('radiogroup', { name: /sidebar display mode/i }),
+      within(drawer).getByRole('radiogroup', { name: /sidebar style/i }),
     ).toBeInTheDocument()
   })
 

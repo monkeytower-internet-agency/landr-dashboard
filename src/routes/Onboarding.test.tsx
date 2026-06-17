@@ -235,7 +235,7 @@ describe('Onboarding wizard', () => {
     await screen.findByRole('heading', { name: /welcome to landr/i, level: 1 })
     expect(screen.getByText(/step 1 of 9/i)).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /let's get started/i }))
+    await user.click(screen.getByRole('button', { name: /let's go/i }))
     await screen.findByText(/step 2 of 9/i)
   })
 

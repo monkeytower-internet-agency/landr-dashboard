@@ -32,6 +32,9 @@ export const FEATURE_ROUTES: Record<string, string[]> = {
   audit: ['/audit'],
   tickets: ['/tickets'],
   release_planning: ['/tickets/planning'],
+  // email_log moved out of /settings to a top-level admin route (landr-p0hu).
+  // Must live here so featureForRoute('/email-log') resolves → gating works.
+  email_log: ['/email-log'],
 }
 
 // `FEATURE_SECTIONS` — settings sub-sidebar entries (the `to` field in
@@ -46,7 +49,6 @@ export const FEATURE_SECTIONS: Record<string, string[]> = {
   providers: ['/settings/providers'],
   embed: ['/settings/embed'],
   email_templates: ['/settings/email-templates'],
-  email_log: ['/settings/email-log'],
   commission: ['/settings/commissions'],
   company: ['/account/company'],
   branding: ['/settings/branding'],
@@ -54,6 +56,11 @@ export const FEATURE_SECTIONS: Record<string, string[]> = {
   // Gated alongside Branding: both are paid "make the embedded widget yours"
   // surfaces. The feature key mirrors the API registry (landr-jb1k.1).
   widget_config: ['/settings/widget'],
+  // landr-71kz — form builder (library + field-builder editor) + product
+  // Flow tab. Beta, default off; enabled for business/enterprise tiers.
+  // (landr-71kz.5 added the /settings/forms library; landr-71kz.7 added the
+  // product Flow tab — both gate on this single key.)
+  form_builder: ['/settings/forms'],
   team: ['/settings/team'],
   // OFF-set for Para42
   vouchers: ['/settings/vouchers'],
@@ -116,6 +123,8 @@ type EffectiveFeatureRow = { feature_key: string; enabled: boolean }
  * `operator_effective_features` RPC. Returns the SET of ENABLED feature keys
  * (absent keys / disabled rows are simply not in the set, so membership ===
  * enabled). Throws on RPC error so TanStack Query surfaces it.
+ *
+ * KEPT for backward compat — mobile and existing callers still use this.
  */
 export async function fetchEnabledFeatures(
   operatorId: string,
@@ -130,4 +139,31 @@ export async function fetchEnabledFeatures(
     if (row.enabled) enabled.add(row.feature_key)
   }
   return enabled
+}
+
+type EffectiveEntitlementRow = {
+  feature_key: string
+  enabled: boolean
+  config: Record<string, unknown>
+}
+
+/**
+ * Resolve the operator's effective entitlements via the NEW
+ * `operator_effective_entitlements` RPC. Returns a Map of feature key →
+ * { enabled, config } so callers can read both the boolean gate and any
+ * parametric config blob. Throws on RPC error.
+ */
+export async function fetchEnabledEntitlements(
+  operatorId: string,
+): Promise<Map<string, { enabled: boolean; config: Record<string, unknown> }>> {
+  const { data, error } = await supabase.rpc('operator_effective_entitlements', {
+    p_operator_id: operatorId,
+  })
+  if (error) throw new Error(error.message)
+  const rows = (data ?? []) as EffectiveEntitlementRow[]
+  const m = new Map<string, { enabled: boolean; config: Record<string, unknown> }>()
+  for (const row of rows) {
+    m.set(row.feature_key, { enabled: row.enabled, config: row.config ?? {} })
+  }
+  return m
 }

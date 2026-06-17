@@ -5,6 +5,7 @@ import { BookingsCalendar } from '@/components/BookingsCalendar'
 import { BookingsFilters } from '@/components/bookings/BookingsFilters'
 import { CustomerDetailSheet } from '@/components/CustomerDetailSheet'
 import { EmptyState } from '@/components/EmptyState'
+import { EmptyCalendar } from '@/components/illustrations'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { fetchBookings, type BookingRow } from '@/lib/bookings'
 import {
@@ -98,10 +99,9 @@ export function Calendar() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* The topbar (PageTitleDisplay) already renders "Calendar" as the page
+          headline, so we don't repeat it in the body — just declare it. */}
       <PageTitle title={t.calendar.title} />
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">{t.calendar.title}</h1>
-      </header>
       {query.isError ? (
         <Card>
           <CardHeader>
@@ -121,6 +121,8 @@ export function Calendar() {
         // bar + blank calendar grid, which read as "is it broken?".
         <EmptyState
           icon={CalendarRangeIcon}
+          illustration={<EmptyCalendar className="h-full w-full" />}
+          accentHue="bookings"
           title={t.emptyStates.calendar.title}
           description={t.emptyStates.calendar.description}
           data-testid="calendar-empty-state"

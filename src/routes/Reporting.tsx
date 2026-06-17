@@ -139,7 +139,6 @@ export function Reporting() {
       <PageTitle title={t.reporting.title} />
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold">{t.reporting.title}</h1>
           <p className="text-muted-foreground text-sm">
             {t.reporting.exportRowsLabel(filtered.length)}
             {kpis.cancelledExcluded > 0

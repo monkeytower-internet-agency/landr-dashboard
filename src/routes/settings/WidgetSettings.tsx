@@ -36,6 +36,7 @@ import { CheckIcon, ExternalLinkIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Card,
@@ -222,6 +223,10 @@ export function WidgetSettings() {
               wh: operator.widget_headline,
               wd: operator.widget_description,
               wf: operator.widget_footer,
+              // landr-dnzd — first-page-only switches.
+              whf: operator.widget_headline_first_page_only,
+              wdf: operator.widget_description_first_page_only,
+              wff: operator.widget_footer_first_page_only,
             })}
             operator={operator}
             operatorId={operatorId}
@@ -279,10 +284,23 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
     operator.widget_description ?? '',
   )
   const [footer, setFooter] = useState(operator.widget_footer ?? '')
+  // landr-dnzd — first-page-only switches (default false = shown everywhere).
+  const [headlineFirstPageOnly, setHeadlineFirstPageOnly] = useState(
+    operator.widget_headline_first_page_only ?? false,
+  )
+  const [descriptionFirstPageOnly, setDescriptionFirstPageOnly] = useState(
+    operator.widget_description_first_page_only ?? false,
+  )
+  const [footerFirstPageOnly, setFooterFirstPageOnly] = useState(
+    operator.widget_footer_first_page_only ?? false,
+  )
   const widgetTextDirty =
     headline.trim() !== (operator.widget_headline ?? '') ||
     description.trim() !== (operator.widget_description ?? '') ||
-    footer.trim() !== (operator.widget_footer ?? '')
+    footer.trim() !== (operator.widget_footer ?? '') ||
+    headlineFirstPageOnly !== (operator.widget_headline_first_page_only ?? false) ||
+    descriptionFirstPageOnly !== (operator.widget_description_first_page_only ?? false) ||
+    footerFirstPageOnly !== (operator.widget_footer_first_page_only ?? false)
 
   // Self-hosted showcase fonts (GDPR — no Google CDN) are pulled in lazily
   // only once this section mounts, so the rest of the dashboard never pays
@@ -359,7 +377,8 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
 
   // ── widget embed text save (landr-nils; moved from Brand by landr-ylvp) ──
   // Same save path as before: empty string clears the field (sends null) — an
-  // intentional clear the API preserves via exclude_unset.
+  // intentional clear the API preserves via exclude_unset. landr-dnzd adds the
+  // three first-page-only booleans to the same PATCH so they batch with the text.
   function handleWidgetTextSave() {
     const trimOrNull = (s: string) => {
       const v = s.trim()
@@ -370,6 +389,9 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
         widget_headline: trimOrNull(headline),
         widget_description: trimOrNull(description),
         widget_footer: trimOrNull(footer),
+        widget_headline_first_page_only: headlineFirstPageOnly,
+        widget_description_first_page_only: descriptionFirstPageOnly,
+        widget_footer_first_page_only: footerFirstPageOnly,
       },
       t.settings.widgetTextToastSaved,
     )
@@ -381,8 +403,6 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
     // landr-3qkr.4 — full-bleed on mobile (no horizontal padding that fights
     // the AppShell safe-area padding); constrained to 2xl on larger screens.
     <div className="flex max-w-2xl flex-col gap-6">
-      <h1 className="text-2xl font-semibold">{t.settings.widgetConfigTitle}</h1>
-
       {/* ── Layout variant picker ── */}
       <Card>
         <CardHeader>
@@ -761,6 +781,25 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
             <p className="text-muted-foreground text-xs">
               {t.settings.widgetHeadlineHint}
             </p>
+            {/* landr-dnzd — first-page-only switch */}
+            <div className="flex items-center gap-2 pt-1">
+              <Switch
+                id="widget-headline-first-page-only"
+                checked={headlineFirstPageOnly}
+                onClick={() => setHeadlineFirstPageOnly((v) => !v)}
+                data-testid="widget-headline-first-page-only"
+                size="sm"
+              />
+              <Label
+                htmlFor="widget-headline-first-page-only"
+                className="cursor-pointer text-sm font-normal"
+              >
+                {t.settings.widgetFirstPageOnlyLabel}
+              </Label>
+            </div>
+            <p className="text-muted-foreground text-xs">
+              {t.settings.widgetFirstPageOnlyHelper}
+            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -778,6 +817,25 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
             <p className="text-muted-foreground text-xs">
               {t.settings.widgetDescriptionHint}
             </p>
+            {/* landr-dnzd — first-page-only switch */}
+            <div className="flex items-center gap-2 pt-1">
+              <Switch
+                id="widget-description-first-page-only"
+                checked={descriptionFirstPageOnly}
+                onClick={() => setDescriptionFirstPageOnly((v) => !v)}
+                data-testid="widget-description-first-page-only"
+                size="sm"
+              />
+              <Label
+                htmlFor="widget-description-first-page-only"
+                className="cursor-pointer text-sm font-normal"
+              >
+                {t.settings.widgetFirstPageOnlyLabel}
+              </Label>
+            </div>
+            <p className="text-muted-foreground text-xs">
+              {t.settings.widgetFirstPageOnlyHelper}
+            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -794,6 +852,25 @@ function WidgetForm({ operator, operatorId, onSaved }: FormProps) {
             />
             <p className="text-muted-foreground text-xs">
               {t.settings.widgetFooterHint}
+            </p>
+            {/* landr-dnzd — first-page-only switch */}
+            <div className="flex items-center gap-2 pt-1">
+              <Switch
+                id="widget-footer-first-page-only"
+                checked={footerFirstPageOnly}
+                onClick={() => setFooterFirstPageOnly((v) => !v)}
+                data-testid="widget-footer-first-page-only"
+                size="sm"
+              />
+              <Label
+                htmlFor="widget-footer-first-page-only"
+                className="cursor-pointer text-sm font-normal"
+              >
+                {t.settings.widgetFirstPageOnlyLabel}
+              </Label>
+            </div>
+            <p className="text-muted-foreground text-xs">
+              {t.settings.widgetFirstPageOnlyHelper}
             </p>
           </div>
 
