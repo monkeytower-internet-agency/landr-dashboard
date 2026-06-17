@@ -31,6 +31,7 @@ import {
   postGeneralApprovalDecision,
   postHotelApprovalDecision,
   resendConfirmation,
+  sendConfirmation,
   setBookingStage,
   stageCode,
   type BookingRow,
@@ -488,6 +489,30 @@ export function useBookingActions({
     },
   })
 
+  // landr-uvfg.6 — send the FIRST confirmation for never-confirmed bookings.
+  // Only rendered when hasPriorConfirmation === false. On success the
+  // confirmation-status query is refetched so the button flips to "Resend".
+  const sendConfirmationMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentOperatorId) {
+        throw new Error('No operator selected.')
+      }
+      return sendConfirmation(currentOperatorId, row.id)
+    },
+    onSuccess: () => {
+      const customer = customerDisplay(row)
+      toast.success(t.bookings.sendConfirmation.toastSuccess(customer))
+      // Refetch so the "Send confirmation" button flips to "Resend confirmation".
+      void confirmationStatusQuery.refetch()
+      invalidateAll()
+    },
+    onError: (err: Error) => {
+      toast.error(t.bookings.sendConfirmation.toastError, {
+        description: err.message,
+      })
+    },
+  })
+
   // landr-irds — server-rendered invoice PDF download. Requires
   // currentOperatorId because the endpoint is operator-scoped
   // (/api/staff/operators/{op}/bookings/{id}/invoice.pdf). Cache
@@ -521,7 +546,8 @@ export function useBookingActions({
     markPaidMutation.isPending ||
     clearOverrideMutation.isPending ||
     invoiceMutation.isPending ||
-    resendConfirmationMutation.isPending
+    resendConfirmationMutation.isPending ||
+    sendConfirmationMutation.isPending
 
   // landr-puix — Clear-override visibility. Gated on currentOperatorId
   // too (the DELETE route is operator-scoped), mirroring the no-show /
@@ -540,6 +566,7 @@ export function useBookingActions({
     clearOverrideMutation,
     invoiceMutation,
     resendConfirmationMutation,
+    sendConfirmationMutation,
     confirmationStatusQuery,
     busy,
     showClearOverride,
