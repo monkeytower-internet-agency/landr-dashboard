@@ -22,7 +22,6 @@ import {
   MonitorIcon,
   PackageIcon,
   PaletteIcon,
-  PlugIcon,
   SendIcon,
   SlidersHorizontalIcon,
   SmartphoneIcon,
@@ -73,14 +72,9 @@ export const ACCOUNT_SECTIONS: SettingsSubSection[] = [
     label: t.settingsHub.sections.security,
     icon: KeyRoundIcon,
   },
-  {
-    to: '/account/integrations/gmail',
-    label: t.settingsHub.sections.integrationsGmail,
-    icon: PlugIcon,
-  },
-  // landr-resend-sender — per-operator Resend sending domain. Sits next to
-  // Gmail because both control where the operator's booking emails send
-  // from; this is the domain-based successor to the Gmail OAuth integration.
+  // landr-resend-sender — per-operator SES sending domain: the operator
+  // connects their own domain so booking emails send from it. (Replaced the
+  // removed Gmail OAuth integration.)
   {
     to: '/account/integrations/email-sender',
     label: t.settingsHub.sections.emailSender,
@@ -315,21 +309,15 @@ export const STAFF_SECTIONS: SettingsSubSection[] = [
 // Set of all URL prefixes that belong to ACCOUNT — used by the sub-
 // sidebar to decide which group's section list to render. Cheap O(1)
 // lookup avoids dragging the full ACCOUNT_SECTIONS list into the layout.
-const ACCOUNT_PATHS = new Set(ACCOUNT_SECTIONS.map((s) => s.to))
-
 /**
  * Decide whether `pathname` belongs to the Account group or the Settings
- * group. Defaults to Settings for unknown paths — the Settings list is
- * the larger/safer default surface to render in that edge case.
+ * group. Anything under the /account/* URL tree (incl. deeper segments such
+ * as an integration's oauth-callback) is Account; everything else is Settings.
  */
 export function groupForPath(
   pathname: string,
 ): 'account' | 'settings' {
-  // Exact match on a known account path, OR a deeper segment under it
-  // (e.g. /account/integrations/gmail/oauth-callback).
-  for (const p of ACCOUNT_PATHS) {
-    if (pathname === p || pathname.startsWith(`${p}/`)) return 'account'
-  }
+  if (pathname === '/account' || pathname.startsWith('/account/')) return 'account'
   return 'settings'
 }
 

@@ -625,8 +625,8 @@ export const t = {
     introBody:
       'Booking emails currently send from a Landr address. Connect your own domain so confirmations, reminders, and updates arrive from you — better deliverability and a more professional look.',
     domainLabel: 'Sending domain',
-    domainHint: 'The root domain you own, e.g. para42.com — not a full email address.',
-    domainPlaceholder: 'para42.com',
+    domainHint: 'The root domain you own, e.g. example.com — not a full email address.',
+    domainPlaceholder: 'example.com',
     localPartLabel: 'From address (optional)',
     localPartHint: 'The part before the @. Defaults to “bookings”.',
     localPartPlaceholder: 'bookings',
@@ -642,7 +642,7 @@ export const t = {
     setupSubmitting: 'Setting up…',
     setupError: 'Could not set up sending domain',
     domainRequired: 'Enter the domain you want to send from.',
-    domainInvalid: 'That doesn’t look like a domain. Use something like para42.com.',
+    domainInvalid: 'That doesn’t look like a domain. Use something like example.com.',
 
     // --- After setup: DNS records ---
     autodnsTitle: 'Records added automatically — verifying…',
