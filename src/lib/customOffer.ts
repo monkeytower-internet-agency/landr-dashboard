@@ -22,6 +22,9 @@ export type CustomOfferLine = {
   booking_participant_id: string | null
   label: string | null
   unit_price: string
+  // landr-uvfg.2: regular per-participant price from the pricing scheme.
+  // Null when the line has no booking_participant link.
+  regular_unit_price: string | null
   is_free: boolean
   sort_order: number
   notes: string | null

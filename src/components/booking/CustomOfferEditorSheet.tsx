@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, RotateCcw, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -48,6 +48,9 @@ type DraftLine = {
   isFree: boolean
   // Carried through so an existing participant link survives a re-save.
   participantId: string | null
+  // landr-uvfg.3: regular per-participant price from the pricing scheme.
+  // Null when the server returned no regular price for this line.
+  regularUnitPrice: string | null
 }
 
 let _keySeq = 0
@@ -108,6 +111,8 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
   const [seeded, setSeeded] = useState(false)
 
   // Seed the form from the loaded offer exactly once.
+  // landr-uvfg.3: when T2 returns participant-seeded lines, they already
+  // carry label + participantId + regularUnitPrice — prefill just works.
   if (!seeded && data) {
     const seededLines: DraftLine[] = data.lines.length
       ? data.lines.map((ln) => ({
@@ -116,8 +121,9 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
           unitPrice: ln.is_free ? '0' : ln.unit_price,
           isFree: ln.is_free,
           participantId: ln.booking_participant_id,
+          regularUnitPrice: ln.regular_unit_price ?? null,
         }))
-      : [{ key: nextKey(), label: '', unitPrice: '0', isFree: false, participantId: null }]
+      : [{ key: nextKey(), label: '', unitPrice: '0', isFree: false, participantId: null, regularUnitPrice: null }]
     setLines(seededLines)
     if (data.group_threshold != null) setThreshold(String(data.group_threshold))
     if (data.group_discount_pct != null) {
@@ -198,11 +204,25 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
   function addLine() {
     setLines((cur) => [
       ...(cur ?? []),
-      { key: nextKey(), label: '', unitPrice: '0', isFree: false, participantId: null },
+      { key: nextKey(), label: '', unitPrice: '0', isFree: false, participantId: null, regularUnitPrice: null },
     ])
   }
   function removeLine(key: string) {
     setLines((cur) => (cur ?? []).filter((l) => l.key !== key))
+  }
+
+  // landr-uvfg.3: reset every linked non-free line to its regular price.
+  const hasAnyRegularPrice = effectiveLines.some(
+    (l) => l.regularUnitPrice != null && !l.isFree,
+  )
+  function resetAllToRegular() {
+    setLines((cur) =>
+      (cur ?? []).map((l) =>
+        l.regularUnitPrice != null && !l.isFree
+          ? { ...l, unitPrice: l.regularUnitPrice }
+          : l,
+      ),
+    )
   }
 
   if (isLoading) {
@@ -267,52 +287,79 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
           {effectiveLines.map((l) => (
             <div
               key={l.key}
-              className="flex items-center gap-2 rounded-md border p-2"
+              className="flex flex-col gap-1 rounded-md border p-2"
               data-testid="custom-offer-line"
             >
-              <Input
-                value={l.label}
-                onChange={(e) => updateLine(l.key, { label: e.target.value })}
-                placeholder={t.bookings.customOffer.linePlaceholder}
-                disabled={busy}
-                className="flex-1"
-                aria-label={t.bookings.customOffer.linePlaceholder}
-              />
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                value={l.isFree ? '0' : l.unitPrice}
-                onChange={(e) => updateLine(l.key, { unitPrice: e.target.value })}
-                disabled={busy || l.isFree}
-                className="w-24"
-                aria-label={t.bookings.customOffer.priceLabel}
-                data-testid="custom-offer-line-price"
-              />
-              <label className="flex items-center gap-1 text-xs whitespace-nowrap">
-                <Checkbox
-                  checked={l.isFree}
-                  onChange={(e) =>
-                    updateLine(l.key, {
-                      isFree: e.target.checked,
-                      unitPrice: e.target.checked ? '0' : l.unitPrice,
-                    })
-                  }
+              <div className="flex items-center gap-2">
+                <Input
+                  value={l.label}
+                  onChange={(e) => updateLine(l.key, { label: e.target.value })}
+                  placeholder={t.bookings.customOffer.linePlaceholder}
                   disabled={busy}
-                  data-testid="custom-offer-line-free"
+                  className="flex-1"
+                  aria-label={t.bookings.customOffer.linePlaceholder}
+                  data-testid="custom-offer-line-label"
                 />
-                {t.bookings.customOffer.freeLabel}
-              </label>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => removeLine(l.key)}
-                disabled={busy}
-                aria-label={t.bookings.customOffer.removeLine}
-              >
-                <Trash2 className="size-4" />
-              </Button>
+                <div className="flex flex-col items-end gap-0.5">
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={l.isFree ? '0' : l.unitPrice}
+                    onChange={(e) => updateLine(l.key, { unitPrice: e.target.value })}
+                    disabled={busy || l.isFree}
+                    className="w-24"
+                    aria-label={t.bookings.customOffer.priceLabel}
+                    data-testid="custom-offer-line-price"
+                  />
+                  {l.regularUnitPrice != null && (
+                    <span
+                      className="text-muted-foreground text-xs"
+                      data-testid="custom-offer-line-regular-price"
+                    >
+                      {t.bookings.customOffer.regularPrice}: {Number(l.regularUnitPrice).toFixed(2)}
+                    </span>
+                  )}
+                </div>
+                {l.regularUnitPrice != null && !l.isFree && (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => updateLine(l.key, { unitPrice: l.regularUnitPrice! })}
+                    disabled={busy}
+                    aria-label={t.bookings.customOffer.resetToRegular}
+                    title={t.bookings.customOffer.resetToRegular}
+                    data-testid="custom-offer-line-reset"
+                  >
+                    <RotateCcw className="size-4" />
+                  </Button>
+                )}
+                <label className="flex items-center gap-1 text-xs whitespace-nowrap">
+                  <Checkbox
+                    checked={l.isFree}
+                    onChange={(e) =>
+                      updateLine(l.key, {
+                        isFree: e.target.checked,
+                        unitPrice: e.target.checked ? '0' : l.unitPrice,
+                      })
+                    }
+                    disabled={busy}
+                    data-testid="custom-offer-line-free"
+                  />
+                  {t.bookings.customOffer.freeLabel}
+                </label>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => removeLine(l.key)}
+                  disabled={busy}
+                  aria-label={t.bookings.customOffer.removeLine}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
             </div>
           ))}
           <p className="text-muted-foreground text-xs">
@@ -402,19 +449,32 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
         'flex flex-row items-center justify-between gap-2 border-t pt-3',
         isMobile ? mobileSheetFooter : 'px-4 py-3',
       )}>
-        {data.custom_offer_applied ? (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => clearMutation.mutate()}
-            disabled={busy}
-            data-testid="custom-offer-clear"
-          >
-            {clearMutation.isPending ? t.bookings.detail.saving : t.bookings.customOffer.clear}
-          </Button>
-        ) : (
-          <span />
-        )}
+        <div className="flex items-center gap-2">
+          {data.custom_offer_applied ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => clearMutation.mutate()}
+              disabled={busy}
+              data-testid="custom-offer-clear"
+            >
+              {clearMutation.isPending ? t.bookings.detail.saving : t.bookings.customOffer.clear}
+            </Button>
+          ) : null}
+          {hasAnyRegularPrice && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={resetAllToRegular}
+              disabled={busy}
+              data-testid="custom-offer-reset-all"
+            >
+              <RotateCcw className="size-4 mr-1" />
+              {t.bookings.customOffer.resetAllToRegular}
+            </Button>
+          )}
+          {!data.custom_offer_applied && !hasAnyRegularPrice && <span />}
+        </div>
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
             {t.bookings.customOffer.cancel}

@@ -1361,6 +1361,9 @@ export const t = {
       saved: 'Custom offer applied.',
       cleared: 'Custom offer cleared.',
       saveFailed: 'Could not save the custom offer.',
+      regularPrice: 'Regular',
+      resetToRegular: 'Reset to regular',
+      resetAllToRegular: 'Reset all to regular',
     },
     detail: {
       sectionStatus: 'Status',
