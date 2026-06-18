@@ -640,6 +640,7 @@ export const t = {
       'You’ll add a few DNS records at your provider — we’ll show them after you continue.',
     setupButton: 'Set up',
     setupSubmitting: 'Setting up…',
+    setupSuccess: 'Sending domain set up — we’re verifying it now. ✨',
     setupError: 'Could not set up sending domain',
     domainRequired: 'Enter the domain you want to send from.',
     domainInvalid: 'That doesn’t look like a domain. Use something like example.com.',
