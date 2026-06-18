@@ -3,7 +3,7 @@
  *
  * Tests the SetupForm's new affordance: clicking "Check domain" calls
  * fetchEmailSenderEligibility and shows an inline hint below the domain input.
- *   path='auto'   → green "This domain is in our network…" hint
+ *   path='auto'   → green "your domain is already hosted with us…" hint
  *   path='manual' → muted "You'll add a few DNS records…" hint
  *
  * The existing setup flow (domain submit → POST /setup) is not tested here;

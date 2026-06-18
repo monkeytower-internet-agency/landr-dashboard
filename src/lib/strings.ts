@@ -635,7 +635,7 @@ export const t = {
     checkDomainButton: 'Check domain',
     checkDomainChecking: 'Checking…',
     checkDomainHintAuto:
-      'This domain is in our network — we’ll set it up automatically.',
+      'Good news — your domain is already hosted with us, so we’ll set up email automatically. No DNS changes on your side. ✨',
     checkDomainHintManual:
       'You’ll add a few DNS records at your provider — we’ll show them after you continue.',
     setupButton: 'Set up',
@@ -645,9 +645,9 @@ export const t = {
     domainInvalid: 'That doesn’t look like a domain. Use something like example.com.',
 
     // --- After setup: DNS records ---
-    autodnsTitle: 'Records added automatically — verifying…',
+    autodnsTitle: 'Hosted with us — records added automatically ✨',
     autodnsBody:
-      'We added the required DNS records to your zone for you. Verification with Resend usually completes within a few minutes.',
+      'Because your domain is hosted with us, we added your DKIM records for you — no DNS changes needed on your side. A perk of being a customer! Verification usually completes within a few minutes.',
     manualTitle: 'Add these DNS records',
     manualBody:
       'Add the records below to your domain’s DNS, then click Verify. Changes can take a few minutes to propagate.',
