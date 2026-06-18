@@ -22,6 +22,9 @@ export type CustomOfferLine = {
   booking_participant_id: string | null
   label: string | null
   unit_price: string
+  // landr-uvfg.2: regular per-participant price from the pricing scheme.
+  // Null when the line has no booking_participant link.
+  regular_unit_price: string | null
   is_free: boolean
   sort_order: number
   notes: string | null
@@ -84,4 +87,27 @@ export async function clearCustomOffer(
   bookingId: string,
 ): Promise<CustomOffer> {
   return api<CustomOffer>('DELETE', base(operatorId, bookingId))
+}
+
+// ── landr-uvfg.4 ─────────────────────────────────────────────────────────────
+
+export type SendOfferResponse = {
+  ok: boolean
+  sent_to: string
+  token_preview: string
+}
+
+/**
+ * Send the custom offer email to the customer (landr-uvfg.4).
+ * POST /api/staff/operators/{op}/bookings/{id}/send-offer
+ * Requires custom_offer_applied=true on the booking; returns {ok, sent_to}.
+ */
+export async function sendOffer(
+  operatorId: string,
+  bookingId: string,
+): Promise<SendOfferResponse> {
+  return api<SendOfferResponse>(
+    'POST',
+    `/api/staff/operators/${operatorId}/bookings/${bookingId}/send-offer`,
+  )
 }

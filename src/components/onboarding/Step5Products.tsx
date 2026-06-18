@@ -30,7 +30,7 @@ type Props = {
 }
 
 type Template = {
-  key: 'guided' | 'course' | 'hotel'
+  key: 'guided' | 'course' | 'hotel' | 'tandem'
   name: string
   description: string
   // All onboarding templates are service products today (landr-5eb).
@@ -73,6 +73,16 @@ const TEMPLATES: ReadonlyArray<Template> = [
     needs_provider: true,
     needs_pickup: true,
   },
+  {
+    key: 'tandem',
+    name: 'Tandem flight',
+    description: 'Single tandem flight, time-slot bookable with a pilot.',
+    service_time_shape: 'time_slot',
+    is_contiguous: false,
+    duration_minutes: 20,
+    needs_provider: true,
+    needs_pickup: true,
+  },
 ]
 
 function templateLabel(key: Template['key']): string {
@@ -83,6 +93,8 @@ function templateLabel(key: Template['key']): string {
       return t.onboarding.step5.templateCourse
     case 'hotel':
       return t.onboarding.step5.templateHotel
+    case 'tandem':
+      return t.onboarding.step5.templateTandem
   }
 }
 
@@ -94,6 +106,8 @@ function templateDesc(key: Template['key']): string {
       return t.onboarding.step5.templateCourseDesc
     case 'hotel':
       return t.onboarding.step5.templateHotelDesc
+    case 'tandem':
+      return t.onboarding.step5.templateTandemDesc
   }
 }
 

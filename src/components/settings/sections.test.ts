@@ -65,12 +65,11 @@ describe('ACCOUNT_SECTIONS (landr-fzcg)', () => {
   // manage how the operator authenticates into the dashboard.
   // landr-resend-sender — Email sending added after Gmail (per-operator Resend
   // sending domain; the domain-based successor to the Gmail OAuth integration).
-  it('contains exactly company/connected/security/gmail/email-sender/calendar/payments/plan/notifications in that order', () => {
+  it('contains exactly company/connected/security/email-sender/calendar/payments/plan/notifications in that order', () => {
     expect(ACCOUNT_SECTIONS.map((s) => s.to)).toEqual([
       '/account/company',
       '/account/connected-accounts',
       '/account/security',
-      '/account/integrations/gmail',
       '/account/integrations/email-sender',
       '/account/integrations/calendar',
       '/account/integrations/payments',
@@ -247,7 +246,7 @@ describe('groupForPath() (landr-fzcg)', () => {
   })
 
   it('routes account-group deeper URLs to "account"', () => {
-    expect(groupForPath('/account/integrations/gmail/oauth-callback')).toBe(
+    expect(groupForPath('/account/integrations/email-sender/oauth-callback')).toBe(
       'account',
     )
     expect(groupForPath('/account/connected-accounts/google')).toBe('account')
