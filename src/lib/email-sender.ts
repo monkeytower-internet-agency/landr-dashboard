@@ -184,6 +184,13 @@ export function useSetupEmailSender(operatorId: string | null) {
     onSuccess: (config) => {
       qc.setQueryData(EMAIL_SENDER_QUERY_KEY(operatorId), config)
     },
+    // Always refetch the config after the attempt settles. Setup can take a
+    // few seconds (SES identity create + DNS provisioning); on a flaky link the
+    // POST may commit server-side while the client never sees the response —
+    // without this the UI would sit on the setup form until a manual reload.
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: EMAIL_SENDER_QUERY_KEY(operatorId) })
+    },
   })
 }
 
@@ -194,6 +201,9 @@ export function useVerifyEmailSender(operatorId: string | null) {
     mutationFn: () => verifyEmailSender(),
     onSuccess: (config) => {
       qc.setQueryData(EMAIL_SENDER_QUERY_KEY(operatorId), config)
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: EMAIL_SENDER_QUERY_KEY(operatorId) })
     },
   })
 }
