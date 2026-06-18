@@ -203,6 +203,9 @@ function SetupForm({ operatorId }: { operatorId: string }) {
         ...(trimmedLocal ? { from_local_part: trimmedLocal } : {}),
       },
       {
+        onSuccess: () => {
+          toast.success(t.emailSenderSettings.setupSuccess)
+        },
         onError: (err: Error) => {
           toast.error(t.emailSenderSettings.setupError, {
             description: err.message,
