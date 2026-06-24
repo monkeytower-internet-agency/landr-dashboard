@@ -203,8 +203,14 @@ function SetupForm({ operatorId }: { operatorId: string }) {
         ...(trimmedLocal ? { from_local_part: trimmedLocal } : {}),
       },
       {
-        onSuccess: () => {
-          toast.success(t.emailSenderSettings.setupSuccess)
+        // Outcome-aware: a domain hosted with us can come back already
+        // verified (auto-DNS), while a manual domain comes back 'pending'.
+        onSuccess: (config) => {
+          if (config.verification_status === 'verified') {
+            toast.success(t.emailSenderSettings.setupVerified)
+          } else {
+            toast.success(t.emailSenderSettings.setupSuccess)
+          }
         },
         onError: (err: Error) => {
           toast.error(t.emailSenderSettings.setupError, {
@@ -354,6 +360,18 @@ function ConfiguredView({
 
   function handleVerify() {
     verify.mutate(undefined, {
+      // Outcome-aware feedback (the re-verify button previously gave none):
+      // verified → success; still pending → an info toast that explains the
+      // wait (polling continues automatically); failed → error.
+      onSuccess: (config) => {
+        if (config.verification_status === 'verified') {
+          toast.success(t.emailSenderSettings.verifySuccess)
+        } else if (config.verification_status === 'failed') {
+          toast.error(t.emailSenderSettings.verifyError)
+        } else {
+          toast.info(t.emailSenderSettings.verifyPending)
+        }
+      },
       onError: (err: Error) => {
         toast.error(t.emailSenderSettings.verifyError, {
           description: err.message,

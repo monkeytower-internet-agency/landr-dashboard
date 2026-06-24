@@ -641,6 +641,7 @@ export const t = {
     setupButton: 'Set up',
     setupSubmitting: 'Setting up…',
     setupSuccess: 'Sending domain set up — we’re verifying it now. ✨',
+    setupVerified: 'Sending domain set up and verified. ✅',
     setupError: 'Could not set up sending domain',
     domainRequired: 'Enter the domain you want to send from.',
     domainInvalid: 'That doesn’t look like a domain. Use something like example.com.',
@@ -668,6 +669,9 @@ export const t = {
     recheckButton: 'Re-check',
     verifying: 'Verifying…',
     verifyError: 'Verification failed',
+    verifySuccess: 'Domain verified — you can now send email. ✅',
+    verifyPending:
+      'Still verifying — DNS can take a few minutes to propagate. We’ll keep checking automatically.',
 
     // --- Configured: status + active From ---
     statusVerified: 'Verified',
