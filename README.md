@@ -35,6 +35,7 @@ Dev Supabase: Studio at `https://supabase.dev.landr.de` · Kong API at `https://
 | `npm run lint`     | ESLint flat config                     |
 | `npm test`         | Vitest (jsdom + Testing Library)       |
 | `npm run preview`  | Serve the built `dist/` locally        |
+| `npm run gen:types`| Regenerate `src/types/database.gen.ts` from the local Supabase stack (landr-api/supabase is the schema source of truth) |
 
 `src/components/ui/**` and `src/hooks/use-mobile.ts` are shadcn-managed and ignored by ESLint.
 
