@@ -29,11 +29,28 @@ const fetchSpy = vi.fn()
 vi.stubGlobal('fetch', fetchSpy)
 
 import {
+  ApiTimeoutError,
   AuthExpiredError,
+  REQUEST_TIMEOUT_MS,
   api,
   apiBase,
   registerSessionExpiredHandler,
 } from './api-client'
+
+/**
+ * Simulates a real `fetch` reacting to the `AbortSignal` passed by `api()` —
+ * the plain `vi.fn()` mock used elsewhere never resolves/rejects on its own,
+ * so timeout tests need a fetch stub that actually listens for `abort`.
+ */
+function neverResolvingUntilAborted(_url: string, opts: RequestInit) {
+  return new Promise<Response>((_resolve, reject) => {
+    opts.signal?.addEventListener('abort', () => {
+      const abortErr = new Error('The operation was aborted')
+      abortErr.name = 'AbortError'
+      reject(abortErr)
+    })
+  })
+}
 
 // ---------------------------------------------------------------------------
 
@@ -160,6 +177,54 @@ describe('api()', () => {
 
     await expect(api('GET', '/foo')).rejects.toThrow('Not authenticated')
     expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('aborts and throws ApiTimeoutError once the default 15s timeout elapses', async () => {
+    vi.useFakeTimers()
+    try {
+      fetchSpy.mockImplementationOnce(neverResolvingUntilAborted)
+
+      const promise = api('GET', '/api/staff/slow')
+      const assertion = expect(promise).rejects.toBeInstanceOf(ApiTimeoutError)
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS)
+      await assertion
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not time out a request that resolves before the deadline', async () => {
+    vi.useFakeTimers()
+    try {
+      fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+      const result = await api('GET', '/api/staff/fast')
+      expect(result).toEqual({ ok: true })
+      // Advancing past the timeout afterwards must not blow up (timer was cleared).
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('respects a per-call timeoutMs override, firing before the 15s default', async () => {
+    vi.useFakeTimers()
+    try {
+      fetchSpy.mockImplementationOnce(neverResolvingUntilAborted)
+
+      const promise = api('GET', '/api/staff/slow', undefined, { timeoutMs: 100 })
+      const assertion = expect(promise).rejects.toBeInstanceOf(ApiTimeoutError)
+      await vi.advanceTimersByTimeAsync(100)
+      await assertion
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('propagates a plain network failure unchanged, distinguishable from a timeout', async () => {
+    const networkErr = new TypeError('Failed to fetch')
+    fetchSpy.mockRejectedValueOnce(networkErr)
+
+    await expect(api('GET', '/api/staff/unreachable')).rejects.toBe(networkErr)
   })
 })
 
