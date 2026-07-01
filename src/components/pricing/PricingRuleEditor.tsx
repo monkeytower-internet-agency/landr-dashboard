@@ -77,15 +77,46 @@ type ParamsEditorProps = {
   onPatch: (body: { params: Record<string, unknown> }) => void
 }
 
+// ---- engine params contract (landr-d2uy) --------------------------------
+//
+// The pricing ENGINE (landr-api/app/services/pricing.py) is the contract —
+// it reads these exact keys per rule_kind and nothing else. This editor
+// must WRITE only these keys. For back-compat display of rows that were
+// seeded/edited under the old (wrong) UI keys, reads fall back to the
+// legacy key so existing data doesn't render as blank/zero, but every
+// PATCH re-normalises the row onto the engine key.
+//
+//   fixed_total            -> amount                  (legacy: total)
+//   percentage_discount    -> percent                  (legacy: percentage)
+//   flat_discount          -> amount                   (no legacy alias)
+//   time_of_day_surcharge  -> window, surcharge_per_day (no legacy alias)
+//   manual_override        -> amount, reason           (no legacy alias)
+//
+// See PricingRuleEditor.contract.test.tsx, which pins this table against
+// the ParamsEditor's actual onPatch payloads per kind.
+
 function ParamsEditor({ rule, currency, onPatch }: ParamsEditorProps) {
   const kind: RuleKind = rule.rule_kind
-  const pctCurrent = (rule.params as { percentage?: number }).percentage ?? 0
-  const amtCurrent = (rule.params as { amount?: number }).amount ?? 0
-  const totCurrent = (rule.params as { total?: number }).total ?? 0
+  const params = rule.params as {
+    percent?: number
+    percentage?: number
+    amount?: number
+    total?: number
+    window?: string
+    surcharge_per_day?: number
+    reason?: string | null
+  }
+  const pctCurrent = params.percent ?? params.percentage ?? 0
+  const amtCurrent = params.amount ?? params.total ?? 0
+  const windowCurrent = params.window ?? ''
+  const surchargeCurrent = params.surcharge_per_day ?? 0
+  const reasonCurrent = params.reason ?? ''
 
   const [pctVal, setPctVal] = useState(String(pctCurrent))
   const [amtVal, setAmtVal] = useState(String(amtCurrent))
-  const [totVal, setTotVal] = useState(String(totCurrent))
+  const [windowVal, setWindowVal] = useState(windowCurrent)
+  const [surchargeVal, setSurchargeVal] = useState(String(surchargeCurrent))
+  const [reasonVal, setReasonVal] = useState(reasonCurrent)
 
   if (kind === 'percentage_discount') {
     return (
@@ -102,7 +133,8 @@ function ParamsEditor({ rule, currency, onPatch }: ParamsEditorProps) {
             const v = parseFloat(pctVal)
             if (isNaN(v) || v < 0 || v > 100) { setPctVal(String(pctCurrent)); return }
             if (v === pctCurrent) return
-            onPatch({ params: { percentage: v } })
+            // Engine key is `percent` (landr-d2uy) — never write `percentage`.
+            onPatch({ params: { percent: v } })
           }}
           type="number"
           min={0}
@@ -148,17 +180,97 @@ function ParamsEditor({ rule, currency, onPatch }: ParamsEditorProps) {
         <Input
           id={`param-${rule.id}`}
           className="h-7 w-28 text-sm"
-          value={totVal}
-          onChange={(e) => setTotVal(e.target.value)}
+          value={amtVal}
+          onChange={(e) => setAmtVal(e.target.value)}
           onBlur={() => {
-            const v = parseFloat(totVal)
-            if (isNaN(v) || v < 0) { setTotVal(String(totCurrent)); return }
-            if (v === totCurrent) return
-            onPatch({ params: { total: v } })
+            const v = parseFloat(amtVal)
+            if (isNaN(v) || v < 0) { setAmtVal(String(amtCurrent)); return }
+            if (v === amtCurrent) return
+            // Engine key is `amount` (landr-d2uy) — never write `total`.
+            onPatch({ params: { amount: v } })
           }}
           type="number"
           min={0}
           step={0.01}
+        />
+      </div>
+    )
+  }
+
+  if (kind === 'time_of_day_surcharge') {
+    return (
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Label htmlFor={`param-window-${rule.id}`} className="shrink-0 text-sm">
+          Window (HH:MM-HH:MM)
+        </Label>
+        <Input
+          id={`param-window-${rule.id}`}
+          className="h-7 w-32 text-sm"
+          value={windowVal}
+          placeholder="18:00-22:00"
+          onChange={(e) => setWindowVal(e.target.value)}
+          onBlur={() => {
+            const v = windowVal.trim()
+            if (v === windowCurrent) return
+            onPatch({ params: { window: v, surcharge_per_day: surchargeCurrent } })
+          }}
+        />
+        <Label htmlFor={`param-surcharge-${rule.id}`} className="shrink-0 text-sm">
+          Surcharge / day ({currency})
+        </Label>
+        <Input
+          id={`param-surcharge-${rule.id}`}
+          className="h-7 w-28 text-sm"
+          value={surchargeVal}
+          onChange={(e) => setSurchargeVal(e.target.value)}
+          onBlur={() => {
+            const v = parseFloat(surchargeVal)
+            if (isNaN(v) || v < 0) { setSurchargeVal(String(surchargeCurrent)); return }
+            if (v === surchargeCurrent) return
+            onPatch({ params: { window: windowCurrent, surcharge_per_day: v } })
+          }}
+          type="number"
+          min={0}
+          step={0.01}
+        />
+      </div>
+    )
+  }
+
+  if (kind === 'manual_override') {
+    return (
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Label htmlFor={`param-${rule.id}`} className="shrink-0 text-sm">
+          Override total ({currency})
+        </Label>
+        <Input
+          id={`param-${rule.id}`}
+          className="h-7 w-28 text-sm"
+          value={amtVal}
+          onChange={(e) => setAmtVal(e.target.value)}
+          onBlur={() => {
+            const v = parseFloat(amtVal)
+            if (isNaN(v) || v < 0) { setAmtVal(String(amtCurrent)); return }
+            if (v === amtCurrent) return
+            onPatch({ params: { amount: v, reason: reasonCurrent || null } })
+          }}
+          type="number"
+          min={0}
+          step={0.01}
+        />
+        <Label htmlFor={`param-reason-${rule.id}`} className="shrink-0 text-sm">
+          Reason
+        </Label>
+        <Input
+          id={`param-reason-${rule.id}`}
+          className="h-7 w-48 text-sm"
+          value={reasonVal}
+          onChange={(e) => setReasonVal(e.target.value)}
+          onBlur={() => {
+            const v = reasonVal.trim()
+            if (v === (reasonCurrent ?? '')) return
+            onPatch({ params: { amount: amtCurrent, reason: v || null } })
+          }}
         />
       </div>
     )

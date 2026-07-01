@@ -65,6 +65,8 @@ const RULE_KIND_OPTIONS: RuleKind[] = [
   'percentage_discount',
   'flat_discount',
   'fixed_total',
+  'time_of_day_surcharge',
+  'manual_override',
 ]
 
 export function PricingSchemeEditorSheet({ schemeId, operatorId, onClose }: Props) {

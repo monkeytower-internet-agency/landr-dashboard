@@ -128,10 +128,10 @@ export function consecutiveDays(startISO: string, count: number): string[] {
 /**
  * Human-readable label for a rule_kind. Mirrors RULE_KIND_LABELS in
  * src/lib/pricingSchemes.ts but adds the engine-internal kinds that
- * the editor doesn't expose (manual_override, voucher_*). We don't
- * import the editor's map directly so future kinds added on the
- * engine side surface gracefully (fall back to the raw kind string)
- * without requiring a coupled change in the editor enum.
+ * the editor doesn't expose (voucher_*, applied after the rule pipeline
+ * — see pricing.py). We don't import the editor's map directly so future
+ * kinds added on the engine side surface gracefully (fall back to the
+ * raw kind string) without requiring a coupled change in the editor enum.
  */
 export function ruleKindLabel(kind: string): string {
   const map: Record<string, string> = {
@@ -142,6 +142,7 @@ export function ruleKindLabel(kind: string): string {
     percentage_discount: 'Percentage discount',
     flat_discount: 'Flat discount',
     fixed_total: 'Fixed total',
+    time_of_day_surcharge: 'Time-of-day surcharge',
     manual_override: 'Manual override',
     voucher_percentage: 'Voucher (percentage)',
     voucher_flat: 'Voucher (flat)',

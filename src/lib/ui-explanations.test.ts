@@ -57,16 +57,18 @@ describe('EXPLANATIONS coverage', () => {
     expect(keys).toEqual(['general', 'hotel', 'secondary'])
   })
 
-  it('covers all 7 pricing rule kinds', () => {
+  it('covers all 9 pricing rule kinds (landr-d2uy: time_of_day_surcharge + manual_override added)', () => {
     const keys = Object.keys(EXPLANATIONS.ruleKind).sort()
     expect(keys).toEqual([
       'fixed_total',
       'flat_discount',
+      'manual_override',
       'per_day_base',
       'per_participant_tier',
       'per_streak_tier',
       'per_total_days_tier',
       'percentage_discount',
+      'time_of_day_surcharge',
     ])
   })
 })
