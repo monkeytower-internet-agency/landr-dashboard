@@ -21,10 +21,14 @@
 // state for display; it does NOT call the DB resolver directly.
 
 import { supabase } from '@/lib/supabase'
+import type { Enums } from '@/types/database.gen'
 
 // ---- Types ------------------------------------------------------------------
 
-export type DeliveryMode = 'immediate' | 'digest'
+// landr-52ik.5 — native Postgres enum (public.notification_delivery_mode);
+// derived from the generated schema instead of hand-declared so drift is
+// caught by tsc.
+export type DeliveryMode = Enums<'notification_delivery_mode'>
 
 /**
  * Global default notification preference row.

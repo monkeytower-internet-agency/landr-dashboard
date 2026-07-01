@@ -7,9 +7,14 @@ import { formatDateTime } from '@/lib/time-format'
 // landr-g2m5 — single source of truth for the product_kind enum lives in
 // lib/products.ts. Re-export here so existing `from '@/lib/bookings'`
 // consumers keep compiling without changes.
-import type { ProductKind } from '@/lib/products'
+//
+// landr-52ik.5 — service_time_shape joins the same pattern: both are native
+// Postgres enums derived (in lib/products.ts) from the generated schema, and
+// re-exported here rather than re-declared, so this file can't drift from
+// products.ts's copy.
+import type { ProductKind, ServiceTimeShape } from '@/lib/products'
 
-export type { ProductKind }
+export type { ProductKind, ServiceTimeShape }
 
 export type BookingSemanticState =
   | 'pending'
@@ -28,13 +33,6 @@ export type BookingSemanticState =
 //   blocked_on_human→ 'blocked'
 //   no row          → 'none'
 export type HoldedStatus = 'transferred' | 'pending' | 'failed' | 'blocked' | 'none'
-
-// Mirrors public.service_time_shape enum. NULL for non-service products.
-export type ServiceTimeShape =
-  | 'single_date'
-  | 'days_range'
-  | 'fixed_window'
-  | 'time_slot'
 
 // landr-lx7s — formerly `BookingItem`; renamed to `BookingProduct` to clear
 // the name collision with views-bookings-data.ts's `BookingItem = BookingRow`
