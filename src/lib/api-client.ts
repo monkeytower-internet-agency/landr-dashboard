@@ -12,13 +12,17 @@
  *   - 401 + "Invalid authentication credentials" interception: triggers the
  *     session-expired handler (registered by AuthProvider) and throws
  *     {@link AuthExpiredError} so callers can short-circuit cleanly.
+ *   - A hard per-request timeout (default 15s, matches landr-mobile's
+ *     src/lib/api.ts) via AbortController, so a hung/unreachable API host
+ *     fails fast with a distinguishable {@link ApiTimeoutError} instead of an
+ *     endless spinner. Override per call with `{ timeoutMs }`.
  *
  * The session-expired handler must be registered by the AuthProvider
  * (because it needs react-router's `navigate` + the toast UI). Until it
  * registers, 401s still throw `AuthExpiredError` — the user just doesn't
  * get auto-redirected. This keeps the module SSR-safe and dependency-free.
  *
- * landr-fr2.
+ * landr-fr2. Timeout + error taxonomy parity with landr-mobile: landr-y3oj.4.
  */
 
 import { supabase } from '@/lib/supabase'
@@ -32,6 +36,28 @@ export class AuthExpiredError extends Error {
     super(message)
     this.name = 'AuthExpiredError'
   }
+}
+
+/**
+ * Thrown when a request is aborted after exceeding its timeout budget
+ * (default {@link REQUEST_TIMEOUT_MS}, override via `options.timeoutMs`).
+ * Distinguishable from a plain network failure (offline/DNS/refused, which
+ * still surfaces as whatever `fetch` throws) so callers can show a
+ * "still trying to reach the server" message and/or retry.
+ */
+export class ApiTimeoutError extends Error {
+  constructor(message = 'Request timed out — check your connection and try again.') {
+    super(message)
+    this.name = 'ApiTimeoutError'
+  }
+}
+
+/** Per-request hard timeout (ms). Mirrors landr-mobile's REQUEST_TIMEOUT_MS. */
+export const REQUEST_TIMEOUT_MS = 15000
+
+export type ApiRequestOptions = {
+  /** Override the default 15s request timeout for this call. */
+  timeoutMs?: number
 }
 
 // --- session-expired handler registration ---------------------------------
@@ -99,14 +125,17 @@ function errorMessageFromDetail(detail: unknown, fallback: string): string {
  * @param method  HTTP method
  * @param path    Path beginning with `/` — joined to {@link apiBase}.
  * @param body    Optional payload — serialised as JSON for write methods.
+ * @param options Optional per-call overrides (currently: `timeoutMs`).
  * @returns Parsed JSON response (typed as `T`), or `undefined` cast to `T`
  *          for 204 No Content. Throws `AuthExpiredError` on 401-invalid-auth,
- *          or `Error` with the parsed server detail otherwise.
+ *          `ApiTimeoutError` if the request exceeds its timeout budget, or
+ *          `Error` with the parsed server detail otherwise.
  */
 export async function api<T = unknown>(
   method: HttpMethod,
   path: string,
   body?: unknown,
+  options?: ApiRequestOptions,
 ): Promise<T> {
   const token = await getBearerToken()
   const headers: Record<string, string> = {
@@ -115,11 +144,29 @@ export async function api<T = unknown>(
   const hasBody = body !== undefined && body !== null
   if (hasBody) headers['Content-Type'] = 'application/json'
 
-  const res = await fetch(`${apiBase()}${path}`, {
-    method,
-    headers,
-    body: hasBody ? JSON.stringify(body) : undefined,
-  })
+  const controller = new AbortController()
+  const timeoutMs = options?.timeoutMs ?? REQUEST_TIMEOUT_MS
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  let res: Response
+  try {
+    res = await fetch(`${apiBase()}${path}`, {
+      method,
+      headers,
+      body: hasBody ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    })
+  } catch (err) {
+    // AbortError is exclusively ours (only we hold `controller`) — anything
+    // else (offline, DNS, connection refused) is a genuine network failure
+    // and propagates unchanged, same as before this request carried a signal.
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new ApiTimeoutError()
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
 
   if (res.status === 401) {
     const detail = await res
