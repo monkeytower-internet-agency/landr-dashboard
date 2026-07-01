@@ -97,13 +97,20 @@ function AppShellInner({ children }: { children: ReactNode }) {
               there's room). shrink-0 forces the flex-1 title to absorb all
               the shrinking instead, so every action stays on-screen. */}
           <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+            {/* landr-fd5m.1 — each right-cluster item below is wrapped in a
+                data-testid="topbar-item-<id>" measuring span. Pure markup in
+                this slice; slice .2 (use-topbar-overflow) attaches refs to
+                these wrappers to measure + priority-fold them. No fold
+                behavior changes here. */}
             {/* landr-hisw — deploy tier badge as env-switcher dropdown
                 (DEV/STAGING/PROD pill; shows on prod too so you can jump
                 back; nothing when VITE_DEPLOY_TIER is unset). Clicking the
                 chip opens a menu to jump to the same path on another tier's
                 dashboard. showProd ensures the chip is visible on prod;
                 switcher enables the dropdown behavior. */}
-            <TierBadge switcher showProd isStaff={effectiveIsStaff} />
+            <span className="flex items-center" data-testid="topbar-item-tier">
+              <TierBadge switcher showProd isStaff={effectiveIsStaff} />
+            </span>
             {/* landr-xen4 → landr-aoak.3 — "new booking (staff)" topbar
                 action. Opens a modal embedding the booking widget in an
                 iframe in STAFF mode (book on a customer's behalf; force-book
@@ -112,7 +119,9 @@ function AppShellInner({ children }: { children: ReactNode }) {
                 the staff-init postMessage targetOrigin, and the completion
                 origin-check all derive from the same env-matched widget host,
                 so the wrong-env/token CORS incident cannot recur. */}
-            <WidgetButton />
+            <span className="flex items-center" data-testid="topbar-item-widget">
+              <WidgetButton />
+            </span>
             {/* landr-3qkr.7 — overflow menu: below md, ThemeToggle + ReportFab
                 collapse into this single ellipsis trigger to reclaim ~64px in
                 the topbar right-cluster on 360px phones. ErrorHistoryBell stays
@@ -123,19 +132,29 @@ function AppShellInner({ children }: { children: ReactNode }) {
                 the topbar right-cluster so it's reachable from every
                 protected route without eating FAB real estate.
                 landr-3qkr.7 — hidden below md; surfaced via TopbarMoreMenu. */}
-            <ReportFab className="hidden min-[384px]:flex" />
+            <span className="flex items-center" data-testid="topbar-item-report">
+              <ReportFab className="hidden min-[384px]:flex" />
+            </span>
             {/* landr-40x0 — recent-errors history. Badge shows capture count;
                 dropdown lists errors with Copy + Report per row. Sits between
                 the feedback button and the notifications bell so error-capture
                 reads as part of the feedback-and-comms cluster. */}
-            <ErrorHistoryBell />
+            <span className="flex items-center" data-testid="topbar-item-errorbell">
+              <ErrorHistoryBell />
+            </span>
             {/* landr-8whx — bell sits next to the theme toggle so the
                 topbar reads left→right as: scope (operator) · title ·
                 quick-actions (feedback · errors · notifications · theme · account). */}
-            <NotificationsBell />
+            <span className="flex items-center" data-testid="topbar-item-notifbell">
+              <NotificationsBell />
+            </span>
             {/* landr-3qkr.7 — hidden below md; surfaced via TopbarMoreMenu. */}
-            <ThemeToggle className="hidden min-[384px]:flex" />
-            <UserMenu />
+            <span className="flex items-center" data-testid="topbar-item-theme">
+              <ThemeToggle className="hidden min-[384px]:flex" />
+            </span>
+            <span className="flex items-center" data-testid="topbar-item-usermenu">
+              <UserMenu />
+            </span>
           </div>
         </header>
         {/* landr-2soj — staff view-as banner. Sits directly under the topbar,

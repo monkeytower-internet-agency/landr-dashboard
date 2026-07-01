@@ -105,8 +105,9 @@ export function AppModeSwitcher() {
           className="gap-2"
         >
           <CurrentIcon className="size-4 opacity-80" aria-hidden />
-          <span className="max-w-[10rem] truncate">{current.label}</span>
-          <ChevronsUpDownIcon className="size-4 opacity-60" aria-hidden />
+          {/* landr-fd5m.1 — icon-only below sm; reclaims ~160px for staff topbar overflow */}
+          <span className="hidden max-w-[10rem] truncate sm:inline">{current.label}</span>
+          <ChevronsUpDownIcon className="hidden size-4 opacity-60 sm:inline" aria-hidden />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[16rem]">
