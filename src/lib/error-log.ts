@@ -11,6 +11,8 @@
 
 import { useSyncExternalStore } from 'react'
 
+import { reportErrorToSentry } from '@/lib/sentry'
+
 // ---- types ------------------------------------------------------------------
 
 export type ErrorEntry = {
@@ -52,6 +54,10 @@ export function addError(entry: Omit<ErrorEntry, 'id' | 'ts'>): ErrorEntry {
   }
   _errors = [full, ..._errors].slice(0, MAX_ERRORS)
   notify()
+  // landr-52ik.1 — forward every capture (captureError / notifyError /
+  // GlobalErrorCapture / RouteErrorBoundary all funnel through here) to
+  // Sentry. No-op when VITE_SENTRY_DSN is unset.
+  reportErrorToSentry(full.message, { detail: full.detail, context: full.context })
   return full
 }
 
