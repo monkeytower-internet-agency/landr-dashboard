@@ -28,6 +28,21 @@ vi.mock('@/hooks/use-mobile', () => ({
   MOBILE_BREAKPOINT: 768,
 }))
 
+// landr-fd5m.1 — mutable persona flags so both the pre-existing mobile-drawer
+// suite (ordinary operator) and the new staff-persona topbar suite below can
+// share one set of module mocks instead of two conflicting static ones.
+// Reset to the ordinary-operator defaults in beforeEach; staff tests flip
+// these before rendering.
+const { mock } = vi.hoisted(() => ({
+  mock: {
+    state: {
+      isLandrStaff: false,
+      effectiveIsStaff: false,
+      showModeSwitcher: false,
+    },
+  },
+}))
+
 // Same lightweight stubs the AppSidebar suite uses so the sidebar renders
 // without a full app shell (operator scope, saved views, auth, entitlements).
 vi.mock('@/lib/operator', () => ({
@@ -37,6 +52,13 @@ vi.mock('@/lib/operator', () => ({
     currentOperatorId: 'op-1',
     loading: false,
     switchOperator: () => {},
+    // landr-fd5m.1 — OperatorSwitcher's staff-only ViewAsSection reads these;
+    // empty/null keeps it a no-op for both personas here. ViewAsSection has
+    // its own dedicated coverage elsewhere.
+    staffOperators: [],
+    staffOperatorsLoading: false,
+    viewAsOperator: null,
+    enterViewAs: () => {},
   }),
 }))
 
@@ -63,10 +85,86 @@ vi.mock('@/lib/auth', () => ({
 vi.mock('@/lib/entitlements', () => ({
   useEntitlements: () => ({
     isEnabled: () => true,
-    isLandrStaff: false,
-    effectiveIsStaff: false,
+    isLandrStaff: mock.state.isLandrStaff,
+    effectiveIsStaff: mock.state.effectiveIsStaff,
     isLoading: false,
   }),
+}))
+
+// landr-fd5m.1 — AppModeSwitcher reads its own context rather than
+// entitlements directly; drive its staff gating off the same persona flag.
+vi.mock('@/lib/app-mode-context', () => ({
+  useAppMode: () => ({
+    mode: 'operator',
+    capabilities: {
+      is_staff: mock.state.showModeSwitcher,
+      is_owner: false,
+      can_triage_tickets: false,
+      can_admin_roles: false,
+      can_view_as_operator: mock.state.showModeSwitcher,
+      roles: [],
+    },
+    capabilitiesLoading: false,
+    showSwitcher: mock.state.showModeSwitcher,
+    enterOperatorMode: () => {},
+    enterTicketSystem: () => {},
+    enterViewAsMode: () => {},
+    viewAsPickerOpen: false,
+    closeViewAsPicker: () => {},
+  }),
+}))
+
+// landr-fd5m.1 — the remaining right-cluster + dialog/banner chrome each pull
+// their own providers/queries (realtime, error-log, config-health, embed
+// token…) and each already has dedicated test coverage of its own. Stub them
+// to testid-bearing placeholders here so this suite stays focused on what
+// AppShell itself is responsible for: wiring the right components into the
+// right topbar-item-* wrappers for a given persona. Mirrors the same
+// stubbing convention TicketSystemShell.test.tsx uses for the same chrome.
+vi.mock('@/components/TierBadge', () => ({
+  TierBadge: () => <div data-testid="tier-badge-stub" />,
+}))
+vi.mock('@/components/WidgetButton', () => ({
+  WidgetButton: () => <div data-testid="widget-button-stub" />,
+}))
+vi.mock('@/components/ReportFab', () => ({
+  ReportFab: () => <div data-testid="report-fab-stub" />,
+}))
+vi.mock('@/components/ErrorHistoryBell', () => ({
+  ErrorHistoryBell: () => <div data-testid="error-history-bell-stub" />,
+}))
+vi.mock('@/components/NotificationsBell', () => ({
+  NotificationsBell: () => <div data-testid="notifications-bell-stub" />,
+}))
+vi.mock('@/components/ThemeToggle', () => ({
+  ThemeToggle: () => <div data-testid="theme-toggle-stub" />,
+}))
+vi.mock('@/components/UserMenu', () => ({
+  UserMenu: () => <div data-testid="user-menu-stub" />,
+}))
+vi.mock('@/components/topbar/TopbarMoreMenu', () => ({
+  TopbarMoreMenu: () => <div data-testid="topbar-more-menu-stub" />,
+}))
+vi.mock('@/components/ConfigHealthBanners', () => ({
+  ConfigHealthBanners: () => null,
+}))
+vi.mock('@/components/OnboardingBanner', () => ({
+  OnboardingBanner: () => null,
+}))
+vi.mock('@/components/ViewAsBanner', () => ({
+  ViewAsBanner: () => null,
+}))
+vi.mock('@/components/ViewAsOperatorPicker', () => ({
+  ViewAsOperatorPicker: () => null,
+}))
+vi.mock('@/components/CommandPalette', () => ({
+  CommandPalette: () => null,
+}))
+vi.mock('@/components/KeyboardShortcutsHelp', () => ({
+  KeyboardShortcutsHelp: () => null,
+}))
+vi.mock('@/components/GlobalErrorCapture', () => ({
+  GlobalErrorCapture: () => null,
 }))
 
 import { AppSidebar } from './AppSidebar'
@@ -77,6 +175,7 @@ import {
 } from '@/components/ui/sidebar'
 import { SidebarModeProvider } from '@/lib/sidebar-mode-context'
 import { landingPathFor } from '@/components/settings/sections'
+import { AppShell } from './AppShell'
 
 // Mirror of AppShell's mobile-relevant wiring: provider + sidebar (drawer on
 // mobile) + a topbar trigger inside the inset. This is the surface the slice
@@ -106,6 +205,11 @@ function renderMobileShell(initialPath = '/bookings') {
 
 beforeEach(() => {
   window.localStorage.clear()
+  // landr-fd5m.1 — default every test to the ordinary-operator persona;
+  // the staff-persona suite below opts in per test.
+  mock.state.isLandrStaff = false
+  mock.state.effectiveIsStaff = false
+  mock.state.showModeSwitcher = false
 })
 
 afterEach(() => {
@@ -175,5 +279,104 @@ describe('AppShell mobile drawer (landr-3qkr.1)', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull()
     })
+  })
+})
+
+// landr-fd5m.1 — full AppShell render (the real component, not the mobile-
+// drawer mirror above) so the staff-persona topbar cluster is under test.
+// Root cause: this suite previously only ever mocked `effectiveIsStaff:
+// false`, so the staff chrome (AppModeSwitcher + the wider right cluster it
+// pushes past the fold) was never exercised here — landr-3qkr's 360px QA
+// pass missed the staff overflow as a direct result. AppModeSwitcher and
+// OperatorSwitcher render for real (the two components this slice touches);
+// the rest of the right-cluster/banner/dialog chrome is stubbed to testid
+// placeholders — each has its own dedicated test file, so re-asserting their
+// internals here would just duplicate that coverage.
+function renderAppShell(initialPath = '/bookings') {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[initialPath]}>
+        <AppShell>
+          <div data-testid="page-content">content</div>
+        </AppShell>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+describe('AppShell topbar right cluster (landr-fd5m.1)', () => {
+  it('ordinary operators: no mode switcher, but every other cluster item is present', () => {
+    renderAppShell()
+
+    // Staff-only mode switch stays absent for non-staff — non-staff chrome
+    // is unchanged by this slice.
+    expect(screen.queryByTestId('app-mode-switcher-trigger')).toBeNull()
+
+    // The rest of the right cluster is unconditional — present regardless
+    // of persona — and each item is now measured via a topbar-item-*
+    // wrapper (slice .2 attaches refs to these; pure markup here).
+    for (const id of [
+      'tier',
+      'widget',
+      'report',
+      'errorbell',
+      'notifbell',
+      'theme',
+      'usermenu',
+    ]) {
+      expect(screen.getByTestId(`topbar-item-${id}`)).toBeInTheDocument()
+    }
+  })
+
+  it('staff persona: the full staff cluster renders — mode switcher, tier badge, both bells, user menu', () => {
+    mock.state.isLandrStaff = true
+    mock.state.effectiveIsStaff = true
+    mock.state.showModeSwitcher = true
+
+    renderAppShell()
+
+    // landr-7dya.10 — staff-only workspace mode switch. This is the control
+    // that silently disappeared off-screen pre-fix; its presence here is the
+    // whole point of this fixture.
+    expect(
+      screen.getByTestId('app-mode-switcher-trigger'),
+    ).toBeInTheDocument()
+
+    // Operator scope switcher (real component — staff always get the
+    // dropdown per landr-2soj, even with a single operator).
+    expect(
+      screen.getByRole('button', { name: /operator/i }),
+    ).toBeInTheDocument()
+
+    // Full right cluster, each in its measuring wrapper.
+    expect(screen.getByTestId('topbar-item-tier')).toBeInTheDocument()
+    expect(screen.getByTestId('topbar-item-widget')).toBeInTheDocument()
+    expect(screen.getByTestId('topbar-item-report')).toBeInTheDocument()
+    expect(screen.getByTestId('topbar-item-errorbell')).toBeInTheDocument()
+    expect(screen.getByTestId('topbar-item-notifbell')).toBeInTheDocument()
+    expect(screen.getByTestId('topbar-item-theme')).toBeInTheDocument()
+    expect(screen.getByTestId('topbar-item-usermenu')).toBeInTheDocument()
+
+    // NEVER-fold items (per the epic's fold order — ErrorHistoryBell +
+    // NotificationsBell own their own Radix DropdownMenus and UserMenu is
+    // the account exit hatch) are unconditionally reachable.
+    expect(
+      within(screen.getByTestId('topbar-item-errorbell')).getByTestId(
+        'error-history-bell-stub',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('topbar-item-notifbell')).getByTestId(
+        'notifications-bell-stub',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('topbar-item-usermenu')).getByTestId(
+        'user-menu-stub',
+      ),
+    ).toBeInTheDocument()
   })
 })
