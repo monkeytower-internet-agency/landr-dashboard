@@ -33,7 +33,7 @@
 //   <TierBadge switcher showProd isStaff={false} />  — non-staff: Dev omitted.
 
 import { cn } from '@/lib/utils'
-import { getTier, otherTiers, urlForTier, type DeployTier } from '@/lib/tier'
+import { getTier, otherTiers, urlForTier, TIER_DISPLAY, type DeployTier } from '@/lib/tier'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,12 +74,6 @@ const TIER_LABEL: Record<DeployTier, string> = {
   dev: 'DEV',
   staging: 'STAGING',
   prod: 'PROD',
-}
-
-const TIER_DISPLAY: Record<DeployTier, string> = {
-  dev: 'Dev',
-  staging: 'Staging',
-  prod: 'Prod',
 }
 
 const chipClass = (tier: DeployTier) =>
