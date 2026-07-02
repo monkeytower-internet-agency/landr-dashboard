@@ -31,6 +31,8 @@ import {
   type CustomOffer,
   type CustomOfferLineInput,
 } from '@/lib/customOffer'
+import { fetchOperator } from '@/lib/operatorSettings'
+import { OPERATOR_QUERY_KEY } from '@/routes/settings/_shared'
 import { invalidateBookingCaches } from '@/lib/bookings'
 import { t } from '@/lib/strings'
 
@@ -103,18 +105,37 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
     enabled: !!bookingId,
   })
 
+  // landr-c53m.1 — this operator's Custom Offer defaults (tax rate + group
+  // threshold), replacing the previous Para42-hardcoded initial state.
+  // Keyed on OPERATOR_QUERY_KEY so it dedupes with any concurrent Settings
+  // page query. Settled (success OR error) gates the seed below so a slow
+  // or failing operator fetch can't hang the offer form — the operator's
+  // own DB-column default (0/0, neutral) covers the error case too.
+  const operatorQuery = useQuery({
+    queryKey: OPERATOR_QUERY_KEY(operatorId),
+    queryFn: () => fetchOperator(operatorId),
+    enabled: !!operatorId,
+    staleTime: 60_000,
+  })
+  const operatorSettled = operatorQuery.isSuccess || operatorQuery.isError
+  const operatorGroupThreshold = operatorQuery.data?.group_discount_threshold ?? 0
+  const operatorTaxRate = operatorQuery.data?.default_tax_rate ?? 0
+
   // ---- Local draft state, seeded once from the server response --------
   const [lines, setLines] = useState<DraftLine[] | null>(null)
-  // Para42 contract defaults: discount when pax > 6, IGIC 7%.
-  const [threshold, setThreshold] = useState('6')
+  const [threshold, setThreshold] = useState('0')
   const [discountPct, setDiscountPct] = useState('0') // whole percent in the UI
-  const [taxPct, setTaxPct] = useState('7')
+  const [taxPct, setTaxPct] = useState('0')
   const [seeded, setSeeded] = useState(false)
 
-  // Seed the form from the loaded offer exactly once.
-  // landr-uvfg.3: when T2 returns participant-seeded lines, they already
-  // carry label + participantId + regularUnitPrice — prefill just works.
-  if (!seeded && data) {
+  // Seed the form from the loaded offer + this operator's config exactly
+  // once. landr-uvfg.3: when T2 returns participant-seeded lines, they
+  // already carry label + participantId + regularUnitPrice — prefill just
+  // works. landr-c53m.1: the offer never carries a saved tax_rate (only
+  // group_threshold/group_discount_pct), so taxPct always seeds from the
+  // operator's default_tax_rate; group_threshold falls back to the
+  // operator's group_discount_threshold only when no offer value exists.
+  if (!seeded && data && operatorSettled) {
     const seededLines: DraftLine[] = data.lines.length
       ? data.lines.map((ln) => ({
           key: nextKey(),
@@ -126,11 +147,12 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
         }))
       : [{ key: nextKey(), label: '', unitPrice: '0', isFree: false, participantId: null, regularUnitPrice: null }]
     setLines(seededLines)
-    if (data.group_threshold != null) setThreshold(String(data.group_threshold))
+    setThreshold(String(data.group_threshold ?? operatorGroupThreshold))
     if (data.group_discount_pct != null) {
       // server stores a fraction (0.10); UI shows whole percent (10).
       setDiscountPct(String(Math.round(Number(data.group_discount_pct) * 100)))
     }
+    setTaxPct(String(Math.round(operatorTaxRate * 100)))
     setSeeded(true)
   }
 
