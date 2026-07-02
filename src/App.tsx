@@ -98,6 +98,7 @@ import { OffersSettings } from '@/routes/settings/OffersSettings'
 import { EmbedSettings } from '@/routes/settings/EmbedSettings'
 import { NotificationPrefsSettings } from '@/routes/settings/NotificationPrefsSettings'
 import { AccountLinkSettings } from '@/routes/settings/AccountLinkSettings'
+import { DeclarationsSettings } from '@/routes/settings/DeclarationsSettings'
 import { OperationsSettings } from '@/routes/settings/OperationsSettings'
 import { WebhooksSettings } from '@/routes/settings/WebhooksSettings'
 // landr-71kz.5 — Settings → Forms library (CRUD).
@@ -423,6 +424,10 @@ function App() {
                 {/* landr-atwy — Settings → Account link prompt: per-operator
                     opt-in for the post-booking "Track in LANDR app" prompt. */}
                 <Route path="account-link" element={<AccountLinkSettings />} />
+                {/* landr-c53m.14 — Settings → Declarations: per-operator
+                    toggle for whether the booking-submit gate requires
+                    customers to accept declarations before booking. */}
+                <Route path="declarations" element={<DeclarationsSettings />} />
                 {/* landr-sbhz.5 — STAFF-ONLY tier/feature editor. Not gated by
                     the tenant entitlement system (like /audit it is Landr
                     tooling); TierSettings self-redirects non-staff to home and
