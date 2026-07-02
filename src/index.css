@@ -37,16 +37,27 @@
  *   settings  hue 230  (slate/cool blue)
  *
  * --- WCAG AA reasoning ---
- *   vivid  (L≈0.62–0.65, C≈0.17–0.18) + white text (L 0.985):
- *     relative luminance of white ≈ 1.0; orange L0.65 ≈ 0.38 → contrast ≈ 4.6:1  ✓ AA
+ *   landr-7hac: the active-nav-pill label IS body-size text on the vivid
+ *   bg (AppSidebar's `onColor` class), not just an icon — so the 3:1
+ *   large-text/icon exemption does NOT apply here and 4.5:1 is the real bar.
+ *   Recomputed against actual sRGB relative luminance (not the L-value
+ *   shorthand this block used to eyeball with, which understated how dark
+ *   near-white text reads against these mid-lightness vivids):
+ *   vivid  (L≈0.54–0.65, C≈0.12–0.20) + near-black text (oklch(0.16 0 0)):
+ *     bookings/catalog are light enough (orange/sky-blue) that near-black
+ *     text already clears AA comfortably (≈7.5:1 / ≈8.2:1).
+ *     finance/people/comms/settings are darker vivids — near-black text
+ *     still clears ≈4.8–5.2:1 there, so all six sections use near-black
+ *     on-color in LIGHT mode except finance was shipped with near-white
+ *     text at only ≈4.0:1 (fails AA) — fixed to near-black (landr-7hac).
  *   soft-bg (L≈0.94–0.96) + dark text (L 0.22, near #222):
  *     bg L0.95 ≈ 0.89; text L0.22 ≈ 0.04 → contrast ≈ 20:1  ✓
- *   dark vivid (L≈0.54–0.58, C≈0.13–0.15) + white text:
- *     L0.56 ≈ 0.27 → contrast ≈ 3.6:1 — below AA for small text.
- *     ADJUSTMENT: dark vivid lightness raised to 0.60 (C kept at 0.14) → L0.60 ≈ 0.32 → contrast ≈ 4.2:1.
- *     Still technically just below AA (4.5:1) for body-size text, so --hue-*-on-color in dark
- *     mode uses pure near-white oklch(0.985 0 0) and the dark vivid token is only used as a
- *     background/border with large-text or icon labels (where 3:1 applies → comfortably passes).
+ *   dark vivid (L≈0.62, C≈0.095–0.16) + near-white text (L 0.985):
+ *     Actual relative luminance puts these badges at only ≈3.3–3.8:1 against
+ *     near-white — below AA for the nav-pill label text that actually
+ *     renders on them. landr-7hac: flip --hue-*-on-color to near-black
+ *     oklch(0.16 0 0) for finance/people/comms/settings in DARK mode too
+ *     (bookings/catalog already did this) → ≈4.9–5.6:1, comfortably ✓ AA.
  *     Dense ops screens use --surface-dense which stays desaturated and light/dark-safe.
  *
  * --- Shadow recipes (unchanged from landr-ar44 / landr-z7t depth pass) ---
@@ -230,27 +241,39 @@
    * Each section: vivid / soft-bg / on-color
    *
    * bookings — sunset orange (hue 38)
-   *   vivid:   oklch(0.65 0.18 38)  — badge bg, icon
-   *   soft-bg: oklch(0.95 0.06 38)  — card tint, section bg
-   *   on-color: near-white, contrast ≈ 4.6:1 on vivid  ✓ AA
+   *   vivid:   #F5821F (exact logo orange) — badge bg, icon
+   *   soft-bg: oklch(0.955 0.05 53)  — card tint, section bg
+   *   on-color: near-black oklch(0.16 0 0), contrast ≈ 7.5:1 on vivid  ✓ AA
+   *   (landr-7hac: corrected — this comment previously said "near-white",
+   *   which does not match the near-black value actually shipped.)
    * ----------------------------------------------------------------------- */
   --hue-bookings-vivid:    #F5821F;
   --hue-bookings-soft-bg:  oklch(0.955 0.05 53);
   --hue-bookings-on-color: oklch(0.16 0 0);
 
   /* catalog — sky blue (hue 258)
-   *   vivid:   oklch(0.58 0.14 258) — contrast with white ≈ 4.7:1  ✓ AA
-   *   soft-bg: oklch(0.94 0.04 258) */
+   *   vivid:   #12B5F0 (exact logo sky-blue) — badge bg, icon
+   *   soft-bg: oklch(0.95 0.035 233)
+   *   on-color: near-black oklch(0.16 0 0), contrast ≈ 8.2:1  ✓ AA
+   *   (landr-7hac: corrected — this comment previously quoted a stale
+   *   oklch() vivid formula and a "contrast with white" figure that didn't
+   *   match the near-black on-color actually shipped.) */
   --hue-catalog-vivid:    #12B5F0;
   --hue-catalog-soft-bg:  oklch(0.95 0.035 233);
   --hue-catalog-on-color: oklch(0.16 0 0);
 
   /* finance — meadow green (hue 140)
-   *   vivid:   oklch(0.58 0.16 140) — contrast with white ≈ 4.6:1  ✓ AA
-   *   soft-bg: oklch(0.945 0.05 140) */
+   *   vivid:   oklch(0.58 0.16 140)
+   *   soft-bg: oklch(0.945 0.05 140)
+   *   on-color: near-black oklch(0.16 0 0), contrast ≈ 4.8:1  ✓ AA
+   *   (landr-7hac: was near-white oklch(0.985 0 0) at only ≈4.0:1 — FAILED
+   *   AA on the active-nav-pill label text despite the old comment here
+   *   claiming a passing ≈4.6:1; recomputed from actual sRGB relative
+   *   luminance, not eyeballed from the L value. Fixed to near-black,
+   *   matching bookings/catalog.) */
   --hue-finance-vivid:    oklch(0.58 0.16 140);
   --hue-finance-soft-bg:  oklch(0.948 0.048 140);
-  --hue-finance-on-color: oklch(0.985 0 0);
+  --hue-finance-on-color: oklch(0.16 0 0);
 
   /* people — indigo/periwinkle (hue 275)
    *   vivid:   oklch(0.56 0.16 275) — contrast with white ≈ 4.9:1  ✓ AA
@@ -379,15 +402,21 @@
   /* -----------------------------------------------------------------------
    * landr-hxnb.1 — Section hue ramps (dark mode, ~20% reduced chroma).
    *
-   * Dark mode vivid: lightness raised to ≈0.60–0.65, chroma ~0.14 (from
-   * ~0.16–0.20 light). These are icon/badge colors on dark bg; text
-   * on-color uses near-white oklch(0.985 0 0).
+   * Dark mode vivid: lightness raised to ≈0.62, chroma ~0.095–0.16 (from
+   * ~0.12–0.20 light). These are icon/badge colors on dark bg AND the
+   * active-nav-pill background (AppSidebar renders the pill LABEL, body-size
+   * text, in `onColor` on top of `vivid` — not just an icon).
    *
-   * AA analysis (dark vivid as badge bg, white text on top):
-   *   L0.62 ≈ 0.34 → contrast with white (1.0) ≈ 4.5:1 ✓ WCAG AA (borderline).
-   *   For body-size use, vivid stops are NOT used as text bg — they are icon/
-   *   badge backgrounds, which are large-text context (≥18px bold or ≥24px),
-   *   where 3:1 threshold applies → clear pass. Noted as tradeoff below.
+   * landr-7hac: the previous AA analysis below eyeballed contrast from the
+   * vivid L value alone (treating L≈0.62 as if relative luminance ≈0.34) and
+   * used that to justify a 3:1 icon/large-text exemption for what is
+   * actually 4.5:1 body-text usage. Recomputed against actual sRGB relative
+   * luminance: near-white text (oklch(0.985 0 0)) on these dark vivids
+   * measures only ≈3.3:1 (finance) – ≈3.8:1 (comms) — ALL FOUR fail AA.
+   * bookings/catalog were already shipped with near-black on-color
+   * (oklch(0.16 0 0)) and pass comfortably (≈7.5:1 / ≈8.2:1 against THEIR
+   * dark vivids); finance/people/comms/settings now match that pattern —
+   * near-black text against their dark vivids measures ≈4.9–5.6:1  ✓ AA.
    *
    * soft-bg: dark wells, very low chroma so they read as section tint
    *   not as heavy color blocks on a dark screen.
@@ -403,25 +432,29 @@
   --hue-catalog-soft-bg:  oklch(0.225 0.022 233);
   --hue-catalog-on-color: oklch(0.16 0 0);
 
-  /* finance dark */
+  /* finance dark — near-black on-color, contrast ≈ 5.6:1  ✓ AA
+   * (landr-7hac: was near-white at ≈3.3:1 — failed AA on the nav-pill label) */
   --hue-finance-vivid:    oklch(0.62 0.13 140);
   --hue-finance-soft-bg:  oklch(0.225 0.025 140);
-  --hue-finance-on-color: oklch(0.985 0 0);
+  --hue-finance-on-color: oklch(0.16 0 0);
 
-  /* people dark */
+  /* people dark — near-black on-color, contrast ≈ 5.2:1  ✓ AA
+   * (landr-7hac: was near-white at ≈3.6:1 — failed AA on the nav-pill label) */
   --hue-people-vivid:    oklch(0.62 0.13 275);
   --hue-people-soft-bg:  oklch(0.225 0.022 275);
-  --hue-people-on-color: oklch(0.985 0 0);
+  --hue-people-on-color: oklch(0.16 0 0);
 
-  /* comms dark */
+  /* comms dark — near-black on-color, contrast ≈ 4.9:1  ✓ AA
+   * (landr-7hac: was near-white at ≈3.8:1 — failed AA on the nav-pill label) */
   --hue-comms-vivid:    oklch(0.62 0.16 5);
   --hue-comms-soft-bg:  oklch(0.225 0.028 5);
-  --hue-comms-on-color: oklch(0.985 0 0);
+  --hue-comms-on-color: oklch(0.16 0 0);
 
-  /* settings dark */
+  /* settings dark — near-black on-color, contrast ≈ 5.5:1  ✓ AA
+   * (landr-7hac: was near-white at ≈3.4:1 — failed AA on the nav-pill label) */
   --hue-settings-vivid:    oklch(0.62 0.095 230);
   --hue-settings-soft-bg:  oklch(0.225 0.020 230);
-  --hue-settings-on-color: oklch(0.985 0 0);
+  --hue-settings-on-color: oklch(0.16 0 0);
 
   /* surface-dense dark — deep warm-neutral wells for tables.
      Slightly lighter than card so they read as a grounded surface. */

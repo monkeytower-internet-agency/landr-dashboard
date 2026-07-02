@@ -17,7 +17,12 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 import { supabase } from '@/lib/supabase'
-import { groupFeaturesByCategory, setPackageFeatureConfig, type Feature } from '@/lib/tiers'
+import {
+  groupFeaturesByCategory,
+  setOperatorFeatureConfig,
+  setPackageFeatureConfig,
+  type Feature,
+} from '@/lib/tiers'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -233,6 +238,84 @@ describe('setPackageFeatureConfig (landr-cpcd)', () => {
         featureId: 'feat-1',
         config: {},
         enabled: true,
+      }),
+    ).rejects.toThrow('RLS denied')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// setOperatorFeatureConfig — landr-7hac
+//
+// operator_features.enabled is NOT NULL DEFAULT false. Before landr-7hac,
+// setOperatorFeatureConfig's upsert omitted `enabled` entirely, so a
+// params-only edit on a feature with NO existing override (i.e. inheriting
+// an ON state from the tier/registry default) silently INSERTed a brand
+// new operator_features row with enabled=false — a forced-OFF override the
+// staff member never asked for. The caller (TierSettings.tsx) now passes
+// the resolved effective state (`override?.enabled ?? eff?.enabled ?? false`)
+// and setOperatorFeatureConfig includes it in the upsert so new rows are
+// inserted with the correct enabled value, mirroring setPackageFeatureConfig.
+// ---------------------------------------------------------------------------
+
+describe('setOperatorFeatureConfig (landr-7hac)', () => {
+  beforeEach(() => {
+    mockUpsert.mockReset()
+    mockUpsert.mockResolvedValue({ error: null })
+    vi.mocked(supabase.from).mockReturnValue({ upsert: mockUpsert } as unknown as ReturnType<typeof supabase.from>)
+  })
+
+  it('includes enabled=true in the upsert when no override row exists yet (inherited ON)', async () => {
+    // Simulates: no operator_features row yet, effective resolves to ON via
+    // the tier/registry default. Caller computes:
+    //   override?.enabled ?? eff?.enabled ?? false === true
+    await setOperatorFeatureConfig({
+      operatorId: 'op-1',
+      featureId: 'feat-1',
+      config: { max_products: 50 },
+      enabled: true,
+      enabledByUserId: 'user-1',
+    })
+
+    expect(supabase.from).toHaveBeenCalledWith('operator_features')
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operator_id: 'op-1',
+        feature_id: 'feat-1',
+        enabled: true,
+        config: { max_products: 50 },
+        enabled_by_user_id: 'user-1',
+      }),
+      expect.objectContaining({ onConflict: 'operator_id,feature_id' }),
+    )
+  })
+
+  it('preserves enabled=false for an existing forced-OFF override', async () => {
+    // Simulates: an existing override row with enabled=false; caller passes
+    // that value straight through (override?.enabled took priority).
+    await setOperatorFeatureConfig({
+      operatorId: 'op-1',
+      featureId: 'feat-disabled',
+      config: {},
+      enabled: false,
+      enabledByUserId: 'user-1',
+    })
+
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: false }),
+      expect.anything(),
+    )
+  })
+
+  it('throws when supabase returns an error', async () => {
+    mockUpsert.mockResolvedValue({ error: { message: 'RLS denied' } })
+
+    await expect(
+      setOperatorFeatureConfig({
+        operatorId: 'op-1',
+        featureId: 'feat-1',
+        config: {},
+        enabled: true,
+        enabledByUserId: 'user-1',
       }),
     ).rejects.toThrow('RLS denied')
   })
