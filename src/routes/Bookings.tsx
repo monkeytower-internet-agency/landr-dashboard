@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { DownloadIcon } from 'lucide-react'
 import { BookingDetailSheet } from '@/components/BookingDetailSheet'
@@ -12,6 +13,7 @@ import {
   customerDisplay,
   earliestServiceDate,
   fetchBookings,
+  fetchBookingStages,
   productDisplay,
   type BookingRow,
 } from '@/lib/bookings'
@@ -102,6 +104,16 @@ export function Bookings() {
           filter: `operator_id=eq.${currentOperatorId}`,
         }
       : null,
+  })
+
+  // landr-c53m.6 — the operator's configured lifecycle stages, reused by
+  // QuickFilterStrip to verify its "Pending payment" chip targets a stage
+  // code that actually exists for this operator (same fetch BookingDetailSheet
+  // already uses for its free-form stage Select).
+  const stagesQuery = useQuery({
+    queryKey: ['booking-lifecycle-stages', currentOperatorId ?? 'none'],
+    queryFn: () => fetchBookingStages(currentOperatorId as string),
+    enabled: !!currentOperatorId,
   })
 
   const rows = useMemo(() => query.data ?? [], [query.data])
@@ -237,7 +249,10 @@ export function Bookings() {
               so the operator hits common windows in one click. Clicking a
               preset replaces the chip state; the dropdowns below still
               work for finer-grained selections. */}
-          <QuickFilterStrip filtersApi={filtersApi} />
+          <QuickFilterStrip
+            filtersApi={filtersApi}
+            stages={stagesQuery.data}
+          />
           <BookingsFilters
             bookings={rows}
             filtersApi={filtersApi}
