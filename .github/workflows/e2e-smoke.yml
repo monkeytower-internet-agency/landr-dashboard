@@ -1,0 +1,51 @@
+name: E2E smoke (dashboard)
+
+# landr-t0do: deliberately tiny — TWO Playwright flows (login + protected
+# route; staff-persona topbar @ 360x800) against the live Trillian dev stack.
+# Non-blocking: this job's failure must never gate deploy.yml.
+#
+# KNOWN GAP (see .beads/scratch/handoffs/landr-t0do.md): unlike the widget's
+# bw-dev.landr.de (public Cloudflare Pages + Cloudflare-Tunnel API), there is
+# no public dev deployment of the dashboard — it talks to Supabase at
+# kong.dev.landr.de, which resolves to a Tailscale-only address. A
+# GitHub-hosted runner cannot resolve that hostname at all, so this job is
+# expected to fail (DNS/connection error, not a real regression) until it
+# runs on a runner that's on the tailnet (self-hosted runner on Trillian, or
+# a `tailscale/github-action` step with an OAuth client — both real infra
+# work, out of scope for this ticket). Locally, on Trillian, it works today.
+on:
+  push:
+    branches: [main, staging, dev]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dashboard-smoke:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Run login + staff-topbar smoke tests
+        env:
+          DASHBOARD_BASE_URL: https://dashboard.dev.landr.de
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-e2e-smoke-report
+          path: playwright-report/
+          retention-days: 7
