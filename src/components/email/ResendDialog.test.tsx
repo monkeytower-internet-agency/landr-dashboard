@@ -92,6 +92,15 @@ describe('ResendDialog (WYSIWYG)', () => {
   it('send payload carries the editor html + text', async () => {
     const user = userEvent.setup()
     renderDialog()
+
+    // The resend payload only carries fields that changed from `source`
+    // (see ResendDialog's diff-only payload build), so an untouched submit
+    // would omit body_html/body_text entirely and this assertion would pass
+    // vacuously. Make a deliberate edit in the WYSIWYG so both are forced
+    // into the payload, then assert their content unconditionally.
+    await user.click(screen.getByTestId('rte-editor'))
+    await user.type(screen.getByTestId('rte-editor'), 'extra')
+
     await user.click(screen.getByTestId('resend-submit'))
 
     await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
@@ -102,13 +111,15 @@ describe('ResendDialog (WYSIWYG)', () => {
     ]
     expect(opId).toBe('op-1')
     expect(emailId).toBe('e-1')
-    // Editor normalises to its schema; the body still round-trips as HTML+text.
-    if ('body_html' in payload) {
-      expect(payload.body_html).toContain('Hello world')
-    }
-    if ('body_text' in payload) {
-      expect(payload.body_text).toContain('Hello world')
-    }
+    // Editor normalises to its schema; the edited body round-trips as
+    // HTML+text. The caret position a bare click lands on inside a
+    // contenteditable is not deterministic under jsdom, so the typed text
+    // may land before or after the original content — assert both
+    // fragments are present rather than depending on their order.
+    expect(payload.body_html).toContain('Hello world')
+    expect(payload.body_html).toContain('extra')
+    expect(payload.body_text).toContain('Hello world')
+    expect(payload.body_text).toContain('extra')
   })
 
   it('ordered-list toggle applies formatting reflected in the payload html', async () => {

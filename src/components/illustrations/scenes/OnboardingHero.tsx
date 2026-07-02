@@ -5,8 +5,11 @@
  * Wider aspect ratio (3:2) for hero usage.
  */
 
+import { useId } from 'react'
+
 export function OnboardingHero({ className }: { className?: string }) {
   const outline = "#2B1A0F";
+  const uid = useId();
 
   return (
     <svg
@@ -17,20 +20,20 @@ export function OnboardingHero({ className }: { className?: string }) {
       aria-hidden="true"
     >
       <defs>
-        <linearGradient id="oh-sky" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`${uid}-sky`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#4A7BD0" />
           <stop offset="50%" stopColor="#F7B32B" />
           <stop offset="100%" stopColor="#C4502A" />
         </linearGradient>
-        <linearGradient id="oh-sun" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`${uid}-sun`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#FFE9B8" />
           <stop offset="100%" stopColor="#F7B32B" />
         </linearGradient>
       </defs>
-      <rect width="360" height="240" rx="20" fill="url(#oh-sky)" />
+      <rect width="360" height="240" rx="20" fill={`url(#${uid}-sky)`} />
 
       {/* sun */}
-      <circle cx="280" cy="80" r="38" fill="url(#oh-sun)" stroke={outline} strokeWidth="2" />
+      <circle cx="280" cy="80" r="38" fill={`url(#${uid}-sun)`} stroke={outline} strokeWidth="2" />
       {/* sun rays */}
       {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg, i) => (
         <line

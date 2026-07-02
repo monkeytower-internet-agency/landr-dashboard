@@ -134,11 +134,19 @@ export async function upsertFlowModulePositions(
 
 /**
  * Delete a single module by id.
+ *
+ * Scoped by operator_id in addition to id — belt-and-suspenders parity with
+ * the module's other writes (insert/upsert above), which all thread
+ * operatorId, so a delete never relies solely on RLS.
  */
-export async function deleteFlowModule(id: string): Promise<void> {
+export async function deleteFlowModule(
+  id: string,
+  operatorId: string,
+): Promise<void> {
   const { error } = await supabase
     .from('product_flow_modules')
     .delete()
     .eq('id', id)
+    .eq('operator_id', operatorId)
   if (error) throw new Error(error.message)
 }

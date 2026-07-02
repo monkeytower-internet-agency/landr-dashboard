@@ -4,8 +4,11 @@
  * star in the sky.
  */
 
+import { useId } from 'react'
+
 export function EmptyTickets({ className }: { className?: string }) {
   const outline = "#2B1A0F";
+  const uid = useId();
 
   return (
     <svg
@@ -16,12 +19,12 @@ export function EmptyTickets({ className }: { className?: string }) {
       aria-hidden="true"
     >
       <defs>
-        <linearGradient id="et-sky" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`${uid}-sky`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--comic-sky, #B8D4F0)" />
           <stop offset="100%" stopColor="var(--comic-gold, #FFE9B8)" />
         </linearGradient>
       </defs>
-      <rect width="240" height="200" rx="16" fill="url(#et-sky)" />
+      <rect width="240" height="200" rx="16" fill={`url(#${uid}-sky)`} />
 
       {/* meadow strip */}
       <path d="M0 168 Q60 158 120 168 Q180 178 240 168 L240 200 L0 200 Z"

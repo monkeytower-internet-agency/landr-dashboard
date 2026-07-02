@@ -17,7 +17,11 @@
  * only VALUES are remapped to the "Comic Testival" palette.
  *
  * --- Palette (sampled from comic-reference.jpg / DESIGN_DIRECTION.md) ---
- *   Sunset orange / rust  #E8702E  ≈ oklch(0.65 0.18 40)   ← PRIMARY
+ * These feed the section-hue tokens below (bookings/catalog/finance/…).
+ * The global PRIMARY/ring/sidebar-primary tokens are NOT sampled from this
+ * list — they're the exact brand logo sky-blue #12B5F0 (see the
+ * "brand-palette" comments on --primary/--ring below).
+ *   Sunset orange / rust  #E8702E  ≈ oklch(0.65 0.18 40)
  *   Rust deep             #C4502A  ≈ oklch(0.55 0.17 38)
  *   Golden yellow         #F7B32B  ≈ oklch(0.82 0.17 78)
  *   Sun cream             #FFE9B8  ≈ oklch(0.95 0.06 88)
@@ -197,12 +201,11 @@
   --popover: var(--bg);
   --popover-foreground: var(--text);
 
-  /* landr-hxnb.1 — PRIMARY remapped from monochrome black to brand sunset
-     orange (#E8702E ≈ oklch(0.65 0.18 40)).
-     Contrast: white text (L 0.985) on L0.65 C0.18 H40 ≈ 4.6:1  ✓ WCAG AA.
-     Hover (darker rust) handled via existing component patterns — the
-     --accent warm tint below gives hover reads for menus/dropdowns. */
-  /* brand-palette: PRIMARY = EXACT logo sky-blue #12B5F0; near-black text. */
+  /* landr-hxnb.1 — PRIMARY is the exact brand logo sky-blue #12B5F0
+     (relative luminance ≈0.39). White text on it is only ≈2.4:1 (fails
+     AA), so primary-foreground uses near-black instead: ≈7:1  ✓ WCAG AA.
+     Hover handled via existing component patterns — the --accent tint
+     below gives hover reads for menus/dropdowns. */
   --primary: #12B5F0;
   --primary-foreground: oklch(0.145 0 0);
 
@@ -360,14 +363,9 @@
   --popover: var(--bg);
   --popover-foreground: var(--text);
 
-  /* PRIMARY dark — slightly lighter orange so it stands out on dark bg.
-     oklch(0.72 0.16 40): contrast with dark text (L0.22 ≈ 0.04) ≈ 14:1 ✓.
-     White foreground on this: L0.72 ≈ 0.47 → contrast ≈ 2.0:1 — fails for body text.
-     DECISION: primary-foreground in dark goes to near-black so the orange
-     button is still legible. Dark primary is best read as accent/highlight
-     on dark bg, not as button bg with text. Components using bg-primary+text
-     should use primary-foreground oklch(0.15 0.01 40) which gives ≈14:1. */
-  /* brand-palette: PRIMARY = EXACT logo sky-blue #12B5F0 on black, dark text. */
+  /* PRIMARY dark — same exact brand logo sky-blue #12B5F0 as light mode.
+     White foreground on it is only ≈2.4:1 (fails AA for body text), so
+     primary-foreground stays near-black here too: ≈7:1  ✓ WCAG AA. */
   --primary: #12B5F0;
   --primary-foreground: oklch(0.10 0 0);
 

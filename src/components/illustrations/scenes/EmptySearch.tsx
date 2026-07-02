@@ -4,8 +4,11 @@
  * peeking through the lens looking confused.
  */
 
+import { useId } from 'react'
+
 export function EmptySearch({ className }: { className?: string }) {
   const outline = "#2B1A0F";
+  const uid = useId();
 
   return (
     <svg
@@ -16,18 +19,18 @@ export function EmptySearch({ className }: { className?: string }) {
       aria-hidden="true"
     >
       <defs>
-        <linearGradient id="es-sky" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`${uid}-sky`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--comic-sky, #7FA8E8)" />
           <stop offset="100%" stopColor="var(--comic-sky2, #FFE9B8)" />
         </linearGradient>
-        <clipPath id="es-lens">
+        <clipPath id={`${uid}-lens`}>
           <circle cx="100" cy="95" r="62" />
         </clipPath>
       </defs>
-      <rect width="240" height="200" rx="16" fill="url(#es-sky)" />
+      <rect width="240" height="200" rx="16" fill={`url(#${uid}-sky)`} />
 
       {/* inside lens — own mini-sky */}
-      <g clipPath="url(#es-lens)">
+      <g clipPath={`url(#${uid}-lens)`}>
         <rect x="38" y="33" width="124" height="124" fill="var(--comic-lens-bg, #EDF5FF)" />
         {/* tiny meadow inside */}
         <rect x="38" y="130" width="124" height="30" fill="var(--comic-ground, #5DA53C)" />

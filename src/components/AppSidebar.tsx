@@ -682,7 +682,7 @@ export function AppSidebar() {
         {(
           [
             {
-              label: 'Bookings',
+              label: t.nav.sections.bookings,
               paths: [
                 '/bookings',
                 '/calendar',
@@ -691,10 +691,13 @@ export function AppSidebar() {
                 '/retrieve',
               ],
             },
-            { label: 'People', paths: ['/contacts'] },
-            { label: 'Finance', paths: ['/reporting', '/invoicing', '/revenue'] },
+            { label: t.nav.sections.people, paths: ['/contacts'] },
             {
-              label: 'Comms',
+              label: t.nav.sections.finance,
+              paths: ['/reporting', '/invoicing', '/revenue'],
+            },
+            {
+              label: t.nav.sections.comms,
               paths: ['/tickets', '/tickets/planning', TICKET_SYSTEM_PATH],
             },
           ] as { label: string; paths: string[] }[]
@@ -719,7 +722,7 @@ export function AppSidebar() {
           ['/audit', '/trash', '/release', '/email-log'].includes(item.to),
         ) && (
           <SidebarGroup className="pt-0">
-            <SectionLabel label="Admin" />
+            <SectionLabel label={t.nav.sections.admin} />
             <SidebarGroupContent>
               <NavMenu
                 items={visiblePrimaryItems.filter((item) =>
@@ -743,7 +746,7 @@ export function AppSidebar() {
             sibling nav rows so they align pixel-perfectly with the
             primary nav above. */}
         <SidebarGroup className="p-0 pt-1">
-          <SectionLabel label="Account" />
+          <SectionLabel label={t.nav.sections.account} />
           <SidebarGroupContent>
             <NavMenu items={secondaryItems} pathname={pathname} />
           </SidebarGroupContent>

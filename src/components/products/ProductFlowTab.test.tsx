@@ -78,14 +78,20 @@ vi.mock('@/lib/supabase', () => ({
             mockSupabase.state.upsertCalls.push(rows)
             return { error: null }
           }),
+          // deleteFlowModule chains .eq('id', id).eq('operator_id', operatorId)
+          // — belt-and-suspenders scoping, not RLS-only. The delete only
+          // "lands" (records the call + filters the row) once BOTH .eq()
+          // calls have been applied, mirroring the real query builder.
           delete: vi.fn(() => ({
-            eq: vi.fn(async (_col: string, id: string) => {
-              mockSupabase.state.deleteCalls.push(id)
-              mockSupabase.state.modules = mockSupabase.state.modules.filter(
-                (m) => m.id !== id,
-              )
-              return { error: null }
-            }),
+            eq: vi.fn((_col: string, id: string) => ({
+              eq: vi.fn(async (_col2: string, _operatorId: string) => {
+                mockSupabase.state.deleteCalls.push(id)
+                mockSupabase.state.modules = mockSupabase.state.modules.filter(
+                  (m) => m.id !== id,
+                )
+                return { error: null }
+              }),
+            })),
           })),
         }
       }
