@@ -1374,6 +1374,12 @@ export const t = {
       sendOfferTitle: 'Send offer',
       sendOfferSuccess: (email: string) => `Offer sent to ${email}.`,
       sendOfferFailed: 'Could not send the offer.',
+      // landr-c53m.1 fix-forward — operator-defaults fetch failure banner.
+      operatorLoadError:
+        'Could not load this operator’s tax rate and group discount threshold. Retry, or enter both values yourself before saving.',
+      operatorRetry: 'Retry',
+      thresholdZeroHint:
+        'A threshold of 0 means the group discount applies to any booking once a discount % is set.',
     },
     detail: {
       sectionStatus: 'Status',
