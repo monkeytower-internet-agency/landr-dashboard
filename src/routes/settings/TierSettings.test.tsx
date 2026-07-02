@@ -1,16 +1,15 @@
 /**
- * TierSettings — Operator Override panel race-condition regression test
- * (landr-7hac CRITICAL 4).
+ * TierSettings — Operator Override panel params-only write (bd landr-c53m.15).
  *
- * OperatorOverridePanel's "params" popover resolves the `enabled` value it
- * writes to `operator_features` from
- *   override?.enabled ?? eff?.enabled ?? false
- * — if `effectiveQuery` (operator_effective_entitlements) hasn't resolved
- * yet, `eff` is undefined and that falls back to `false`, silently
- * INSERTing a forced-OFF override for an operator who was actually
- * inheriting an ON default. The fix disables every mutating control in the
- * panel (force on/off, clear, params) until BOTH `overridesQuery` and
- * `effectiveQuery` have settled.
+ * Real fix, replacing the landr-7hac interim workaround (which resolved and
+ * sent an `enabled` value from `override?.enabled ?? eff?.enabled ?? false`,
+ * and gated every mutating control on `effectiveQuery` settling to avoid a
+ * race where an unresolved `eff` fell back to `false`). Now that
+ * operator_features.enabled is nullable with no DEFAULT (landr-api migration
+ * 20260703072000_operator_features_enabled_nullable), the params popover's
+ * save is a TRUE partial upsert: it never sends `enabled` at all, so there is
+ * no resolved-value race to guard against, and the popover need not wait on
+ * `effectiveQuery` to become interactive.
  */
 import { render as rtlRender, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -92,8 +91,8 @@ vi.mock('@/lib/tiers', async (importOriginal) => {
     ],
     // No prior override row — this feature is purely inherited.
     fetchOperatorFeatures: async () => [],
-    // Never resolves until the test explicitly resolves it — simulates the
-    // in-flight window the race depends on.
+    // Never resolves until the test explicitly resolves it — proves the
+    // params popover no longer needs this to settle before it's usable.
     fetchEffectiveEntitlements: () => effectiveDeferred.promise,
     setOperatorFeatureConfig: (...args: unknown[]) =>
       setOperatorFeatureConfigMock(...args),
@@ -117,8 +116,8 @@ beforeEach(() => {
   setOperatorFeatureConfigMock.mockClear()
 })
 
-describe('TierSettings — Operator Override panel (landr-7hac CRITICAL 4)', () => {
-  it('disables the params popover while effectiveQuery is pending, even after overridesQuery resolves', async () => {
+describe('TierSettings — Operator Override panel params-only write (bd landr-c53m.15)', () => {
+  it('the params popover is usable even while effectiveQuery is still pending', async () => {
     const user = userEvent.setup()
     render(<TierSettings />)
 
@@ -127,30 +126,32 @@ describe('TierSettings — Operator Override panel (landr-7hac CRITICAL 4)', () 
     await user.selectOptions(picker, 'op-1')
 
     // overridesQuery resolves fast (mocked as an immediate empty array);
-    // effectiveQuery is still pending (deferred, unresolved).
+    // effectiveQuery is still pending (deferred, unresolved) — the params
+    // popover no longer waits on it, since it never needs a resolved
+    // `enabled` value to save.
     const paramsButton = await screen.findByRole('button', { name: 'params' })
-    await waitFor(() => expect(paramsButton).toBeDisabled())
-
-    // Also cover the on/off toggles + clear button for the same gate.
-    expect(screen.getByRole('button', { name: 'On' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Off' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Clear' })).toBeDisabled()
+    await waitFor(() => expect(paramsButton).not.toBeDisabled())
   })
 
-  it('re-enables the params popover once effectiveQuery resolves', async () => {
+  it('saving a param never includes `enabled` in the write — a true partial upsert', async () => {
+    const user = userEvent.setup()
     render(<TierSettings />)
 
     const picker = await screen.findByLabelText('Operator')
     await screen.findByRole('option', { name: 'Para42 (para42)' })
-    await userEvent.setup().selectOptions(picker, 'op-1')
+    await user.selectOptions(picker, 'op-1')
 
     const paramsButton = await screen.findByRole('button', { name: 'params' })
-    expect(paramsButton).toBeDisabled()
+    await user.click(paramsButton)
 
-    effectiveDeferred.resolve(
-      new Map([['feat_key_1', { feature_key: 'feat_key_1', enabled: true, config: {} }]]),
-    )
+    const saveButton = await screen.findByRole('button', { name: 'Save params' })
+    await user.click(saveButton)
 
-    await waitFor(() => expect(paramsButton).not.toBeDisabled())
+    await waitFor(() => expect(setOperatorFeatureConfigMock).toHaveBeenCalled())
+    const [args] = setOperatorFeatureConfigMock.mock.calls[0] as [
+      Record<string, unknown>,
+    ]
+    expect(args).not.toHaveProperty('enabled')
+    expect(args).toMatchObject({ operatorId: 'op-1', featureId: 'feat-1' })
   })
 })

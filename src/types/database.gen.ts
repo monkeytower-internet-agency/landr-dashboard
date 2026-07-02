@@ -4426,7 +4426,7 @@ export type Database = {
         Row: {
           config: Json | null
           created_at: string
-          enabled: boolean
+          enabled: boolean | null
           enabled_at: string
           enabled_by_user_id: string | null
           feature_id: string
@@ -4437,7 +4437,7 @@ export type Database = {
         Insert: {
           config?: Json | null
           created_at?: string
-          enabled?: boolean
+          enabled?: boolean | null
           enabled_at?: string
           enabled_by_user_id?: string | null
           feature_id: string
@@ -4448,7 +4448,7 @@ export type Database = {
         Update: {
           config?: Json | null
           created_at?: string
-          enabled?: boolean
+          enabled?: boolean | null
           enabled_at?: string
           enabled_by_user_id?: string | null
           feature_id?: string
