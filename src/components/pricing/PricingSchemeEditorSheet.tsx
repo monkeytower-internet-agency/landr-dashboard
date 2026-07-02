@@ -65,7 +65,34 @@ const RULE_KIND_OPTIONS: RuleKind[] = [
   'percentage_discount',
   'flat_discount',
   'fixed_total',
+  'time_of_day_surcharge',
+  'manual_override',
 ]
+
+// landr-d2uy fix-forward — rule kinds whose evaluator returns a fresh
+// absolute value (not additive to the running subtotal) when its params
+// are empty, so adding one live with default params instantly zeroes the
+// price it computes through. manual_override defaults params.amount to 0
+// AND halts the rest of the pipeline (see
+// app/services/pricing.py::_eval_manual_override /
+// compute_price's `if kind == "manual_override": halted = True; break`),
+// so this is the most dangerous case: it zeroes gross_total and skips
+// every later rule + the voucher. Newly added rules of these kinds are
+// created inactive so the operator must configure them, then explicitly
+// flip Active.
+//
+// time_of_day_surcharge was also newly added to this menu but its empty
+// `window` (no "-") makes the evaluator a no-op (returns `running`
+// unchanged) — verified against _eval_time_of_day_surcharge — so it does
+// NOT need this treatment.
+//
+// fixed_total and per_day_base are in the SAME zero-on-empty-params
+// evaluator class (each returns a fresh absolute value, not additive) and
+// are appended as the pipeline's last rule (sort_order = max + 10), so in
+// practice they exhibit the same zero-until-configured behaviour today.
+// That predates landr-d2uy and is intentionally NOT changed here — see
+// the landr-d2uy handoff for the follow-up ticket.
+const ZERO_ON_CREATE_KINDS: RuleKind[] = ['manual_override']
 
 export function PricingSchemeEditorSheet({ schemeId, operatorId, onClose }: Props) {
   const open = schemeId !== null
@@ -290,11 +317,19 @@ function SchemeEditor({ scheme, operatorId, onRefetch, onDirtyChange }: EditorPr
       createRule(operatorId, scheme.id, {
         rule_kind: newRuleKind,
         sort_order: nextSortOrder,
+        // landr-d2uy fix-forward — never create a zero-on-create kind
+        // (see ZERO_ON_CREATE_KINDS) already active: it would instantly
+        // zero every price computed through this scheme until configured.
+        ...(ZERO_ON_CREATE_KINDS.includes(newRuleKind) ? { active: false } : {}),
       }),
     onSuccess: () => {
       setNextSortOrder((s) => s + 10)
       onRefetch()
-      toast.success('Rule added.')
+      toast.success(
+        ZERO_ON_CREATE_KINDS.includes(newRuleKind)
+          ? 'Rule added as inactive — configure it, then switch it to Active.'
+          : 'Rule added.',
+      )
     },
     onError: (err: Error) => toast.error(`Failed to add rule: ${err.message}`),
   })
@@ -460,6 +495,13 @@ function SchemeEditor({ scheme, operatorId, onRefetch, onDirtyChange }: EditorPr
               Add
             </Button>
           </div>
+          {ZERO_ON_CREATE_KINDS.includes(newRuleKind) ? (
+            <p className="text-muted-foreground text-xs">
+              This rule type replaces the price and can zero it until
+              configured — it will be added inactive; set its amount, then
+              switch it to Active.
+            </p>
+          ) : null}
         </div>
       </div>
     </>

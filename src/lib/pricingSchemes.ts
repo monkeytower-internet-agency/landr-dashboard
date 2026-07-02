@@ -32,6 +32,8 @@ export type RuleKind =
   | 'fixed_total'
   | 'percentage_discount'
   | 'flat_discount'
+  | 'time_of_day_surcharge'
+  | 'manual_override'
 
 /** Rule kinds that use a tier table (threshold_min/max + amount). */
 export const TIERED_RULE_KINDS: RuleKind[] = [
@@ -53,6 +55,8 @@ export const RULE_KIND_LABELS: Record<RuleKind, string> = {
   percentage_discount: 'Percentage discount',
   flat_discount: 'Flat discount',
   fixed_total: 'Fixed total',
+  time_of_day_surcharge: 'Time-of-day surcharge',
+  manual_override: 'Manual override',
 }
 
 export type PricingTier = {
