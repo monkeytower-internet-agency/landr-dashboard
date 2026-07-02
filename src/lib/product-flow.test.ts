@@ -175,15 +175,20 @@ describe('product-flow — supabase CRUD wrappers (landr-7hac)', () => {
     expect(mockSupabase.state.fromCalls).toEqual([])
   })
 
-  it('deleteFlowModule deletes by id', async () => {
+  it('deleteFlowModule deletes by id, scoped to operator_id (belt-and-suspenders, not RLS-only)', async () => {
     mockSupabase.state.nextResult = { data: null, error: null }
-    await deleteFlowModule('mod-1')
+    await deleteFlowModule('mod-1', 'op-1')
 
     expect(mockSupabase.state.fromCalls).toEqual(['product_flow_modules'])
     const methods = mockSupabase.state.calls.map((c) => c.method)
     expect(methods).toContain('delete')
-    const eqCall = mockSupabase.state.calls.find((c) => c.method === 'eq')
-    expect(eqCall?.args).toEqual(['id', 'mod-1'])
+    const eqCalls = mockSupabase.state.calls
+      .filter((c) => c.method === 'eq')
+      .map((c) => c.args)
+    expect(eqCalls).toEqual([
+      ['id', 'mod-1'],
+      ['operator_id', 'op-1'],
+    ])
   })
 
   it('throws when supabase returns an error (insert)', async () => {

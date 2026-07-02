@@ -36,6 +36,16 @@ interface NodePathProps {
 }
 
 export function OnboardingNodePath({ step, total, justCompletedStep }: NodePathProps) {
+  if (import.meta.env.DEV && STEP_ICONS.length !== total) {
+    // STEP_ICONS is a fixed 9-entry list keyed by step index; if `total`
+    // diverges (e.g. a step is added/removed from the wizard) the lookup
+    // below would silently render nothing for the missing steps instead of
+    // failing loudly — surface the mismatch in dev.
+    console.warn(
+      `OnboardingNodePath: STEP_ICONS has ${STEP_ICONS.length} entries but total=${total} — icons and step count have diverged.`,
+    )
+  }
+
   return (
     <nav
       aria-label="Onboarding progress"
@@ -105,7 +115,7 @@ export function OnboardingNodePath({ step, total, justCompletedStep }: NodePathP
                     className="text-[10px] leading-none animate-slide-up-fade"
                     aria-hidden="true"
                   >
-                    {STEP_ICONS[i]}
+                    {STEP_ICONS[i] ?? ''}
                   </span>
                 )}
               </div>

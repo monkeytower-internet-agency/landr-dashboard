@@ -17,6 +17,42 @@ import {
   fetchEnabledFeatures,
   fetchEnabledEntitlements,
 } from './entitlements-map'
+import { ACCOUNT_SECTIONS, SETTINGS_SECTIONS } from '@/components/settings/sections'
+// Vite `?raw` import — the literal file text, not the compiled module. Lets
+// us cross-check FEATURE_ROUTES/FEATURE_SECTIONS against the real route
+// table (App.tsx) and sidebar nav items (AppSidebar.tsx) as source text
+// instead of importing (and rendering) those modules, which pull in the
+// whole app's routing/auth/query providers.
+import APP_TSX_SOURCE from '../App.tsx?raw'
+import APP_SIDEBAR_SOURCE from '../components/AppSidebar.tsx?raw'
+
+// Real, independent surfaces to cross-check FEATURE_ROUTES/FEATURE_SECTIONS
+// against — NOT derived from entitlements-map.ts itself. featureForRoute/
+// featureForSection are just reverse-index lookups built from FEATURE_ROUTES/
+// FEATURE_SECTIONS, so asserting against them alone is tautological (it can
+// never fail). Instead we read the actual route table (App.tsx) and the
+// actual sidebar nav items (AppSidebar.tsx) as source text and extract the
+// paths those files really mount/link to.
+
+// Paths passed as the first argument to gatedRoute(...)/gatedSection(...) in
+// App.tsx — i.e. routes that are actually wired up to go through a
+// FeatureGate keyed by that same path string.
+const gatedRoutePathsInApp = new Set(
+  [...APP_TSX_SOURCE.matchAll(/gatedRoute\(\s*'([^']+)'/g)].map((m) => m[1]),
+)
+const gatedSectionPathsInApp = new Set(
+  [...APP_TSX_SOURCE.matchAll(/gatedSection\(\s*'([^']+)'/g)].map((m) => m[1]),
+)
+
+// `to:` targets of the NavItem objects rendered by AppSidebar.
+const sidebarNavPaths = new Set(
+  [...APP_SIDEBAR_SOURCE.matchAll(/to:\s*'([^']+)'/g)].map((m) => m[1]),
+)
+
+// Every settings sub-section actually registered for the sub-sidebar.
+const registeredSectionPaths = new Set(
+  [...ACCOUNT_SECTIONS, ...SETTINGS_SECTIONS].map((s) => s.to),
+)
 
 describe('featureForRoute', () => {
   it('maps OFF-set dashboard routes to their gating feature key', () => {
@@ -318,32 +354,40 @@ describe('Free-tier nav gate shape (landr-72u2.6)', () => {
     expect(isEnabled('plan')).toBe(false)
   })
 
-  // No-dead-end invariant: every route in FEATURE_ROUTES that is gated has a
-  // corresponding sidebar nav item gated by featureForRoute (no visible link →
-  // gated page). This prevents the case where a sidebar item shows but the
-  // page redirects (nav dead-end for users who happen to bookmark the route).
-  it('no nav dead-ends: every gated route in FEATURE_ROUTES has a featureForRoute mapping', () => {
+  // No-dead-end invariant: every route in FEATURE_ROUTES is (a) actually
+  // mounted in App.tsx behind gatedRoute(path, ...) with that exact path, and
+  // (b) linked from an AppSidebar NavItem with that exact `to`. This prevents
+  // the case where a sidebar item shows but the page redirects, or a route is
+  // gated in the map but no sidebar link exists to reach it (nav dead-end).
+  it('no nav dead-ends: every gated route in FEATURE_ROUTES is mounted via gatedRoute in App.tsx and linked from AppSidebar', () => {
     for (const [featureKey, paths] of Object.entries(FEATURE_ROUTES)) {
       for (const path of paths) {
-        const mappedFeature = featureForRoute(path)
         expect(
-          mappedFeature,
-          `Route ${path} (key "${featureKey}") has no featureForRoute mapping — dead-end risk`,
-        ).toBe(featureKey)
+          gatedRoutePathsInApp.has(path),
+          `Route ${path} (key "${featureKey}") is not mounted via gatedRoute('${path}', ...) in App.tsx — dead-end risk`,
+        ).toBe(true)
+        expect(
+          sidebarNavPaths.has(path),
+          `Route ${path} (key "${featureKey}") has no AppSidebar NavItem with to: '${path}' — dead-end risk`,
+        ).toBe(true)
       }
     }
   })
 
-  // No-dead-end invariant: every section in FEATURE_SECTIONS that is gated
-  // has a featureForSection mapping (no visible sub-sidebar link → gated page).
-  it('no nav dead-ends: every gated section in FEATURE_SECTIONS has a featureForSection mapping', () => {
+  // No-dead-end invariant: every section in FEATURE_SECTIONS is (a) actually
+  // mounted in App.tsx behind gatedSection(path, ...), and (b) registered in
+  // ACCOUNT_SECTIONS/SETTINGS_SECTIONS so the sub-sidebar can link to it.
+  it('no nav dead-ends: every gated section in FEATURE_SECTIONS is mounted via gatedSection in App.tsx and registered in sections.ts', () => {
     for (const [featureKey, paths] of Object.entries(FEATURE_SECTIONS)) {
       for (const path of paths) {
-        const mappedFeature = featureForSection(path)
         expect(
-          mappedFeature,
-          `Section ${path} (key "${featureKey}") has no featureForSection mapping — dead-end risk`,
-        ).toBe(featureKey)
+          gatedSectionPathsInApp.has(path),
+          `Section ${path} (key "${featureKey}") is not mounted via gatedSection('${path}', ...) in App.tsx — dead-end risk`,
+        ).toBe(true)
+        expect(
+          registeredSectionPaths.has(path),
+          `Section ${path} (key "${featureKey}") is not registered in ACCOUNT_SECTIONS/SETTINGS_SECTIONS — no sub-sidebar link`,
+        ).toBe(true)
       }
     }
   })

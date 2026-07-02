@@ -295,6 +295,16 @@ export const t = {
     release: 'Release',
     // landr-a4pl.2 — /invoicing: Holded invoice transfer status + Sync-now.
     invoicing: 'Invoicing',
+    // AppSidebar hue-section group headers (rendered above a cluster of
+    // primary nav items — see the "Hue sections" render block).
+    sections: {
+      bookings: 'Bookings',
+      people: 'People',
+      finance: 'Finance',
+      comms: 'Comms',
+      admin: 'Admin',
+      account: 'Account',
+    },
   },
   // landr-aref — /audit route strings (audit_log viewer).
   audit: {
@@ -3957,6 +3967,13 @@ export const t = {
   onboarding: {
     title: 'Welcome to LANDR',
     progress: (current: number, total: number) => `Step ${current} of ${total}`,
+    // Energetic resume copy — shown when the user isn't on step 1 (Onboarding.tsx
+    // resumeLabel). `pct` is the caller-computed completion percentage.
+    resume: (current: number, total: number, pct: number) => {
+      if (pct >= 80) return `Step ${current} of ${total} — almost there! 🚀`
+      if (pct >= 50) return `Step ${current} of ${total} — you're on a roll! ⚡`
+      return `Step ${current} of ${total}`
+    },
     next: 'Next',
     back: 'Back',
     skip: 'Skip for now',

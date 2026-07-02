@@ -4,8 +4,11 @@
  * a tiny tumble-weed (actually a cloud puff) drifting past. Alpine morning.
  */
 
+import { useId } from 'react'
+
 export function EmptyCalendar({ className }: { className?: string }) {
   const outline = "#2B1A0F";
+  const uid = useId();
 
   return (
     <svg
@@ -16,12 +19,12 @@ export function EmptyCalendar({ className }: { className?: string }) {
       aria-hidden="true"
     >
       <defs>
-        <linearGradient id="ecal-sky" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`${uid}-sky`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--comic-morning, #B8D4F0)" />
           <stop offset="100%" stopColor="var(--comic-morning2, #FFE9B8)" />
         </linearGradient>
       </defs>
-      <rect width="240" height="200" rx="16" fill="url(#ecal-sky)" />
+      <rect width="240" height="200" rx="16" fill={`url(#${uid}-sky)`} />
 
       {/* sun peeking corner */}
       <circle cx="210" cy="35" r="28" fill="#F7B32B" stroke={outline} strokeWidth="2" />

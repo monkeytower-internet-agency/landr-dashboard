@@ -6,8 +6,11 @@
  * Uses --comic-bookings hue (or fallback #4A7BD0 sky-blue).
  */
 
+import { useId } from 'react'
+
 export function EmptyBookings({ className }: { className?: string }) {
   const outline = "#2B1A0F";
+  const uid = useId();
 
   return (
     <svg
@@ -19,12 +22,12 @@ export function EmptyBookings({ className }: { className?: string }) {
     >
       {/* sky backdrop gradient */}
       <defs>
-        <linearGradient id="eb-sky" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`${uid}-sky`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--comic-bookings-sky, #7FA8E8)" />
           <stop offset="100%" stopColor="var(--comic-bookings-sky2, #FFE9B8)" />
         </linearGradient>
       </defs>
-      <rect width="240" height="200" rx="16" fill="url(#eb-sky)" />
+      <rect width="240" height="200" rx="16" fill={`url(#${uid}-sky)`} />
 
       {/* ground strip */}
       <rect x="0" y="162" width="240" height="38" rx="0" fill="var(--comic-ground, #5DA53C)" />

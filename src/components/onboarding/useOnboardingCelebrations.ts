@@ -14,7 +14,7 @@
  *   - `triggerFinishConfetti()`: call on wizard completion (Step 9 shown).
  */
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 // Comic Testival palette for confetti
 const CONFETTI_COLORS = [
@@ -29,6 +29,14 @@ const CONFETTI_COLORS = [
 export function useOnboardingCelebrations() {
   const [justCompletedStep, setJustCompletedStep] = useState<number | null>(null)
   const popTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cancel the pending pop-reset timer on unmount so it never fires
+  // setState after the component (and this hook) is gone.
+  useEffect(() => {
+    return () => {
+      if (popTimerRef.current) clearTimeout(popTimerRef.current)
+    }
+  }, [])
 
   const triggerStepCelebration = useCallback((stepIdx: number) => {
     // Reset any pending pop so quick navigation doesn't stack animations.
