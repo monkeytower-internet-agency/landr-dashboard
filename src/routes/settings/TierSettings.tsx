@@ -801,11 +801,16 @@ function OperatorOverridePanel({
   })
 
   const setConfigMutation = useMutation({
-    mutationFn: (args: { featureId: string; config: Record<string, unknown> }) =>
+    mutationFn: (args: {
+      featureId: string
+      config: Record<string, unknown>
+      enabled: boolean
+    }) =>
       setOperatorFeatureConfig({
         operatorId,
         featureId: args.featureId,
         config: args.config,
+        enabled: args.enabled,
         enabledByUserId,
       }),
     onSuccess: () => {
@@ -997,6 +1002,12 @@ function OperatorOverridePanel({
                             setConfigMutation.mutate({
                               featureId: feature.id,
                               config: cfg,
+                              // landr-7hac: pass the currently-resolved
+                              // effective state so a params-only edit can't
+                              // silently INSERT a forced-OFF override when
+                              // none existed yet (operator_features.enabled
+                              // is NOT NULL DEFAULT false).
+                              enabled: override?.enabled ?? eff?.enabled ?? false,
                             })
                           }
                           onClear={() =>

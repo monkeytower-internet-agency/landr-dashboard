@@ -12,8 +12,20 @@
  * bold / links and never sees HTML. `body_html` is the editor's getHTML() and
  * `body_text` is getText(); the raw HTML-source textarea is retained behind a
  * collapsible "Edit HTML source" escape hatch for the rare manual-markup case.
+ *
+ * landr-7hac: the WYSIWYG and the HTML-source escape hatch are made mutually
+ * exclusive so exactly one surface is ever the source of truth:
+ *  - while the escape hatch is open, the WYSIWYG is locked (`editable=false`)
+ *    so it cannot silently clobber a raw-HTML edit;
+ *  - `bodyText` is re-derived from the raw HTML on every keystroke in the
+ *    escape hatch, so `body_text` never goes stale relative to `body_html`;
+ *  - when the escape hatch closes, the WYSIWYG is re-seeded from `bodyHtml`
+ *    (`editor.commands.setContent`, via the RichTextEditor ref) so any
+ *    HTML-source edits carry forward instead of being discarded, and the
+ *    editor's own onUpdate re-derives both serialisations from the merged
+ *    document.
  */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
@@ -25,7 +37,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
-import { RichTextEditor } from '@/components/email/RichTextEditor'
+import {
+  RichTextEditor,
+  type RichTextEditorHandle,
+} from '@/components/email/RichTextEditor'
 import {
   Dialog,
   DialogContent,
@@ -43,6 +58,17 @@ export type ResendDialogSource = {
   subject: string
   body_html: string
   body_text: string
+}
+
+/**
+ * Best-effort HTML → plain-text, used to keep `bodyText` live-synced while
+ * the operator edits raw HTML in the escape-hatch textarea (landr-7hac).
+ * Not a substitute for the WYSIWYG's own `editor.getText()` — just enough to
+ * stop `body_text` going stale relative to `body_html` between keystrokes.
+ */
+function htmlToPlainText(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  return (doc.body.textContent ?? '').replace(/[ \t]+\n/g, '\n').trim()
 }
 
 export type ResendDialogProps = {
@@ -69,6 +95,7 @@ export function ResendDialog({
   const [bodyHtml, setBodyHtml] = useState(source.body_html)
   const [bodyText, setBodyText] = useState(source.body_text)
   const [htmlExpanded, setHtmlExpanded] = useState(false)
+  const editorRef = useRef<RichTextEditorHandle>(null)
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -131,7 +158,9 @@ export function ResendDialog({
               {t.emailLog.resendFieldBody}
             </span>
             <RichTextEditor
+              ref={editorRef}
               initialHtml={source.body_html}
+              editable={!htmlExpanded}
               onChange={({ html, text }) => {
                 setBodyHtml(html)
                 setBodyText(text)
@@ -143,7 +172,16 @@ export function ResendDialog({
             <button
               type="button"
               className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs font-medium"
-              onClick={() => setHtmlExpanded((v) => !v)}
+              onClick={() => {
+                // Closing the escape hatch: re-seed the WYSIWYG from the
+                // (possibly hand-edited) raw HTML so it becomes the single
+                // source of truth again instead of silently reverting to
+                // whatever the editor last held (landr-7hac).
+                if (htmlExpanded) {
+                  editorRef.current?.setHtml(bodyHtml)
+                }
+                setHtmlExpanded((expanded) => !expanded)
+              }}
               aria-expanded={htmlExpanded}
               data-testid="resend-html-toggle"
             >
@@ -154,7 +192,13 @@ export function ResendDialog({
                 id="resend-body-html"
                 rows={8}
                 value={bodyHtml}
-                onChange={(e) => setBodyHtml(e.target.value)}
+                onChange={(e) => {
+                  const html = e.target.value
+                  setBodyHtml(html)
+                  // Keep body_text live-synced with the raw HTML being typed
+                  // so it never goes stale relative to body_html (landr-7hac).
+                  setBodyText(htmlToPlainText(html))
+                }}
                 className="font-mono text-xs"
                 data-testid="resend-body-html"
               />

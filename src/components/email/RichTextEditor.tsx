@@ -15,8 +15,14 @@
  *  - The editing surface is forced to a light (white) background with dark
  *    text in BOTH app themes — you are editing a light-inbox email, so the
  *    surface mirrors the eventual render rather than the dashboard chrome.
+ *  - landr-7hac: the escape-hatch raw-HTML textarea in ResendDialog and this
+ *    WYSIWYG must never disagree about the current body. `editable` lets the
+ *    caller lock the WYSIWYG while the raw-HTML textarea is open, and the
+ *    imperative `setHtml` handle lets the caller re-seed this editor's
+ *    document (via `editor.commands.setContent`) once the escape hatch
+ *    closes, so HTML-source edits are never silently discarded.
  */
-import { useEffect } from 'react'
+import { forwardRef, useEffect, useImperativeHandle } from 'react'
 import {
   useEditor,
   useEditorState,
@@ -46,6 +52,20 @@ export type RichTextEditorProps = {
    * plain-text serialisations. ResendDialog uses these for the resend payload.
    */
   onChange: (value: { html: string; text: string }) => void
+  /**
+   * When false, the WYSIWYG surface is locked (no editing). ResendDialog uses
+   * this to make the WYSIWYG and the raw-HTML escape hatch mutually
+   * exclusive — only one surface is ever the source of truth at a time.
+   * @default true
+   */
+  editable?: boolean
+}
+
+export type RichTextEditorHandle = {
+  /** Replace the document with `html`, re-normalised through TipTap's schema.
+   *  Fires `onChange` with the resulting HTML/text so the caller's state
+   *  stays in sync (used to re-seed the WYSIWYG from escape-hatch edits). */
+  setHtml: (html: string) => void
 }
 
 /**
@@ -219,50 +239,71 @@ function Toolbar({ editor }: { editor: Editor }) {
   )
 }
 
-export function RichTextEditor({ initialHtml, onChange }: RichTextEditorProps) {
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        // Use the dedicated Link extension (installed per spec) instead of the
-        // one bundled in StarterKit v3, so we control openOnClick/autolink.
-        link: false,
-      }),
-      Link.configure({
-        openOnClick: false,
-        autolink: true,
-        HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
-      }),
-    ],
-    content: extractBodyContent(initialHtml),
-    editorProps: {
-      attributes: {
-        // The editing surface is the email surface: light, dark text, both themes.
-        class: cn(
-          'rte-prose min-h-48 max-h-[28rem] overflow-y-auto bg-white px-4 py-3',
-          'text-slate-900 focus:outline-none',
-        ),
-        'data-testid': 'rte-editor',
-        'aria-label': t.emailLog.rteAriaLabel,
+export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
+  function RichTextEditor({ initialHtml, onChange, editable = true }, ref) {
+    const editor = useEditor({
+      editable,
+      extensions: [
+        StarterKit.configure({
+          // Use the dedicated Link extension (installed per spec) instead of the
+          // one bundled in StarterKit v3, so we control openOnClick/autolink.
+          link: false,
+        }),
+        Link.configure({
+          openOnClick: false,
+          autolink: true,
+          HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
+        }),
+      ],
+      content: extractBodyContent(initialHtml),
+      editorProps: {
+        attributes: {
+          // The editing surface is the email surface: light, dark text, both themes.
+          class: cn(
+            'rte-prose min-h-48 max-h-[28rem] overflow-y-auto bg-white px-4 py-3',
+            'text-slate-900 focus:outline-none',
+          ),
+          'data-testid': 'rte-editor',
+          'aria-label': t.emailLog.rteAriaLabel,
+        },
       },
-    },
-    onUpdate: ({ editor }) => {
-      onChange({ html: editor.getHTML(), text: editor.getText() })
-    },
-  })
+      onUpdate: ({ editor }) => {
+        onChange({ html: editor.getHTML(), text: editor.getText() })
+      },
+    })
 
-  // Emit the initial serialisation once the editor is ready so the parent's
-  // payload reflects the loaded body even if the operator sends unchanged.
-  useEffect(() => {
-    if (editor) {
-      onChange({ html: editor.getHTML(), text: editor.getText() })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor])
+    // Emit the initial serialisation once the editor is ready so the parent's
+    // payload reflects the loaded body even if the operator sends unchanged.
+    useEffect(() => {
+      if (editor) {
+        onChange({ html: editor.getHTML(), text: editor.getText() })
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [editor])
 
-  return (
-    <div className="overflow-hidden rounded-md border border-slate-300 bg-white">
-      {editor && <Toolbar editor={editor} />}
-      <EditorContent editor={editor} />
-    </div>
-  )
-}
+    // Keep the WYSIWYG's editability in sync with the `editable` prop — this
+    // is how ResendDialog locks the editor while the raw-HTML escape hatch is
+    // open, so the two surfaces never both accept input at once.
+    useEffect(() => {
+      editor?.setEditable(editable)
+    }, [editor, editable])
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        setHtml: (html: string) => {
+          if (!editor) return
+          editor.commands.setContent(extractBodyContent(html))
+        },
+      }),
+      [editor],
+    )
+
+    return (
+      <div className="overflow-hidden rounded-md border border-slate-300 bg-white">
+        {editor && <Toolbar editor={editor} />}
+        <EditorContent editor={editor} />
+      </div>
+    )
+  },
+)

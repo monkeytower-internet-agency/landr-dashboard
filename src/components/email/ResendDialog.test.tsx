@@ -8,6 +8,9 @@
  *    reflected in the send payload's body_html
  *  - the send payload carries the editor's getHTML() + getText()
  *  - the "Edit HTML source" escape hatch still edits raw HTML
+ *  - landr-7hac: the escape hatch and the WYSIWYG are mutually exclusive —
+ *    body_text stays live-synced with raw HTML edits, and the WYSIWYG is
+ *    re-seeded (not silently discarding the raw edit) once the hatch closes
  */
 import { render as rtlRender, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -186,5 +189,77 @@ describe('ResendDialog (WYSIWYG)', () => {
       Record<string, unknown>,
     ]
     expect(payload.body_html).toBe('<p>raw edited</p>')
+  })
+
+  it('re-derives body_text from raw HTML as it is edited in the escape hatch (landr-7hac)', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    const htmlBox = await screen.findByTestId('resend-body-html')
+    await user.clear(htmlBox)
+    await user.type(htmlBox, '<p>brand new text</p>')
+
+    await user.click(screen.getByTestId('resend-submit'))
+    await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
+    const [, , payload] = resendEmailMock.mock.calls[0] as [
+      string,
+      string,
+      Record<string, unknown>,
+    ]
+    expect(payload.body_html).toBe('<p>brand new text</p>')
+    // body_text must reflect the NEW html, not the stale original body_text.
+    expect(payload.body_text).toBe('brand new text')
+    expect(payload.body_text).not.toBe(source.body_text)
+  })
+
+  it('locks the WYSIWYG (non-editable) while the HTML-source escape hatch is open (landr-7hac)', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    expect(screen.getByTestId('rte-editor')).toHaveAttribute('contenteditable', 'true')
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    await waitFor(() =>
+      expect(screen.getByTestId('rte-editor')).toHaveAttribute('contenteditable', 'false'),
+    )
+
+    // Re-enabled once the escape hatch closes again.
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    await waitFor(() =>
+      expect(screen.getByTestId('rte-editor')).toHaveAttribute('contenteditable', 'true'),
+    )
+  })
+
+  it('does not silently discard a raw-HTML edit when the WYSIWYG is touched afterwards (landr-7hac)', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    // Edit raw HTML via the escape hatch.
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    const htmlBox = await screen.findByTestId('resend-body-html')
+    await user.clear(htmlBox)
+    await user.type(htmlBox, '<p>edited via source</p>')
+
+    // Close the escape hatch — the WYSIWYG must be re-seeded from the edit,
+    // not silently reverted to the original body loaded at mount.
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('rte-editor')).getByText('edited via source'),
+      ).toBeInTheDocument(),
+    )
+
+    // Touching the WYSIWYG now (bold toggle) must NOT drop the raw edit.
+    await user.click(screen.getByTestId('rte-bold'))
+
+    await user.click(screen.getByTestId('resend-submit'))
+    await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
+    const [, , payload] = resendEmailMock.mock.calls[0] as [
+      string,
+      string,
+      Record<string, unknown>,
+    ]
+    expect(payload.body_html).toContain('edited via source')
+    expect(payload.body_text).toContain('edited via source')
   })
 })
