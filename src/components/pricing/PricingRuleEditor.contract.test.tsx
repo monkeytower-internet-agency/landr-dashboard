@@ -32,8 +32,12 @@ import type { ReactElement, ReactNode } from 'react'
 //   manual_override        amount, reason                    (none — was unsupported by the UI)
 //
 // Tiered kinds (per_day_base, per_streak_tier, per_total_days_tier,
-// per_participant_tier) go through TierTable, not ParamsEditor — out of
-// scope here (their tier-row shape was already correct; see TierTable.tsx).
+// per_participant_tier) go through TierTable, not ParamsEditor, for their
+// tier rows (already correct; see TierTable.tsx) — but per_day_base,
+// per_streak_tier, and per_total_days_tier ALSO read params.per_participant
+// as an opt-in headcount multiplier, which TierTable never rendered
+// (landr-c53m.3 fix-forward). See the "tiered-kind per_participant toggle"
+// tests below for that contract.
 
 const { pricingMock } = vi.hoisted(() => ({
   pricingMock: {
@@ -57,6 +61,7 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }))
 
+import { toast } from 'sonner'
 import { PricingRuleEditor } from './PricingRuleEditor'
 import type { PricingRule, RuleKind } from '@/lib/pricingSchemes'
 
@@ -346,5 +351,249 @@ describe('PricingRuleEditor ParamsEditor — engine params contract', () => {
     expect(body2).toEqual({
       params: { amount: 999, reason: 'Updated reason' },
     })
+  })
+
+  // ---- tiered-kind per_participant toggle (landr-c53m.3) -----------------
+  //
+  // per_day_base, per_streak_tier, and per_total_days_tier all read
+  // params.per_participant as an opt-in headcount multiplier (see
+  // landr-api/app/services/pricing.py). The tiered branch renders TierTable
+  // instead of ParamsEditor, so this bool was previously unreachable from
+  // the UI. Toggling it must still full-replace-PATCH the whole params
+  // object, carrying forward every OTHER key already on the row (e.g.
+  // per_day_base's amount_per_day) — same full-replace contract as the
+  // composite kinds above.
+
+  it('per_day_base (tiered): toggling per_participant preserves other params keys', async () => {
+    const rule = makeRule('per_day_base', {
+      amount_per_day: 42,
+      per_participant: false,
+    })
+    render(
+      <PricingRuleEditor
+        rule={rule}
+        operatorId="op-1"
+        currency="EUR"
+        onDeleted={() => {}}
+        onRefetch={() => {}}
+      />,
+    )
+    const toggle = screen.getByRole('switch', {
+      name: /scale by participant count/i,
+    })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+    fireEvent.click(toggle)
+
+    await waitFor(() => expect(pricingMock.patchRule).toHaveBeenCalledTimes(1))
+    const [, , body] = pricingMock.patchRule.mock.calls[0]
+    expect(body).toEqual({
+      params: { amount_per_day: 42, per_participant: true },
+    })
+  })
+
+  it('per_streak_tier (tiered): toggling per_participant off preserves tiers + other params, round-trips', async () => {
+    // Para42's guided-day per_streak_tier rules seed per_participant=true —
+    // this pins the round-trip (on -> off -> on) survives with tiers intact
+    // (tiers live on a separate resource/table, untouched by this PATCH;
+    // this test only guards the params column itself).
+    const rule: PricingRule = {
+      ...makeRule('per_streak_tier', { per_participant: true }),
+      tiers: [
+        {
+          id: 'tier-1',
+          pricing_rule_id: 'rule-per_streak_tier',
+          operator_id: 'op-1',
+          threshold_min: 1,
+          threshold_max: 2,
+          amount_per_unit: 90,
+          amount_total: null,
+          currency: 'EUR',
+          created_at: '2026-05-01T00:00:00Z',
+          updated_at: '2026-05-01T00:00:00Z',
+        },
+      ],
+    }
+    render(
+      <PricingRuleEditor
+        rule={rule}
+        operatorId="op-1"
+        currency="EUR"
+        onDeleted={() => {}}
+        onRefetch={() => {}}
+      />,
+    )
+    const toggle = screen.getByRole('switch', {
+      name: /scale by participant count/i,
+    })
+    expect(toggle).toHaveAttribute('aria-checked', 'true')
+
+    fireEvent.click(toggle)
+    await waitFor(() => expect(pricingMock.patchRule).toHaveBeenCalledTimes(1))
+    expect(pricingMock.patchRule.mock.calls[0][2]).toEqual({
+      params: { per_participant: false },
+    })
+
+    fireEvent.click(toggle)
+    await waitFor(() => expect(pricingMock.patchRule).toHaveBeenCalledTimes(2))
+    expect(pricingMock.patchRule.mock.calls[1][2]).toEqual({
+      params: { per_participant: true },
+    })
+
+    // Tier row (rendered by TierTable, untouched by the params toggle)
+    // is still on screen — the toggle write didn't clobber tiers.
+    expect(screen.getByDisplayValue('90')).toBeInTheDocument()
+  })
+
+  it('per_total_days_tier (tiered): toggling per_participant preserves tiers + other params, round-trips', async () => {
+    // The third engine-consulted kind (_eval_per_total_days_tier also reads
+    // params.per_participant) — the earlier round-trip coverage only
+    // exercised per_day_base and per_streak_tier; this closes the gap.
+    const rule: PricingRule = {
+      ...makeRule('per_total_days_tier', {
+        per_participant: false,
+        rounding: 'up',
+      }),
+      tiers: [
+        {
+          id: 'tier-1',
+          pricing_rule_id: 'rule-per_total_days_tier',
+          operator_id: 'op-1',
+          threshold_min: 1,
+          threshold_max: 3,
+          amount_per_unit: 50,
+          amount_total: null,
+          currency: 'EUR',
+          created_at: '2026-05-01T00:00:00Z',
+          updated_at: '2026-05-01T00:00:00Z',
+        },
+      ],
+    }
+    render(
+      <PricingRuleEditor
+        rule={rule}
+        operatorId="op-1"
+        currency="EUR"
+        onDeleted={() => {}}
+        onRefetch={() => {}}
+      />,
+    )
+    const toggle = screen.getByRole('switch', {
+      name: /scale by participant count/i,
+    })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+
+    fireEvent.click(toggle)
+    await waitFor(() => expect(pricingMock.patchRule).toHaveBeenCalledTimes(1))
+    expect(pricingMock.patchRule.mock.calls[0][2]).toEqual({
+      params: { per_participant: true, rounding: 'up' },
+    })
+
+    fireEvent.click(toggle)
+    await waitFor(() => expect(pricingMock.patchRule).toHaveBeenCalledTimes(2))
+    expect(pricingMock.patchRule.mock.calls[1][2]).toEqual({
+      params: { per_participant: false, rounding: 'up' },
+    })
+
+    // Tier row (rendered by TierTable, untouched by the params toggle)
+    // is still on screen — the toggle write didn't clobber tiers or the
+    // other params key (`rounding`).
+    expect(screen.getByDisplayValue('50')).toBeInTheDocument()
+  })
+
+  it('per_participant_tier: the per_participant toggle is NOT rendered (engine never reads it for this kind)', () => {
+    // _eval_per_participant_tier never consults params.per_participant — the
+    // rule is already inherently participant-scoped. Rendering the toggle
+    // here would be a reachable-but-inert control (phantom config).
+    const rule = makeRule('per_participant_tier', { per_participant: true })
+    render(
+      <PricingRuleEditor
+        rule={rule}
+        operatorId="op-1"
+        currency="EUR"
+        onDeleted={() => {}}
+        onRefetch={() => {}}
+      />,
+    )
+    expect(
+      screen.queryByRole('switch', { name: /scale by participant count/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  // ---- double-submit race + rollback (fix-forward review findings, #356) -
+
+  it('per_day_base: overlapping double-click while a PATCH is in flight fires only ONE PATCH', async () => {
+    const rule = makeRule('per_day_base', {
+      amount_per_day: 42,
+      per_participant: false,
+    })
+    let resolveFirstPatch!: (value: unknown) => void
+    const firstPatch = new Promise((resolve) => {
+      resolveFirstPatch = resolve
+    })
+    pricingMock.patchRule.mockImplementationOnce(() => firstPatch)
+    render(
+      <PricingRuleEditor
+        rule={rule}
+        operatorId="op-1"
+        currency="EUR"
+        onDeleted={() => {}}
+        onRefetch={() => {}}
+      />,
+    )
+    const toggle = screen.getByRole('switch', {
+      name: /scale by participant count/i,
+    })
+
+    // Click 1 fires PATCH 1 and stays pending — we do NOT await the PATCH
+    // itself (it never resolves until below), only let the isPending flag
+    // from TanStack Query's internal notifyManager (a real macrotask, not a
+    // React-only re-render) reach the DOM before the second click, exactly
+    // as it would for a real user's double-click (input events are always
+    // separated by at least one task-queue turn, unlike two `fireEvent`
+    // calls in the same synchronous script).
+    fireEvent.click(toggle)
+    await waitFor(() => expect(toggle).toBeDisabled())
+
+    // Click 2 fires while PATCH 1 is still in flight (unresolved) — a real
+    // browser refuses to dispatch `click` on a disabled button and jsdom
+    // mirrors that, so this must NOT fire a second PATCH.
+    fireEvent.click(toggle)
+
+    // Only now does PATCH 1 resolve — after the second click attempt.
+    resolveFirstPatch({})
+
+    await waitFor(() => expect(toggle).not.toBeDisabled())
+    expect(pricingMock.patchRule).toHaveBeenCalledTimes(1)
+  })
+
+  it('per_day_base: a failed PATCH rolls the toggle back and toasts an error', async () => {
+    const rule = makeRule('per_day_base', {
+      amount_per_day: 42,
+      per_participant: false,
+    })
+    pricingMock.patchRule.mockRejectedValueOnce(new Error('network blip'))
+    render(
+      <PricingRuleEditor
+        rule={rule}
+        operatorId="op-1"
+        currency="EUR"
+        onDeleted={() => {}}
+        onRefetch={() => {}}
+      />,
+    )
+    const toggle = screen.getByRole('switch', {
+      name: /scale by participant count/i,
+    })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+
+    fireEvent.click(toggle)
+    // Optimistic flip is immediate.
+    expect(toggle).toHaveAttribute('aria-checked', 'true')
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    // Rolled back to the last-known-good (pre-optimistic) value.
+    await waitFor(() =>
+      expect(toggle).toHaveAttribute('aria-checked', 'false'),
+    )
   })
 })
