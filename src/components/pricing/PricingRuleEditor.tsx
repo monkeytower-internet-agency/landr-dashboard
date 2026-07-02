@@ -307,15 +307,21 @@ function ParamsEditor({ rule, currency, onPatch }: ParamsEditorProps) {
 
 // ---- params strip for TIERED rule kinds (landr-c53m.3) ------------------
 //
-// per_day_base, per_streak_tier, and per_total_days_tier all read
-// params.per_participant as an opt-in headcount multiplier (see
-// landr-api/app/services/pricing.py: _eval_per_day_base,
-// _eval_per_streak_tier, _eval_per_total_days_tier) — flipping it
-// materially changes the computed price (Para42's guided-day
+// per_day_base and per_streak_tier read params.per_participant as an
+// opt-in headcount multiplier (see landr-api/app/services/pricing.py:
+// _eval_per_day_base, _eval_per_streak_tier, _eval_per_total_days_tier) —
+// flipping it materially changes the computed price (Para42's guided-day
 // per_streak_tier rules seed this true). The tiered branch renders
 // TierTable instead of ParamsEditor, so this bool was unreachable from the
-// UI entirely. per_participant_tier itself ignores the flag (it's already
-// inherently participant-scoped), but showing the toggle there is harmless.
+// UI entirely.
+//
+// per_total_days_tier is ALSO consulted by the engine (_eval_per_total_days_
+// tier reads params.per_participant too), so the toggle renders for it.
+// per_participant_tier is the one exception: _eval_per_participant_tier
+// never reads params.per_participant (the rule is already inherently
+// participant-scoped), so rendering the toggle there would be a reachable
+// but functionally-inert control — exactly the phantom-config class this
+// epic eliminates. TieredParamsEditor early-returns null for that kind.
 //
 // Same full-replace PATCH contract as ParamsEditor (landr-d2uy): the API
 // PATCH replaces the whole params jsonb column (staff_pricing.py
@@ -328,17 +334,32 @@ function ParamsEditor({ rule, currency, onPatch }: ParamsEditorProps) {
 // THIS editor instance actually sent — never re-derived from `rule.params`
 // after a write, since that prop only refreshes once the PATCH's
 // onSuccess -> onRefetch round-trip resolves.
+//
+// Double-submit + rollback (fix-forward, review-gate findings on PR #356):
+// the Switch must disable while a PATCH is in flight (rapid double-click
+// with no server-side version guard lets an out-of-order commit land the
+// STALE toggle value), and a failed PATCH must roll the optimistic draft
+// back to the last-known-good value rather than leaving the switch stuck
+// showing the unsaved state forever.
 
 type TieredParamsEditorProps = {
   rule: PricingRule
-  onPatch: (body: { params: Record<string, unknown> }) => void
+  onPatch: (
+    body: { params: Record<string, unknown> },
+    options?: { onError?: () => void },
+  ) => void
+  isPending: boolean
 }
 
-function TieredParamsEditor({ rule, onPatch }: TieredParamsEditorProps) {
+function TieredParamsEditor({ rule, onPatch, isPending }: TieredParamsEditorProps) {
   const [paramsDraft, setParamsDraft] = useState<Record<string, unknown>>(
     rule.params,
   )
   const checked = Boolean(paramsDraft.per_participant)
+
+  // _eval_per_participant_tier never reads per_participant — reachable but
+  // inert control, so don't render it for this kind at all.
+  if (rule.rule_kind === 'per_participant_tier') return null
 
   return (
     <div className="mt-2 flex items-center gap-2">
@@ -346,10 +367,17 @@ function TieredParamsEditor({ rule, onPatch }: TieredParamsEditorProps) {
         id={`param-per-participant-${rule.id}`}
         checked={checked}
         size="sm"
+        disabled={isPending}
         onClick={() => {
+          const previous = paramsDraft
           const next = { ...paramsDraft, per_participant: !checked }
           setParamsDraft(next)
-          onPatch({ params: next })
+          onPatch(
+            { params: next },
+            {
+              onError: () => setParamsDraft(previous),
+            },
+          )
         }}
       />
       <Label
@@ -479,7 +507,8 @@ export function PricingRuleEditor({
         <>
           <TieredParamsEditor
             rule={rule}
-            onPatch={(body) => patchMutation.mutate(body)}
+            isPending={patchMutation.isPending}
+            onPatch={(body, options) => patchMutation.mutate(body, options)}
           />
           <TierTable
             tiers={rule.tiers}
