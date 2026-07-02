@@ -179,6 +179,9 @@ vi.mock('@/components/ConfigHealthBanners', () => ({
 vi.mock('@/components/OnboardingBanner', () => ({
   OnboardingBanner: () => null,
 }))
+vi.mock('@/components/EmailSenderNudgeBanner', () => ({
+  EmailSenderNudgeBanner: () => null,
+}))
 vi.mock('@/components/ViewAsBanner', () => ({
   ViewAsBanner: () => null,
 }))

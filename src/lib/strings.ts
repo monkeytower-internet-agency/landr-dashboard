@@ -4519,4 +4519,14 @@ export const t = {
     // Completion toast after the widget posts landr:booking-created.
     createdToast: 'Booking created! Opening it now…',
   },
+  // landr-6s44 — operator-wide "set up branded email sending" nudge banner.
+  // Kept in its own top-level key (distinct from emailSenderSettings above)
+  // to minimise merge conflicts with other in-flight strings.ts edits.
+  emailSenderNudge: {
+    title: "Branded email sending isn't set up",
+    body:
+      'Your booking emails send from the Landr fallback address until your own sending domain is verified.',
+    cta: 'Set it up',
+    dismiss: 'Dismiss',
+  },
 } as const
