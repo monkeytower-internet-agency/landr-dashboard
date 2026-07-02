@@ -249,7 +249,7 @@ export function ProductForm({
       : t.products.nonServiceComingSoonBody
 
   async function handleSubmit(values: ProductFormValues) {
-    const payload = buildSubmitPayload(values)
+    const payload = buildSubmitPayload(values, product)
     await onSubmit(payload)
   }
 
@@ -505,6 +505,37 @@ export function ProductForm({
                   {t.products.fieldRoomCapacityHint}
                 </FormDescription>
                 <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : null}
+
+        {/* landr-c53m.4 — includes_breakfast checkbox. Visible only on
+            kind='hotel_room'; it branches booking-confirmation email
+            content (landr-api booking_emails.py). */}
+        {isHotelRoomKind ? (
+          <FormField
+            control={form.control}
+            name="includes_breakfast"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start gap-3 space-y-0 rounded-md border p-3">
+                <FormControl>
+                  <Checkbox
+                    checked={!!field.value}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                  />
+                </FormControl>
+                <div className="flex flex-col gap-1">
+                  <FormLabel className="cursor-pointer text-sm font-normal">
+                    {t.products.fieldIncludesBreakfast}
+                  </FormLabel>
+                  <FormDescription>
+                    {t.products.fieldIncludesBreakfastHint}
+                  </FormDescription>
+                </div>
               </FormItem>
             )}
           />

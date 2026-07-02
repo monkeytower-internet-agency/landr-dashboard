@@ -111,6 +111,10 @@ export type ProductRow = {
   // product. Meaningful today for kind='hotel_room' (room sleeps N); NULL
   // elsewhere by convention. DB CHECK enforces NULL OR >= 1.
   capacity_per_unit: number | null
+  // landr-c53m.4 — whether a hotel_room product's rate includes breakfast.
+  // Only meaningful for kind='hotel_room'; branches booking-confirmation
+  // email content (landr-api booking_emails.py).
+  includes_breakfast: boolean
   deleted_at: string | null
   created_at: string
   updated_at: string
@@ -148,6 +152,7 @@ const SELECT = `
   hotel_offering,
   is_addon_only,
   capacity_per_unit,
+  includes_breakfast,
   deleted_at,
   created_at,
   updated_at,
@@ -346,6 +351,8 @@ export type ProductWritePayload = {
   // landr-fi68 / landr-knm0 — max people per unit (rooms today). NULL when
   // the operator hasn't set a value or the kind doesn't carry the semantic.
   capacity_per_unit: number | null
+  // landr-c53m.4 — see ProductRow comment. Only meaningful on kind='hotel_room'.
+  includes_breakfast: boolean
 }
 
 // Recognise both the FastAPI api()-wrapper error code and the raw Postgres

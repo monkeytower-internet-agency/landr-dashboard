@@ -2190,6 +2190,10 @@ export const t = {
     fieldRoomCapacityHint:
       'How many guests fit in one of these rooms. Defaults follow the room name (single → 1, double/twin → 2, triple → 3, family → 4).',
     errorRoomCapacityRequired: 'Room capacity must be at least 1.',
+    // landr-c53m.4 — includes_breakfast checkbox on hotel_room products.
+    fieldIncludesBreakfast: 'Includes breakfast',
+    fieldIncludesBreakfastHint:
+      'On: the room rate includes breakfast, and the booking confirmation email mentions it. Off: no breakfast copy is added.',
     fieldHotelOffering: 'Includes accommodation',
     fieldHotelOfferingHint:
       'When the booking widget should add a hotel step on top of this service.',
