@@ -13,6 +13,7 @@ import { ErrorHistoryBell } from '@/components/ErrorHistoryBell'
 import { NotificationsBell } from '@/components/NotificationsBell'
 import { OnboardingBanner } from '@/components/OnboardingBanner'
 import { ConfigHealthBanners } from '@/components/ConfigHealthBanners'
+import { EmailSenderNudgeBanner } from '@/components/EmailSenderNudgeBanner'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
 import { UserMenu } from '@/components/UserMenu'
 import { ViewAsBanner } from '@/components/ViewAsBanner'
@@ -219,6 +220,14 @@ function AppShellInner({ children }: { children: ReactNode }) {
             warnings). Dismissible for the session; reappears on reload
             while unresolved. Renders nothing when there are no issues. */}
         <ConfigHealthBanners />
+        {/* landr-6s44 — "set up branded email sending" nudge. Sits below the
+            config-health stack so operator-facing warnings (config-health)
+            take visual precedence over this softer setup nudge. Driven by
+            the dedicated @/lib/email-sender status client (shared React
+            Query cache with the Settings → Email sending page), not the
+            generic config-health check. Renders nothing while loading, on
+            fetch error, or once the sending domain is verified. */}
+        <EmailSenderNudgeBanner />
         {/* min-w-0 mirrors the inset constraint so route content respects
             the available width; per-table overflow-x-auto (shadcn Table) then
             handles its own horizontal scroll inside the card.
