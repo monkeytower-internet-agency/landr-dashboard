@@ -24,6 +24,7 @@ import {
   ClockIcon,
   CopyIcon,
   SendIcon,
+  XCircleIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -51,11 +52,13 @@ import {
   fetchEmailSenderEligibility,
   useEmailSenderConfig,
   useSetupEmailSender,
+  useSendEmailSenderTest,
   useVerifyEmailSender,
   type EmailSenderConfig,
   type EmailSenderDnsRecord,
   type EmailSenderEligibility,
   type EmailSenderVerificationStatus,
+  type TestEmailResult,
 } from '@/lib/email-sender'
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
@@ -200,6 +203,15 @@ function SetupForm({ operatorId }: { operatorId: string }) {
         ...(trimmedLocal ? { from_local_part: trimmedLocal } : {}),
       },
       {
+        // Outcome-aware: a domain hosted with us can come back already
+        // verified (auto-DNS), while a manual domain comes back 'pending'.
+        onSuccess: (config) => {
+          if (config.verification_status === 'verified') {
+            toast.success(t.emailSenderSettings.setupVerified)
+          } else {
+            toast.success(t.emailSenderSettings.setupSuccess)
+          }
+        },
         onError: (err: Error) => {
           toast.error(t.emailSenderSettings.setupError, {
             description: err.message,
@@ -348,6 +360,18 @@ function ConfiguredView({
 
   function handleVerify() {
     verify.mutate(undefined, {
+      // Outcome-aware feedback (the re-verify button previously gave none):
+      // verified → success; still pending → an info toast that explains the
+      // wait (polling continues automatically); failed → error.
+      onSuccess: (config) => {
+        if (config.verification_status === 'verified') {
+          toast.success(t.emailSenderSettings.verifySuccess)
+        } else if (config.verification_status === 'failed') {
+          toast.error(t.emailSenderSettings.verifyError)
+        } else {
+          toast.info(t.emailSenderSettings.verifyPending)
+        }
+      },
       onError: (err: Error) => {
         toast.error(t.emailSenderSettings.verifyError, {
           description: err.message,
@@ -437,6 +461,8 @@ function ConfiguredView({
         ) : (
           <AutoDnsCard onRecheck={handleVerify} rechecking={verify.isPending} />
         ))}
+
+      {isVerified && <TestEmailCard operatorId={operatorId} />}
     </>
   )
 }
@@ -626,5 +652,130 @@ function DnsRow({ record }: { record: EmailSenderDnsRecord }) {
         </Button>
       </TableCell>
     </TableRow>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Test email card — visible only when domain is verified (landr-gp0v)
+// ---------------------------------------------------------------------------
+
+function TestEmailCard({ operatorId }: { operatorId: string }) {
+  const [to, setTo] = useState('')
+  const [result, setResult] = useState<TestEmailResult | null>(null)
+  const mutation = useSendEmailSenderTest(operatorId)
+
+  function handleSend(e: React.FormEvent) {
+    e.preventDefault()
+    const trimmed = to.trim()
+    if (!trimmed) return
+    setResult(null)
+    mutation.mutate(trimmed, {
+      onSuccess: (res) => setResult(res),
+      onError: (err: Error) => {
+        // Network / unexpected failure — surface as a failed result so the UI
+        // stays consistent (no toast needed; the log line appears inline).
+        setResult({
+          status: 'failed',
+          detail: err.message,
+          message_id: null,
+          from_address: null,
+        })
+      },
+    })
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <SendIcon className="size-4" aria-hidden />
+          {t.emailSenderSettings.testEmailTitle}
+        </CardTitle>
+        <CardDescription>
+          {t.emailSenderSettings.testEmailDescription}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSend} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="test-email-to">
+              {t.emailSenderSettings.testEmailLabel}
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="test-email-to"
+                type="email"
+                value={to}
+                autoComplete="email"
+                autoCapitalize="none"
+                spellCheck={false}
+                placeholder={t.emailSenderSettings.testEmailPlaceholder}
+                onChange={(e) => {
+                  setTo(e.target.value)
+                  if (result) setResult(null)
+                }}
+                className="font-mono text-sm"
+              />
+              <Button
+                type="submit"
+                size="sm"
+                disabled={mutation.isPending || !to.trim()}
+                data-testid="send-test-email-button"
+              >
+                {mutation.isPending
+                  ? t.emailSenderSettings.testEmailSending
+                  : t.emailSenderSettings.testEmailButton}
+              </Button>
+            </div>
+          </div>
+
+          {result && (
+            <div
+              role="status"
+              data-testid="test-email-result"
+              className={
+                result.status === 'sent'
+                  ? 'rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                  : 'text-destructive border-destructive/30 bg-destructive/10 rounded-md border px-3 py-2 text-sm'
+              }
+            >
+              {result.status === 'sent' ? (
+                <p className="flex items-start gap-1.5">
+                  <CheckCircle2Icon
+                    className="mt-0.5 size-4 shrink-0"
+                    aria-hidden
+                  />
+                  <span>
+                    <span className="font-medium">
+                      {t.emailSenderSettings.testEmailSuccessPrefix}
+                    </span>{' '}
+                    {result.detail}
+                    {result.message_id && (
+                      <span className="text-emerald-700 dark:text-emerald-400 ml-1 text-xs">
+                        {t.emailSenderSettings.testEmailMessageId}{' '}
+                        <span className="font-mono">{result.message_id}</span>
+                      </span>
+                    )}
+                  </span>
+                </p>
+              ) : (
+                <p className="flex items-start gap-1.5">
+                  <XCircleIcon
+                    className="mt-0.5 size-4 shrink-0"
+                    aria-hidden
+                  />
+                  <span>
+                    <span className="font-medium">
+                      {t.emailSenderSettings.testEmailFailedPrefix}
+                    </span>{' '}
+                    {result.detail}
+                  </span>
+                </p>
+              )}
+            </div>
+          )}
+        </form>
+      </CardContent>
+    </Card>
   )
 }

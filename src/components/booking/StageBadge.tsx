@@ -24,11 +24,22 @@ const SEMANTIC_STATE_LABEL: Record<BookingSemanticState, string> = {
   no_show: t.bookings.stage.noShow,
 }
 
-// Labels for known stage codes (operator-customizable free-text)
+// Labels for known stage codes (operator-customizable free-text).
+// landr-uvfg.8 (D4) — cover all canonical stage codes, not just the three
+// approval gates, so the badge reads "Awaiting payment" rather than falling
+// back to the bare semantic state ("Pending") for the rest of the lifecycle.
 const STAGE_CODE_LABEL: Record<string, string> = {
   awaiting_general_approval: t.bookings.stage.awaitingGeneralApproval,
   awaiting_secondary_approval: t.bookings.stage.awaitingSecondaryApproval,
   awaiting_hotel_approval: t.bookings.stage.awaitingHotelApproval,
+  awaiting_payment: 'Awaiting payment',
+  paid_pending_cutoff: 'Paid — pending cutoff',
+  modifications_open: 'Modifications open',
+  finalised: t.bookings.stage.finalised,
+  cancelled: t.bookings.stage.cancelled,
+  no_show: t.bookings.stage.noShow,
+  drafted: 'Draft',
+  submitted: 'Submitted',
 }
 
 // Color comes from semantic state (the 5 enum values)

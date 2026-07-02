@@ -625,8 +625,8 @@ export const t = {
     introBody:
       'Booking emails currently send from a Landr address. Connect your own domain so confirmations, reminders, and updates arrive from you — better deliverability and a more professional look.',
     domainLabel: 'Sending domain',
-    domainHint: 'The root domain you own, e.g. para42.com — not a full email address.',
-    domainPlaceholder: 'para42.com',
+    domainHint: 'The root domain you own, e.g. example.com — not a full email address.',
+    domainPlaceholder: 'example.com',
     localPartLabel: 'From address (optional)',
     localPartHint: 'The part before the @. Defaults to “bookings”.',
     localPartPlaceholder: 'bookings',
@@ -635,19 +635,21 @@ export const t = {
     checkDomainButton: 'Check domain',
     checkDomainChecking: 'Checking…',
     checkDomainHintAuto:
-      'This domain is in our network — we’ll set it up automatically.',
+      'Good news — your domain is already hosted with us, so we’ll set up email automatically. No DNS changes on your side. ✨',
     checkDomainHintManual:
       'You’ll add a few DNS records at your provider — we’ll show them after you continue.',
     setupButton: 'Set up',
     setupSubmitting: 'Setting up…',
+    setupSuccess: 'Sending domain set up — we’re verifying it now. ✨',
+    setupVerified: 'Sending domain set up and verified. ✅',
     setupError: 'Could not set up sending domain',
     domainRequired: 'Enter the domain you want to send from.',
-    domainInvalid: 'That doesn’t look like a domain. Use something like para42.com.',
+    domainInvalid: 'That doesn’t look like a domain. Use something like example.com.',
 
     // --- After setup: DNS records ---
-    autodnsTitle: 'Records added automatically — verifying…',
+    autodnsTitle: 'Hosted with us — records added automatically ✨',
     autodnsBody:
-      'We added the required DNS records to your zone for you. Verification with Resend usually completes within a few minutes.',
+      'Because your domain is hosted with us, we added your DKIM records for you — no DNS changes needed on your side. A perk of being a customer! Verification usually completes within a few minutes.',
     manualTitle: 'Add these DNS records',
     manualBody:
       'Add the records below to your domain’s DNS, then click Verify. Changes can take a few minutes to propagate.',
@@ -667,6 +669,9 @@ export const t = {
     recheckButton: 'Re-check',
     verifying: 'Verifying…',
     verifyError: 'Verification failed',
+    verifySuccess: 'Domain verified — you can now send email. ✅',
+    verifyPending:
+      'Still verifying — DNS can take a few minutes to propagate. We’ll keep checking automatically.',
 
     // --- Configured: status + active From ---
     statusVerified: 'Verified',
@@ -680,6 +685,18 @@ export const t = {
     changeDomainButton: 'Change domain',
     changeDomainCancel: 'Cancel',
     reverifyButton: 'Re-verify',
+
+    // --- Test email card (landr-gp0v) — visible only when domain is verified ---
+    testEmailTitle: 'Send a test email',
+    testEmailDescription:
+      'Send a test message from your verified sending domain to confirm delivery is working.',
+    testEmailLabel: 'Recipient address',
+    testEmailPlaceholder: 'you@example.com',
+    testEmailButton: 'Send test',
+    testEmailSending: 'Sending…',
+    testEmailSuccessPrefix: 'Sent:',
+    testEmailFailedPrefix: 'Failed:',
+    testEmailMessageId: 'Message ID:',
   },
   // landr-sbhz.8 — /revenue: owner platform-commission overview (STAFF-ONLY).
   revenue: {
@@ -1349,6 +1366,14 @@ export const t = {
       saved: 'Custom offer applied.',
       cleared: 'Custom offer cleared.',
       saveFailed: 'Could not save the custom offer.',
+      regularPrice: 'Regular',
+      resetToRegular: 'Reset to regular',
+      resetAllToRegular: 'Reset all to regular',
+      // landr-uvfg.4 — send-offer button
+      sendOffer: 'Send offer to customer',
+      sendOfferTitle: 'Send offer',
+      sendOfferSuccess: (email: string) => `Offer sent to ${email}.`,
+      sendOfferFailed: 'Could not send the offer.',
     },
     detail: {
       sectionStatus: 'Status',
@@ -1506,6 +1531,15 @@ export const t = {
         `Confirmation sent · ${n} change${n === 1 ? '' : 's'} highlighted.`,
       toastError: 'Could not resend confirmation.',
     },
+    // landr-uvfg.6 — send the FIRST confirmation for never-confirmed bookings.
+    // Button renders in place of "Resend confirmation" when hasPriorConfirmation=false.
+    sendConfirmation: {
+      action: 'Send confirmation',
+      working: 'Sending…',
+      toastSuccess: (customer: string): string =>
+        `Confirmation sent to ${customer}.`,
+      toastError: 'Could not send confirmation.',
+    },
     // landr-uzup — Payments tab inside BookingDetailSheet. Lists every
     // payments + payment_refunds row with a Refund button on succeeded
     // payments. Hits POST /api/staff/operators/{op}/bookings/{bid}/
@@ -1586,6 +1620,20 @@ export const t = {
       working: 'Marking…',
       toastSuccess: 'Marked as no-show.',
       toastError: 'Failed to mark as no-show.',
+    },
+    // landr-uvfg.8 — free-form set-stage control on every booking's detail sheet.
+    setStage: {
+      label: 'Move to stage',
+      selectPlaceholder: 'Select stage…',
+      confirmTitle: 'Non-standard transition',
+      confirmDescription: (from: string, to: string, warning: string): string =>
+        `${warning} This transition skips the normal flow from "${from}" to "${to}".`,
+      sideEffectsLabel: 'Side effects that will be skipped:',
+      cancel: 'Cancel',
+      confirm: 'Move anyway',
+      working: 'Moving…',
+      toastSuccess: (stage: string): string => `Moved to "${stage}".`,
+      toastError: 'Failed to move booking.',
     },
     stage: {
       pending: 'Pending',
@@ -3925,6 +3973,8 @@ export const t = {
       templateCourseDesc: 'Multi-day course over a fixed date range.',
       templateHotel: 'Hotel package',
       templateHotelDesc: 'Day activity bundled with hotel pickup. Needs hotel coordination.',
+      templateTandem: 'Tandem flight',
+      templateTandemDesc: 'Single tandem flight, time-slot bookable with a pilot.',
       create: 'Create',
       creating: 'Creating…',
       created: (name: string) => `Created '${name}'.`,

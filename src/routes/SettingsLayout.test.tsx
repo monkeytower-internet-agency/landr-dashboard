@@ -258,24 +258,24 @@ describe('SettingsLayout', () => {
   it('renders the Account sub-sidebar when on an account URL (landr-fzcg)', () => {
     renderSettingsTree('/account/company')
     // /account/company belongs to the Account group, so the sub-sidebar
-    // renders ACCOUNT_SECTIONS (Company, Connected accounts, Security, Gmail,
+    // renders ACCOUNT_SECTIONS (Company, Connected accounts, Security,
     // Email sending, Calendar feed, Payments & invoicing, Plan, Notifications).
     // landr-6ybs added Calendar feed; landr-wwhn.16 added Notifications;
-    // landr-1nwu.2 added Payments & invoicing; landr added Security
-    // (change password); landr-resend-sender added Email sending → 9 total.
+    // landr-1nwu.2 added Payments & invoicing; landr added Security; the Gmail
+    // integration was removed (replaced by Email sending / SES) → 8 total.
     const nav = screen.getByRole('navigation', { name: /account sections/i })
     const links = nav.querySelectorAll('a')
-    expect(links).toHaveLength(9)
+    expect(links).toHaveLength(8)
     expect(nav).toHaveTextContent(/company/i)
     expect(nav).toHaveTextContent(/connected accounts/i)
     expect(nav).toHaveTextContent(/security/i)
-    expect(nav).toHaveTextContent(/gmail/i)
     expect(nav).toHaveTextContent(/email sending/i)
     expect(nav).toHaveTextContent(/calendar feed/i)
     expect(nav).toHaveTextContent(/payments & invoicing/i)
     expect(nav).toHaveTextContent(/plan/i)
     expect(nav).toHaveTextContent(/notifications/i)
-    // Settings-group items must NOT appear in the Account sub-sidebar.
+    // The removed Gmail integration must NOT appear, nor any Settings-group items.
+    expect(nav).not.toHaveTextContent(/gmail/i)
     expect(nav).not.toHaveTextContent(/calendar & display/i)
     expect(nav).not.toHaveTextContent(/team/i)
     expect(nav).not.toHaveTextContent(/email templates/i)

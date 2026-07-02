@@ -14,10 +14,11 @@
  * Why not reuse `api<T>()` from `@/lib/api-client`? That wrapper assumes
  * a JSON body — calling `JSON.parse` on PDF bytes corrupts the file.
  * Instead we lean on the same `getBearerToken` + `apiBase` building
- * blocks so auth + base-URL behaviour stays identical.
+ * blocks so auth + base-URL behaviour stays identical. We mirror the
+ * timeout + AbortController pattern from api-client.ts (landr-y3oj.4).
  */
 
-import { apiBase, getBearerToken } from '@/lib/api-client'
+import { apiBase, getBearerToken, REQUEST_TIMEOUT_MS, ApiTimeoutError } from '@/lib/api-client'
 
 export type DownloadInvoicePdfArgs = {
   operatorId: string
@@ -26,6 +27,8 @@ export type DownloadInvoicePdfArgs = {
   fetchImpl?: typeof fetch
   /** Override for unit tests; falls back to `document` + `window.URL`. */
   triggerDownload?: (blob: Blob, filename: string) => void
+  /** Override the default 15s request timeout for this call. */
+  timeoutMs?: number
 }
 
 function defaultTriggerDownload(blob: Blob, filename: string): void {
@@ -45,23 +48,49 @@ function defaultTriggerDownload(blob: Blob, filename: string): void {
 /**
  * Fetch + trigger a download of the invoice PDF for a booking.
  *
- * Throws a plain `Error` with the server's `detail` (if the response was
- * JSON) or the HTTP status text on failure. Callers should surface this
- * via a toast.
+ * Mirrors the timeout + AbortController pattern from api-client.ts
+ * (landr-y3oj.4): enforces a per-request timeout (default 15s) via
+ * AbortController and throws `ApiTimeoutError` on timeout. Override
+ * with `timeoutMs` in options.
+ *
+ * Throws `ApiTimeoutError` if the request exceeds its timeout budget,
+ * or a plain `Error` with the server's `detail` (if the response was
+ * JSON) or the HTTP status text on other failures. Callers should
+ * surface this via a toast.
  */
 export async function downloadInvoicePdf({
   operatorId,
   bookingId,
   fetchImpl,
   triggerDownload,
+  timeoutMs,
 }: DownloadInvoicePdfArgs): Promise<void> {
   const token = await getBearerToken()
   const f = fetchImpl ?? fetch
   const url = `${apiBase()}/api/staff/operators/${operatorId}/bookings/${bookingId}/invoice.pdf`
-  const res = await f(url, {
-    method: 'GET',
-    headers: { Authorization: `Bearer ${token}` },
-  })
+
+  const controller = new AbortController()
+  const timeout = timeoutMs ?? REQUEST_TIMEOUT_MS
+  const timer = setTimeout(() => controller.abort(), timeout)
+
+  let res: Response
+  try {
+    res = await f(url, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    })
+  } catch (err) {
+    // AbortError is exclusively ours (only we hold `controller`) — anything
+    // else (offline, DNS, connection refused) is a genuine network failure.
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new ApiTimeoutError()
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
+
   if (!res.ok) {
     // Server errors are JSON ({ detail: { error: "..." } } per FastAPI).
     let message = `HTTP ${res.status}`

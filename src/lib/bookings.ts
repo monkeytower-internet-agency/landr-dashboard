@@ -7,9 +7,14 @@ import { formatDateTime } from '@/lib/time-format'
 // landr-g2m5 — single source of truth for the product_kind enum lives in
 // lib/products.ts. Re-export here so existing `from '@/lib/bookings'`
 // consumers keep compiling without changes.
-import type { ProductKind } from '@/lib/products'
+//
+// landr-52ik.5 — service_time_shape joins the same pattern: both are native
+// Postgres enums derived (in lib/products.ts) from the generated schema, and
+// re-exported here rather than re-declared, so this file can't drift from
+// products.ts's copy.
+import type { ProductKind, ServiceTimeShape } from '@/lib/products'
 
-export type { ProductKind }
+export type { ProductKind, ServiceTimeShape }
 
 export type BookingSemanticState =
   | 'pending'
@@ -28,13 +33,6 @@ export type BookingSemanticState =
 //   blocked_on_human→ 'blocked'
 //   no row          → 'none'
 export type HoldedStatus = 'transferred' | 'pending' | 'failed' | 'blocked' | 'none'
-
-// Mirrors public.service_time_shape enum. NULL for non-service products.
-export type ServiceTimeShape =
-  | 'single_date'
-  | 'days_range'
-  | 'fixed_window'
-  | 'time_slot'
 
 // landr-lx7s — formerly `BookingItem`; renamed to `BookingProduct` to clear
 // the name collision with views-bookings-data.ts's `BookingItem = BookingRow`
@@ -929,6 +927,65 @@ export function canMarkAsNoShow(row: BookingRow, today?: Date): boolean {
   return false
 }
 
+// ----- Free-form set-stage (landr-uvfg.8 / T8) ----------------------------
+// Operator moves a booking to an arbitrary lifecycle stage from the detail
+// sheet. Hits POST /api/staff/operators/{op}/bookings/{id}/set-stage (T7).
+// The server returns requires_confirmation=true for non-canonical jumps; the
+// UI then re-POSTs with force=true after the operator confirms in a dialog.
+
+export type SetStageRequest = {
+  target_stage_code: string
+  force?: boolean
+  note?: string | null
+}
+
+export type SetStageResult = {
+  ok: boolean
+  applied: boolean
+  requires_confirmation: boolean
+  warning: string | null
+  side_effects_skipped: string[]
+  current_stage_code: string
+  semantic_state: string | null
+}
+
+export async function setBookingStage(
+  operatorId: string,
+  bookingId: string,
+  body: SetStageRequest,
+): Promise<SetStageResult> {
+  return api<SetStageResult>(
+    'POST',
+    `/api/staff/operators/${operatorId}/bookings/${bookingId}/set-stage`,
+    body,
+  )
+}
+
+/** The operator's active, non-deleted lifecycle stages, in sort order — the
+ *  option list for the free-form stage Select. Read straight from Supabase
+ *  (RLS-scoped) since it's a plain projection with no side effects. */
+export async function fetchBookingStages(
+  operatorId: string,
+): Promise<
+  Array<{
+    id: string
+    code: string
+    label: string | null
+    semantic_state: string
+    sort_order: number
+  }>
+> {
+  const { data, error } = await supabase
+    .from('booking_lifecycle_stages')
+    .select('id, code, label, semantic_state, sort_order')
+    .eq('operator_id', operatorId)
+    .is('deleted_at', null)
+    .eq('active', true)
+    .order('sort_order')
+  if (error) throw error
+  return data ?? []
+}
+
 // ----- Mark-as-paid (landr-okxm) ------------------------------------------
 // Operator records a manual payment (cash / bank transfer / other) taken
 // outside Stripe. Hits POST /api/staff/operators/{op}/bookings/{id}/mark-paid
@@ -1767,6 +1824,26 @@ export async function getConfirmationStatus(
   return api<ConfirmationStatus>(
     'GET',
     `/api/staff/operators/${operatorId}/bookings/${bookingId}/confirmation-status`,
+  )
+}
+
+// landr-uvfg.6 — send the FIRST booking confirmation for never-confirmed
+// (staff/custom) bookings. The server returns {sent, email_id}. The dashboard
+// only needs to know it succeeded; it refetches confirmation-status so the
+// button flips from "Send confirmation" to "Resend confirmation".
+
+export type SendConfirmationResult = {
+  sent: boolean
+  email_id: string | null
+}
+
+export async function sendConfirmation(
+  operatorId: string,
+  bookingId: string,
+): Promise<SendConfirmationResult> {
+  return api<SendConfirmationResult>(
+    'POST',
+    `/api/staff/operators/${operatorId}/bookings/${bookingId}/send-confirmation`,
   )
 }
 

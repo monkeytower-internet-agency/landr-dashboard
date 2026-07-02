@@ -49,4 +49,12 @@ describe('StageBadge', () => {
     const el = screen.getByText(/cancelled/i)
     expect(el).toHaveAttribute('data-state', 'cancelled')
   })
+
+  // landr-uvfg.8 (D4) — every canonical stage code now resolves to a label,
+  // not just the three approval gates. A booking sitting in awaiting_payment
+  // must read "Awaiting payment", never fall back to the bare "Pending".
+  it('shows stage label "Awaiting payment" for the awaiting_payment code', () => {
+    render(<StageBadge state="pending" stageCode="awaiting_payment" />)
+    expect(screen.getByText('Awaiting payment')).toBeInTheDocument()
+  })
 })

@@ -81,7 +81,6 @@ import { CompanySettings } from '@/routes/settings/CompanySettings'
 import { CalendarDisplaySettings } from '@/routes/settings/CalendarDisplaySettings'
 import { DisplayPreferencesSettings } from '@/routes/settings/DisplayPreferencesSettings'
 import { IntegrationsCalendarSettings } from '@/routes/settings/IntegrationsCalendarSettings'
-import { IntegrationsGmailSettings } from '@/routes/settings/IntegrationsGmailSettings'
 import { EmailSenderSettings } from '@/routes/settings/EmailSenderSettings'
 import { IntegrationsPaymentsSettings } from '@/routes/settings/IntegrationsPaymentsSettings'
 import { ConnectedAccountsSettings } from '@/routes/settings/ConnectedAccountsSettings'
@@ -326,11 +325,12 @@ function App() {
                 {/* landr — Account → Security: set / change password
                     (logged-in). Personal scope; ungated. */}
                 <Route path="security" element={<SecuritySettings />} />
-                <Route path="integrations/gmail" element={gatedSection('/account/integrations/gmail', <IntegrationsGmailSettings />)} />
-                {/* landr-resend-sender — per-operator Resend sending domain.
-                    Ungated: every operator needs to wire up their own sending
-                    domain (like Gmail / payments), so no feature-entitlement
-                    gate. Replaces the Gmail OAuth integration. */}
+                {/* landr — Gmail integration removed (replaced by the SES
+                    email-sender). Redirect old links/bookmarks to the successor. */}
+                <Route path="integrations/gmail" element={<Navigate to="/account/integrations/email-sender" replace />} />
+                {/* landr-resend-sender — per-operator SES sending domain.
+                    Ungated: every operator wires up their own sending domain
+                    (like payments), so no feature-entitlement gate. */}
                 <Route path="integrations/email-sender" element={<EmailSenderSettings />} />
                 {/* landr — flat /account/email-sender shorthand (and older
                     "set up branded sending" nudges) redirect to the canonical

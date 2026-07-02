@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { t } from '@/lib/strings'
 import type { ProductsSort } from '@/lib/products-sort'
+import type { Enums } from '@/types/database.gen'
 
 // Mirrors public.product_kind + public.service_time_shape after the
 // landr-glx refactor that replaced the single product_duration_kind enum.
@@ -21,19 +22,15 @@ import type { ProductsSort } from '@/lib/products-sort'
 // from migration 20260520100100_products_hotel_room_columns.sql:
 //   (product_kind='hotel_room') = (hotel_location_id IS NOT NULL)
 //   product_kind='service' OR hotel_offering='none'
-export type ProductKind =
-  | 'service'
-  | 'subscription'
-  | 'digital_good'
-  | 'physical_good'
-  | 'gift_card'
-  | 'hotel_room'
+//
+// landr-52ik.5 — both are native Postgres enums; derived from the generated
+// schema (database.gen.ts) so drift between the DB and the dashboard is
+// caught by tsc instead of rotting silently. Single source of truth — other
+// modules (e.g. lib/bookings.ts) re-export from here rather than
+// re-declaring.
+export type ProductKind = Enums<'product_kind'>
 
-export type ServiceTimeShape =
-  | 'single_date'
-  | 'days_range'
-  | 'fixed_window'
-  | 'time_slot'
+export type ServiceTimeShape = Enums<'service_time_shape'>
 
 // landr-ssrx — drives whether the booking widget renders the accommodation
 // step for a (service) product: none = hide, optional = show with skip,
