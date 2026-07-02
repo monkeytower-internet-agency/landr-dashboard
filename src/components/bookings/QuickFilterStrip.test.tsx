@@ -132,6 +132,36 @@ describe('QuickFilterStrip (landr-68a9)', () => {
     )
   })
 
+  it('hides "Pending payment" when the operator has no awaiting_payment stage', () => {
+    const { result } = renderHook(() => useBookingsFilters())
+    render(
+      <QuickFilterStrip
+        filtersApi={result.current}
+        stages={[{ code: 'submitted' }, { code: 'finalised' }]}
+      />,
+    )
+    expect(
+      screen.queryByTestId('bookings-quick-filters-pending_payment'),
+    ).not.toBeInTheDocument()
+    // Unrelated presets are unaffected.
+    expect(
+      screen.getByTestId('bookings-quick-filters-today'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows "Pending payment" when the operator has the awaiting_payment stage', () => {
+    const { result } = renderHook(() => useBookingsFilters())
+    render(
+      <QuickFilterStrip
+        filtersApi={result.current}
+        stages={[{ code: 'submitted' }, { code: 'awaiting_payment' }]}
+      />,
+    )
+    expect(
+      screen.getByTestId('bookings-quick-filters-pending_payment'),
+    ).toBeInTheDocument()
+  })
+
   it('no pill is active when filters do not match any preset', async () => {
     const { result, rerender } = renderHook(() => useBookingsFilters())
     // A combination no preset targets (productKinds + serviceDateRange).

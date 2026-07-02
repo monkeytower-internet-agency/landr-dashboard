@@ -14,6 +14,7 @@
 // active" trivially decidable: a pill is active iff the live filter
 // state deep-equals its target.
 
+import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   EMPTY_FILTERS,
@@ -22,8 +23,28 @@ import {
 } from '@/lib/bookings-filters'
 import { t } from '@/lib/strings'
 
+// landr-c53m.6 — 'awaiting_payment' is a backend-reserved semantic code
+// (booking_lifecycle_stages migrations seed/backfill it for every operator
+// that participates in the lifecycle catalogue at all — see
+// 20260512215136_booking_lifecycle_stages.sql and
+// 20260612020000_backfill_lifecycle_stages.sql in landr-api). It is NOT a
+// free-form label an operator can rename away, but an operator that has no
+// lifecycle catalogue yet (or is missing this stage for any other reason)
+// must not get a "Pending payment" chip that silently filters to nothing.
+// We verify the code is actually present among the operator's configured
+// stages (same `stages` list BookingDetailSheet already loads via
+// fetchBookingStages) and hide the chip rather than target a dead code.
+const PAYMENT_PENDING_STAGE_CODE = 'awaiting_payment'
+
+type StageLike = { code: string }
+
 type Props = {
   filtersApi: UseBookingsFilters
+  /** The operator's active lifecycle stages (see fetchBookingStages).
+   *  Omit while unloaded — the "Pending payment" chip renders optimistically
+   *  until we know for sure the stage is missing, so there's no flicker on
+   *  first paint for the (overwhelmingly common) operator that has it. */
+  stages?: ReadonlyArray<StageLike>
   /** Test-id prefix; mirrors BookingsFilters so multiple bars on one
    *  page (table + calendar) stay distinguishable. */
   testIdPrefix?: string
@@ -54,11 +75,10 @@ const PRESETS: ReadonlyArray<Preset> = [
   {
     id: 'pending_payment',
     label: t.bookings.quickFilters.pendingPayment,
-    // landr-68a9 — operator-level stage code; awaiting_payment is the
-    // seeded Para42 stage but other operators may rename it. The chip
-    // simply targets the canonical code — operators with a different
-    // code can still rely on the underlying filter dropdown.
-    target: { ...EMPTY_FILTERS, lifecycleStates: ['awaiting_payment'] },
+    target: {
+      ...EMPTY_FILTERS,
+      lifecycleStates: [PAYMENT_PENDING_STAGE_CODE],
+    },
   },
   {
     id: 'upcoming',
@@ -89,9 +109,24 @@ function arraysEqualSorted(a: string[], b: string[]): boolean {
 
 export function QuickFilterStrip({
   filtersApi,
+  stages,
   testIdPrefix = 'bookings-quick-filters',
 }: Props) {
   const { filters, setFilters } = filtersApi
+
+  // landr-c53m.6 — only suppress the "Pending payment" chip once we've
+  // actually loaded the operator's stages AND confirmed the reserved code
+  // isn't among them; `stages === undefined` (not yet loaded) keeps the
+  // chip visible so the default operator sees no behaviour change.
+  const presets = useMemo(() => {
+    if (stages === undefined) return PRESETS
+    const hasPaymentPendingStage = stages.some(
+      (s) => s.code === PAYMENT_PENDING_STAGE_CODE,
+    )
+    return hasPaymentPendingStage
+      ? PRESETS
+      : PRESETS.filter((p) => p.id !== 'pending_payment')
+  }, [stages])
 
   return (
     <div
@@ -100,7 +135,7 @@ export function QuickFilterStrip({
       aria-label={t.bookings.quickFilters.ariaLabel}
       data-testid={`${testIdPrefix}-bar`}
     >
-      {PRESETS.map((preset) => {
+      {presets.map((preset) => {
         const active = filtersEqual(filters, preset.target)
         return (
           <Button
