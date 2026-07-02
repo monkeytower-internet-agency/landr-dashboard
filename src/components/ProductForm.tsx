@@ -249,7 +249,7 @@ export function ProductForm({
       : t.products.nonServiceComingSoonBody
 
   async function handleSubmit(values: ProductFormValues) {
-    const payload = buildSubmitPayload(values)
+    const payload = buildSubmitPayload(values, product)
     await onSubmit(payload)
   }
 

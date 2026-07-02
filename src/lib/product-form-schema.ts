@@ -304,7 +304,18 @@ export function defaultValues(
 // ---------------------------------------------------------------------------
 // Submit-time coercion helper (builds the wire payload from validated form values)
 
-export function buildSubmitPayload(values: ProductFormValues): ProductFormSubmitValue {
+export function buildSubmitPayload(
+  values: ProductFormValues,
+  // landr-c53m.4 — the product as originally loaded (or null for a fresh
+  // create). Needed to tell a GENUINE in-session kind switch away from
+  // hotel_room (collapse includes_breakfast to false) apart from a row that
+  // was ALREADY non-hotel_room when loaded (preserve whatever it had,
+  // instead of silently rewriting it — see landr-c53m.4 review finding: the
+  // 20260602110000 backfill set this flag by name regex without filtering
+  // on product_kind, so non-hotel_room rows with includes_breakfast=true
+  // exist and the checkbox isn't rendered for them).
+  originalProduct: Pick<ProductRow, 'product_kind' | 'includes_breakfast'> | null = null,
+): ProductFormSubmitValue {
   const minutesTrimmed = (values.duration_minutes ?? '').trim()
   const sortTrimmed = (values.sort_order ?? '').trim()
   const shape: ServiceTimeShape | null =
@@ -346,10 +357,18 @@ export function buildSubmitPayload(values: ProductFormValues): ProductFormSubmit
       values.product_kind === 'hotel_room'
         ? Number((values.capacity_per_unit ?? '').trim()) || null
         : null,
-    // landr-c53m.4 — only meaningful for hotel_room; force false elsewhere
-    // so a kind switch away from hotel_room can't leave a stale true value.
+    // landr-c53m.4 — only editable for hotel_room. For every other kind we
+    // must NOT blindly force false: if the row was ALREADY non-hotel_room
+    // when loaded (checkbox never rendered, value never touched this
+    // session), pass its original value through unchanged so an unrelated
+    // edit can't silently flip it. Only collapse to false when the operator
+    // genuinely switched kind away from hotel_room THIS session.
     includes_breakfast:
-      values.product_kind === 'hotel_room' ? !!values.includes_breakfast : false,
+      values.product_kind === 'hotel_room'
+        ? !!values.includes_breakfast
+        : originalProduct && originalProduct.product_kind !== 'hotel_room'
+          ? !!originalProduct.includes_breakfast
+          : false,
   }
 }
 

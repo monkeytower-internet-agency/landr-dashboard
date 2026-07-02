@@ -963,6 +963,150 @@ describe('ProductForm — includes breakfast (landr-c53m.4)', () => {
       includes_breakfast: false,
     })
   })
+
+  // landr-c53m.4 review fix — CRITICAL: the 20260602110000 backfill set
+  // includes_breakfast by name regex WITHOUT filtering on product_kind, so
+  // non-hotel_room rows with includes_breakfast=true exist/can exist. The
+  // checkbox isn't rendered for those rows, so the submit-time collapse must
+  // NOT fire just because the CURRENT kind is non-hotel — only on a genuine
+  // in-session switch away from hotel_room. Otherwise saving ANY unrelated
+  // edit on such a row silently flips the flag to false.
+  it('preserves includes_breakfast=true on an already-non-hotel_room product saved without touching kind or checkbox', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    const product: ProductRow = {
+      id: 'p-service-inconsistent',
+      operator_id: 'op-1',
+      product_group_id: null,
+      slug: 'guided-hike',
+      name: 'Guided Hike',
+      name_localized: null,
+      short_description: null,
+      short_description_localized: null,
+      description: null,
+      product_kind: 'service',
+      service_time_shape: 'days_range',
+      is_contiguous: false,
+      duration_minutes: null,
+      fixed_start_date: null,
+      fixed_end_date: null,
+      default_pricing_scheme_id: null,
+      needs_provider: false,
+      needs_pickup: false,
+      revenue_flows_through_operator: true,
+      is_publicly_listed: true,
+      active: true,
+      sort_order: 0,
+      hotel_location_id: null,
+      hotel_offering: 'none',
+      is_addon_only: false,
+      capacity_per_unit: null,
+      // landr-c53m.4 review finding — pre-existing data inconsistency: a
+      // non-hotel_room row with includes_breakfast=true (possible because
+      // the DB has no CHECK on this column and the original backfill didn't
+      // filter by kind).
+      includes_breakfast: true,
+      deleted_at: null,
+      created_at: '2026-05-20T10:00:00Z',
+      updated_at: '2026-05-20T10:00:00Z',
+      pricing_scheme: null,
+      product_group: null,
+      hotel_location: null,
+    }
+    render(
+      <ProductForm
+        product={product}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+    // The checkbox must not render for kind=service — this row's flag is
+    // "unknown state" from the UI's point of view.
+    expect(
+      screen.queryByLabelText(/includes breakfast/i),
+    ).not.toBeInTheDocument()
+
+    // Edit something unrelated, never touch kind or the (absent) checkbox.
+    await user.type(screen.getByLabelText(/^name$/i), ' (updated)')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      product_kind: 'service',
+      includes_breakfast: true,
+    })
+  })
+
+  it('preserves includes_breakfast=true on a hotel_room product after an unrelated edit', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    const product: ProductRow = {
+      id: 'p-room-2',
+      operator_id: 'op-1',
+      product_group_id: null,
+      slug: 'suite',
+      name: 'Suite',
+      name_localized: null,
+      short_description: null,
+      short_description_localized: null,
+      description: null,
+      product_kind: 'hotel_room',
+      service_time_shape: null,
+      is_contiguous: false,
+      duration_minutes: null,
+      fixed_start_date: null,
+      fixed_end_date: null,
+      default_pricing_scheme_id: null,
+      needs_provider: false,
+      needs_pickup: false,
+      revenue_flows_through_operator: false,
+      is_publicly_listed: true,
+      active: true,
+      sort_order: 0,
+      hotel_location_id: 'hotel-1',
+      hotel_offering: 'none',
+      is_addon_only: false,
+      capacity_per_unit: 2,
+      includes_breakfast: true,
+      deleted_at: null,
+      created_at: '2026-05-20T10:00:00Z',
+      updated_at: '2026-05-20T10:00:00Z',
+      pricing_scheme: null,
+      product_group: null,
+      hotel_location: null,
+    }
+    render(
+      <ProductForm
+        product={product}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+    const breakfast = screen.getByLabelText(
+      /includes breakfast/i,
+    ) as HTMLInputElement
+    expect(breakfast.checked).toBe(true)
+
+    // Edit an unrelated field, never touch kind or the checkbox.
+    await user.type(screen.getByLabelText(/^name$/i), ' (renovated)')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      product_kind: 'hotel_room',
+      includes_breakfast: true,
+    })
+  })
 })
 
 // landr-u34k — is_addon_only checkbox + Add-ons section gating. The
