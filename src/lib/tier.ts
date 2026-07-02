@@ -20,6 +20,19 @@
 export type DeployTier = 'dev' | 'staging' | 'prod'
 
 /**
+ * Human-friendly title-case label for a deploy tier (menu rows, switch links).
+ * Single source of truth — TierBadge (the chrome switcher) and TopbarMoreMenu
+ * (the folded-tier menu entries, landr-fd5m.2) both read from here so the two
+ * tier-switch affordances can never drift in casing/wording. The all-caps pill
+ * label (DEV/STAGING/PROD) lives with the badge styling in TierBadge.tsx.
+ */
+export const TIER_DISPLAY: Record<DeployTier, string> = {
+  dev: 'Dev',
+  staging: 'Staging',
+  prod: 'Prod',
+}
+
+/**
  * Back-compat alias for early consumers (TierBadge). Includes `null` for the
  * unknown state. Prefer `DeployTier | null` in new code.
  */

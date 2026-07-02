@@ -43,6 +43,12 @@ const { mock } = vi.hoisted(() => ({
   },
 }))
 
+// landr-fd5m.2 — mutable folded set the mocked useTopbarOverflow returns.
+// Reset to empty in beforeEach; the measured-overflow suite flips it per test.
+const { hookState } = vi.hoisted(() => ({
+  hookState: { folded: new Set<string>() },
+}))
+
 // Same lightweight stubs the AppSidebar suite uses so the sidebar renders
 // without a full app shell (operator scope, saved views, auth, entitlements).
 vi.mock('@/lib/operator', () => ({
@@ -142,8 +148,30 @@ vi.mock('@/components/ThemeToggle', () => ({
 vi.mock('@/components/UserMenu', () => ({
   UserMenu: () => <div data-testid="user-menu-stub" />,
 }))
+// landr-fd5m.2 — stub reflects the real component's core contract: it renders
+// the ⋯ trigger only while at least one item is folded, else null. That lets
+// the measured-overflow suite below assert the trigger's presence/absence off
+// the mocked hook's folded set without pulling in the menu's internals (which
+// have their own dedicated test file).
 vi.mock('@/components/topbar/TopbarMoreMenu', () => ({
-  TopbarMoreMenu: () => <div data-testid="topbar-more-menu-stub" />,
+  TopbarMoreMenu: ({ folded }: { folded: ReadonlySet<string> }) =>
+    folded && folded.size > 0 ? (
+      <div data-testid="topbar-more-menu-trigger" />
+    ) : null,
+}))
+
+// landr-fd5m.2 — mock the measured-overflow hook so folding is deterministic in
+// jsdom (the real hook measures 0-width boxes → folds nothing; here we drive
+// `hookState.folded` explicitly). Default empty ⇒ the slice-.1 assertions above
+// (every wrapper present, nothing hidden) are unaffected.
+vi.mock('@/hooks/use-topbar-overflow', () => ({
+  useTopbarOverflow: () => ({
+    headerRef: () => {},
+    titleRef: () => {},
+    registerItem: () => () => {},
+    folded: hookState.folded,
+  }),
+  TOPBAR_FOLD_ORDER: ['theme', 'widget', 'tier', 'report'],
 }))
 vi.mock('@/components/ConfigHealthBanners', () => ({
   ConfigHealthBanners: () => null,
@@ -210,6 +238,8 @@ beforeEach(() => {
   mock.state.isLandrStaff = false
   mock.state.effectiveIsStaff = false
   mock.state.showModeSwitcher = false
+  // landr-fd5m.2 — default: nothing folded (jsdom fail-safe / desktop).
+  hookState.folded = new Set<string>()
 })
 
 afterEach(() => {
@@ -378,5 +408,53 @@ describe('AppShell topbar right cluster (landr-fd5m.1)', () => {
         'user-menu-stub',
       ),
     ).toBeInTheDocument()
+  })
+})
+
+// landr-fd5m.2 — measured priority-overflow wiring. The hook is mocked (above)
+// so folding is deterministic; here we assert the shell reacts to a folded set:
+// the folded items' wrappers get `hidden`, the ⋯ trigger appears, and the
+// never-fold items (both bells + user menu) stay inline and un-hidden.
+describe('AppShell measured overflow (landr-fd5m.2)', () => {
+  it('nothing folded: no ⋯ trigger, and no wrapper is hidden', () => {
+    mock.state.isLandrStaff = true
+    mock.state.effectiveIsStaff = true
+    mock.state.showModeSwitcher = true
+    // hookState.folded defaults to empty.
+    renderAppShell()
+
+    expect(screen.queryByTestId('topbar-more-menu-trigger')).toBeNull()
+    for (const id of ['theme', 'widget', 'tier', 'report']) {
+      expect(screen.getByTestId(`topbar-item-${id}`).className).not.toContain(
+        'hidden',
+      )
+    }
+  })
+
+  it('a folded set hides exactly those wrappers, surfaces ⋯, keeps bells + user menu inline', () => {
+    mock.state.isLandrStaff = true
+    mock.state.effectiveIsStaff = true
+    mock.state.showModeSwitcher = true
+    hookState.folded = new Set(['theme', 'widget', 'tier'])
+    renderAppShell()
+
+    // Folded wrappers stay MOUNTED but carry `hidden`.
+    for (const id of ['theme', 'widget', 'tier']) {
+      const wrapper = screen.getByTestId(`topbar-item-${id}`)
+      expect(wrapper).toBeInTheDocument()
+      expect(wrapper.className).toContain('hidden')
+    }
+    // Kept foldable (report) is NOT hidden.
+    expect(screen.getByTestId('topbar-item-report').className).not.toContain(
+      'hidden',
+    )
+    // The ⋯ trigger appears once something folds.
+    expect(screen.getByTestId('topbar-more-menu-trigger')).toBeInTheDocument()
+    // Never-fold items are always inline and never hidden.
+    for (const id of ['errorbell', 'notifbell', 'usermenu']) {
+      expect(screen.getByTestId(`topbar-item-${id}`).className).not.toContain(
+        'hidden',
+      )
+    }
   })
 })
