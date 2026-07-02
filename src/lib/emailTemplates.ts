@@ -16,9 +16,10 @@ export type OperatorLocale = (typeof OPERATOR_LOCALES)[number]
 // landr-x5o5.6: hotel-facing kinds are always sent in the operator's
 // hotel_email_locale regardless of customer language. The locale switcher
 // is hidden for these kinds; only the pinned hotel locale is ever used.
-// ASSUMPTION: hotel_email_locale is not yet surfaced in the dashboard API
-// (landr-x5o5.7 will add it). Until then we fall back to operators.default_locale
-// (from fetchOperator) and then to 'es' as a hardcoded default (Para42 is ES).
+// landr-x5o5.7 surfaced hotel_email_locale in the dashboard API; the
+// EmailTemplates route reads it directly, falling back to
+// operators.default_locale (from fetchOperator) and then to the neutral
+// 'en' default (landr-c53m.7 — never a single hardcoded operator locale).
 export const HOTEL_KINDS: ReadonlySet<TemplateKind> = new Set([
   'hotel_request',
   'hotel_confirmation',
