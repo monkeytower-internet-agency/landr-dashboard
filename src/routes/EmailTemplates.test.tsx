@@ -188,7 +188,7 @@ vi.mock('@/lib/operator', () => ({
 const { operatorSettingsMock } = vi.hoisted(() => ({
   operatorSettingsMock: {
     hotel_email_locale: 'es' as string | null,
-    default_locale: 'es',
+    default_locale: 'es' as string | null,
   },
 }))
 
@@ -581,6 +581,41 @@ describe('EmailTemplates route', () => {
     // Pin note should show EN (from default_locale fallback)
     const pinNote = await screen.findByTestId('hotel-locale-pin-note')
     expect(pinNote.textContent).toMatch(/EN/i)
+  })
+
+  // landr-c53m.7 — a DE operator (NOT Para42/ES) with no hotel_email_locale
+  // still resolves correctly from its OWN default_locale, never 'es'.
+  it('hotel locale pin resolves from a non-ES operator default_locale (landr-c53m.7)', async () => {
+    operatorSettingsMock.hotel_email_locale = null
+    operatorSettingsMock.default_locale = 'de'
+
+    const user = userEvent.setup()
+    render(<EmailTemplates />)
+    await screen.findByText('Booking received')
+
+    await user.click(screen.getByRole('tab', { name: /hotel request/i }))
+
+    const pinNote = await screen.findByTestId('hotel-locale-pin-note')
+    expect(pinNote.textContent).toMatch(/DE/i)
+    expect(pinNote.textContent).not.toMatch(/ES/i)
+  })
+
+  // landr-c53m.7 — when NEITHER hotel_email_locale NOR default_locale is
+  // set, the last-resort fallback must be the neutral 'en', not a
+  // hardcoded operator locale (previously 'es', which was Para42-specific).
+  it('hotel locale pin falls back to neutral "en" when both locale fields are null (landr-c53m.7)', async () => {
+    operatorSettingsMock.hotel_email_locale = null
+    operatorSettingsMock.default_locale = null
+
+    const user = userEvent.setup()
+    render(<EmailTemplates />)
+    await screen.findByText('Booking received')
+
+    await user.click(screen.getByRole('tab', { name: /hotel request/i }))
+
+    const pinNote = await screen.findByTestId('hotel-locale-pin-note')
+    expect(pinNote.textContent).toMatch(/EN/i)
+    expect(pinNote.textContent).not.toMatch(/ES/i)
   })
 
   // landr-x5o5.4 — prefill + badge + divergence guard

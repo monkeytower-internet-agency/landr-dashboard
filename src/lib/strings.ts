@@ -3889,7 +3889,8 @@ export const t = {
     selectorKindLabel: 'Template',
     selectorLocaleLabel: 'Language',
     // landr-x5o5.7: shown instead of the locale switcher for hotel-facing kinds.
-    // Reads hotel_email_locale (falls back to default_locale / 'es' when null).
+    // Reads hotel_email_locale (falls back to default_locale, then the
+    // neutral 'en' default — landr-c53m.7).
     hotelLocalePinNote: (locale: string): string =>
       `Hotel emails are always sent in ${locale.toUpperCase()}. Hotel language is set in operator settings.`,
 

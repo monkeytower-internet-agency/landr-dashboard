@@ -29,10 +29,15 @@ import { cn } from '@/lib/utils'
 type Selection = { kind: TemplateKind; locale: OperatorLocale }
 
 // landr-x5o5.7: hotel_email_locale is now surfaced in the operator settings
-// API. We read it directly; fall back to default_locale → 'es' only when it
-// is null (Para42's hotel is ES, which is the only live operator, and that row
-// is already seeded to 'es' in the migration).
-const HOTEL_LOCALE_FALLBACK: OperatorLocale = 'es'
+// API. We read it directly; the caller already falls back to
+// default_locale before calling resolveHotelLocale (see hotelLocale below),
+// so this constant is only reached when BOTH hotel_email_locale AND
+// default_locale are null/invalid. 'en' is a neutral, operator-agnostic
+// last resort — it must NOT default to any single operator's locale
+// (landr-c53m.7; this used to be hardcoded to 'es' for Para42, which
+// would silently mis-localize every other operator's hotel emails until
+// they set a default_locale).
+const HOTEL_LOCALE_FALLBACK: OperatorLocale = 'en'
 
 /** Resolve a valid OperatorLocale from a raw string or return the fallback. */
 function resolveHotelLocale(raw: string | null | undefined): OperatorLocale {
@@ -52,7 +57,8 @@ export function EmailTemplates() {
   })
 
   // landr-x5o5.7: fetch operator settings to read hotel_email_locale (now
-  // surfaced). Falls back to default_locale → 'es' only when null.
+  // surfaced). Falls back to default_locale, then to the neutral 'en'
+  // constant above only when neither is set.
   // Shares the same React Query cache key used by OperatorSection in settings
   // so the request is deduped on the settings page.
   const operatorSettingsQuery = useQuery({
@@ -256,7 +262,7 @@ export function EmailTemplates() {
                 {/* Locale segmented control — hidden for hotel-facing kinds;
                     those are always sent in the operator's hotel_email_locale.
                     landr-x5o5.7: reads hotel_email_locale directly (falls back
-                    to default_locale / 'es' when null). */}
+                    to default_locale, then the neutral 'en' default). */}
                 {isHotelKind(selection.kind) ? (
                   <div className="flex flex-col gap-1.5">
                     <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
