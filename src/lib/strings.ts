@@ -3462,6 +3462,13 @@ export const t = {
     fieldLabel: 'Label',
     fieldCode: 'Code',
     codeHint: 'Auto-generated from the label. Used internally; not editable later.',
+    // landr-m63x — mobile-parity toggles (previously typed but unsurfaced).
+    fieldReceivesMainService: 'Receives main service',
+    receivesMainServiceHint:
+      'This role performs the core service being booked (e.g. the tandem passenger on a tandem flight). Turn off for incidental participants who just come along.',
+    fieldRequiresPickupLocation: 'Requires pickup location',
+    requiresPickupLocationHint:
+      'Ask for a pickup point when booking this role (e.g. shuttle collection). Turn off for participants arriving by their own means.',
     create: 'Add',
     creating: 'Adding…',
     edit: 'Edit',
