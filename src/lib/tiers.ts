@@ -221,7 +221,13 @@ export async function fetchOperators(): Promise<OperatorSummary[]> {
 export type OperatorFeature = {
   operator_id: string
   feature_id: string
-  enabled: boolean
+  // NULL = no explicit override (inherits the operator's tier default, then
+  // the registry default) — landr-api migration
+  // 20260703072000_operator_features_enabled_nullable (bd landr-c53m.15)
+  // dropped NOT NULL + DEFAULT so a params-only write can genuinely omit
+  // this column. true/false = an explicit staff forced-on/forced-off
+  // override.
+  enabled: boolean | null
   note: string | null
   config: Record<string, unknown> | null
 }
@@ -290,41 +296,29 @@ export async function clearOperatorFeature(args: {
  * Upsert the config blob for an operator_features row. Creates the row if it
  * does not exist yet (e.g. staff sets params before forcing the toggle).
  *
- * landr-7hac: also persists the resolved `enabled` value, mirroring
- * setPackageFeatureConfig (landr-cpcd). operator_features.enabled is
- * NOT NULL DEFAULT false, so a params-only upsert that omits it would
- * silently INSERT a forced-OFF override when none existed yet — inverting
- * the gate for any operator that was relying on the tier/registry default
- * being ON. Callers MUST pass the currently-effective enabled state:
- *   override?.enabled ?? eff?.enabled ?? false
+ * bd landr-c53m.15 (real fix, replacing the landr-7hac interim workaround):
+ * this is a TRUE partial upsert — `enabled` is deliberately OMITTED from the
+ * payload, never touched by a params-only edit. That is safe now because
+ * landr-api migration 20260703072000_operator_features_enabled_nullable
+ * dropped NOT NULL + DEFAULT on operator_features.enabled:
+ *   - existing row (an override already exists): the upsert's DO UPDATE SET
+ *     only touches the columns present in the payload, so the stored
+ *     `enabled` (true/false/NULL) is left exactly as it was.
+ *   - no existing row (first-time params-only write, e.g. staff sets a
+ *     param before ever forcing the toggle): the omitted column now
+ *     inserts as NULL instead of materializing the old `false` DEFAULT —
+ *     the resolvers' `COALESCE(ofe.enabled, pf.enabled, f.default_enabled,
+ *     false)` already treats NULL as "no override, inherit the tier/
+ *     registry default", so the feature correctly stays decoupled from any
+ *     override and keeps tracking future tier-default changes.
  *
- * For existing rows the round-trip is safe: the upsert overwrites enabled
- * with the same value already stored (existing override's enabled). For new
- * rows it seeds the row with the resolved effective state instead of the
- * enabled column's false default.
- *
- * landr-7hac MEDIUM 5 (follow-up, verified not fixable from this repo): for
- * a feature with NO prior operator_features row (purely inherited from the
- * tier/registry default), this write still materializes an explicit
- * `enabled` value into a new row — which decouples that operator from any
- * FUTURE tier-default flip for this feature, even though the write captures
- * today's effective value correctly. A true "params-only, still inherited"
- * write is not achievable via PostgREST upsert/update alone: `enabled` is
- * `NOT NULL DEFAULT false`, so any INSERT that omits it silently becomes
- * `false` (the exact forced-OFF bug this function exists to avoid) — there
- * is no "unset" state to omit-to. Fixing this properly requires a landr-api
- * migration making `operator_features.enabled` nullable (tri-state:
- * NULL = inherit), which the resolver's existing
- * `COALESCE(ofe.enabled, pf.enabled, f.default_enabled, false)` already
- * supports without further RPC changes. Filed as a follow-up in the
- * landr-7hac handoff rather than attempted here — out of scope for a
- * dashboard-only fix.
+ * `enabled` is written ONLY by setOperatorFeature (the explicit force-on /
+ * force-off action) — never by this config-only path.
  */
 export async function setOperatorFeatureConfig(args: {
   operatorId: string
   featureId: string
   config: Record<string, unknown>
-  enabled: boolean
   enabledByUserId: string | null
 }): Promise<void> {
   const { error } = await supabase.from('operator_features').upsert(
@@ -332,7 +326,6 @@ export async function setOperatorFeatureConfig(args: {
       operator_id: args.operatorId,
       feature_id: args.featureId,
       config: args.config,
-      enabled: args.enabled,
       enabled_by_user_id: args.enabledByUserId,
     },
     { onConflict: 'operator_id,feature_id' },

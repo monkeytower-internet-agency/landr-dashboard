@@ -244,65 +244,49 @@ describe('setPackageFeatureConfig (landr-cpcd)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// setOperatorFeatureConfig — landr-7hac
+// setOperatorFeatureConfig — bd landr-c53m.15
 //
-// operator_features.enabled is NOT NULL DEFAULT false. Before landr-7hac,
-// setOperatorFeatureConfig's upsert omitted `enabled` entirely, so a
-// params-only edit on a feature with NO existing override (i.e. inheriting
-// an ON state from the tier/registry default) silently INSERTed a brand
-// new operator_features row with enabled=false — a forced-OFF override the
-// staff member never asked for. The caller (TierSettings.tsx) now passes
-// the resolved effective state (`override?.enabled ?? eff?.enabled ?? false`)
-// and setOperatorFeatureConfig includes it in the upsert so new rows are
-// inserted with the correct enabled value, mirroring setPackageFeatureConfig.
+// Real fix, replacing the landr-7hac interim workaround: operator_features.
+// enabled is now NULLABLE with no DEFAULT (landr-api migration
+// 20260703072000_operator_features_enabled_nullable), so this config-only
+// upsert can go back to what it always should have been — a TRUE partial
+// write that never touches `enabled`:
+//   - a params-only edit on a feature with NO existing override now inserts
+//     enabled=NULL (inherit), not a materialized value — so the feature
+//     stays correctly decoupled from any override and keeps tracking future
+//     tier-default changes.
+//   - a params-only edit on a feature WITH an existing override leaves its
+//     enabled column untouched (PostgREST upsert's DO UPDATE SET only
+//     touches payload columns), so an explicit forced-on/forced-off state
+//     survives a param tweak unchanged.
 // ---------------------------------------------------------------------------
 
-describe('setOperatorFeatureConfig (landr-7hac)', () => {
+describe('setOperatorFeatureConfig (landr-c53m.15)', () => {
   beforeEach(() => {
     mockUpsert.mockReset()
     mockUpsert.mockResolvedValue({ error: null })
     vi.mocked(supabase.from).mockReturnValue({ upsert: mockUpsert } as unknown as ReturnType<typeof supabase.from>)
   })
 
-  it('includes enabled=true in the upsert when no override row exists yet (inherited ON)', async () => {
-    // Simulates: no operator_features row yet, effective resolves to ON via
-    // the tier/registry default. Caller computes:
-    //   override?.enabled ?? eff?.enabled ?? false === true
+  it('never includes `enabled` in the upsert payload — a params-only write must not touch it', async () => {
     await setOperatorFeatureConfig({
       operatorId: 'op-1',
       featureId: 'feat-1',
       config: { max_products: 50 },
-      enabled: true,
       enabledByUserId: 'user-1',
     })
 
     expect(supabase.from).toHaveBeenCalledWith('operator_features')
+    const [payload] = mockUpsert.mock.calls[0]!
+    expect(payload).not.toHaveProperty('enabled')
     expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         operator_id: 'op-1',
         feature_id: 'feat-1',
-        enabled: true,
         config: { max_products: 50 },
         enabled_by_user_id: 'user-1',
       }),
       expect.objectContaining({ onConflict: 'operator_id,feature_id' }),
-    )
-  })
-
-  it('preserves enabled=false for an existing forced-OFF override', async () => {
-    // Simulates: an existing override row with enabled=false; caller passes
-    // that value straight through (override?.enabled took priority).
-    await setOperatorFeatureConfig({
-      operatorId: 'op-1',
-      featureId: 'feat-disabled',
-      config: {},
-      enabled: false,
-      enabledByUserId: 'user-1',
-    })
-
-    expect(mockUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({ enabled: false }),
-      expect.anything(),
     )
   })
 
@@ -314,7 +298,6 @@ describe('setOperatorFeatureConfig (landr-7hac)', () => {
         operatorId: 'op-1',
         featureId: 'feat-1',
         config: {},
-        enabled: true,
         enabledByUserId: 'user-1',
       }),
     ).rejects.toThrow('RLS denied')

@@ -744,7 +744,7 @@ function OperatorOverridePanel({
   const overrideByFeature = useMemo(() => {
     const m = new Map<
       string,
-      { enabled: boolean; note: string | null; config: Record<string, unknown> | null }
+      { enabled: boolean | null; note: string | null; config: Record<string, unknown> | null }
     >()
     for (const row of overridesQuery.data ?? [])
       m.set(row.feature_id, {
@@ -804,13 +804,11 @@ function OperatorOverridePanel({
     mutationFn: (args: {
       featureId: string
       config: Record<string, unknown>
-      enabled: boolean
     }) =>
       setOperatorFeatureConfig({
         operatorId,
         featureId: args.featureId,
         config: args.config,
-        enabled: args.enabled,
         enabledByUserId,
       }),
     onSuccess: () => {
@@ -836,18 +834,7 @@ function OperatorOverridePanel({
     setMutation.isPending ||
     clearMutation.isPending ||
     setConfigMutation.isPending ||
-    clearConfigMutation.isPending ||
-    // landr-7hac CRITICAL 4: a params-only save
-    // (`ParamPopover`'s onSave → setConfigMutation) resolves its `enabled`
-    // write from `override?.enabled ?? eff?.enabled ?? false` — if
-    // effectiveQuery hasn't resolved yet, `eff` is undefined and that falls
-    // back to `false`, INSERTing a forced-OFF override for an operator who
-    // was actually inheriting an ON default. Keep every mutating control
-    // (force on/off, clear, param popover) disabled until BOTH queries this
-    // panel depends on have settled — including the error case, since an
-    // errored effectiveQuery leaves `eff` undefined too.
-    effectiveQuery.isPending ||
-    effectiveQuery.isError
+    clearConfigMutation.isPending
 
   const effective = effectiveQuery.data
 
@@ -1010,15 +997,15 @@ function OperatorOverridePanel({
                           schema={feature.value_schema}
                           currentConfig={override?.config ?? null}
                           onSave={(cfg) =>
+                            // bd landr-c53m.15: config-only save — `enabled`
+                            // is deliberately NOT sent here (see
+                            // setOperatorFeatureConfig), so an existing
+                            // override's on/off state is left untouched and
+                            // a brand-new row inherits (NULL) rather than
+                            // materializing a forced value.
                             setConfigMutation.mutate({
                               featureId: feature.id,
                               config: cfg,
-                              // landr-7hac: pass the currently-resolved
-                              // effective state so a params-only edit can't
-                              // silently INSERT a forced-OFF override when
-                              // none existed yet (operator_features.enabled
-                              // is NOT NULL DEFAULT false).
-                              enabled: override?.enabled ?? eff?.enabled ?? false,
                             })
                           }
                           onClear={() =>
