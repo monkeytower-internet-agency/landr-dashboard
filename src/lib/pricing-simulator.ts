@@ -15,6 +15,29 @@
  */
 import { apiBase } from '@/lib/api-client'
 
+/**
+ * landr-y3oj.3 codegen note: these types are deliberately NOT sourced from
+ * the generated `components['schemas']['EstimateRequest'|'EstimateResponse'|
+ * 'EstimateLineItem'|'EstimateAppliedRule']` (src/types/api.gen.ts), same
+ * conclusion as the booking widget's src/api/types.ts (see its matching
+ * comments):
+ *   - `EstimateResponse`/`EstimateLineItem` (Python) have
+ *     `model_config = {"extra": "allow"}`, so openapi-typescript adds a
+ *     `& { [key: string]: unknown }` catch-all and marks fields with
+ *     Field(default_factory=...) defaults optional even though the router
+ *     always serializes them.
+ *   - `paid_to`/`kind` are typed `str` in Python (not `Literal[...]`), so
+ *     the generated schema can't narrow them the way `SimulateLineItem`
+ *     does.
+ *   - `EstimateAppliedRule` (Python) is a strict superset — it also
+ *     carries rule_id/before/after/skipped/skipped_reason — while
+ *     `SimulateAppliedRule` below only declares the fields the simulator
+ *     UI reads; already flagged as a divergence in landr-y3oj.1's handoff.
+ * Adopting the generated types as-is would lose the literal-union +
+ * required-field guarantees for no behavioural gain. Codegen gaps on the
+ * API model side, not something to paper over here.
+ */
+
 /** Body sent to POST .../estimate. Mirrors EstimateRequest server-side. */
 export type SimulateEstimateRequest = {
   selected_days: string[] // ISO YYYY-MM-DD
@@ -107,6 +130,15 @@ export async function simulateEstimate(
  * Returns an empty array when count <= 0 or startISO is malformed.
  * Exported (not just used internally) so the dialog tests can drive
  * the same date computation without re-implementing it.
+ *
+ * landr-y3oj.3: this is now byte-for-byte the same algorithm as
+ * landr-mobile's consecutiveDays() (src/features/pricing/lib/pricing-model.ts)
+ * — aligned during the contracts-adoption pass after an audit found the two
+ * repos had independently-drifted implementations. They still can't be a
+ * single shared module — the sub-repos are bare gitlinks with no
+ * workspace/publishing mechanism (see the landr-y3oj epic) — codegen would
+ * need to ship shared TS *snippets* (not just types) for that; until then,
+ * keep both copies manually in sync and keep their unit tests identical.
  */
 export function consecutiveDays(startISO: string, count: number): string[] {
   if (count <= 0) return []
