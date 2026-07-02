@@ -1,4 +1,5 @@
 import {
+  fireEvent,
   render as rtlRender,
   screen,
   waitFor,
@@ -259,5 +260,55 @@ describe('PricingSchemeEditorSheet — drag-and-drop reorder', () => {
       // Sanity: mock recorded one call.
       expect(pricingMock.patchRule).toHaveBeenCalledTimes(1)
     })
+  })
+})
+
+describe('PricingSchemeEditorSheet — Add rule zero-on-create guard (landr-d2uy)', () => {
+  // manual_override's evaluator defaults params.amount to 0 and REPLACES
+  // gross_total AND halts the rest of the pipeline (see
+  // app/services/pricing.py::_eval_manual_override + compute_price's
+  // `if kind == "manual_override": halted = True; break`). Adding one live
+  // with default params (as the plain Add button used to) instantly zeroes
+  // every price computed through the scheme until an amount is typed in.
+  // New manual_override rules must be created inactive.
+
+  it('creates manual_override rules inactive', async () => {
+    pricingMock.createRule.mockResolvedValue({ id: 'rule-new' })
+    render(
+      <PricingSchemeEditorSheet
+        schemeId="sch-1"
+        operatorId="op-1"
+        onClose={() => {}}
+      />,
+    )
+    await screen.findAllByText('Percentage discount')
+
+    fireEvent.change(screen.getByLabelText(/rule type/i), {
+      target: { value: 'manual_override' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^add$/i }))
+
+    await waitFor(() => expect(pricingMock.createRule).toHaveBeenCalledTimes(1))
+    const [, , body] = pricingMock.createRule.mock.calls[0]
+    expect(body).toMatchObject({ rule_kind: 'manual_override', active: false })
+  })
+
+  it('does not force active:false for ordinary rule kinds (e.g. per_day_base)', async () => {
+    pricingMock.createRule.mockResolvedValue({ id: 'rule-new' })
+    render(
+      <PricingSchemeEditorSheet
+        schemeId="sch-1"
+        operatorId="op-1"
+        onClose={() => {}}
+      />,
+    )
+    await screen.findAllByText('Percentage discount')
+
+    // Default select value is per_day_base — no need to change it.
+    fireEvent.click(screen.getByRole('button', { name: /^add$/i }))
+
+    await waitFor(() => expect(pricingMock.createRule).toHaveBeenCalledTimes(1))
+    const [, , body] = pricingMock.createRule.mock.calls[0]
+    expect(body).not.toHaveProperty('active')
   })
 })

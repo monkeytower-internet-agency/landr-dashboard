@@ -118,6 +118,27 @@ function ParamsEditor({ rule, currency, onPatch }: ParamsEditorProps) {
   const [surchargeVal, setSurchargeVal] = useState(String(surchargeCurrent))
   const [reasonVal, setReasonVal] = useState(reasonCurrent)
 
+  // ---- composite-kind draft state (landr-d2uy fix-forward) --------------
+  //
+  // time_of_day_surcharge and manual_override each PATCH two fields as one
+  // full-replace params object, pairing the just-edited field with the
+  // sibling's "current" value. `rule.params` only refreshes once the PATCH's
+  // onSuccess -> onRefetch round-trip resolves, so reading the sibling
+  // straight from props is racy: edit field A, blur (PATCH 1 in flight),
+  // then edit+blur field B before PATCH 1's refetch lands, and PATCH 2 would
+  // carry field A's STALE pre-edit value — silently reverting the just-saved
+  // edit, because the API PATCH replaces the whole params jsonb column.
+  //
+  // Fix: track each composite field's last-known-good value in local state,
+  // seeded from props on mount and advanced optimistically the moment we
+  // fire a PATCH for it — never re-derived from `rule.params` afterwards.
+  // The sibling field then always composes against the freshest value this
+  // editor instance actually sent, regardless of when the refetch resolves.
+  const [windowDraft, setWindowDraft] = useState(windowCurrent)
+  const [surchargeDraft, setSurchargeDraft] = useState(surchargeCurrent)
+  const [overrideAmtDraft, setOverrideAmtDraft] = useState(amtCurrent)
+  const [reasonDraft, setReasonDraft] = useState(reasonCurrent)
+
   if (kind === 'percentage_discount') {
     return (
       <div className="mt-2 flex items-center gap-2">
@@ -211,8 +232,9 @@ function ParamsEditor({ rule, currency, onPatch }: ParamsEditorProps) {
           onChange={(e) => setWindowVal(e.target.value)}
           onBlur={() => {
             const v = windowVal.trim()
-            if (v === windowCurrent) return
-            onPatch({ params: { window: v, surcharge_per_day: surchargeCurrent } })
+            if (v === windowDraft) return
+            setWindowDraft(v)
+            onPatch({ params: { window: v, surcharge_per_day: surchargeDraft } })
           }}
         />
         <Label htmlFor={`param-surcharge-${rule.id}`} className="shrink-0 text-sm">
@@ -225,9 +247,10 @@ function ParamsEditor({ rule, currency, onPatch }: ParamsEditorProps) {
           onChange={(e) => setSurchargeVal(e.target.value)}
           onBlur={() => {
             const v = parseFloat(surchargeVal)
-            if (isNaN(v) || v < 0) { setSurchargeVal(String(surchargeCurrent)); return }
-            if (v === surchargeCurrent) return
-            onPatch({ params: { window: windowCurrent, surcharge_per_day: v } })
+            if (isNaN(v) || v < 0) { setSurchargeVal(String(surchargeDraft)); return }
+            if (v === surchargeDraft) return
+            setSurchargeDraft(v)
+            onPatch({ params: { window: windowDraft, surcharge_per_day: v } })
           }}
           type="number"
           min={0}
@@ -250,9 +273,10 @@ function ParamsEditor({ rule, currency, onPatch }: ParamsEditorProps) {
           onChange={(e) => setAmtVal(e.target.value)}
           onBlur={() => {
             const v = parseFloat(amtVal)
-            if (isNaN(v) || v < 0) { setAmtVal(String(amtCurrent)); return }
-            if (v === amtCurrent) return
-            onPatch({ params: { amount: v, reason: reasonCurrent || null } })
+            if (isNaN(v) || v < 0) { setAmtVal(String(overrideAmtDraft)); return }
+            if (v === overrideAmtDraft) return
+            setOverrideAmtDraft(v)
+            onPatch({ params: { amount: v, reason: reasonDraft || null } })
           }}
           type="number"
           min={0}
@@ -268,8 +292,9 @@ function ParamsEditor({ rule, currency, onPatch }: ParamsEditorProps) {
           onChange={(e) => setReasonVal(e.target.value)}
           onBlur={() => {
             const v = reasonVal.trim()
-            if (v === (reasonCurrent ?? '')) return
-            onPatch({ params: { amount: amtCurrent, reason: v || null } })
+            if (v === (reasonDraft ?? '')) return
+            setReasonDraft(v)
+            onPatch({ params: { amount: overrideAmtDraft, reason: v || null } })
           }}
         />
       </div>

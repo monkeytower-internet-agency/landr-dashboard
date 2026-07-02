@@ -263,4 +263,88 @@ describe('PricingRuleEditor ParamsEditor — engine params contract', () => {
     const [, , body] = pricingMock.patchRule.mock.calls[0]
     expect(body).toEqual({ params: { amount: 1000, reason: 'VIP comp' } })
   })
+
+  // ---- composite two-field race regression (landr-d2uy fix-forward) -----
+  //
+  // rule.params only refreshes once the PATCH's onSuccess -> onRefetch
+  // round-trip resolves. Before the fix, editing field A then field B
+  // BEFORE that round-trip resolved composed PATCH 2 from field A's STALE
+  // pre-edit value (read straight off the `rule` prop) instead of the
+  // value PATCH 1 actually just sent — silently reverting field A on save,
+  // because the API PATCH replaces the whole params jsonb column. These
+  // tests never resolve PATCH 1, modelling "blur field B before the
+  // refetch delivers new props" exactly.
+
+  it('time_of_day_surcharge: editing window then surcharge before PATCH 1 resolves keeps window (race regression)', async () => {
+    const rule = makeRule('time_of_day_surcharge', {
+      window: '18:00-22:00',
+      surcharge_per_day: 10,
+    })
+    const firstPatch = new Promise(() => {
+      /* never resolves — PATCH 1 stays in flight for the whole test */
+    })
+    pricingMock.patchRule.mockImplementationOnce(() => firstPatch)
+    render(
+      <PricingRuleEditor
+        rule={rule}
+        operatorId="op-1"
+        currency="EUR"
+        onDeleted={() => {}}
+        onRefetch={() => {}}
+      />,
+    )
+    const windowInput = screen.getByLabelText(/window/i)
+    const surchargeInput = screen.getByLabelText(/surcharge \/ day/i)
+
+    // Field A: edit + blur -> PATCH 1 fires and stays pending.
+    fireEvent.change(windowInput, { target: { value: '09:00-12:00' } })
+    fireEvent.blur(windowInput)
+    await waitFor(() => expect(pricingMock.patchRule).toHaveBeenCalledTimes(1))
+
+    // Field B: edit + blur BEFORE PATCH 1's refetch ever delivers new props.
+    fireEvent.change(surchargeInput, { target: { value: '20' } })
+    fireEvent.blur(surchargeInput)
+    await waitFor(() => expect(pricingMock.patchRule).toHaveBeenCalledTimes(2))
+
+    const [, , body2] = pricingMock.patchRule.mock.calls[1]
+    // PATCH 2 must carry field A's NEW value, not the stale prop value.
+    expect(body2).toEqual({
+      params: { window: '09:00-12:00', surcharge_per_day: 20 },
+    })
+  })
+
+  it('manual_override: editing amount then reason before PATCH 1 resolves keeps amount (race regression)', async () => {
+    const rule = makeRule('manual_override', { amount: 1200, reason: 'VIP comp' })
+    const firstPatch = new Promise(() => {
+      /* never resolves — PATCH 1 stays in flight for the whole test */
+    })
+    pricingMock.patchRule.mockImplementationOnce(() => firstPatch)
+    render(
+      <PricingRuleEditor
+        rule={rule}
+        operatorId="op-1"
+        currency="EUR"
+        onDeleted={() => {}}
+        onRefetch={() => {}}
+      />,
+    )
+    const amountInput = screen.getByLabelText(/override total/i)
+    const reasonInput = screen.getByLabelText(/reason/i)
+
+    // Field A: edit + blur -> PATCH 1 fires and stays pending.
+    fireEvent.change(amountInput, { target: { value: '999' } })
+    fireEvent.blur(amountInput)
+    await waitFor(() => expect(pricingMock.patchRule).toHaveBeenCalledTimes(1))
+
+    // Field B: edit + blur BEFORE PATCH 1's refetch ever delivers new props.
+    fireEvent.change(reasonInput, { target: { value: 'Updated reason' } })
+    fireEvent.blur(reasonInput)
+    await waitFor(() => expect(pricingMock.patchRule).toHaveBeenCalledTimes(2))
+
+    const [, , body2] = pricingMock.patchRule.mock.calls[1]
+    // PATCH 2 must carry field A's NEW value, not the stale prop value.
+    expect(body2).toEqual({
+      params: { amount: 999, reason: 'Updated reason' },
+    })
+  })
 })
