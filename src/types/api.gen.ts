@@ -1498,9 +1498,9 @@ export interface paths {
          *     'Track this booking in the LANDR app' prompt.
          *
          *     Mints a magic link via Supabase admin ``generate_link`` (Supabase sends
-         *     NO email) and delivers it through the OPERATOR'S Gmail + our branded
-         *     ``account_link`` template — so it never depends on a Supabase SMTP
-         *     config (which was the blocker). Gated on the operator's
+         *     NO email) and delivers it through the operator's configured sending domain
+         *     (or platform fallback) with our branded ``account_link`` template — so it
+         *     never depends on a Supabase SMTP config. Gated on the operator's
          *     ``offer_account_link`` opt-in (landr-atwy): when off, returns 404 so the
          *     surface stays opaque.
          */
@@ -1837,7 +1837,10 @@ export interface paths {
          *       * 500             — GoTrue create failed, OR the RPC failed AFTER the auth
          *                           user was created (the auth user is then COMPENSATINGLY
          *                           deleted before responding), OR the verification email
-         *                           could not be dispatched (also compensated).
+         *                           could not even be ENQUEUED (also compensated). NOTE:
+         *                           the response 201s as soon as the email is queued —
+         *                           it no longer waits for the actual Resend/SES send
+         *                           (landr-csot; see module docstring).
          *
          *     NOTE (M1): an already-registered EMAIL does NOT yield a distinct error — it
          *     returns the same generic "verification_email_sent" body as a new signup, so
@@ -4109,7 +4112,9 @@ export interface paths {
          *
          *     `code` is uppercased to satisfy vouchers_code_uppercase_check and the
          *     .eq(UPPER(code)) pricing lookup (landr-hy5t). A duplicate code for the
-         *     same operator (among live rows) surfaces as 409.
+         *     same operator (among live rows) surfaces as 409. `applies_to_product_id`
+         *     / `campaign_id`, if supplied, must resolve to a live row on this
+         *     operator — a dangling or cross-operator id surfaces as 400.
          */
         post: operations["create_voucher"];
         delete?: never;
@@ -4143,6 +4148,11 @@ export interface paths {
         /**
          * Patch Voucher
          * @description Edit a voucher. Empty patch → 400. Cross-operator / missing → 404.
+         *
+         *     `applies_to_product_id` / `campaign_id`, if supplied and non-null, must
+         *     resolve to a live row on this operator — a dangling or cross-operator
+         *     id surfaces as 400. Explicitly patching either to null always passes
+         *     (clearing the scope needs no ownership check).
          */
         patch: operations["patch_voucher"];
         trace?: never;
@@ -6002,6 +6012,8 @@ export interface components {
             public_contact_email?: string | null;
             /** Region */
             region?: string | null;
+            /** Require Declarations */
+            require_declarations?: boolean | null;
             /** Show Premium Teasers */
             show_premium_teasers?: boolean | null;
             /** Street */
@@ -7008,7 +7020,7 @@ export interface components {
             id: string;
             /**
              * Sent Via
-             * @description 'gmail' | 'dev_fallback' | '' (empty on failure).
+             * @description 'operator_ses' | 'platform_fallback' | 'dev_fallback' | 'skipped_reserved' | '' (empty on failure).
              */
             sent_via: string;
             /**
@@ -7692,6 +7704,10 @@ export interface components {
             active: boolean;
             /** Amount */
             amount: number;
+            /** Applies To Product Id */
+            applies_to_product_id?: string | null;
+            /** Campaign Id */
+            campaign_id?: string | null;
             /** Code */
             code: string;
             /**
@@ -7724,6 +7740,10 @@ export interface components {
             active?: boolean | null;
             /** Amount */
             amount?: number | null;
+            /** Applies To Product Id */
+            applies_to_product_id?: string | null;
+            /** Campaign Id */
+            campaign_id?: string | null;
             /** Code */
             code?: string | null;
             /** Currency */

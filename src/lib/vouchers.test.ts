@@ -22,9 +22,11 @@ import {
   formToInput,
   formatUsage,
   formatVoucherAmount,
+  isVoucherScopeErrorCode,
   localFromIso,
   patchVoucher,
   validateVoucherForm,
+  voucherScopeErrorMessage,
   type Voucher,
   type VoucherFormValues,
 } from './vouchers'
@@ -44,6 +46,8 @@ function form(overrides: Partial<VoucherFormValues> = {}): VoucherFormValues {
     valid_from: '',
     valid_until: '',
     scope: 'booking',
+    applies_to_product_id: '',
+    campaign_id: '',
     description: '',
     active: true,
     ...overrides,
@@ -63,6 +67,8 @@ function voucher(overrides: Partial<Voucher> = {}): Voucher {
     valid_from: null,
     valid_until: null,
     scope: 'booking',
+    applies_to_product_id: null,
+    campaign_id: null,
     description: null,
     active: true,
     created_at: '2026-05-22T03:00:00Z',
@@ -188,6 +194,44 @@ describe('formToInput', () => {
     const input = formToInput(form({ max_uses: '50', description: 'Promo' }))
     expect(input.max_uses).toBe(50)
     expect(input.description).toBe('Promo')
+  })
+
+  it('nulls applies_to_product_id and campaign_id when unset', () => {
+    const input = formToInput(form())
+    expect(input.applies_to_product_id).toBeNull()
+    expect(input.campaign_id).toBeNull()
+  })
+
+  it('passes through a selected applies_to_product_id / campaign_id', () => {
+    const input = formToInput(
+      form({ applies_to_product_id: 'prod-1', campaign_id: 'camp-1' }),
+    )
+    expect(input.applies_to_product_id).toBe('prod-1')
+    expect(input.campaign_id).toBe('camp-1')
+  })
+})
+
+describe('voucher scope-reference errors', () => {
+  it('isVoucherScopeErrorCode recognizes the three server codes', () => {
+    expect(isVoucherScopeErrorCode('invalid_applies_to_product_id')).toBe(true)
+    expect(isVoucherScopeErrorCode('invalid_campaign_id')).toBe(true)
+    expect(isVoucherScopeErrorCode('invalid_scope_reference')).toBe(true)
+    expect(isVoucherScopeErrorCode('voucher_code_taken')).toBe(false)
+  })
+
+  it('voucherScopeErrorMessage returns friendly copy for each code', () => {
+    expect(voucherScopeErrorMessage('invalid_applies_to_product_id')).toMatch(
+      /product/i,
+    )
+    expect(voucherScopeErrorMessage('invalid_campaign_id')).toMatch(/campaign/i)
+    expect(voucherScopeErrorMessage('invalid_scope_reference')).toMatch(
+      /product or campaign/i,
+    )
+  })
+
+  it('voucherScopeErrorMessage returns null for unrelated errors', () => {
+    expect(voucherScopeErrorMessage('voucher_code_taken')).toBeNull()
+    expect(voucherScopeErrorMessage('HTTP 500')).toBeNull()
   })
 })
 

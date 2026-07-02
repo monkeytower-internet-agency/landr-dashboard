@@ -5247,6 +5247,17 @@
             ],
             "title": "Region"
           },
+          "require_declarations": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require Declarations"
+          },
           "show_premium_teasers": {
             "anyOf": [
               {
@@ -8433,7 +8444,7 @@
             "type": "string"
           },
           "sent_via": {
-            "description": "'gmail' | 'dev_fallback' | '' (empty on failure).",
+            "description": "'operator_ses' | 'platform_fallback' | 'dev_fallback' | 'skipped_reserved' | '' (empty on failure).",
             "title": "Sent Via",
             "type": "string"
           },
@@ -10071,6 +10082,28 @@
             "title": "Amount",
             "type": "number"
           },
+          "applies_to_product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applies To Product Id"
+          },
+          "campaign_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campaign Id"
+          },
           "code": {
             "maxLength": 64,
             "minLength": 1,
@@ -10177,6 +10210,28 @@
               }
             ],
             "title": "Amount"
+          },
+          "applies_to_product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applies To Product Id"
+          },
+          "campaign_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campaign Id"
           },
           "code": {
             "anyOf": [
@@ -14238,7 +14293,7 @@
     },
     "/api/public/operators/{token}/account-link": {
       "post": {
-        "description": "landr-16u9: passwordless LANDR account-link for the post-booking\n'Track this booking in the LANDR app' prompt.\n\nMints a magic link via Supabase admin ``generate_link`` (Supabase sends\nNO email) and delivers it through the OPERATOR'S Gmail + our branded\n``account_link`` template \u2014 so it never depends on a Supabase SMTP\nconfig (which was the blocker). Gated on the operator's\n``offer_account_link`` opt-in (landr-atwy): when off, returns 404 so the\nsurface stays opaque.",
+        "description": "landr-16u9: passwordless LANDR account-link for the post-booking\n'Track this booking in the LANDR app' prompt.\n\nMints a magic link via Supabase admin ``generate_link`` (Supabase sends\nNO email) and delivers it through the operator's configured sending domain\n(or platform fallback) with our branded ``account_link`` template \u2014 so it\nnever depends on a Supabase SMTP config. Gated on the operator's\n``offer_account_link`` opt-in (landr-atwy): when off, returns 404 so the\nsurface stays opaque.",
         "operationId": "request_account_link",
         "parameters": [
           {
@@ -14886,7 +14941,7 @@
     },
     "/api/public/signup": {
       "post": {
-        "description": "Self-onboarding signup pipeline (see module docstring for the full flow).\n\nSuccess: 201 {\"status\": \"verification_email_sent\", \"verification_required\":\ntrue} \u2014 IDENTICAL on both fresh signup AND duplicate email (M1). The\ncreated operator is FREE tier; NO session is returned \u2014 the user must click\nthe verification link we emailed before they can sign in.\noperator_id is intentionally omitted here; callers must fetch it AFTER the\nuser verifies their email (avoids email-enumeration oracle).\n\nError contract:\n  * 403 captcha_*   \u2014 Turnstile failed / unavailable.\n  * 429             \u2014 per-IP or global rate limit exceeded.\n  * 503             \u2014 rate-limiter infra error (fail CLOSED).\n  * 422 invalid_slug \u2014 slug fails the grammar/reserved rules (+suggestions).\n  * 409 slug_taken   \u2014 slug collision (+3 suggested alternates).\n  * 500             \u2014 GoTrue create failed, OR the RPC failed AFTER the auth\n                      user was created (the auth user is then COMPENSATINGLY\n                      deleted before responding), OR the verification email\n                      could not be dispatched (also compensated).\n\nNOTE (M1): an already-registered EMAIL does NOT yield a distinct error \u2014 it\nreturns the same generic \"verification_email_sent\" body as a new signup, so\nthe endpoint can't be used to enumerate which emails have accounts.",
+        "description": "Self-onboarding signup pipeline (see module docstring for the full flow).\n\nSuccess: 201 {\"status\": \"verification_email_sent\", \"verification_required\":\ntrue} \u2014 IDENTICAL on both fresh signup AND duplicate email (M1). The\ncreated operator is FREE tier; NO session is returned \u2014 the user must click\nthe verification link we emailed before they can sign in.\noperator_id is intentionally omitted here; callers must fetch it AFTER the\nuser verifies their email (avoids email-enumeration oracle).\n\nError contract:\n  * 403 captcha_*   \u2014 Turnstile failed / unavailable.\n  * 429             \u2014 per-IP or global rate limit exceeded.\n  * 503             \u2014 rate-limiter infra error (fail CLOSED).\n  * 422 invalid_slug \u2014 slug fails the grammar/reserved rules (+suggestions).\n  * 409 slug_taken   \u2014 slug collision (+3 suggested alternates).\n  * 500             \u2014 GoTrue create failed, OR the RPC failed AFTER the auth\n                      user was created (the auth user is then COMPENSATINGLY\n                      deleted before responding), OR the verification email\n                      could not even be ENQUEUED (also compensated). NOTE:\n                      the response 201s as soon as the email is queued \u2014\n                      it no longer waits for the actual Resend/SES send\n                      (landr-csot; see module docstring).\n\nNOTE (M1): an already-registered EMAIL does NOT yield a distinct error \u2014 it\nreturns the same generic \"verification_email_sent\" body as a new signup, so\nthe endpoint can't be used to enumerate which emails have accounts.",
         "operationId": "signup",
         "requestBody": {
           "content": {
@@ -24284,7 +24339,7 @@
         ]
       },
       "post": {
-        "description": "Create a voucher.\n\n`code` is uppercased to satisfy vouchers_code_uppercase_check and the\n.eq(UPPER(code)) pricing lookup (landr-hy5t). A duplicate code for the\nsame operator (among live rows) surfaces as 409.",
+        "description": "Create a voucher.\n\n`code` is uppercased to satisfy vouchers_code_uppercase_check and the\n.eq(UPPER(code)) pricing lookup (landr-hy5t). A duplicate code for the\nsame operator (among live rows) surfaces as 409. `applies_to_product_id`\n/ `campaign_id`, if supplied, must resolve to a live row on this\noperator \u2014 a dangling or cross-operator id surfaces as 400.",
         "operationId": "create_voucher",
         "parameters": [
           {
@@ -24403,7 +24458,7 @@
         ]
       },
       "patch": {
-        "description": "Edit a voucher. Empty patch \u2192 400. Cross-operator / missing \u2192 404.",
+        "description": "Edit a voucher. Empty patch \u2192 400. Cross-operator / missing \u2192 404.\n\n`applies_to_product_id` / `campaign_id`, if supplied and non-null, must\nresolve to a live row on this operator \u2014 a dangling or cross-operator\nid surfaces as 400. Explicitly patching either to null always passes\n(clearing the scope needs no ownership check).",
         "operationId": "patch_voucher",
         "parameters": [
           {
