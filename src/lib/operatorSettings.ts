@@ -209,6 +209,11 @@ export const OperatorSettingsSchema = z.object({
   // column default); Para42's row is seeded with its real values.
   default_tax_rate: z.number().min(0).max(1).nullable().optional(),
   group_discount_threshold: z.number().int().min(0).nullable().optional(),
+  // landr-c53m.14 — whether the booking-submit gate requires the customer
+  // to accept declarations before booking. OFF by default (landr-c53m.2);
+  // enabled here now flips the same DB column the API already enforces
+  // (previously only settable via a manual SQL UPDATE).
+  require_declarations: z.boolean().nullable().optional(),
 })
 
 export type OperatorSettings = z.infer<typeof OperatorSettingsSchema>

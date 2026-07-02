@@ -23,6 +23,7 @@ import {
   PackageIcon,
   PaletteIcon,
   SendIcon,
+  ShieldCheckIcon,
   SlidersHorizontalIcon,
   SmartphoneIcon,
   SparklesIcon,
@@ -287,6 +288,14 @@ export const SETTINGS_SECTIONS: SettingsSubSection[] = [
     to: '/settings/account-link',
     label: t.settingsHub.sections.accountLink,
     icon: SmartphoneIcon,
+  },
+  // landr-c53m.14 — per-operator toggle for whether the booking-submit gate
+  // requires customers to accept declarations before booking. Sits after
+  // Account link prompt (another per-operator booking-flow behaviour toggle).
+  {
+    to: '/settings/declarations',
+    label: t.settingsHub.sections.declarations,
+    icon: ShieldCheckIcon,
   },
 ]
 

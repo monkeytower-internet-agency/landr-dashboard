@@ -451,6 +451,9 @@ export const t = {
       webhooks: 'Webhooks',
       // landr-atwy — per-operator opt-in for the post-booking account-link prompt.
       accountLink: 'Account link prompt',
+      // landr-c53m.14 — per-operator toggle for declarations enforcement
+      // at booking-submit time.
+      declarations: 'Declarations',
       // landr-wwhn.16 — personal notification preferences (bell/email/push
       // + per-ticket overrides). Personal scope, not operator scope.
       notifications: 'Notifications',
@@ -536,6 +539,9 @@ export const t = {
       // landr-atwy — post-booking account-link prompt opt-in.
       accountLink:
         'Show (or hide) the post-booking prompt inviting customers to track their trip in the LANDR app.',
+      // landr-c53m.14 — declarations enforcement at booking-submit time.
+      declarations:
+        'Require customers to accept declarations before booking.',
       // landr-wwhn.16 — personal notification preferences.
       notifications:
         'Choose how you hear about ticket activity — bell, email, or mobile push.',
@@ -2902,6 +2908,19 @@ export const t = {
     saving: 'Saving…',
     toastSaved: 'Account-link settings saved.',
     toastError: 'Failed to save account-link settings.',
+  },
+  // landr-c53m.14 — Settings → Declarations enforcement
+  declarationsSettings: {
+    cardTitle: 'Declarations enforcement',
+    cardDescription:
+      'When enabled, customers must accept declarations before completing a booking. OFF by default.',
+    enableLabel: 'Require declarations acceptance before booking',
+    enableHint:
+      'Customers must explicitly accept your declarations (e.g. liability, medical, or safety statements) before a booking is accepted. Applies to bookings that don’t use a custom booking form with its own declaration fields.',
+    save: 'Save',
+    saving: 'Saving…',
+    toastSaved: 'Declarations settings saved.',
+    toastError: 'Failed to save declarations settings.',
   },
   // landr-znzz.7 — Settings → Weather
   weatherSettings: {

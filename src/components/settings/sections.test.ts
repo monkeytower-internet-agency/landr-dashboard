@@ -148,7 +148,9 @@ describe('account/settings grouping (landr-fzcg)', () => {
   // landr-71kz.5 — Forms library joined the SETTINGS group between Embed
   // code and Upsells & offers (operator-customisable booking forms; both
   // Embed and Forms configure "what the booking widget uses").
-  it('settings group contains the twenty-five program subsections', () => {
+  // landr-c53m.14 — Declarations joined the SETTINGS group after Account
+  // link prompt (another per-operator booking-flow behaviour toggle).
+  it('settings group contains the twenty-six program subsections', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.to)).toEqual([
       '/settings/calendar-display',
       '/settings/display-preferences',
@@ -197,6 +199,10 @@ describe('account/settings grouping (landr-fzcg)', () => {
       // landr-atwy — Settings → Account link prompt: per-operator opt-in
       // for the post-booking "Track in LANDR app" customer prompt.
       '/settings/account-link',
+      // landr-c53m.14 — Settings → Declarations: per-operator toggle for
+      // whether the booking-submit gate requires customers to accept
+      // declarations before booking.
+      '/settings/declarations',
     ])
   })
 
