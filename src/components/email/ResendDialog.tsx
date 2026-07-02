@@ -60,15 +60,64 @@ export type ResendDialogSource = {
   body_text: string
 }
 
+/** Block-level elements after which we insert a newline, approximating
+ *  ProseMirror/TipTap's `getText({ blockSeparator: '\n' })` block boundaries
+ *  well enough for this best-effort derivation. */
+const BLOCK_TAGS = new Set([
+  'P',
+  'DIV',
+  'LI',
+  'H1',
+  'H2',
+  'H3',
+  'H4',
+  'H5',
+  'H6',
+  'BLOCKQUOTE',
+  'PRE',
+  'TR',
+  'TABLE',
+  'UL',
+  'OL',
+])
+
 /**
  * Best-effort HTML → plain-text, used to keep `bodyText` live-synced while
  * the operator edits raw HTML in the escape-hatch textarea (landr-7hac).
  * Not a substitute for the WYSIWYG's own `editor.getText()` — just enough to
  * stop `body_text` going stale relative to `body_html` between keystrokes.
+ *
+ * `doc.body.textContent` alone concatenates every text node with NO
+ * separators between block elements (`<p>A</p><p>B</p>` → "AB", not "A\nB"),
+ * corrupting the text/plain part for any multi-paragraph body. Walk the DOM
+ * instead, appending a newline after each block-level element and for
+ * explicit <br> line breaks.
  */
 function htmlToPlainText(html: string): string {
   const doc = new DOMParser().parseFromString(html, 'text/html')
-  return (doc.body.textContent ?? '').replace(/[ \t]+\n/g, '\n').trim()
+  let text = ''
+
+  function walk(node: Node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      text += node.textContent ?? ''
+      return
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return
+    const el = node as Element
+    if (el.tagName === 'BR') {
+      text += '\n'
+      return
+    }
+    for (const child of Array.from(el.childNodes)) walk(child)
+    if (BLOCK_TAGS.has(el.tagName)) text += '\n'
+  }
+
+  walk(doc.body)
+
+  return text
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 export type ResendDialogProps = {

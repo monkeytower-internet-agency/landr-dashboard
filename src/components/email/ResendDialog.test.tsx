@@ -262,4 +262,85 @@ describe('ResendDialog (WYSIWYG)', () => {
     expect(payload.body_html).toContain('edited via source')
     expect(payload.body_text).toContain('edited via source')
   })
+
+  it('clicking a toolbar button while the escape hatch is OPEN does not mutate bodyHtml (landr-7hac CRITICAL 1)', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    const htmlBox = await screen.findByTestId('resend-body-html')
+
+    expect(screen.getByTestId('rte-bold')).toBeDisabled()
+
+    // Attempt to bold while locked — must be a no-op on the document/state.
+    await user.click(screen.getByTestId('rte-bold'))
+
+    expect((htmlBox as HTMLTextAreaElement).value).toBe(source.body_html)
+
+    await user.click(screen.getByTestId('resend-submit'))
+    await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
+    const [, , payload] = resendEmailMock.mock.calls[0] as [
+      string,
+      string,
+      Record<string, unknown>,
+    ]
+    // Unchanged from source → resend payload omits body_html entirely.
+    expect('body_html' in payload).toBe(false)
+  })
+
+  it('re-enables the toolbar once the escape hatch closes', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    await waitFor(() => expect(screen.getByTestId('rte-bold')).toBeDisabled())
+
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    await waitFor(() => expect(screen.getByTestId('rte-bold')).not.toBeDisabled())
+  })
+
+  it('preserves non-schema markup (a table) verbatim after the hatch closes (landr-7hac CRITICAL 2)', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    const htmlBox = await screen.findByTestId('resend-body-html')
+    const tableHtml =
+      '<table><tbody><tr><td>Cell</td></tr></tbody></table>'
+    await user.clear(htmlBox)
+    await user.type(htmlBox, tableHtml)
+
+    // Close the escape hatch — TipTap's restricted schema has no <table>, so
+    // re-seeding the WYSIWYG must NOT emit onChange (emitUpdate: false) or
+    // bodyHtml would be clobbered with the schema-stripped approximation.
+    await user.click(screen.getByTestId('resend-html-toggle'))
+
+    await user.click(screen.getByTestId('resend-submit'))
+    await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
+    const [, , payload] = resendEmailMock.mock.calls[0] as [
+      string,
+      string,
+      Record<string, unknown>,
+    ]
+    expect(payload.body_html).toBe(tableHtml)
+  })
+
+  it('derives one line per paragraph when re-deriving body_text from raw HTML (landr-7hac MEDIUM 3)', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    const htmlBox = await screen.findByTestId('resend-body-html')
+    await user.clear(htmlBox)
+    await user.type(htmlBox, '<p>First paragraph</p><p>Second paragraph</p>')
+
+    await user.click(screen.getByTestId('resend-submit'))
+    await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
+    const [, , payload] = resendEmailMock.mock.calls[0] as [
+      string,
+      string,
+      Record<string, unknown>,
+    ]
+    expect(payload.body_text).toBe('First paragraph\nSecond paragraph')
+  })
 })

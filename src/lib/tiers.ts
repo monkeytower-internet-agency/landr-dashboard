@@ -302,6 +302,23 @@ export async function clearOperatorFeature(args: {
  * with the same value already stored (existing override's enabled). For new
  * rows it seeds the row with the resolved effective state instead of the
  * enabled column's false default.
+ *
+ * landr-7hac MEDIUM 5 (follow-up, verified not fixable from this repo): for
+ * a feature with NO prior operator_features row (purely inherited from the
+ * tier/registry default), this write still materializes an explicit
+ * `enabled` value into a new row — which decouples that operator from any
+ * FUTURE tier-default flip for this feature, even though the write captures
+ * today's effective value correctly. A true "params-only, still inherited"
+ * write is not achievable via PostgREST upsert/update alone: `enabled` is
+ * `NOT NULL DEFAULT false`, so any INSERT that omits it silently becomes
+ * `false` (the exact forced-OFF bug this function exists to avoid) — there
+ * is no "unset" state to omit-to. Fixing this properly requires a landr-api
+ * migration making `operator_features.enabled` nullable (tri-state:
+ * NULL = inherit), which the resolver's existing
+ * `COALESCE(ofe.enabled, pf.enabled, f.default_enabled, false)` already
+ * supports without further RPC changes. Filed as a follow-up in the
+ * landr-7hac handoff rather than attempted here — out of scope for a
+ * dashboard-only fix.
  */
 export async function setOperatorFeatureConfig(args: {
   operatorId: string

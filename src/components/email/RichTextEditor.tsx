@@ -17,10 +17,18 @@
  *    surface mirrors the eventual render rather than the dashboard chrome.
  *  - landr-7hac: the escape-hatch raw-HTML textarea in ResendDialog and this
  *    WYSIWYG must never disagree about the current body. `editable` lets the
- *    caller lock the WYSIWYG while the raw-HTML textarea is open, and the
- *    imperative `setHtml` handle lets the caller re-seed this editor's
- *    document (via `editor.commands.setContent`) once the escape hatch
- *    closes, so HTML-source edits are never silently discarded.
+ *    caller lock the WYSIWYG while the raw-HTML textarea is open — the
+ *    toolbar buttons are also disabled (and their click handlers early-return)
+ *    while locked, since TipTap's chain commands don't check
+ *    `editor.isEditable` themselves and would otherwise still mutate the
+ *    stale document. The imperative `setHtml` handle lets the caller re-seed
+ *    this editor's document (via `editor.commands.setContent(html,
+ *    { emitUpdate: false })`) once the escape hatch closes: `emitUpdate:
+ *    false` is required so re-parsing the raw HTML through the restricted
+ *    schema (no tables/images/inline styles) does NOT fire `onChange` and
+ *    clobber the caller's authoritative raw-HTML state — the WYSIWYG shows
+ *    a best-effort approximation while the raw HTML stays the source of
+ *    truth until a deliberate WYSIWYG edit re-derives it.
  */
 import { forwardRef, useEffect, useImperativeHandle } from 'react'
 import {
@@ -123,10 +131,20 @@ function ToolbarButton({
   )
 }
 
-function Toolbar({ editor }: { editor: Editor }) {
+function Toolbar({ editor, locked }: { editor: Editor; locked: boolean }) {
   // Subscribe to the editor state so active flags re-render on every
   // transaction — including stored-mark changes from an empty-selection
   // bold/italic toggle, which a plain editor.isActive() read can miss.
+  //
+  // `locked` (derived from the `editable` prop the caller controls) is
+  // passed in directly rather than read off `editor.isEditable` here:
+  // `editor.setEditable()` does not fire a "transaction" event, so
+  // useEditorState would not re-render this toolbar when the lock toggles.
+  // TipTap's chain commands also do NOT check editor.isEditable themselves,
+  // so ResendDialog's `editable={false}` lock (used while the raw-HTML
+  // escape hatch is open) only disables the contentEditable DOM — a toolbar
+  // click would otherwise still run its command chain against the stale
+  // document (landr-7hac CRITICAL 1).
   const active = useEditorState({
     editor,
     selector: ({ editor }) => ({
@@ -149,9 +167,11 @@ function Toolbar({ editor }: { editor: Editor }) {
         label={t.emailLog.rteHeading1}
         testId="rte-h1"
         active={active.h1}
-        onClick={() =>
+        disabled={locked}
+        onClick={() => {
+          if (!editor.isEditable) return
           editor.chain().focus().toggleHeading({ level: 1 }).run()
-        }
+        }}
       >
         <Heading1 className="size-4" />
       </ToolbarButton>
@@ -159,9 +179,11 @@ function Toolbar({ editor }: { editor: Editor }) {
         label={t.emailLog.rteHeading2}
         testId="rte-h2"
         active={active.h2}
-        onClick={() =>
+        disabled={locked}
+        onClick={() => {
+          if (!editor.isEditable) return
           editor.chain().focus().toggleHeading({ level: 2 }).run()
-        }
+        }}
       >
         <Heading2 className="size-4" />
       </ToolbarButton>
@@ -172,7 +194,11 @@ function Toolbar({ editor }: { editor: Editor }) {
         label={t.emailLog.rteBold}
         testId="rte-bold"
         active={active.bold}
-        onClick={() => editor.chain().focus().toggleBold().run()}
+        disabled={locked}
+        onClick={() => {
+          if (!editor.isEditable) return
+          editor.chain().focus().toggleBold().run()
+        }}
       >
         <BoldIcon className="size-4" />
       </ToolbarButton>
@@ -180,7 +206,11 @@ function Toolbar({ editor }: { editor: Editor }) {
         label={t.emailLog.rteItalic}
         testId="rte-italic"
         active={active.italic}
-        onClick={() => editor.chain().focus().toggleItalic().run()}
+        disabled={locked}
+        onClick={() => {
+          if (!editor.isEditable) return
+          editor.chain().focus().toggleItalic().run()
+        }}
       >
         <ItalicIcon className="size-4" />
       </ToolbarButton>
@@ -191,7 +221,11 @@ function Toolbar({ editor }: { editor: Editor }) {
         label={t.emailLog.rteBulletList}
         testId="rte-bullet-list"
         active={active.bulletList}
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        disabled={locked}
+        onClick={() => {
+          if (!editor.isEditable) return
+          editor.chain().focus().toggleBulletList().run()
+        }}
       >
         <List className="size-4" />
       </ToolbarButton>
@@ -199,7 +233,11 @@ function Toolbar({ editor }: { editor: Editor }) {
         label={t.emailLog.rteOrderedList}
         testId="rte-ordered-list"
         active={active.orderedList}
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        disabled={locked}
+        onClick={() => {
+          if (!editor.isEditable) return
+          editor.chain().focus().toggleOrderedList().run()
+        }}
       >
         <ListOrdered className="size-4" />
       </ToolbarButton>
@@ -210,7 +248,9 @@ function Toolbar({ editor }: { editor: Editor }) {
         label={t.emailLog.rteLink}
         testId="rte-link"
         active={active.link}
+        disabled={locked}
         onClick={() => {
+          if (!editor.isEditable) return
           if (editor.isActive('link')) {
             editor.chain().focus().unsetLink().run()
             return
@@ -284,8 +324,19 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     // Keep the WYSIWYG's editability in sync with the `editable` prop — this
     // is how ResendDialog locks the editor while the raw-HTML escape hatch is
     // open, so the two surfaces never both accept input at once.
+    //
+    // `setEditable`'s second arg (emitUpdate) MUST be false: by default it
+    // fires the "update" event — which runs our `onUpdate` handler below —
+    // purely as a side effect of the lock toggling, with no real transaction
+    // behind it. That is harmless on its own, but landr-7hac CRITICAL 2's
+    // fix re-seeds the document via the imperative `setHtml` handle (with
+    // its OWN emitUpdate: false) right before the escape hatch closes and
+    // this effect flips `editable` back to true — if this call emitted an
+    // update too, it would immediately re-fire `onChange` with the editor's
+    // now-reparsed (schema-stripped) HTML and clobber the caller's
+    // authoritative raw-HTML state a tick later, defeating that fix.
     useEffect(() => {
-      editor?.setEditable(editable)
+      editor?.setEditable(editable, false)
     }, [editor, editable])
 
     useImperativeHandle(
@@ -293,7 +344,22 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       () => ({
         setHtml: (html: string) => {
           if (!editor) return
-          editor.commands.setContent(extractBodyContent(html))
+          // landr-7hac CRITICAL 2: emitUpdate MUST be false here. This is
+          // called when the raw-HTML escape hatch closes, re-seeding the
+          // WYSIWYG from `bodyHtml` (the authoritative source-of-truth after
+          // a raw edit). TipTap's restricted schema has no tables / images /
+          // inline styles, so re-parsing that markup through
+          // editor.getHTML() (which a default emitUpdate: true onUpdate call
+          // would do) SILENTLY STRIPS exactly the non-schema markup the
+          // escape hatch exists to preserve. With emitUpdate: false the
+          // WYSIWYG shows its best-effort approximation but does NOT fire
+          // onChange, so ResendDialog's `bodyHtml` state is left untouched —
+          // the raw HTML remains authoritative until the operator makes a
+          // DELIBERATE edit inside the WYSIWYG (which re-derives state as
+          // normal via the regular onUpdate handler).
+          editor.commands.setContent(extractBodyContent(html), {
+            emitUpdate: false,
+          })
         },
       }),
       [editor],
@@ -301,7 +367,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
 
     return (
       <div className="overflow-hidden rounded-md border border-slate-300 bg-white">
-        {editor && <Toolbar editor={editor} />}
+        {editor && <Toolbar editor={editor} locked={!editable} />}
         <EditorContent editor={editor} />
       </div>
     )

@@ -836,7 +836,18 @@ function OperatorOverridePanel({
     setMutation.isPending ||
     clearMutation.isPending ||
     setConfigMutation.isPending ||
-    clearConfigMutation.isPending
+    clearConfigMutation.isPending ||
+    // landr-7hac CRITICAL 4: a params-only save
+    // (`ParamPopover`'s onSave → setConfigMutation) resolves its `enabled`
+    // write from `override?.enabled ?? eff?.enabled ?? false` — if
+    // effectiveQuery hasn't resolved yet, `eff` is undefined and that falls
+    // back to `false`, INSERTing a forced-OFF override for an operator who
+    // was actually inheriting an ON default. Keep every mutating control
+    // (force on/off, clear, param popover) disabled until BOTH queries this
+    // panel depends on have settled — including the error case, since an
+    // errored effectiveQuery leaves `eff` undefined too.
+    effectiveQuery.isPending ||
+    effectiveQuery.isError
 
   const effective = effectiveQuery.data
 
