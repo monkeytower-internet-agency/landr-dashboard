@@ -333,10 +333,17 @@ export function recentActivity(args: {
  * Booked = sum of `participants.length` across today's non-cancelled
  * bookings that include the product as an item. Falls back to 1 per
  * booking when the participants array is missing/empty so a brand-new
- * booking with no participant rows still contributes a seat. Multi-
- * product bookings attribute the same participant count to each item
- * — Para42 bookings are overwhelmingly single-product, so the
- * approximation is acceptable for v1.
+ * booking with no participant rows still contributes a seat.
+ *
+ * landr-c53m.9 — `booking_participants` carries no per-`booking_products`-
+ * line association (participants are booking-level, not line-level), so
+ * a genuine per-line count isn't available in the data. Attributing the
+ * full participant count to every item of a multi-product booking would
+ * over-count (2 products x 4 participants = 8 toward capacity). Instead
+ * the booking's contribution is split evenly across its today-scheduled
+ * item lines, so it sums to the booking's actual participant count once,
+ * not once per product. Single-product bookings (the default case) are
+ * unaffected — split across 1 item is a no-op.
  *
  * Products without a capacity_per_unit (most non-hotel_room services)
  * are filtered out — the card only renders rows where X/Y is
@@ -359,7 +366,13 @@ export function todaysCapacity(
     if (!isRevenueState(row.current_semantic_state)) continue
     if (earliestItemDate(row) !== today) continue
     const seats = row.participants?.length ?? 0
-    const contribution = seats > 0 ? seats : 1
+    const total = seats > 0 ? seats : 1
+    // landr-c53m.9 — split the booking's participant total evenly across
+    // its item lines instead of attributing the full total to each one,
+    // so a multi-product booking contributes its participants once, not
+    // once per product. No-op for the single-product (default) case.
+    const itemCount = row.items.length || 1
+    const contribution = total / itemCount
     for (const item of row.items) {
       const pid = item.products?.id
       if (!pid) continue
@@ -370,7 +383,10 @@ export function todaysCapacity(
   const rows: CapacityRow[] = []
   for (const p of products) {
     if (p.capacity_per_unit == null || p.capacity_per_unit <= 0) continue
-    const booked = bookedByProduct.get(p.id) ?? 0
+    // Round for display — the even split can leave fractional remainders
+    // (e.g. 5 participants / 2 products = 2.5 each); the KPI card shows
+    // whole seats.
+    const booked = Math.round(bookedByProduct.get(p.id) ?? 0)
     const capacity = p.capacity_per_unit
     const percent = capacity > 0 ? Math.round((booked / capacity) * 100) : 0
     rows.push({ productId: p.id, name: p.name, booked, capacity, percent })
