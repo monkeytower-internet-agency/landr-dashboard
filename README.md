@@ -36,6 +36,7 @@ Dev Supabase: Studio at `https://supabase.dev.landr.de` · Kong API at `https://
 | `npm test`         | Vitest (jsdom + Testing Library)       |
 | `npm run preview`  | Serve the built `dist/` locally        |
 | `npm run gen:types`| Regenerate `src/types/database.gen.ts` from the local Supabase stack (landr-api/supabase is the schema source of truth) |
+| `npm run gen:api-types` (landr-y3oj.2) | Regenerate `src/types/api.gen.ts` from `contracts/openapi.json` (a committed copy of landr-api's `openapi.json`). See landr-api README "Contracts codegen" for the full cross-repo regen loop + CI drift check. |
 
 `src/components/ui/**` and `src/hooks/use-mobile.ts` are shadcn-managed and ignored by ESLint.
 
