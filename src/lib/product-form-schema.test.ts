@@ -41,6 +41,7 @@ describe('productFormSchema', () => {
     hotel_offering: 'none',
     is_addon_only: false,
     capacity_per_unit: '',
+    includes_breakfast: false,
   }
 
   it('accepts a valid service product', () => {
@@ -216,6 +217,7 @@ describe('buildSubmitPayload', () => {
     hotel_offering: 'none',
     is_addon_only: false,
     capacity_per_unit: '',
+    includes_breakfast: false,
   }
 
   it('collapses hotel_location_id to null for non-hotel_room kinds', () => {

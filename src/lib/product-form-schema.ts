@@ -68,6 +68,8 @@ export const productFormSchema = z
     is_addon_only: z.boolean(),
     // landr-knm0 — capacity_per_unit.
     capacity_per_unit: z.string(),
+    // landr-c53m.4 — hotel_room breakfast-included flag.
+    includes_breakfast: z.boolean(),
   })
   .superRefine((data, ctx) => {
     if (data.product_kind === 'hotel_room') {
@@ -169,6 +171,8 @@ export type ProductFormSubmitValue = {
   is_addon_only: boolean
   // landr-knm0
   capacity_per_unit: number | null
+  // landr-c53m.4
+  includes_breakfast: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -257,6 +261,8 @@ export function defaultValues(
       is_addon_only: false,
       // landr-knm0 — pre-fill a sensible default ONLY for fresh hotel_room rows.
       capacity_per_unit: initialKind === 'hotel_room' ? '1' : '',
+      // landr-c53m.4 — no seeded default; the operator opts in explicitly.
+      includes_breakfast: false,
     }
   }
   return {
@@ -290,6 +296,8 @@ export function defaultValues(
       product.capacity_per_unit == null
         ? ''
         : String(product.capacity_per_unit),
+    // landr-c53m.4 — whether the hotel room rate includes breakfast.
+    includes_breakfast: !!product.includes_breakfast,
   }
 }
 
@@ -338,6 +346,10 @@ export function buildSubmitPayload(values: ProductFormValues): ProductFormSubmit
       values.product_kind === 'hotel_room'
         ? Number((values.capacity_per_unit ?? '').trim()) || null
         : null,
+    // landr-c53m.4 — only meaningful for hotel_room; force false elsewhere
+    // so a kind switch away from hotel_room can't leave a stale true value.
+    includes_breakfast:
+      values.product_kind === 'hotel_room' ? !!values.includes_breakfast : false,
   }
 }
 

@@ -49,6 +49,7 @@ function makeRow(overrides: Partial<ProductRow>): ProductRow {
     hotel_offering: 'none',
     is_addon_only: false,
     capacity_per_unit: null,
+    includes_breakfast: false,
     deleted_at: null,
     created_at: '2026-05-20T10:00:00Z',
     updated_at: '2026-05-20T10:00:00Z',

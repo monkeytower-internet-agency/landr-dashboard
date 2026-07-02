@@ -204,6 +204,9 @@ export function Step5Products({ operatorId, onAdvance, onBack }: Props) {
       // capacity_per_unit stays NULL (the column is meaningful for hotel
       // rooms, which the wizard doesn't seed).
       capacity_per_unit: null,
+      // landr-c53m.4 — same reasoning as capacity_per_unit above: only
+      // meaningful for kind='hotel_room', which onboarding never seeds.
+      includes_breakfast: false,
     }
     mutation.mutate(payload)
   }

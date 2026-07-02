@@ -775,6 +775,196 @@ describe('ProductForm — room capacity (landr-knm0)', () => {
   })
 })
 
+// landr-c53m.4 — includes_breakfast checkbox visible only for hotel_room.
+// It has no seeded default in the form and drives booking-email branching
+// (landr-api booking_emails.py), not any DB CHECK, so there's no
+// validation-error case to mirror from capacity_per_unit.
+describe('ProductForm — includes breakfast (landr-c53m.4)', () => {
+  const hotelLocations = [{ id: 'hotel-1', name: 'Hotel Sol' }]
+
+  it('does NOT render the includes-breakfast checkbox for kind=service', () => {
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={() => {}}
+      />,
+    )
+    expect(
+      screen.queryByLabelText(/includes breakfast/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('renders the includes-breakfast checkbox when switching to kind=hotel_room, unchecked by default', async () => {
+    const user = userEvent.setup()
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={() => {}}
+      />,
+    )
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'hotel_room')
+    const breakfast = screen.getByLabelText(
+      /includes breakfast/i,
+    ) as HTMLInputElement
+    expect(breakfast).toBeInTheDocument()
+    expect(breakfast.checked).toBe(false)
+  })
+
+  it('submits includes_breakfast=true when checked on a hotel_room product', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+    await user.type(screen.getByLabelText(/^name$/i), 'Double Room')
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'hotel_room')
+    await user.selectOptions(screen.getByLabelText(/^hotel$/i), 'hotel-1')
+    await user.click(screen.getByLabelText(/includes breakfast/i))
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      product_kind: 'hotel_room',
+      includes_breakfast: true,
+    })
+  })
+
+  it('loads includes_breakfast=true from an existing hotel_room product', () => {
+    const product: ProductRow = {
+      id: 'p-room',
+      operator_id: 'op-1',
+      product_group_id: null,
+      slug: 'double-room',
+      name: 'Double Room',
+      name_localized: null,
+      short_description: null,
+      short_description_localized: null,
+      description: null,
+      product_kind: 'hotel_room',
+      service_time_shape: null,
+      is_contiguous: false,
+      duration_minutes: null,
+      fixed_start_date: null,
+      fixed_end_date: null,
+      default_pricing_scheme_id: null,
+      needs_provider: false,
+      needs_pickup: false,
+      revenue_flows_through_operator: false,
+      is_publicly_listed: true,
+      active: true,
+      sort_order: 0,
+      hotel_location_id: 'hotel-1',
+      hotel_offering: 'none',
+      is_addon_only: false,
+      capacity_per_unit: 2,
+      includes_breakfast: true,
+      deleted_at: null,
+      created_at: '2026-05-20T10:00:00Z',
+      updated_at: '2026-05-20T10:00:00Z',
+      pricing_scheme: null,
+      product_group: null,
+      hotel_location: null,
+    }
+    render(
+      <ProductForm
+        product={product}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={() => {}}
+      />,
+    )
+    const breakfast = screen.getByLabelText(
+      /includes breakfast/i,
+    ) as HTMLInputElement
+    expect(breakfast.checked).toBe(true)
+  })
+
+  it('collapses includes_breakfast to false when kind switches away from hotel_room', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    const product: ProductRow = {
+      id: 'p-room',
+      operator_id: 'op-1',
+      product_group_id: null,
+      slug: 'double-room',
+      name: 'Double Room',
+      name_localized: null,
+      short_description: null,
+      short_description_localized: null,
+      description: null,
+      product_kind: 'hotel_room',
+      service_time_shape: null,
+      is_contiguous: false,
+      duration_minutes: null,
+      fixed_start_date: null,
+      fixed_end_date: null,
+      default_pricing_scheme_id: null,
+      needs_provider: false,
+      needs_pickup: false,
+      revenue_flows_through_operator: false,
+      is_publicly_listed: true,
+      active: true,
+      sort_order: 0,
+      hotel_location_id: 'hotel-1',
+      hotel_offering: 'none',
+      is_addon_only: false,
+      capacity_per_unit: 2,
+      includes_breakfast: true,
+      deleted_at: null,
+      created_at: '2026-05-20T10:00:00Z',
+      updated_at: '2026-05-20T10:00:00Z',
+      pricing_scheme: null,
+      product_group: null,
+      hotel_location: null,
+    }
+    render(
+      <ProductForm
+        product={product}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'service')
+    expect(
+      screen.queryByLabelText(/includes breakfast/i),
+    ).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      product_kind: 'service',
+      includes_breakfast: false,
+    })
+  })
+})
+
 // landr-u34k — is_addon_only checkbox + Add-ons section gating. The
 // section is hidden when allProducts is omitted (covers the default test
 // setup above + the wizard/legacy callers that don't pass it). When passed
@@ -808,6 +998,7 @@ describe('ProductForm — addon-only flag + add-ons section (landr-u34k)', () =>
       hotel_offering: 'none',
       is_addon_only: false,
       capacity_per_unit: null,
+      includes_breakfast: false,
       deleted_at: null,
       created_at: '2026-05-20T10:00:00Z',
       updated_at: '2026-05-20T10:00:00Z',
@@ -977,6 +1168,7 @@ describe('ProductForm — localized fields (landr-14s4)', () => {
       hotel_offering: 'none',
       is_addon_only: false,
       capacity_per_unit: null,
+      includes_breakfast: false,
       deleted_at: null,
       created_at: '2026-06-01T00:00:00Z',
       updated_at: '2026-06-01T00:00:00Z',

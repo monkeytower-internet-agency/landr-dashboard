@@ -96,6 +96,7 @@ const STUB_PRODUCT: ProductRow = {
   hotel_offering: 'none',
   is_addon_only: false,
   capacity_per_unit: null,
+  includes_breakfast: false,
   pricing_scheme: null,
   product_group: null,
   hotel_location: null,
