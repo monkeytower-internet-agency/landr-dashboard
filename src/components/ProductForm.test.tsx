@@ -1,8 +1,10 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { useRef, useState } from 'react'
 
 import { ProductForm, type ProductFormSubmitValue } from './ProductForm'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
 import type { Operator } from '@/lib/operator'
 import type { ProductKind, ProductRow } from '@/lib/products'
 
@@ -1380,5 +1382,134 @@ describe('ProductForm — localized fields (landr-14s4)', () => {
     // name + short_description each contribute one DE tab → exactly two.
     // The long description renders a MarkdownEditor with no locale strip.
     expect(screen.getAllByTestId('locale-tab-de')).toHaveLength(2)
+  })
+})
+
+// landr-lnbq — regression test for the confirm-before-discard dirty-guard
+// PR #335 added: ProductForm lifts its react-hook-form isDirty flag up via
+// onDirtyChange; panel wrappers (e.g. onboarding Step5Products) store it in
+// a ref and gate the Sheet's onInteractOutside/onEscapeKeyDown (direct
+// preventDefault, no confirm) + the Sheet's onOpenChange (window.confirm)
+// against it, so an operator can't lose in-progress edits to a stray
+// outside-click/Esc/X-close. This harness reproduces the exact wiring
+// Step5Products.tsx uses around ProductForm, so the assertions exercise the
+// real onDirtyChange contract + real Radix dismiss plumbing rather than
+// re-testing the harness's own logic.
+describe('ProductForm — unsaved-edit dirty guard (landr-0ulh / landr-lnbq)', () => {
+  function GuardedPanel({
+    onDirtyChange,
+    onClose,
+  }: {
+    onDirtyChange: (dirty: boolean) => void
+    onClose: () => void
+  }) {
+    const [open, setOpen] = useState(true)
+    const dirtyRef = useRef(false)
+    return (
+      <Sheet
+        open={open}
+        onOpenChange={(o) => {
+          if (!o && dirtyRef.current && !window.confirm('discard?')) return
+          if (!o) onClose()
+          setOpen(o)
+        }}
+      >
+        <SheetContent
+          onInteractOutside={(e) => {
+            if (dirtyRef.current) e.preventDefault()
+          }}
+          onEscapeKeyDown={(e) => {
+            if (dirtyRef.current) e.preventDefault()
+          }}
+        >
+          <ProductForm
+            product={null}
+            pricingSchemes={[]}
+            productGroups={[]}
+            allowedKinds={['service']}
+            onSubmit={() => {}}
+            onDirtyChange={(d) => {
+              dirtyRef.current = d
+              onDirtyChange(d)
+            }}
+          />
+        </SheetContent>
+      </Sheet>
+    )
+  }
+
+  async function clickOutside() {
+    // The pointerdown-outside listener registers on a 0ms setTimeout inside
+    // Radix's DismissableLayer — flush a macrotask before dispatching or the
+    // event has no listener to reach yet.
+    await new Promise((r) => setTimeout(r, 0))
+    const overlay = document.querySelector(
+      '[data-slot="sheet-overlay"]',
+    ) as HTMLElement
+    fireEvent.pointerDown(overlay)
+  }
+
+  it('fires onDirtyChange(true) when a field is edited, and blocks outside-click close', async () => {
+    const user = userEvent.setup()
+    const onDirtyChange = vi.fn()
+    const onClose = vi.fn()
+    render(<GuardedPanel onDirtyChange={onDirtyChange} onClose={onClose} />)
+
+    await user.type(screen.getByLabelText(/^name$/i), 'Guided Hike')
+    expect(onDirtyChange).toHaveBeenCalledWith(true)
+
+    await clickOutside()
+    expect(onClose).not.toHaveBeenCalled()
+    // The panel — and the operator's unsaved name text — are still there.
+    expect(screen.getByDisplayValue('Guided Hike')).toBeInTheDocument()
+  })
+
+  it('blocks Esc close while dirty', async () => {
+    const user = userEvent.setup()
+    const onDirtyChange = vi.fn()
+    const onClose = vi.fn()
+    render(<GuardedPanel onDirtyChange={onDirtyChange} onClose={onClose} />)
+
+    await user.type(screen.getByLabelText(/^name$/i), 'Guided Hike')
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByDisplayValue('Guided Hike')).toBeInTheDocument()
+  })
+
+  // Sanity/negative control — proves the assertions above are exercising the
+  // dirty guard itself (not a jsdom/Radix quirk that always blocks dismiss):
+  // an untouched, pristine form must let the same interactions close it.
+  it('SANITY: allows outside-click close on a pristine (non-dirty) form', async () => {
+    const onDirtyChange = vi.fn()
+    const onClose = vi.fn()
+    render(<GuardedPanel onDirtyChange={onDirtyChange} onClose={onClose} />)
+
+    await clickOutside()
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(screen.queryByLabelText(/^name$/i)).not.toBeInTheDocument()
+  })
+
+  it('X-button close is gated by window.confirm while dirty: cancel keeps the panel open, confirm discards', async () => {
+    const user = userEvent.setup()
+    const onDirtyChange = vi.fn()
+    const onClose = vi.fn()
+    const confirmSpy = vi.spyOn(window, 'confirm')
+    render(<GuardedPanel onDirtyChange={onDirtyChange} onClose={onClose} />)
+
+    await user.type(screen.getByLabelText(/^name$/i), 'Guided Hike')
+
+    // Cancel the confirm — the panel must stay open with the edit intact.
+    confirmSpy.mockReturnValueOnce(false)
+    await user.click(screen.getByRole('button', { name: /close/i }))
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByDisplayValue('Guided Hike')).toBeInTheDocument()
+
+    // Confirm the discard — now the panel is allowed to close.
+    confirmSpy.mockReturnValueOnce(true)
+    await user.click(screen.getByRole('button', { name: /close/i }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+
+    confirmSpy.mockRestore()
   })
 })

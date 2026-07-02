@@ -4,6 +4,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactElement, ReactNode } from 'react'
@@ -317,5 +318,132 @@ describe('PricingSchemeEditorSheet — Add rule zero-on-create guard (landr-d2uy
     await waitFor(() => expect(pricingMock.createRule).toHaveBeenCalledTimes(1))
     const [, , body] = pricingMock.createRule.mock.calls[0]
     expect(body).not.toHaveProperty('active')
+  })
+})
+
+// landr-lnbq — regression test for the confirm-before-discard dirty-guard PR
+// #335 added: unsaved name/notes edits are tracked via a local `isDirty`
+// derived from nameVal/notesVal vs. the loaded scheme, mirrored into a ref,
+// and read by the Sheet's onInteractOutside/onEscapeKeyDown handlers (direct
+// preventDefault — no confirm) plus the Sheet's onOpenChange (window.confirm)
+// so a stray outside-click/Esc/X-close can't discard an in-progress name or
+// notes edit.
+describe('PricingSchemeEditorSheet — unsaved-edit dirty guard (landr-0ulh / landr-lnbq)', () => {
+  beforeEach(() => {
+    // The X-button-close tests below blur the name input (which fires
+    // saveName → patchMutation) on the way to clicking Close; give the
+    // mutation a benign resolved value so it doesn't reject.
+    pricingMock.patchPricingScheme.mockResolvedValue(makeScheme())
+  })
+
+  async function clickOutside() {
+    // Radix's DismissableLayer registers its outside-pointerdown listener on
+    // a 0ms setTimeout — flush a macrotask before dispatching or there's no
+    // listener yet to reach.
+    await new Promise((r) => setTimeout(r, 0))
+    const overlay = document.querySelector(
+      '[data-slot="sheet-overlay"]',
+    ) as HTMLElement
+    fireEvent.pointerDown(overlay)
+  }
+
+  it('dirtying the name field blocks outside-click close (no confirm shown)', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    const confirmSpy = vi.spyOn(window, 'confirm')
+    render(
+      <PricingSchemeEditorSheet
+        schemeId="sch-1"
+        operatorId="op-1"
+        onClose={onClose}
+      />,
+    )
+    await screen.findAllByText('Percentage discount')
+
+    const nameInput = screen.getByLabelText(/scheme name/i)
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Renamed scheme')
+
+    await clickOutside()
+
+    expect(onClose).not.toHaveBeenCalled()
+    // onInteractOutside preventDefault()s directly — Radix never calls
+    // onOpenChange, so window.confirm is never even invoked here.
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.getByDisplayValue('Renamed scheme')).toBeInTheDocument()
+
+    confirmSpy.mockRestore()
+  })
+
+  it('dirtying the notes field blocks Esc close', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    render(
+      <PricingSchemeEditorSheet
+        schemeId="sch-1"
+        operatorId="op-1"
+        onClose={onClose}
+      />,
+    )
+    await screen.findAllByText('Percentage discount')
+
+    const notesInput = screen.getByPlaceholderText(/optional notes/i)
+    await user.type(notesInput, 'Seasonal pricing — review in spring')
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(
+      screen.getByDisplayValue('Seasonal pricing — review in spring'),
+    ).toBeInTheDocument()
+  })
+
+  // Sanity/negative control — proves the two guards above are exercising the
+  // real dirty-tracking + Radix dismiss plumbing, not some jsdom quirk that
+  // always blocks dismissal: an untouched scheme must let the very same
+  // interactions close the sheet (via onClose, since schemeId/open is
+  // externally controlled by the parent in real usage).
+  it('SANITY: allows outside-click close when name/notes are untouched (pristine)', async () => {
+    const onClose = vi.fn()
+    render(
+      <PricingSchemeEditorSheet
+        schemeId="sch-1"
+        operatorId="op-1"
+        onClose={onClose}
+      />,
+    )
+    await screen.findAllByText('Percentage discount')
+
+    await clickOutside()
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('X-button close on a dirty name is gated by window.confirm: cancel keeps it open, confirm discards', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    const confirmSpy = vi.spyOn(window, 'confirm')
+    render(
+      <PricingSchemeEditorSheet
+        schemeId="sch-1"
+        operatorId="op-1"
+        onClose={onClose}
+      />,
+    )
+    await screen.findAllByText('Percentage discount')
+
+    const nameInput = screen.getByLabelText(/scheme name/i)
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Renamed scheme')
+
+    confirmSpy.mockReturnValueOnce(false)
+    await user.click(screen.getByRole('button', { name: /close/i }))
+    expect(onClose).not.toHaveBeenCalled()
+
+    confirmSpy.mockReturnValueOnce(true)
+    await user.click(screen.getByRole('button', { name: /close/i }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+
+    confirmSpy.mockRestore()
   })
 })
