@@ -124,16 +124,40 @@ describe('computeFolded (landr-fd5m.2)', () => {
 
 // ── hook: controllable ResizeObserver + geometry stubs ───────────────────────
 
+// A CONTROLLABLE ResizeObserver mock that records WHICH elements each observer
+// watches, so `resize(el)` can fire only the observers actually observing `el`.
+// This is what lets the "RO fires on the SPAN" test discriminate the fix: if the
+// hook only observed the header, resizing a wrapper span would fire nothing.
 type ROCb = (entries: ResizeObserverEntry[], obs: ResizeObserver) => void
-let roCallbacks: ROCb[] = []
+let observers: MockResizeObserver[] = []
 
 class MockResizeObserver {
+  cb: ROCb
+  targets = new Set<Element>()
   constructor(cb: ROCb) {
-    roCallbacks.push(cb)
+    this.cb = cb
+    observers.push(this)
   }
-  observe() {}
-  unobserve() {}
-  disconnect() {}
+  observe(el: Element) {
+    this.targets.add(el)
+  }
+  unobserve(el: Element) {
+    this.targets.delete(el)
+  }
+  disconnect() {
+    this.targets.clear()
+  }
+}
+
+/** Fire a resize for one element — only observers watching it re-measure. */
+function resize(el: Element) {
+  act(() => {
+    for (const o of observers) {
+      if (o.targets.has(el)) {
+        o.cb([{ target: el } as unknown as ResizeObserverEntry], o as unknown as ResizeObserver)
+      }
+    }
+  })
 }
 
 function stubRect(el: Element, rect: Partial<DOMRect>) {
@@ -217,7 +241,7 @@ describe('useTopbarOverflow (landr-fd5m.2)', () => {
   let container: HTMLElement
 
   beforeEach(() => {
-    roCallbacks = []
+    observers = []
     vi.stubGlobal('ResizeObserver', MockResizeObserver)
     // Flush the hook's rAF batching synchronously.
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
@@ -261,11 +285,14 @@ describe('useTopbarOverflow (landr-fd5m.2)', () => {
     }
   }
 
+  function el(tid: string): HTMLElement {
+    return container.querySelector(`[data-testid="${tid}"]`) as HTMLElement
+  }
+
+  // A viewport/rotation tick: the header box changed. Fires the observer that
+  // watches the header (always observed), standing in for the RO burst.
   function tickRO() {
-    act(() => {
-      for (const cb of roCallbacks)
-        cb([], {} as unknown as ResizeObserver)
-    })
+    resize(el('hdr'))
   }
 
   it('folds nothing before anything is measured (jsdom all-zero fail-safe)', () => {
@@ -304,5 +331,48 @@ describe('useTopbarOverflow (landr-fd5m.2)', () => {
 
     tickRO()
     expect(foldedFromDom()).toBe('')
+  })
+
+  // ── the fix: async child width changes must re-measure ──────────────────────
+
+  it('re-measures when a wrapper span grows 0→40 with NO parent re-render', () => {
+    container = render(createElement(Harness)).container
+    // Budget 250: with the widget still PENDING (span 0) the cluster fits inline
+    // and nothing folds; once its token query settles (span → 40) it no longer
+    // fits and the widget+theme must fold.
+    applyStaffGeometry(250)
+    stubWidth(el('w-widget'), 0)
+    tickRO()
+    expect(foldedFromDom()).toBe('')
+
+    // The token settles: the WidgetButton renders, so its wrapper grows 0→40px
+    // — but AppShell does NOT re-render, and the header box is unchanged. Only
+    // the ResizeObserver watching that SPAN can notice. Fire it (NO re-render,
+    // NO header tick) and assert measure re-ran and the fold set updated. Before
+    // the fix the RO watched only the header, so this stayed ''.
+    stubWidth(el('w-widget'), 40)
+    resize(el('w-widget'))
+    expect(foldedFromDom()).toBe('theme,widget')
+  })
+
+  it('evicts a stale cache entry when a visible wrapper drops to 0 (no phantom)', () => {
+    container = render(createElement(Harness)).container
+    // Budget 210: staff folds theme+tier+widget (report stays); the widget
+    // wrapper is measured at 40 and CACHED.
+    applyStaffGeometry(210)
+    tickRO()
+    expect(foldedFromDom()).toBe('theme,tier,widget')
+
+    // Widget gated off on an operator/view-as switch: its wrapper stays VISIBLE
+    // (no `hidden` class, no child) yet now measures 0. Its stale 40px MUST be
+    // evicted so the fold decision matches a cluster that never had the widget —
+    // its space is not reserved and it never appears in the fold set (⋯ would
+    // otherwise show a dead entry). Before the fix the 40px resurrected.
+    stubWidth(el('w-widget'), 0)
+    resize(el('w-widget'))
+
+    const withoutWidget = [...fold(210, { ...STAFF, widget: null })].sort().join(',')
+    expect(foldedFromDom()).toBe(withoutWidget)
+    expect(foldedFromDom().split(',')).not.toContain('widget')
   })
 })

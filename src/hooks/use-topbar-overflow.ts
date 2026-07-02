@@ -23,6 +23,18 @@
 // never changes the inputs that decided to fold it — the recompute is
 // oscillation-free by construction. A ~16px unfold hysteresis absorbs the
 // remaining sub-pixel jitter in the measured available width.
+//
+// RE-MEASURE TRIGGERS: the ResizeObserver watches the header, the title pivot
+// AND every registered cluster wrapper, so an ASYNC child width change — a
+// WidgetButton flipping null→~40px when its token query settles, a growing
+// operator name shrinking the flex-1 title — re-runs measure() even when it
+// resizes no element AppShell re-renders and never changes the header box. Plus
+// a no-deps useLayoutEffect for the mount + fold-settle passes (sync, no flash).
+//
+// EVICTION: a wrapper that measured once (~40px) then loses its child (widget
+// gated off, entitlement dropped on an operator/view-as switch) must NOT keep
+// its stale cached width — step 1 of measure() evicts it, so a dead item is
+// never reserved for, never folded, and never listed in the ⋯ menu.
 
 import {
   useCallback,
@@ -162,6 +174,14 @@ export function useTopbarOverflow(): UseTopbarOverflow {
   const elements = useRef<Map<string, HTMLElement>>(new Map())
   const widthCache = useRef<Map<string, number>>(new Map())
   const foldedRef = useRef<Set<TopbarFoldable>>(new Set())
+  // The single ResizeObserver, created in the effect below. Kept in a ref so the
+  // ref callbacks can (un)observe elements that mount AFTER the observer exists.
+  const roRef = useRef<ResizeObserver | null>(null)
+  // Stable ref callbacks, one per id, so React does NOT detach+reattach (and
+  // churn the observer) on every render — critical because the whole point of
+  // observing the wrappers is to catch child width changes that happen WITHOUT
+  // a parent re-render.
+  const itemRefs = useRef<Map<string, RefCallback<HTMLElement>>>(new Map())
   const [folded, setFolded] = useState<Set<TopbarFoldable>>(() => new Set())
 
   const measure = useCallback(() => {
@@ -169,17 +189,28 @@ export function useTopbarOverflow(): UseTopbarOverflow {
     const title = titleElRef.current
     if (!header || !title) return
 
-    // 1. Refresh cached widths from the currently-VISIBLE wrappers. A hidden
-    //    (folded) wrapper reports offsetWidth 0 — we skip it so its last
-    //    visible width survives to drive the unfold decision. A wrapper whose
-    //    child rendered null (gated-off widget, unset tier) is also 0 ⇒ stays
-    //    out of the cache ⇒ null in itemWidths ⇒ never folds.
+    // 1. Refresh cached widths from the currently-rendered wrappers. A wrapper
+    //    measuring 0 is one of two things, and they must be handled OPPOSITELY:
+    //      • FOLDED-with-content — our fold applies the `hidden` class
+    //        (display:none) but the child stays MOUNTED inside, so offsetWidth
+    //        is 0 while childElementCount > 0. KEEP its last-visible cached
+    //        width so it can drive the unfold decision.
+    //      • EMPTY — the child rendered null (widget gated off, entitlement
+    //        lost on an operator/view-as switch, unset deploy tier), or a
+    //        still-laid-out wrapper that genuinely occupies no width. EVICT any
+    //        cached width, otherwise a STALE width resurrects a dead item:
+    //        computeFolded would reserve phantom space (and could fold the
+    //        must-stay report) and TopbarMoreMenu would render a dead entry.
     let clusterEl: HTMLElement | null = null
     for (const [id, el] of elements.current) {
       const w = el.offsetWidth
       if (w > 0) {
         widthCache.current.set(id, w)
         if (!clusterEl && id !== 'more') clusterEl = el.parentElement
+      } else {
+        const foldedHidden =
+          el.classList.contains('hidden') && el.childElementCount > 0
+        if (!foldedHidden) widthCache.current.delete(id)
       }
     }
 
@@ -240,20 +271,40 @@ export function useTopbarOverflow(): UseTopbarOverflow {
   }, [])
 
   const headerRef = useCallback<RefCallback<HTMLElement>>((el) => {
+    const prev = headerElRef.current
+    if (prev && prev !== el) roRef.current?.unobserve(prev)
     headerElRef.current = el
+    if (el) roRef.current?.observe(el)
   }, [])
   const titleRef = useCallback<RefCallback<HTMLDivElement>>((el) => {
+    const prev = titleElRef.current
+    if (prev && prev !== el) roRef.current?.unobserve(prev)
     titleElRef.current = el
+    if (el) roRef.current?.observe(el)
   }, [])
 
-  const registerItem = useCallback(
-    (id: string): RefCallback<HTMLElement> =>
-      (el) => {
-        if (el) elements.current.set(id, el)
-        else elements.current.delete(id)
-      },
-    [],
-  )
+  // One STABLE ref callback per id. Observing the wrapper spans (and the title
+  // pivot / left cluster above) is what makes a child-level width change —
+  // WidgetButton flipping null→~40px when its token query settles, a long
+  // operator name, view-as — trigger a re-measure even though it resizes no
+  // element AppShell re-renders and never changes the header box.
+  const registerItem = useCallback((id: string): RefCallback<HTMLElement> => {
+    let cb = itemRefs.current.get(id)
+    if (!cb) {
+      cb = (el) => {
+        const prev = elements.current.get(id)
+        if (prev && prev !== el) roRef.current?.unobserve(prev)
+        if (el) {
+          elements.current.set(id, el)
+          roRef.current?.observe(el)
+        } else {
+          elements.current.delete(id)
+        }
+      }
+      itemRefs.current.set(id, cb)
+    }
+    return cb
+  }, [])
 
   // Recompute before paint on every render: covers mount, the fold→re-render
   // settle, and left-cluster changes (long operator name, view-as) that resize
@@ -263,20 +314,31 @@ export function useTopbarOverflow(): UseTopbarOverflow {
     measure()
   })
 
-  // Catch viewport resize / rotation that fires no React re-render. rAF batches
-  // RO bursts and dodges the "ResizeObserver loop limit exceeded" warning.
+  // One ResizeObserver watching the header, the title pivot, AND every
+  // registered cluster wrapper. Observing the wrappers is the fix for the
+  // async-child-width gap: a wrapper going 0→~40px (WidgetButton token query
+  // settling) or the title shrinking under a growing left cluster resizes an
+  // OBSERVED box even when AppShell never re-renders and the header box is
+  // unchanged — so measure() re-runs and the fold set updates. rAF batches RO
+  // bursts and dodges the "ResizeObserver loop limit exceeded" warning.
   useEffect(() => {
-    const header = headerElRef.current
-    if (!header || typeof ResizeObserver === 'undefined') return
+    if (typeof ResizeObserver === 'undefined') return
     let raf = 0
     const ro = new ResizeObserver(() => {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => measure())
     })
-    ro.observe(header)
+    roRef.current = ro
+    // Refs fire during commit, BEFORE this passive effect, so observe every
+    // element wired so far. Anything that mounts later is observed by its ref
+    // callback (which now sees a non-null roRef).
+    if (headerElRef.current) ro.observe(headerElRef.current)
+    if (titleElRef.current) ro.observe(titleElRef.current)
+    for (const el of elements.current.values()) ro.observe(el)
     return () => {
       cancelAnimationFrame(raf)
       ro.disconnect()
+      roRef.current = null
     }
   }, [measure])
 
