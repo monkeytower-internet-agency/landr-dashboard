@@ -12,7 +12,7 @@
 //   [B] POST …/holded/sync
 //       -> HoldedSyncResult | { holded_not_connected: true }
 
-import { api } from '@/lib/api-client'
+import { api, type ApiRequestOptions } from '@/lib/api-client'
 
 // ---- enums --------------------------------------------------------------
 
@@ -163,12 +163,18 @@ export async function fetchHoldedInvoices(
  * [B] POST a single operator-scoped Holded sync pass. Returns the per-pass
  * counts, OR `{ holded_not_connected: true }` when the operator has no Holded
  * API key (the API returns this gracefully rather than 500ing).
+ *
+ * Accepts optional `timeoutMs` to override the default 15s request timeout
+ * (e.g. 120s for batch syncs with batch_limit=100 sequential Holded API calls).
  */
 export async function syncHoldedInvoices(
   operatorId: string,
+  options?: ApiRequestOptions,
 ): Promise<HoldedSyncResult> {
   return api<HoldedSyncResult>(
     'POST',
     `/api/staff/operators/${operatorId}/holded/sync`,
+    undefined,
+    options,
   )
 }

@@ -80,8 +80,11 @@ export function Invoicing() {
   // Shared handler for the Sync-now button AND the per-row Retry: both run one
   // operator-scoped sync pass (the contract has no per-row endpoint). The
   // mutation drives the button spinner; retryingId drives the row spinner.
+  // The sync can run up to batch_limit=100 sequential Holded API calls server-side,
+  // so we override the default 15s timeout with 120s to avoid false "Request timed out"
+  // toasts while the server keeps working (landr-y3oj.6).
   const syncMutation = useMutation<HoldedSyncResult, Error, void>({
-    mutationFn: () => syncHoldedInvoices(currentOperatorId as string),
+    mutationFn: () => syncHoldedInvoices(currentOperatorId as string, { timeoutMs: 120000 }),
     onSuccess: (result) => {
       if (isHoldedNotConnected(result)) {
         setNotConnected(true)

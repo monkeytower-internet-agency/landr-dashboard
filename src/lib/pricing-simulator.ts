@@ -12,8 +12,12 @@
  * routing the simulator through anything else would risk preview/submit
  * drift. The only constraint is that the product must be publicly
  * listed + active; the dialog filters the picker accordingly.
+ *
+ * Mirrors the timeout + AbortController pattern from api-client.ts
+ * (landr-y3oj.4): enforces a per-request timeout (default 15s) via
+ * AbortController and throws `ApiTimeoutError` on timeout.
  */
-import { apiBase } from '@/lib/api-client'
+import { apiBase, REQUEST_TIMEOUT_MS, ApiTimeoutError } from '@/lib/api-client'
 
 /** Body sent to POST .../estimate. Mirrors EstimateRequest server-side. */
 export type SimulateEstimateRequest = {
@@ -63,9 +67,14 @@ export type SimulateEstimateResponse = {
  * signed in). The dashboard simulator is a read-only preview so the
  * lack of staff-scoped auth is fine.
  *
- * Throws an Error carrying the FastAPI `detail` payload when the
- * server responds non-2xx (e.g. 404 for non-publicly-listed products,
- * 400 for unknown add-ons). UI surfaces the message inline.
+ * Mirrors the timeout + AbortController pattern from api-client.ts
+ * (landr-y3oj.4): enforces a per-request timeout (default 15s) via
+ * AbortController and throws `ApiTimeoutError` on timeout.
+ *
+ * Throws `ApiTimeoutError` if the request exceeds its timeout budget,
+ * or an Error carrying the FastAPI `detail` payload when the server
+ * responds non-2xx (e.g. 404 for non-publicly-listed products, 400 for
+ * unknown add-ons). UI surfaces the message inline.
  */
 export async function simulateEstimate(
   operatorSlug: string,
@@ -75,15 +84,33 @@ export async function simulateEstimate(
   const url =
     `${apiBase()}/api/public/operators/${encodeURIComponent(operatorSlug)}` +
     `/products/${encodeURIComponent(productId)}/estimate`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      selected_days: body.selected_days,
-      participants_count: body.participants_count,
-      addon_lines: body.addon_lines ?? [],
-    }),
-  })
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        selected_days: body.selected_days,
+        participants_count: body.participants_count,
+        addon_lines: body.addon_lines ?? [],
+      }),
+      signal: controller.signal,
+    })
+  } catch (err) {
+    // AbortError is exclusively ours (only we hold `controller`) — anything
+    // else (offline, DNS, connection refused) is a genuine network failure.
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new ApiTimeoutError()
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
+
   if (!res.ok) {
     const detail = await res
       .json()
