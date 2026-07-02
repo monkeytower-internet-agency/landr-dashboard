@@ -22,7 +22,27 @@ import { api } from '@/lib/api-client'
 export type VoucherKind = 'percent' | 'flat'
 export type VoucherScope = 'booking' | 'subscription' | 'any'
 
-/** A voucher row as returned by the staff router (used_count included). */
+/** A voucher row as returned by the staff router (used_count included).
+ *
+ * NOTE (landr-c53m.5): the `vouchers` table also has
+ * `applies_to_product_id` (FK products, engine-checked in
+ * pricing.py's voucher-applicability gate) and `campaign_id` (FK
+ * campaigns, attribution-only — not currently engine-checked at
+ * redemption time). Neither is exposed here because
+ * `staff_vouchers.py`'s VoucherIn/VoucherPatch models don't declare
+ * them yet, so a POST/PATCH sending them would have the values
+ * silently dropped (pydantic v2 default `extra="ignore"`) and GET
+ * never round-trips them. Shipping a picker against those two fields
+ * without the API change first would look like it works but silently
+ * not scope the voucher — worse than no UI. Tracked as a blocker on
+ * landr-api: landr-u3jr (blocks this ticket, landr-c53m.5). Once
+ * landr-u3jr lands, add `applies_to_product_id: string | null` and
+ * `campaign_id: string | null` here + to VoucherInput/VoucherPatch
+ * below, and wire a product picker (mirror SimulateDialog.tsx's
+ * fetchProducts NativeSelect) + a campaign picker (mirror
+ * fetchCampaigns in campaigns.ts) into VouchersSettings.tsx's
+ * VoucherDialog.
+ */
 export type Voucher = {
   id: string
   operator_id: string
