@@ -32,8 +32,12 @@ import type { ReactElement, ReactNode } from 'react'
 //   manual_override        amount, reason                    (none — was unsupported by the UI)
 //
 // Tiered kinds (per_day_base, per_streak_tier, per_total_days_tier,
-// per_participant_tier) go through TierTable, not ParamsEditor — out of
-// scope here (their tier-row shape was already correct; see TierTable.tsx).
+// per_participant_tier) go through TierTable, not ParamsEditor, for their
+// tier rows (already correct; see TierTable.tsx) — but per_day_base,
+// per_streak_tier, and per_total_days_tier ALSO read params.per_participant
+// as an opt-in headcount multiplier, which TierTable never rendered
+// (landr-c53m.3 fix-forward). See the "tiered-kind per_participant toggle"
+// tests below for that contract.
 
 const { pricingMock } = vi.hoisted(() => ({
   pricingMock: {
@@ -346,5 +350,96 @@ describe('PricingRuleEditor ParamsEditor — engine params contract', () => {
     expect(body2).toEqual({
       params: { amount: 999, reason: 'Updated reason' },
     })
+  })
+
+  // ---- tiered-kind per_participant toggle (landr-c53m.3) -----------------
+  //
+  // per_day_base, per_streak_tier, and per_total_days_tier all read
+  // params.per_participant as an opt-in headcount multiplier (see
+  // landr-api/app/services/pricing.py). The tiered branch renders TierTable
+  // instead of ParamsEditor, so this bool was previously unreachable from
+  // the UI. Toggling it must still full-replace-PATCH the whole params
+  // object, carrying forward every OTHER key already on the row (e.g.
+  // per_day_base's amount_per_day) — same full-replace contract as the
+  // composite kinds above.
+
+  it('per_day_base (tiered): toggling per_participant preserves other params keys', async () => {
+    const rule = makeRule('per_day_base', {
+      amount_per_day: 42,
+      per_participant: false,
+    })
+    render(
+      <PricingRuleEditor
+        rule={rule}
+        operatorId="op-1"
+        currency="EUR"
+        onDeleted={() => {}}
+        onRefetch={() => {}}
+      />,
+    )
+    const toggle = screen.getByRole('switch', {
+      name: /scale by participant count/i,
+    })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+    fireEvent.click(toggle)
+
+    await waitFor(() => expect(pricingMock.patchRule).toHaveBeenCalledTimes(1))
+    const [, , body] = pricingMock.patchRule.mock.calls[0]
+    expect(body).toEqual({
+      params: { amount_per_day: 42, per_participant: true },
+    })
+  })
+
+  it('per_streak_tier (tiered): toggling per_participant off preserves tiers + other params, round-trips', async () => {
+    // Para42's guided-day per_streak_tier rules seed per_participant=true —
+    // this pins the round-trip (on -> off -> on) survives with tiers intact
+    // (tiers live on a separate resource/table, untouched by this PATCH;
+    // this test only guards the params column itself).
+    const rule: PricingRule = {
+      ...makeRule('per_streak_tier', { per_participant: true }),
+      tiers: [
+        {
+          id: 'tier-1',
+          pricing_rule_id: 'rule-per_streak_tier',
+          operator_id: 'op-1',
+          threshold_min: 1,
+          threshold_max: 2,
+          amount_per_unit: 90,
+          amount_total: null,
+          currency: 'EUR',
+          created_at: '2026-05-01T00:00:00Z',
+          updated_at: '2026-05-01T00:00:00Z',
+        },
+      ],
+    }
+    render(
+      <PricingRuleEditor
+        rule={rule}
+        operatorId="op-1"
+        currency="EUR"
+        onDeleted={() => {}}
+        onRefetch={() => {}}
+      />,
+    )
+    const toggle = screen.getByRole('switch', {
+      name: /scale by participant count/i,
+    })
+    expect(toggle).toHaveAttribute('aria-checked', 'true')
+
+    fireEvent.click(toggle)
+    await waitFor(() => expect(pricingMock.patchRule).toHaveBeenCalledTimes(1))
+    expect(pricingMock.patchRule.mock.calls[0][2]).toEqual({
+      params: { per_participant: false },
+    })
+
+    fireEvent.click(toggle)
+    await waitFor(() => expect(pricingMock.patchRule).toHaveBeenCalledTimes(2))
+    expect(pricingMock.patchRule.mock.calls[1][2]).toEqual({
+      params: { per_participant: true },
+    })
+
+    // Tier row (rendered by TierTable, untouched by the params toggle)
+    // is still on screen — the toggle write didn't clobber tiers.
+    expect(screen.getByDisplayValue('90')).toBeInTheDocument()
   })
 })
