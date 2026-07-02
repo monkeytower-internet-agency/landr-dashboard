@@ -108,16 +108,21 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
   // landr-c53m.1 — this operator's Custom Offer defaults (tax rate + group
   // threshold), replacing the previous Para42-hardcoded initial state.
   // Keyed on OPERATOR_QUERY_KEY so it dedupes with any concurrent Settings
-  // page query. Settled (success OR error) gates the seed below so a slow
-  // or failing operator fetch can't hang the offer form — the operator's
-  // own DB-column default (0/0, neutral) covers the error case too.
+  // page query.
+  //
+  // landr-c53m.1 fix-forward (CRITICAL wrong-money finding): a FAILED
+  // operator fetch must never let a real 0%-tax / 0-threshold offer be
+  // saved silently. So (a) the tax/threshold seed below only runs on
+  // operatorQuery.isSuccess — never on isError — and (b) Save stays
+  // disabled on error (see operatorErrorBlocksSave below) until the fetch
+  // succeeds (via Retry) or the staff member has EXPLICITLY entered both
+  // values themselves.
   const operatorQuery = useQuery({
     queryKey: OPERATOR_QUERY_KEY(operatorId),
     queryFn: () => fetchOperator(operatorId),
     enabled: !!operatorId,
     staleTime: 60_000,
   })
-  const operatorSettled = operatorQuery.isSuccess || operatorQuery.isError
   const operatorGroupThreshold = operatorQuery.data?.group_discount_threshold ?? 0
   const operatorTaxRate = operatorQuery.data?.default_tax_rate ?? 0
 
@@ -127,15 +132,22 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
   const [discountPct, setDiscountPct] = useState('0') // whole percent in the UI
   const [taxPct, setTaxPct] = useState('0')
   const [seeded, setSeeded] = useState(false)
+  const [operatorDefaultsSeeded, setOperatorDefaultsSeeded] = useState(false)
+  // landr-c53m.1 fix-forward — set only by the user's OWN edits to the
+  // threshold/tax inputs (never by the seeding logic below). Used to gate
+  // Save when the operator fetch failed: a re-seed on error doesn't count
+  // as "explicitly entered" unless the user actually typed it. Also stops
+  // a later successful (re)fetch from clobbering a value the user already
+  // set intentionally.
+  const [thresholdTouched, setThresholdTouched] = useState(false)
+  const [taxTouched, setTaxTouched] = useState(false)
 
-  // Seed the form from the loaded offer + this operator's config exactly
-  // once. landr-uvfg.3: when T2 returns participant-seeded lines, they
-  // already carry label + participantId + regularUnitPrice — prefill just
-  // works. landr-c53m.1: the offer never carries a saved tax_rate (only
-  // group_threshold/group_discount_pct), so taxPct always seeds from the
-  // operator's default_tax_rate; group_threshold falls back to the
-  // operator's group_discount_threshold only when no offer value exists.
-  if (!seeded && data && operatorSettled) {
+  // Seed the draft lines + saved group-discount % from the loaded offer,
+  // exactly once. This does NOT wait on the operator fetch — none of this
+  // depends on it. landr-uvfg.3: when T2 returns participant-seeded lines,
+  // they already carry label + participantId + regularUnitPrice — prefill
+  // just works.
+  if (!seeded && data) {
     const seededLines: DraftLine[] = data.lines.length
       ? data.lines.map((ln) => ({
           key: nextKey(),
@@ -147,13 +159,29 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
         }))
       : [{ key: nextKey(), label: '', unitPrice: '0', isFree: false, participantId: null, regularUnitPrice: null }]
     setLines(seededLines)
-    setThreshold(String(data.group_threshold ?? operatorGroupThreshold))
     if (data.group_discount_pct != null) {
       // server stores a fraction (0.10); UI shows whole percent (10).
       setDiscountPct(String(Math.round(Number(data.group_discount_pct) * 100)))
     }
-    setTaxPct(String(Math.round(operatorTaxRate * 100)))
     setSeeded(true)
+  }
+
+  // Seed threshold (fallback only — the offer's own saved group_threshold
+  // always wins) + tax from THIS operator's config, once the operator
+  // fetch actually SUCCEEDS. landr-c53m.1 fix-forward: deliberately does
+  // NOT run on operatorQuery.isError — see the block comment above. Skips
+  // any field the user has already explicitly edited, and re-runs cleanly
+  // the first time the query moves from pending/error into success (e.g.
+  // after Retry), so a resolved fetch always produces the right values
+  // even if an earlier error left the fields at their neutral default.
+  if (data && operatorQuery.isSuccess && !operatorDefaultsSeeded) {
+    if (!thresholdTouched) {
+      setThreshold(String(data.group_threshold ?? operatorGroupThreshold))
+    }
+    if (!taxTouched) {
+      setTaxPct(String(Math.round(operatorTaxRate * 100)))
+    }
+    setOperatorDefaultsSeeded(true)
   }
 
   const effectiveLines = useMemo(() => lines ?? [], [lines])
@@ -229,6 +257,14 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
 
   const busy = saveMutation.isPending || clearMutation.isPending || sendOfferMutation.isPending
 
+  // landr-c53m.1 fix-forward — CRITICAL: never allow a save while the
+  // operator fetch has failed unless the staff member has explicitly
+  // entered BOTH the tax rate and the group threshold themselves. Without
+  // this, a transient GET /operators/{id} failure would silently seed
+  // (and let staff save) a real 0%-tax, threshold-0 offer.
+  const operatorErrorBlocksSave =
+    operatorQuery.isError && !(taxTouched && thresholdTouched)
+
   function updateLine(key: string, patch: Partial<DraftLine>) {
     setLines((cur) =>
       (cur ?? []).map((l) => (l.key === key ? { ...l, ...patch } : l)),
@@ -295,6 +331,36 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
         <SheetTitle>{t.bookings.customOffer.title}</SheetTitle>
         <SheetDescription>{t.bookings.customOffer.description}</SheetDescription>
       </SheetHeader>
+
+      {/* landr-c53m.1 fix-forward — CRITICAL: never silently seed 0-tax /
+          0-threshold when the operator config fetch fails. Explicit banner
+          + retry, save stays disabled until fixed or the user takes over. */}
+      {operatorQuery.isError ? (
+        <div
+          role="alert"
+          data-testid="custom-offer-operator-error"
+          className={cn(
+            'mx-4 mt-2 flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between',
+            isMobile && 'mx-2',
+          )}
+        >
+          <span>{t.bookings.customOffer.operatorLoadError}</span>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => operatorQuery.refetch()}
+              disabled={operatorQuery.isFetching}
+              data-testid="custom-offer-operator-retry"
+            >
+              {operatorQuery.isFetching
+                ? t.bookings.detail.saving
+                : t.bookings.customOffer.operatorRetry}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {/* landr-3qkr.3 — pb-safe via mobileSheetBody. */}
       <div className={cn('flex-1 overflow-y-auto px-1 py-2 flex flex-col gap-4', mobileSheetBody)}>
@@ -408,10 +474,25 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
               type="number"
               min={0}
               value={threshold}
-              onChange={(e) => setThreshold(e.target.value)}
+              onChange={(e) => {
+                setThreshold(e.target.value)
+                setThresholdTouched(true)
+              }}
               disabled={busy}
               data-testid="custom-offer-threshold"
             />
+            {/* landr-c53m.1 (3) — threshold 0 is a legitimate operator
+                config (discount applies to any paying booking once a
+                discount % is set), but it's easy to misread as "no
+                discount configured" — spell it out. */}
+            {threshold.trim() === '0' && (
+              <p
+                className="text-muted-foreground text-[11px] leading-snug"
+                data-testid="custom-offer-threshold-zero-hint"
+              >
+                {t.bookings.customOffer.thresholdZeroHint}
+              </p>
+            )}
           </div>
           <div className="flex flex-col gap-1">
             <Label className="text-xs">{t.bookings.customOffer.discountLabel}</Label>
@@ -432,7 +513,10 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
               min={0}
               max={99}
               value={taxPct}
-              onChange={(e) => setTaxPct(e.target.value)}
+              onChange={(e) => {
+                setTaxPct(e.target.value)
+                setTaxTouched(true)
+              }}
               disabled={busy}
               data-testid="custom-offer-tax"
             />
@@ -515,7 +599,12 @@ function CustomOfferEditorBody({ bookingId, operatorId, onClose }: BodyProps) {
           <Button
             type="button"
             onClick={() => saveMutation.mutate()}
-            disabled={busy || effectiveLines.length === 0}
+            disabled={busy || effectiveLines.length === 0 || operatorErrorBlocksSave}
+            title={
+              operatorErrorBlocksSave
+                ? t.bookings.customOffer.operatorLoadError
+                : undefined
+            }
             data-testid="custom-offer-save"
           >
             {saveMutation.isPending ? t.bookings.detail.saving : t.bookings.customOffer.apply}
