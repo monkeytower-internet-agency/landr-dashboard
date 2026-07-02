@@ -3589,12 +3589,19 @@ export const t = {
     fieldMaxUses: 'Max uses',
     fieldValidFrom: 'Valid from',
     fieldValidUntil: 'Valid until',
+    // landr-c53m.5 — product/campaign scope pickers (landr-u3jr added the
+    // API fields). Distinct from `fieldScope` above (booking/subscription/
+    // any) — that's the redemption context, these are FK references.
+    fieldProductScope: 'Limit to product',
+    fieldCampaignScope: 'Attribute to campaign',
     fieldDescription: 'Description',
     fieldActive: 'Active (customers can redeem this code)',
 
     maxUsesHint: 'Leave blank for unlimited.',
     placeholderCode: 'e.g. SUMMER25',
     placeholderUnlimited: 'Unlimited',
+    placeholderAllProducts: 'All products',
+    placeholderNoCampaign: 'No campaign',
     placeholderDescription: 'Internal note (optional)',
 
     create: 'Create',

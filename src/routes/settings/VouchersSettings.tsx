@@ -37,11 +37,14 @@ import {
   localFromIso,
   patchVoucher,
   validateVoucherForm,
+  voucherScopeErrorMessage,
   VOUCHER_SCOPES,
   type Voucher,
   type VoucherFieldErrors,
   type VoucherFormValues,
 } from '@/lib/vouchers'
+import { fetchCampaigns, type Campaign } from '@/lib/campaigns'
+import { fetchProducts, type ProductRow } from '@/lib/products'
 import { useOperator } from '@/lib/operator'
 import { PageTitle } from '@/lib/page-title'
 import { t } from '@/lib/strings'
@@ -54,6 +57,8 @@ const EMPTY_FORM: VoucherFormValues = {
   valid_from: '',
   valid_until: '',
   scope: 'booking',
+  applies_to_product_id: '',
+  campaign_id: '',
   description: '',
   active: true,
 }
@@ -67,6 +72,8 @@ function formFromVoucher(v: Voucher): VoucherFormValues {
     valid_from: localFromIso(v.valid_from),
     valid_until: localFromIso(v.valid_until),
     scope: v.scope,
+    applies_to_product_id: v.applies_to_product_id ?? '',
+    campaign_id: v.campaign_id ?? '',
     description: v.description ?? '',
     active: v.active,
   }
@@ -320,6 +327,12 @@ function VoucherDialog({ operatorId, voucher, onClose, onSaved }: DialogProps) {
     voucher ? formFromVoucher(voucher) : EMPTY_FORM,
   )
   const [submitted, setSubmitted] = useState(false)
+  // Set only for the three scope-reference 400s from staff_vouchers.py
+  // (dangling/cross-operator applies_to_product_id or campaign_id);
+  // rendered inline next to the pickers instead of the generic toast so
+  // the operator sees exactly what to fix. Any other mutation error still
+  // toasts as before.
+  const [scopeError, setScopeError] = useState<string | null>(null)
 
   const errors: VoucherFieldErrors = useMemo(
     () => validateVoucherForm(values),
@@ -327,10 +340,23 @@ function VoucherDialog({ operatorId, voucher, onClose, onSaved }: DialogProps) {
   )
   const hasErrors = Object.keys(errors).length > 0
 
+  // Products + campaigns for the "Applies to" scope pickers. Reuses the
+  // same fetchProducts/fetchCampaigns sources the Products and Campaigns
+  // settings pages already use — no new API surface.
+  const productsQuery = useQuery<ProductRow[]>({
+    queryKey: ['products-for-voucher-scope', operatorId],
+    queryFn: () => fetchProducts(operatorId),
+  })
+  const campaignsQuery = useQuery<Campaign[]>({
+    queryKey: ['campaigns-for-voucher-scope', operatorId],
+    queryFn: () => fetchCampaigns(operatorId),
+  })
+
   function set<K extends keyof VoucherFormValues>(
     key: K,
     value: VoucherFormValues[K],
   ) {
+    setScopeError(null)
     setValues((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -350,6 +376,11 @@ function VoucherDialog({ operatorId, voucher, onClose, onSaved }: DialogProps) {
       onSaved()
     },
     onError: (err: Error) => {
+      const friendlyScope = voucherScopeErrorMessage(err.message)
+      if (friendlyScope) {
+        setScopeError(friendlyScope)
+        return
+      }
       toast.error(
         isEdit
           ? t.vouchersSettings.toastUpdateError
@@ -361,6 +392,7 @@ function VoucherDialog({ operatorId, voucher, onClose, onSaved }: DialogProps) {
 
   function handleSubmit() {
     setSubmitted(true)
+    setScopeError(null)
     if (hasErrors) return
     mutation.mutate()
   }
@@ -478,6 +510,52 @@ function VoucherDialog({ operatorId, voucher, onClose, onSaved }: DialogProps) {
               />
             </Field>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={t.vouchersSettings.fieldProductScope}>
+              <NativeSelect
+                value={values.applies_to_product_id}
+                onChange={(e) => set('applies_to_product_id', e.target.value)}
+                disabled={productsQuery.isPending}
+                data-testid="voucher-field-product-scope"
+              >
+                <option value="">
+                  {t.vouchersSettings.placeholderAllProducts}
+                </option>
+                {(productsQuery.data ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            <Field label={t.vouchersSettings.fieldCampaignScope}>
+              <NativeSelect
+                value={values.campaign_id}
+                onChange={(e) => set('campaign_id', e.target.value)}
+                disabled={campaignsQuery.isPending}
+                data-testid="voucher-field-campaign-scope"
+              >
+                <option value="">
+                  {t.vouchersSettings.placeholderNoCampaign}
+                </option>
+                {(campaignsQuery.data ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+          </div>
+          {scopeError ? (
+            <p
+              className="text-destructive text-xs"
+              role="alert"
+              data-testid="voucher-scope-error"
+            >
+              {scopeError}
+            </p>
+          ) : null}
 
           <Field label={t.vouchersSettings.fieldDescription}>
             <Textarea

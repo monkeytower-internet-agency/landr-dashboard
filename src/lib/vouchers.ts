@@ -24,24 +24,16 @@ export type VoucherScope = 'booking' | 'subscription' | 'any'
 
 /** A voucher row as returned by the staff router (used_count included).
  *
- * NOTE (landr-c53m.5): the `vouchers` table also has
- * `applies_to_product_id` (FK products, engine-checked in
+ * landr-c53m.5: `applies_to_product_id` (FK products, engine-checked in
  * pricing.py's voucher-applicability gate) and `campaign_id` (FK
  * campaigns, attribution-only — not currently engine-checked at
- * redemption time). Neither is exposed here because
- * `staff_vouchers.py`'s VoucherIn/VoucherPatch models don't declare
- * them yet, so a POST/PATCH sending them would have the values
- * silently dropped (pydantic v2 default `extra="ignore"`) and GET
- * never round-trips them. Shipping a picker against those two fields
- * without the API change first would look like it works but silently
- * not scope the voucher — worse than no UI. Tracked as a blocker on
- * landr-api: landr-u3jr (blocks this ticket, landr-c53m.5). Once
- * landr-u3jr lands, add `applies_to_product_id: string | null` and
- * `campaign_id: string | null` here + to VoucherInput/VoucherPatch
- * below, and wire a product picker (mirror SimulateDialog.tsx's
- * fetchProducts NativeSelect) + a campaign picker (mirror
- * fetchCampaigns in campaigns.ts) into VouchersSettings.tsx's
- * VoucherDialog.
+ * redemption time) round-trip through the staff router as of landr-u3jr
+ * (POST/PATCH accept them; GET returns them). Both are nullable — null
+ * means "not scoped" (applies to all products / no campaign
+ * attribution). Setting either to an id that doesn't resolve to a live
+ * row owned by this operator surfaces a 400 with
+ * `{"error": "invalid_applies_to_product_id" | "invalid_campaign_id" |
+ * "invalid_scope_reference"}` — see {@link voucherScopeErrorMessage}.
  */
 export type Voucher = {
   id: string
@@ -56,6 +48,10 @@ export type Voucher = {
   valid_from: string | null
   valid_until: string | null
   scope: VoucherScope
+  /** FK → products.id. null = applies to all products. */
+  applies_to_product_id: string | null
+  /** FK → campaigns.id. null = no campaign attribution. */
+  campaign_id: string | null
   description: string | null
   active: boolean
   created_at: string
@@ -73,6 +69,8 @@ export type VoucherInput = {
   valid_from?: string | null
   valid_until?: string | null
   scope?: VoucherScope
+  applies_to_product_id?: string | null
+  campaign_id?: string | null
   description?: string | null
   active?: boolean
 }
@@ -149,6 +147,10 @@ export type VoucherFormValues = {
   valid_from: string
   valid_until: string
   scope: VoucherScope
+  /** '' = no product scope (applies to all products); else a products.id. */
+  applies_to_product_id: string
+  /** '' = no campaign attribution; else a campaigns.id. */
+  campaign_id: string
   description: string
   active: boolean
 }
@@ -211,6 +213,9 @@ export function formToInput(values: VoucherFormValues): VoucherInput {
         ? null
         : isoFromLocal(values.valid_until),
     scope: values.scope,
+    applies_to_product_id:
+      values.applies_to_product_id === '' ? null : values.applies_to_product_id,
+    campaign_id: values.campaign_id === '' ? null : values.campaign_id,
     description:
       values.description.trim() === '' ? null : values.description.trim(),
     active: values.active,
@@ -256,4 +261,43 @@ export function formatVoucherAmount(voucher: Voucher): string {
 /** "3 / 100" or "3 / ∞" for the usage column. */
 export function formatUsage(voucher: Voucher): string {
   return `${voucher.used_count} / ${voucher.max_uses ?? '∞'}`
+}
+
+// ---- scope-reference errors (landr-c53m.5 / landr-u3jr) ---------------
+//
+// staff_vouchers.py rejects a dangling/cross-operator
+// applies_to_product_id or campaign_id with a 400 whose
+// `detail.error` is one of these codes (unwrapped into the thrown
+// Error's `message` by api-client.ts). Kept here — not in
+// VouchersSettings.tsx — so the mapping stays next to the type it
+// describes and is unit-testable without mounting the dialog.
+
+const VOUCHER_SCOPE_ERROR_CODES = [
+  'invalid_applies_to_product_id',
+  'invalid_campaign_id',
+  'invalid_scope_reference',
+] as const
+
+export type VoucherScopeErrorCode = (typeof VOUCHER_SCOPE_ERROR_CODES)[number]
+
+export function isVoucherScopeErrorCode(
+  message: string,
+): message is VoucherScopeErrorCode {
+  return (VOUCHER_SCOPE_ERROR_CODES as readonly string[]).includes(message)
+}
+
+/** Translate a scope-reference error code into friendly inline copy, or
+ *  `null` if `message` isn't one of these codes (caller should fall back
+ *  to the raw message / a generic toast in that case). */
+export function voucherScopeErrorMessage(message: string): string | null {
+  if (message === 'invalid_applies_to_product_id') {
+    return 'That product could not be found — pick another, or choose "All products".'
+  }
+  if (message === 'invalid_campaign_id') {
+    return 'That campaign could not be found — pick another, or choose "No campaign".'
+  }
+  if (message === 'invalid_scope_reference') {
+    return 'The selected product or campaign is no longer valid — pick another or clear the selection.'
+  }
+  return null
 }
