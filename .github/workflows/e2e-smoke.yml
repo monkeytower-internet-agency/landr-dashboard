@@ -8,11 +8,13 @@ name: E2E smoke (dashboard)
 # bw-dev.landr.de (public Cloudflare Pages + Cloudflare-Tunnel API), there is
 # no public dev deployment of the dashboard — it talks to Supabase at
 # kong.dev.landr.de, which resolves to a Tailscale-only address. A
-# GitHub-hosted runner cannot resolve that hostname at all, so this job is
-# expected to fail (DNS/connection error, not a real regression) until it
-# runs on a runner that's on the tailnet (self-hosted runner on Trillian, or
-# a `tailscale/github-action` step with an OAuth client — both real infra
-# work, out of scope for this ticket). Locally, on Trillian, it works today.
+# GitHub-hosted runner cannot resolve that hostname at all, so this job's
+# checks are expected to come back SKIPPED (not failed — see landr-3nyx /
+# e2e/devServerReachable.ts, which probes DASHBOARD_BASE_URL first and
+# `test.skip()`s when it's unreachable) until it runs on a runner that's on
+# the tailnet (self-hosted runner on Trillian, or a `tailscale/github-action`
+# step with an OAuth client — both real infra work, out of scope for this
+# ticket). Locally, on Trillian, it works today.
 on:
   push:
     branches: [main, staging, dev]
