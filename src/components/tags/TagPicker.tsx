@@ -70,7 +70,10 @@ export function TagPicker({
   // Defensive: useQuery can hand back undefined on first render and some
   // test harnesses return raw values that aren't arrays. Treat anything
   // non-array as empty.
-  const allTags: Tag[] = Array.isArray(tagsQuery.data) ? tagsQuery.data : []
+  const allTags: Tag[] = useMemo(
+    () => (Array.isArray(tagsQuery.data) ? tagsQuery.data : []),
+    [tagsQuery.data],
+  )
   const byId = useMemo(() => {
     const m = new Map<string, Tag>()
     for (const tag of allTags) m.set(tag.id, tag)

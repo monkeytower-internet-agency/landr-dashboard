@@ -162,7 +162,7 @@ function FormEditorBody({ formId }: { formId: string }) {
   // Optimistic position override for drag-and-drop.
   const [orderOverride, setOrderOverride] = useState<string[] | null>(null)
 
-  const fields = fieldsQuery.data ?? []
+  const fields = useMemo(() => fieldsQuery.data ?? [], [fieldsQuery.data])
   const serverOrder = fields.map((f) => f.id)
   const displayIds = orderOverride ?? serverOrder
   const fieldById = useMemo(() => new Map(fields.map((f) => [f.id, f])), [fields])

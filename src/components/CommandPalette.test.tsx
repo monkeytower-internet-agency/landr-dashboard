@@ -250,7 +250,7 @@ describe('CommandPalette — open / close hot-key', () => {
   it('closes on Escape', async () => {
     const user = userEvent.setup()
     renderPalette()
-    await user.click(screen.getByText('open palette'))
+    await user.click(screen.getByRole('button', { name: 'open palette' }))
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     await user.keyboard('{Escape}')
     await act(async () => {
@@ -264,7 +264,7 @@ describe('CommandPalette — search filtering', () => {
   it('renders nav + quick actions when first opened', async () => {
     const user = userEvent.setup()
     renderPalette()
-    await user.click(screen.getByText('open palette'))
+    await user.click(screen.getByRole('button', { name: 'open palette' }))
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
 
     // Nav rows render with their label inside a cmdk-item. The group
@@ -288,7 +288,7 @@ describe('CommandPalette — search filtering', () => {
   it('typing in the input narrows visible items', async () => {
     const user = userEvent.setup()
     renderPalette()
-    await user.click(screen.getByText('open palette'))
+    await user.click(screen.getByRole('button', { name: 'open palette' }))
     const dialog = await screen.findByRole('dialog')
     // Wait for the query mocks to resolve so contact "Zoe Zimmer" lands.
     await screen.findByText(/zoe zimmer/i)
@@ -315,7 +315,7 @@ describe('CommandPalette — search filtering', () => {
   it('shows the empty-state when nothing matches', async () => {
     const user = userEvent.setup()
     renderPalette()
-    await user.click(screen.getByText('open palette'))
+    await user.click(screen.getByRole('button', { name: 'open palette' }))
     await screen.findByRole('dialog')
     const input = await screen.findByPlaceholderText(/type a command/i)
     await user.type(input, 'zzznever-matches-anything-xxx')
@@ -327,7 +327,7 @@ describe('CommandPalette — selection navigates + closes', () => {
   it('Enter on a nav item navigates to its route and closes the palette', async () => {
     const user = userEvent.setup()
     renderPalette('/')
-    await user.click(screen.getByText('open palette'))
+    await user.click(screen.getByRole('button', { name: 'open palette' }))
     const dialog = await screen.findByRole('dialog')
 
     const input = await screen.findByPlaceholderText(/type a command/i)
@@ -346,7 +346,7 @@ describe('CommandPalette — selection navigates + closes', () => {
   it('Enter on a view item navigates to /views/:id', async () => {
     const user = userEvent.setup()
     renderPalette('/')
-    await user.click(screen.getByText('open palette'))
+    await user.click(screen.getByRole('button', { name: 'open palette' }))
     await screen.findByRole('dialog')
     // Wait for the views mock to populate.
     await screen.findByText(/vip customers/i)
@@ -361,7 +361,7 @@ describe('CommandPalette — selection navigates + closes', () => {
   it('Enter on the "New view" quick action navigates to /views/new', async () => {
     const user = userEvent.setup()
     renderPalette('/')
-    await user.click(screen.getByText('open palette'))
+    await user.click(screen.getByRole('button', { name: 'open palette' }))
     await screen.findByRole('dialog')
 
     const input = await screen.findByPlaceholderText(/type a command/i)

@@ -107,6 +107,9 @@ export function TableLayout({
     desc: s.dir === 'desc',
   }))
 
+  // TanStack Table's useReactTable() returns functions that cannot be
+  // memoized safely; React Compiler skips memoization here by design.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: items,
     columns,
