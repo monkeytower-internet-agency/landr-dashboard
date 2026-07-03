@@ -8,13 +8,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useOperator } from '@/lib/operator'
+import { displayName, useOperator } from '@/lib/operator'
 import { useEntitlements } from '@/lib/entitlements'
 import { t } from '@/lib/strings'
-
-function displayName(name: string | null, slug: string): string {
-  return name && name.trim().length > 0 ? name : slug
-}
 
 // landr-2soj — STAFF-ONLY "View as operator" picker. Renders the all-operators
 // list (from the SEPARATE staffOperators query in OperatorProvider — NOT the

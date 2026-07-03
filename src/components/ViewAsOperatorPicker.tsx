@@ -30,12 +30,8 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { useAppMode } from '@/lib/app-mode-context'
-import { useOperator } from '@/lib/operator'
+import { displayName, useOperator } from '@/lib/operator'
 import { t } from '@/lib/strings'
-
-function displayName(name: string | null, slug: string): string {
-  return name && name.trim().length > 0 ? name : slug
-}
 
 export function ViewAsOperatorPicker() {
   const { viewAsPickerOpen, closeViewAsPicker } = useAppMode()

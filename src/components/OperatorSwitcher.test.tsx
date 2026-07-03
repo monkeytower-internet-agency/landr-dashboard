@@ -28,6 +28,8 @@ const mockState = {
 }
 
 vi.mock('@/lib/operator', () => ({
+  displayName: (name: string | null, slug: string) =>
+    name && name.trim().length > 0 ? name : slug,
   useOperator: () => ({
     operators: mockState.operators,
     currentOperator: mockState.currentOperator,
