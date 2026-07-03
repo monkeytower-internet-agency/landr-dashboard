@@ -38,6 +38,8 @@ vi.mock('@/lib/app-mode-context', () => ({
 }))
 
 vi.mock('@/lib/operator', () => ({
+  displayName: (name: string | null, slug: string) =>
+    name && name.trim().length > 0 ? name : slug,
   useOperator: () => ({
     staffOperators: mock.state.staffOperators,
     staffOperatorsLoading: mock.state.staffOperatorsLoading,

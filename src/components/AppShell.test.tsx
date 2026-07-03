@@ -52,6 +52,8 @@ const { hookState } = vi.hoisted(() => ({
 // Same lightweight stubs the AppSidebar suite uses so the sidebar renders
 // without a full app shell (operator scope, saved views, auth, entitlements).
 vi.mock('@/lib/operator', () => ({
+  displayName: (name: string | null, slug: string) =>
+    name && name.trim().length > 0 ? name : slug,
   useOperator: () => ({
     operators: [{ id: 'op-1', slug: 'para42', name: 'Para42' }],
     currentOperator: { id: 'op-1', slug: 'para42', name: 'Para42' },

@@ -86,6 +86,7 @@ import {
   watchTicket,
   PERCEIVED_IMPACT_LABEL,
   PRIORITY_LABEL,
+  PRIORITY_TONE,
   PRIORITY_TOOLTIP,
   TYPE_LABEL,
   type AssignableUser,
@@ -511,12 +512,6 @@ const STATUS_LABEL: Record<string, string> = {
   in_progress: 'In progress',
   in_review: 'In review',
   done: 'Done',
-}
-
-const PRIORITY_TONE: Record<string, string> = {
-  p0: 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300',
-  p1: 'bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300',
-  p2: 'bg-muted text-muted-foreground',
 }
 
 const SYNC_STATUS_LABEL: Record<string, string> = {

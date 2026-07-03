@@ -79,6 +79,13 @@ export type StaffOperatorRef = {
   onboarded_at: string | null
 }
 
+// landr-7dya.17 — shared name-or-slug fallback, previously duplicated in
+// OperatorSwitcher.tsx and ViewAsOperatorPicker.tsx. Single source here.
+// eslint-disable-next-line react-refresh/only-export-components
+export function displayName(name: string | null, slug: string): string {
+  return name && name.trim().length > 0 ? name : slug
+}
+
 type OperatorContextValue = {
   operators: Operator[]
   currentOperator: Operator | null
