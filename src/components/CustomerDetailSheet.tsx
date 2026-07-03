@@ -354,6 +354,9 @@ function CustomerEditForm({
 
   // Surface the contact's current preferred_locale even when it's not in
   // KNOWN_LOCALES so the operator does not silently lose it.
+  // react-hook-form's watch() returns functions that cannot be memoized
+  // safely; React Compiler skips memoization here by design.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const currentLocale = form.watch('preferred_locale')
   const localeOptions = (() => {
     const all = [...KNOWN_LOCALES]

@@ -348,6 +348,9 @@ export function ProductForm({
                   <LocalizedTextField
                     label={t.products.fieldName}
                     base={field.value}
+                    // react-hook-form's watch() returns functions that cannot be
+                    // memoized safely; React Compiler skips memoization by design.
+                    // eslint-disable-next-line react-hooks/incompatible-library
                     localized={form.watch('name_localized')}
                     onChange={(base, localized) => {
                       field.onChange(base)
