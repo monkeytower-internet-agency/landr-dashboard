@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
+import { DASHBOARD_BASE_URL } from './e2e/baseUrl'
+
 /**
  * landr-t0do: deliberately tiny Playwright smoke net for the dashboard.
  *
@@ -13,11 +15,15 @@ import { defineConfig, devices } from '@playwright/test'
  * only succeed on a runner that's on the tailnet (Trillian itself today).
  * See .beads/scratch/handoffs/landr-t0do.md for the full writeup.
  *
+ * landr-3nyx: when the dev host is unreachable (server not running, Caddy
+ * edge down, runner not on the tailnet), each spec probes it via
+ * e2e/devServerReachable.ts and calls `test.skip()` instead of letting
+ * `page.goto()` time out — so infra-unavailability shows up as "skipped",
+ * not "failed", in the (non-required) dashboard-smoke check.
+ *
  * Override DASHBOARD_BASE_URL to point at a local `vite` dev/preview server
  * (e.g. http://localhost:5174) while iterating — see e2e/README below.
  */
-const baseURL = process.env.DASHBOARD_BASE_URL ?? 'https://dashboard.dev.landr.de'
-
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -28,7 +34,7 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   use: {
-    baseURL,
+    baseURL: DASHBOARD_BASE_URL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test'
+import { DASHBOARD_BASE_URL } from './baseUrl'
+import { isDevServerReachable } from './devServerReachable'
 import { loginAsStaff } from './staffLogin'
 
 /**
@@ -35,6 +37,13 @@ const VIEWPORT_WIDTH = 360
 test('staff topbar @ 360x800: visible items fit, folded items reach the more-menu', async ({
   page,
 }) => {
+  // landr-3nyx: skip (not fail) when the dev host is down/unreachable —
+  // see e2e/devServerReachable.ts.
+  test.skip(
+    !(await isDevServerReachable()),
+    `dev server unreachable at ${DASHBOARD_BASE_URL}`,
+  )
+
   await page.setViewportSize({ width: VIEWPORT_WIDTH, height: 800 })
   await loginAsStaff(page)
   await expect(page.getByTestId('dashboard-grid')).toBeVisible({ timeout: 15_000 })
