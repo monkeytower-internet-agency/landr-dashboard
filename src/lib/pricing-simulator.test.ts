@@ -123,18 +123,43 @@ describe('simulateEstimate', () => {
     })
   })
 
-  it('URL-encodes slug and product id', async () => {
+  it('URL-encodes widget_token and product id', async () => {
     const fetchMock = vi.mocked(fetch)
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify(okResponse), { status: 200 }),
     )
-    await simulateEstimate('weird slug/!', 'id with space', {
+    await simulateEstimate('weird token/!', 'id with space', {
       selected_days: [],
       participants_count: 1,
     })
     const [url] = fetchMock.mock.calls[0] as [string]
-    expect(url).toContain('/operators/weird%20slug%2F!/')
+    expect(url).toContain('/operators/weird%20token%2F!/')
     expect(url).toContain('/products/id%20with%20space/')
+  })
+
+  // landr-wl7h regression guard — the simulator's first argument is the
+  // operator's widget_token, NOT the slug (two distinct opaque values;
+  // the backend's {token} path segment only ever matches widget_token).
+  // Passing a slug-shaped value where a token belongs 404s with "unknown
+  // widget token" on every environment — this asserts the built URL's
+  // token segment is exactly whatever was passed as widgetToken, so a
+  // caller passing `currentOperator.slug` instead of
+  // `currentOperator.widget_token` would produce a URL that plainly does
+  // NOT match the operator's real widget_token.
+  it('builds the token path segment from widgetToken, not any slug-like value', async () => {
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify(okResponse), { status: 200 }),
+    )
+    const slug = 'para42'
+    const widgetToken = 'CNe5RCiMijUjgJrftAwKA'
+    await simulateEstimate(widgetToken, 'p-1', {
+      selected_days: [],
+      participants_count: 1,
+    })
+    const [url] = fetchMock.mock.calls[0] as [string]
+    expect(url).toContain(`/operators/${widgetToken}/`)
+    expect(url).not.toContain(`/operators/${slug}/`)
   })
 
   it('forwards addon_lines verbatim when supplied', async () => {

@@ -2,10 +2,16 @@
  * Pricing rule simulator (landr-5gk7).
  *
  * Thin typed wrapper around the public estimate endpoint
- *   POST /api/public/operators/{slug}/products/{product_id}/estimate
- * which is the same endpoint the storefront booking widget calls. We
- * reuse it from Settings → Pricing so operators can preview how rules
- * fire on a dummy booking before they ever go live.
+ *   POST /api/public/operators/{token}/products/{product_id}/estimate
+ * which is the same endpoint the storefront booking widget calls. The
+ * `{token}` path segment is the operator's opaque `widget_token` — NOT
+ * the slug; the backend resolves it via `_resolve_operator_by_token()`
+ * (app/routers/public_operators.py), which looks up `widget_token`
+ * specifically (landr-wl7h — this docstring previously said `{slug}`,
+ * which was the root cause of a standing "unknown widget token" 404 on
+ * every simulate call since the feature shipped). We reuse it from
+ * Settings → Pricing so operators can preview how rules fire on a dummy
+ * booking before they ever go live.
  *
  * Why the public endpoint? The server-side compute is the canonical
  * pricing engine (see landr-xbqh in app/routers/public_operators.py) —
@@ -86,17 +92,21 @@ export type SimulateEstimateResponse = {
  * signed in). The dashboard simulator is a read-only preview so the
  * lack of staff-scoped auth is fine.
  *
+ * `widgetToken` must be the operator's `widget_token` (operators table),
+ * NOT the slug — the two are different opaque values and the backend
+ * only matches on widget_token (landr-wl7h).
+ *
  * Throws an Error carrying the FastAPI `detail` payload when the
  * server responds non-2xx (e.g. 404 for non-publicly-listed products,
  * 400 for unknown add-ons). UI surfaces the message inline.
  */
 export async function simulateEstimate(
-  operatorSlug: string,
+  widgetToken: string,
   productId: string,
   body: SimulateEstimateRequest,
 ): Promise<SimulateEstimateResponse> {
   const url =
-    `${apiBase()}/api/public/operators/${encodeURIComponent(operatorSlug)}` +
+    `${apiBase()}/api/public/operators/${encodeURIComponent(widgetToken)}` +
     `/products/${encodeURIComponent(productId)}/estimate`
   const res = await fetch(url, {
     method: 'POST',
