@@ -3058,6 +3058,8 @@ export const t = {
       'Public / website contact address — separate from the booking email.',
     fieldAddress: 'Address',
     fieldPhone: 'Phone',
+    // landr-1url: lightweight international-format nudge (no new dependency).
+    fieldPhoneHint: 'Include your country code.',
     fieldMapsLink: 'Google Maps link (optional)',
     fieldWebsite: 'Website (optional)',
     fieldCheckinTime: 'Check-in time (optional)',
@@ -4009,6 +4011,9 @@ export const t = {
     step3: {
       heading: 'Address & contact',
       body: 'Used on invoices, customer emails, and the booking widget.',
+      // landr-1url: lightweight international-format nudge (no new dependency).
+      phoneHint: 'Include your country code',
+      phoneError: 'Include your country code, e.g. +34 600 123 456.',
     },
     step4: {
       heading: 'Pickup locations',

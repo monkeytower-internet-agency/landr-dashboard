@@ -33,6 +33,7 @@ import {
   type HotelFormValues,
   type PlaceSearchResult,
 } from '@/lib/hotels'
+import { PHONE_HTML_PATTERN } from '@/lib/phone'
 import { t } from '@/lib/strings'
 
 type Props = {
@@ -251,11 +252,14 @@ function HotelFormSheetBody({ operatorId, editTarget, onClose }: BodyProps) {
                 <FormLabel>{t.hotels.fieldPhone}</FormLabel>
                 <FormControl>
                   <Input
+                    type="tel"
                     placeholder="+34 600 000 000"
+                    pattern={PHONE_HTML_PATTERN}
                     disabled={mutation.isPending}
                     {...field}
                   />
                 </FormControl>
+                <FormDescription>{t.hotels.fieldPhoneHint}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
