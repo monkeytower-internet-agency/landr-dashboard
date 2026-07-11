@@ -100,6 +100,24 @@ function extractor(fieldKey: string): FieldExtract | null {
         kind: 'scalar',
         get: (r) => r.holded_status ?? 'none',
       }
+    case 'pickup_location_id':
+      // landr-myb0 — there is NO booking-level pickup_location_id column;
+      // pickup location only exists per-participant on booking_participants
+      // (see BookingParticipant in bookings.ts). Multi-value extractor so a
+      // filter chip like `is_not_null` matches when ANY participant on the
+      // booking has a pickup location assigned — this is what makes the
+      // "Today's pickups" template's filter chip genuinely filter instead
+      // of silently matching everything.
+      return {
+        kind: 'multi',
+        get: (r) => (r.participants ?? []).map((p) => p.pickup_location?.id ?? null),
+      }
+    case 'phone':
+      // landr-myb0 — booking-row (flat) level phone extractor for the
+      // filter/sort engine: the primary booker's phone. Pilot-row mode
+      // renders each participant's own phone directly (see TableLayout.tsx)
+      // and does not go through this extractor.
+      return { kind: 'scalar', get: (r) => r.customer?.phone ?? null }
     case 'balance_due': {
       // landr-a4pl.3 — outstanding balance; already present on BookingRow.
       // Falls back to gross_total for pre-migration rows where balance_due

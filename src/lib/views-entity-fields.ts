@@ -142,6 +142,20 @@ export const BOOKING_FIELDS: readonly ViewField[] = [
     filterable: true,
     sortable: false,
   },
+  // landr-myb0 — participant phone. At the booking-row (flat) level this
+  // surfaces the primary booker's phone (mirrors the customer_* fields,
+  // sourced from `customer.phone`); in the Table layout's pilot-row mode
+  // it instead shows each pilot's own phone from the participant contact
+  // join (bookings.ts BookingParticipant.contact). Not marked
+  // `default_visible_in_table` — existing Table views keep their current
+  // column set unchanged.
+  {
+    key: 'phone',
+    label: 'Phone',
+    type: 'text',
+    filterable: true,
+    sortable: false,
+  },
   {
     key: 'created_at',
     label: 'Created',

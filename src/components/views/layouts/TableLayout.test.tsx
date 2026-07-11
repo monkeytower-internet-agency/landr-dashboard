@@ -343,6 +343,175 @@ describe('TableLayout group-by (landr-1ztq)', () => {
   })
 })
 
+// landr-myb0 — pilot-row mode: one row per flying participant, grouped by
+// parent booking. Companions (is_guiding=false) excluded by default; legacy
+// NULL rows still fly (mirrors day-roster.ts's isFlyingParticipant).
+describe('TableLayout pilot-row mode (landr-myb0)', () => {
+  const PILOT_CONFIG = {
+    layout: 'table',
+    filters: [],
+    sort: [],
+    tableConfig: { mode: 'pilots' },
+  }
+
+  function pilotItem(
+    overrides: Omit<Partial<BookingItem>, 'customer'> & { customer?: CustomerOverride } = {},
+  ): BookingItem {
+    return makeItem({
+      id: 'b-1',
+      customer: { first_name: 'Marie', last_name: 'Curie' },
+      participants: [
+        {
+          id: 'pt-1',
+          is_guiding: true,
+          pickup_location: { id: 'loc-1', name: 'Fonda Central' },
+          contact: { first_name: 'Ana', last_name: 'Pilot', phone: '+34600000001' },
+        },
+        {
+          id: 'pt-2',
+          is_guiding: false, // companion — excluded by default
+          pickup_location: { id: 'loc-1', name: 'Fonda Central' },
+          contact: { first_name: 'Baby', last_name: 'Companion', phone: '+34600000002' },
+        },
+        {
+          id: 'pt-3',
+          is_guiding: null, // legacy NULL — still counts as flying
+          pickup_location: null,
+          contact: { first_name: 'Carl', last_name: 'Legacy', phone: null },
+        },
+      ],
+      ...overrides,
+    })
+  }
+
+  it('renders one row per pilot, excluding companions', () => {
+    render(
+      <TableLayout
+        entityType="booking"
+        config={PILOT_CONFIG}
+        items={[pilotItem()]}
+        onConfigChange={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('view-table-pilot-row-pt-1')).toBeInTheDocument()
+    expect(screen.getByTestId('view-table-pilot-row-pt-3')).toBeInTheDocument()
+    expect(screen.queryByTestId('view-table-pilot-row-pt-2')).not.toBeInTheDocument()
+    expect(screen.getByText('Ana Pilot')).toBeInTheDocument()
+    expect(screen.getByText('Carl Legacy')).toBeInTheDocument()
+    expect(screen.queryByText('Baby Companion')).not.toBeInTheDocument()
+  })
+
+  it('groups pilot rows by parent booking with a count', () => {
+    render(
+      <TableLayout
+        entityType="booking"
+        config={PILOT_CONFIG}
+        items={[pilotItem()]}
+        onConfigChange={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('view-table-group-b-1')).toBeInTheDocument()
+    expect(screen.getByTestId('view-table-group-count-b-1')).toHaveTextContent('(2)')
+    expect(screen.getByText(/Marie Curie/)).toBeInTheDocument()
+  })
+
+  it('renders phone and pickup location, em-dash fallback when absent', () => {
+    render(
+      <TableLayout
+        entityType="booking"
+        config={PILOT_CONFIG}
+        items={[pilotItem()]}
+        onConfigChange={() => {}}
+      />,
+    )
+    expect(screen.getByText('+34600000001')).toBeInTheDocument()
+    expect(screen.getByText('Fonda Central')).toBeInTheDocument()
+    // pt-3 has neither phone nor pickup location.
+    const row3 = screen.getByTestId('view-table-pilot-row-pt-3')
+    expect(row3).toHaveTextContent('——') // two em-dash cells back to back
+  })
+
+  it('row count reflects pilot count, not booking count', () => {
+    render(
+      <TableLayout
+        entityType="booking"
+        config={PILOT_CONFIG}
+        items={[pilotItem()]}
+        onConfigChange={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('view-table-rowcount')).toHaveTextContent('2 items')
+  })
+
+  it('hides the column picker (columns are fixed in pilot mode)', () => {
+    render(
+      <TableLayout
+        entityType="booking"
+        config={PILOT_CONFIG}
+        items={[pilotItem()]}
+        onConfigChange={() => {}}
+      />,
+    )
+    expect(screen.queryByTestId('view-table-column-picker')).not.toBeInTheDocument()
+  })
+
+  it('clicking a pilot row fires onRowClick with the parent booking item', async () => {
+    const onRowClick = vi.fn()
+    const user = userEvent.setup()
+    const item = pilotItem()
+    render(
+      <TableLayout
+        entityType="booking"
+        config={PILOT_CONFIG}
+        items={[item]}
+        onConfigChange={() => {}}
+        onRowClick={onRowClick}
+      />,
+    )
+    await user.click(screen.getByTestId('view-table-pilot-row-pt-1'))
+    expect(onRowClick).toHaveBeenCalledWith(item)
+  })
+
+  it('collapsing a booking group hides its pilot rows', async () => {
+    const user = userEvent.setup()
+    render(
+      <TableLayout
+        entityType="booking"
+        config={PILOT_CONFIG}
+        items={[pilotItem()]}
+        onConfigChange={() => {}}
+      />,
+    )
+    await user.click(screen.getByTestId('view-table-group-toggle-b-1'))
+    expect(screen.queryByTestId('view-table-pilot-row-pt-1')).not.toBeInTheDocument()
+  })
+
+  it('excludes bookings whose participants are all companions', () => {
+    render(
+      <TableLayout
+        entityType="booking"
+        config={PILOT_CONFIG}
+        items={[
+          pilotItem({
+            id: 'b-2',
+            participants: [
+              {
+                id: 'pt-9',
+                is_guiding: false,
+                pickup_location: null,
+                contact: { first_name: 'X', last_name: 'Y', phone: null },
+              },
+            ],
+          }),
+        ]}
+        onConfigChange={() => {}}
+      />,
+    )
+    expect(screen.queryByTestId('view-table-group-b-2')).not.toBeInTheDocument()
+    expect(screen.getByText(/no pilots/i)).toBeInTheDocument()
+  })
+})
+
 describe('TableLayout column picker (landr-7w3s)', () => {
   it('toggling a column writes a new columns array via onConfigChange', async () => {
     const onConfigChange = vi.fn()

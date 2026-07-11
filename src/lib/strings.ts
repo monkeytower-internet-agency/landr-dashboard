@@ -4331,6 +4331,15 @@ export const t = {
       groupNullLabel: '— Empty —',
       groupCollapse: (label: string): string => `Collapse ${label}`,
       groupExpand: (label: string): string => `Expand ${label}`,
+      // landr-myb0 — pilot-row mode (one row per flying participant,
+      // grouped by booking). Fixed 3-column layout; headers aren't derived
+      // from the field registry since 'name' has no single system field.
+      pilotMode: {
+        nameHeader: 'Name',
+        phoneHeader: 'Phone',
+        pickupHeader: 'Pickup location',
+        empty: 'No pilots match this view.',
+      },
     },
   },
   // landr-p600 — Dashboard home revamp. Daily-ops view with today's
