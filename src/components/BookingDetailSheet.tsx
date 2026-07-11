@@ -184,6 +184,9 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
   const [showCancel, setShowCancel] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [showUnblock, setShowUnblock] = useState(false)
+  // landr-b304 — "Hotel declined" dialog state, sibling to showUnblock.
+  const [showHotelDecline, setShowHotelDecline] = useState(false)
+  const [hotelDeclineNote, setHotelDeclineNote] = useState('')
   const [showNoShow, setShowNoShow] = useState(false)
   const [chargeCancellationFee, setChargeCancellationFee] = useState(false)
   // landr-hgd4 — general approve / reject from the detail sheet.
@@ -227,6 +230,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     saveMutation,
     cancelMutation,
     unblockMutation,
+    hotelDeclineMutation,
     generalApproveMutation,
     generalRejectMutation,
     noShowMutation,
@@ -255,6 +259,9 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
     setCancelReason,
     cancelReason,
     setShowUnblock,
+    setShowHotelDecline,
+    setHotelDeclineNote,
+    hotelDeclineNote,
     setShowNoShow,
     setChargeCancellationFee,
     chargeCancellationFee,
@@ -661,16 +668,33 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
                 </NativeSelect>
               </div>
             ) : null}
+            {/* landr-b304 — "Hotel confirmed" / "Hotel declined" pair.
+                Mirrors the general-approve/reject button cluster below;
+                canUnblock covers both awaiting_hotel_approval and
+                awaiting_secondary_approval (see booking-actions.ts). */}
             {canUnblock ? (
-              <Button
-                type="button"
-                onClick={() => setShowUnblock(true)}
-                disabled={busy}
-                className="self-start"
-              >
-                <Unlock className="size-4" />
-                {t.bookings.hotelUnblock.label}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  onClick={() => setShowUnblock(true)}
+                  disabled={busy}
+                  className="self-start"
+                >
+                  <Unlock className="size-4" />
+                  {t.bookings.hotelUnblock.label}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowHotelDecline(true)}
+                  disabled={busy}
+                  className="self-start border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  data-testid="booking-hotel-decline-btn"
+                >
+                  <XCircle className="size-4" />
+                  {t.bookings.hotelDecline.label}
+                </Button>
+              </div>
             ) : null}
             {/* landr-hgd4 — general approve / reject buttons. Only shown when
                 the booking is awaiting_general_approval. Approve advances the
@@ -1142,6 +1166,42 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         isPending={unblockMutation.isPending}
         onConfirm={() => unblockMutation.mutate()}
       />
+
+      {/* landr-b304 — Hotel-declined confirmation. Mirrors the general-reject
+          dialog: optional note, destructive styling, cancels the booking via
+          postHotelApprovalDecision(decision:'reject') on confirm. */}
+      <ConfirmActionDialog
+        open={showHotelDecline}
+        onOpenChange={(next) => {
+          if (hotelDeclineMutation.isPending) return
+          if (!next) setHotelDeclineNote('')
+          setShowHotelDecline(next)
+        }}
+        title={t.bookings.hotelDecline.label}
+        description={t.bookings.hotelDecline.description}
+        cancelLabel={t.bookings.hotelDecline.cancel}
+        confirmLabel={t.bookings.hotelDecline.confirm}
+        confirmingLabel={t.bookings.hotelDecline.working}
+        variant="destructive"
+        isPending={hotelDeclineMutation.isPending}
+        onConfirm={() => hotelDeclineMutation.mutate()}
+        confirmTestId="hotel-decline-confirm"
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="bk-hotel-decline-note">
+            {t.bookings.hotelDecline.noteLabel}
+          </Label>
+          <Textarea
+            id="bk-hotel-decline-note"
+            value={hotelDeclineNote}
+            onChange={(e) => setHotelDeclineNote(e.target.value)}
+            placeholder={t.bookings.hotelDecline.notePlaceholder}
+            disabled={hotelDeclineMutation.isPending}
+            rows={3}
+            data-testid="hotel-decline-note"
+          />
+        </div>
+      </ConfirmActionDialog>
 
       {/* landr-okxm — Mark-as-paid dialog. Method dropdown + amount input
           (defaults to balance_due) + optional note. */}
