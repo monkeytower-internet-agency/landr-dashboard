@@ -80,9 +80,14 @@ export const VIEW_TEMPLATES: ViewTemplate[] = [
     },
   },
   {
+    // landr-myb0 — pilot-row mode: the filter chips answer "which
+    // bookings", tableConfig.mode='pilots' then explodes each matching
+    // booking into one row per pilot (Name/Phone/Pickup location) so the
+    // operator sees who to actually pick up, not just which booking.
     key: 'todays-pickups',
     name: "Today's pickups",
-    description: 'Bookings starting today with a pickup location.',
+    description:
+      "Pilots with a pickup location, starting today — grouped by booking.",
     entity_type: 'booking',
     config: {
       layout: 'table',
@@ -91,6 +96,7 @@ export const VIEW_TEMPLATES: ViewTemplate[] = [
         { field: 'pickup_location_id', op: 'is_not_null', values: [] },
       ],
       sort: [],
+      tableConfig: { mode: 'pilots' },
     },
   },
   {

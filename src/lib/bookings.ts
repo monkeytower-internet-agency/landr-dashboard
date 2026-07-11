@@ -56,9 +56,24 @@ export type BookingProduct = {
 
 // landr-1lj — booking_participants brings the pickup_location_id for the
 // pickup-location filter. We hydrate the location id+name via the FK join.
+//
+// landr-myb0 — extended with `is_guiding` (pilot vs. companion, mirrors
+// day-roster.ts's isFlyingParticipant semantics) and a `contact` join
+// (name + phone) so the Views Table layout can render a pilot-row mode:
+// one row per flying participant with Name/Phone/Pickup location, grouped
+// by parent booking. Both new fields are optional on the type so existing
+// fixtures/mocks (many across the test suite construct participants with
+// only `id`/`pickup_location`) don't need updating; the SELECT below
+// projects them unconditionally for real data.
 export type BookingParticipant = {
   id: string
   pickup_location: { id: string; name: string } | null
+  is_guiding?: boolean | null
+  contact?: {
+    first_name: string | null
+    last_name: string | null
+    phone: string | null
+  } | null
 }
 
 // landr-aqn4 — approval_trace shape mirrored from the FastAPI router
@@ -185,7 +200,7 @@ const SELECT = `
   approval_trace,
   customer:contacts!inner ( id, first_name, last_name, email, phone ),
   items:booking_products ( id, date_range_start, date_range_end, selected_days, products ( id, name, product_kind, service_time_shape ) ),
-  participants:booking_participants ( id, pickup_location:locations!pickup_location_id ( id, name ) ),
+  participants:booking_participants ( id, is_guiding, pickup_location:locations!pickup_location_id ( id, name ), contact:contacts!contact_id ( first_name, last_name, phone ) ),
   booking_tags ( operator_tags ( id, name, color, deleted_at ) ),
   holded_sync:external_sync_log ( status, created_at ),
   booking_notes ( id, content, created_at )

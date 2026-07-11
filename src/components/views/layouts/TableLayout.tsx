@@ -23,6 +23,20 @@
 // preserve the existing order for visible fields and append newly-shown
 // fields at the end (Decision: simplest "additive" behaviour; reorder UI
 // is out of scope for v1).
+//
+// landr-myb0 — pilot-row mode: when `config.tableConfig.mode === 'pilots'`
+// the layout switches from one-row-per-booking to one-row-per-flying-
+// participant ("pilot"), grouped by parent booking. Mirrors CalendarLayout's
+// `calendarConfig.mode === 'daily-roster'` discriminator (same shape, same
+// "omitted = default behaviour" contract) and reuses the grouping semantics
+// of `groupRosterByBooking()` in lib/day-roster.ts (booking-encounter order,
+// participant order preserved, companions excluded). Unlike daily-roster,
+// pilot mode needs no extra fetch — participants are already embedded on
+// BookingRow via lib/bookings.ts's SELECT — so the branch lives entirely
+// inside this component rather than needing a ViewPage-level data branch.
+// Columns are fixed (Name / Phone / Pickup location) rather than driven by
+// the generic field-registry column picker, so the picker is hidden in this
+// mode (same treatment CalendarLayout gives the view-variant switcher).
 
 import { Fragment, useMemo, useState } from 'react'
 import {
@@ -63,10 +77,34 @@ import {
 } from '@/lib/views-entity-fields'
 import { groupRows, useGroupCollapse } from '@/lib/views-group-by'
 import type { BookingItem } from '@/lib/views-bookings-data'
+import { customerDisplay } from '@/lib/bookings'
+import { bookingRef } from '@/lib/day-roster'
 import { t } from '@/lib/strings'
 import { getCurrencyFormatter } from '@/lib/format-currency'
 
 type SortEntry = { source: 'system' | 'custom'; key: string; dir: 'asc' | 'desc' }
+
+// landr-myb0 — table-mode config discriminator. 'bookings' (default /
+// omitted) = existing one-row-per-booking rendering. 'pilots' = one row
+// per flying participant, grouped by parent booking. Mirrors
+// CalendarLayout's CalendarMode / calendarConfig shape exactly.
+export type TableMode = 'bookings' | 'pilots'
+
+function isTableMode(x: unknown): x is TableMode {
+  return x === 'bookings' || x === 'pilots'
+}
+
+type TableConfig = { mode?: TableMode }
+
+function readTableConfig(
+  config: Record<string, unknown> | null | undefined,
+): TableConfig {
+  if (!config) return {}
+  const raw = (config as { tableConfig?: unknown }).tableConfig
+  if (!raw || typeof raw !== 'object') return {}
+  const c = raw as TableConfig
+  return { mode: isTableMode(c.mode) ? c.mode : undefined }
+}
 
 type Props = {
   entityType: string
@@ -91,6 +129,8 @@ export function TableLayout({
   const allFields = fieldsFor(entityType)
   const sortState = readSort(config)
   const groupBy = readGroupBy(entityType, config)
+  // landr-myb0 — pilot-row mode discriminator; see the file-header comment.
+  const isPilotMode = readTableConfig(config).mode === 'pilots'
 
   const columns = useMemo<ColumnDef<BookingItem>[]>(
     () =>
@@ -175,6 +215,115 @@ export function TableLayout({
         | undefined,
     })
   }, [groupBy, groupField, rows, entityType])
+
+  // landr-myb0 — pilot-row mode: explode `items` into one row per flying
+  // participant, grouped by parent booking. Computed unconditionally (like
+  // every other useMemo above) so hook order stays stable regardless of
+  // `isPilotMode`; the callback itself short-circuits to an empty array
+  // when the mode isn't active.
+  const pilotGroups = useMemo(
+    () => (isPilotMode ? buildPilotGroups(items) : []),
+    [isPilotMode, items],
+  )
+  const itemsById = useMemo(() => {
+    const map = new Map<string, BookingItem>()
+    for (const it of items) map.set(it.id, it)
+    return map
+  }, [items])
+
+  if (isPilotMode) {
+    const totalPilots = pilotGroups.reduce((sum, g) => sum + g.items.length, 0)
+    return (
+      <div
+        className="flex flex-col gap-3"
+        data-testid="view-table-layout"
+        data-table-mode="pilots"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className="text-muted-foreground text-xs"
+            data-testid="view-table-rowcount"
+          >
+            {t.views.table.rowCount(totalPilots, totalPilots)}
+          </span>
+        </div>
+        <div className="overflow-x-auto rounded-md border [mask-image:linear-gradient(to_right,black_90%,transparent_100%)]">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead data-testid="view-table-header-pilot-name">
+                  {t.views.table.pilotMode.nameHeader}
+                </TableHead>
+                <TableHead data-testid="view-table-header-pilot-phone">
+                  {t.views.table.pilotMode.phoneHeader}
+                </TableHead>
+                <TableHead data-testid="view-table-header-pilot-pickup">
+                  {t.views.table.pilotMode.pickupHeader}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pilotGroups.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={3}
+                    className="text-muted-foreground py-8 text-center text-sm"
+                  >
+                    {t.views.table.pilotMode.empty}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                pilotGroups.map((g) => {
+                  const collapsed = collapse.isCollapsed(g.key)
+                  return (
+                    <Fragment key={g.key}>
+                      <GroupHeaderRow
+                        group={g}
+                        collapsed={collapsed}
+                        colSpan={3}
+                        onToggle={() => collapse.toggle(g.key)}
+                      />
+                      {!collapsed
+                        ? g.items.map((pilot) => (
+                            <TableRow
+                              key={pilot.participantId}
+                              onClick={() => {
+                                const bookingItem = itemsById.get(pilot.bookingId)
+                                if (bookingItem) onRowClick?.(bookingItem)
+                              }}
+                              data-testid={`view-table-pilot-row-${pilot.participantId}`}
+                              className={onRowClick ? 'cursor-pointer' : undefined}
+                            >
+                              <TableCell>
+                                <span className="truncate">{pilot.name}</span>
+                              </TableCell>
+                              <TableCell>
+                                {pilot.phone ? (
+                                  <span>{pilot.phone}</span>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {pilot.pickupLocationName ? (
+                                  <span className="truncate">{pilot.pickupLocationName}</span>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">—</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        : null}
+                    </Fragment>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    )
+  }
 
   const columnCount = Math.max(1, columns.length)
 
@@ -352,6 +501,73 @@ function GroupHeaderRow<T>({
 }
 
 // ---------------------------------------------------------------------------
+// landr-myb0 — pilot-row mode: one row per flying participant, grouped by
+// parent booking. Grouping semantics mirror groupRosterByBooking() in
+// lib/day-roster.ts (booking-encounter order preserved, participant order
+// preserved within a booking); the booking-ref label reuses the same
+// bookingRef() helper so pilot-mode groups read consistently with the
+// daily-roster panel's "#12345678" convention. Companions (is_guiding=false)
+// are excluded — only day-roster.ts's `isFlyingParticipant` semantics count
+// as a pilot (NULL is legacy-flying, only explicit `false` is a companion).
+
+type PilotTableRow = {
+  bookingId: string
+  participantId: string
+  name: string
+  phone: string | null
+  pickupLocationName: string | null
+}
+
+type PilotBookingGroup = {
+  key: string
+  label: string
+  items: PilotTableRow[]
+}
+
+function isPilotParticipant(p: { is_guiding?: boolean | null }): boolean {
+  return p.is_guiding !== false
+}
+
+function pilotContactName(
+  contact:
+    | { first_name: string | null; last_name: string | null }
+    | null
+    | undefined,
+): string {
+  if (!contact) return '—'
+  const name = [contact.first_name, contact.last_name].filter(Boolean).join(' ').trim()
+  return name || '—'
+}
+
+function buildPilotGroups(items: BookingItem[]): PilotBookingGroup[] {
+  const order: string[] = []
+  const byBooking = new Map<string, PilotBookingGroup>()
+  for (const item of items) {
+    for (const p of item.participants ?? []) {
+      if (!isPilotParticipant(p)) continue // companion — excluded by default
+      let group = byBooking.get(item.id)
+      if (!group) {
+        group = {
+          key: item.id,
+          label: `${customerDisplay(item)} · ${bookingRef(item.id)}`,
+          items: [],
+        }
+        byBooking.set(item.id, group)
+        order.push(item.id)
+      }
+      group.items.push({
+        bookingId: item.id,
+        participantId: p.id,
+        name: pilotContactName(p.contact),
+        phone: p.contact?.phone ?? null,
+        pickupLocationName: p.pickup_location?.name ?? null,
+      })
+    }
+  }
+  return order.map((id) => byBooking.get(id)!)
+}
+
+// ---------------------------------------------------------------------------
 
 type ColumnPickerProps = {
   entityType: string
@@ -425,10 +641,30 @@ function fieldToColumn(
   return col
 }
 
+// landr-myb0 — booking-row (flat) level display for the pickup_location_id
+// column. There is no single booking-level pickup location (it lives
+// per-participant — see BookingParticipant in bookings.ts), so this
+// aggregates the DISTINCT participant pickup-location names, mirroring
+// productDisplay()'s "first name +N more" pattern in bookings.ts. Returns
+// null when no participant has a pickup location (renders as em-dash).
+function pickupLocationsSummary(item: BookingItem): string | null {
+  const names = Array.from(
+    new Set(
+      (item.participants ?? [])
+        .map((p) => p.pickup_location?.name)
+        .filter((n): n is string => !!n),
+    ),
+  )
+  if (names.length === 0) return null
+  if (names.length === 1) return names[0]
+  return `${names[0]} +${names.length - 1}`
+}
+
 function readCellValue(item: BookingItem, key: string): unknown {
   if (key === 'current_stage') return item.current_stage?.code ?? null
   if (key === 'product_id') return item.items?.[0]?.products?.name ?? item.items?.[0]?.products?.id ?? null
-  if (key === 'pickup_location_id') return null  // not surfaced on BookingRow; left for future
+  if (key === 'pickup_location_id') return pickupLocationsSummary(item)
+  if (key === 'phone') return item.customer?.phone ?? null
   if (key === 'booking_total') return item.gross_total
   if (key === 'customer_first_name') return item.customer?.first_name ?? null
   if (key === 'customer_last_name') return item.customer?.last_name ?? null
@@ -458,7 +694,14 @@ function renderCell(item: BookingItem, field: ViewField): React.ReactNode {
       )
     }
     if (field.key === 'pickup_location_id') {
-      return <span className="text-muted-foreground text-xs">—</span>
+      // landr-myb0 — real per-participant data (was a hardcoded em-dash
+      // stub). See pickupLocationsSummary() for the aggregation rule.
+      const summary = pickupLocationsSummary(item)
+      return summary ? (
+        <span className="truncate">{summary}</span>
+      ) : (
+        <span className="text-muted-foreground text-xs">—</span>
+      )
     }
     // Unknown id field — fall back to the raw id.
     const raw = (item as unknown as Record<string, unknown>)[field.key]
@@ -485,6 +728,8 @@ function renderCell(item: BookingItem, field: ViewField): React.ReactNode {
       customer_first_name: item.customer?.first_name,
       customer_last_name: item.customer?.last_name,
       customer_email: item.customer?.email,
+      // landr-myb0 — booking-row (flat) level: the primary booker's phone.
+      phone: item.customer?.phone,
     }
     const raw = field.key in textMap ? textMap[field.key] : (item as unknown as Record<string, unknown>)[field.key]
     return raw ? <span className="truncate">{String(raw)}</span> : <span className="text-muted-foreground text-xs">—</span>
