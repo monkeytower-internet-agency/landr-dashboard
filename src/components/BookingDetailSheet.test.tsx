@@ -379,6 +379,77 @@ describe('BookingDetailSheet', () => {
     expect(body).toMatchObject({ branch: 'secondary', decision: 'approve' })
   })
 
+  // ---------------------------------------------------------------------
+  // landr-b304 — "Hotel declined" button, sibling to hotel-unblock.
+  // ---------------------------------------------------------------------
+
+  it('hides the hotel-declined button unless stage is awaiting_hotel_approval or awaiting_secondary_approval', () => {
+    render(<BookingDetailSheet row={makeRow()} onOpenChange={() => {}} />)
+    expect(
+      screen.queryByTestId('booking-hotel-decline-btn'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows both hotel-unblock and hotel-declined buttons at awaiting_hotel_approval stage', () => {
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_hotel_approval' },
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+    expect(
+      screen.getByRole('button', { name: /hotel confirmed/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByTestId('booking-hotel-decline-btn')).toBeInTheDocument()
+  })
+
+  it('shows both hotel-unblock and hotel-declined buttons at awaiting_secondary_approval stage', () => {
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_secondary_approval' },
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={() => {}} />)
+    expect(
+      screen.getByRole('button', { name: /hotel confirmed/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByTestId('booking-hotel-decline-btn')).toBeInTheDocument()
+  })
+
+  it('Hotel declined opens a confirm dialog and POSTs branch=secondary decision=reject with the optional note, closing the sheet on success', async () => {
+    const user = userEvent.setup()
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ booking_id: 'b' }), { status: 200 }),
+    )
+    const onOpenChange = vi.fn()
+    const row = makeRow({
+      current_semantic_state: 'pending',
+      current_stage: { code: 'awaiting_hotel_approval' },
+    })
+    render(<BookingDetailSheet row={row} onOpenChange={onOpenChange} />)
+
+    await user.click(screen.getByTestId('booking-hotel-decline-btn'))
+
+    const dialog = await screen.findByRole('alertdialog')
+    const noteInput = within(dialog).getByTestId('hotel-decline-note')
+    await user.type(noteInput, 'Hotel is fully booked')
+
+    const confirmBtn = within(dialog).getByTestId('hotel-decline-confirm')
+    await user.click(confirmBtn)
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
+    const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/staff/bookings/')
+    expect(url).toContain('/approval')
+    const body = JSON.parse(opts.body as string)
+    expect(body).toMatchObject({
+      branch: 'secondary',
+      decision: 'reject',
+      notes: 'Hotel is fully booked',
+    })
+    // Reject hard-cancels the booking — closes the sheet on success, same
+    // as the general-reject flow.
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+  })
+
   it('cancel flow requires a reason of >=3 chars before confirming', async () => {
     const user = userEvent.setup()
     fetchSpy.mockResolvedValueOnce(

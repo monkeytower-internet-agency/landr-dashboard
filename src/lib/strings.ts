@@ -1460,6 +1460,21 @@ export const t = {
       toastSuccess: 'Booking unblocked.',
       toastError: 'Failed to unblock booking.',
     },
+    // landr-b304 — "Hotel declined" counterpart to hotelUnblock. Wired to the
+    // same postHotelApprovalDecision RPC wrapper with decision='reject',
+    // which hard-cancels the booking (mirrors generalApprove.reject* wording).
+    hotelDecline: {
+      label: 'Hotel declined',
+      description:
+        'This will cancel the booking and notify the customer. You can add an optional note for the record.',
+      cancel: 'Keep waiting',
+      confirm: 'Decline & cancel booking',
+      working: 'Declining…',
+      toastSuccess: 'Booking cancelled — hotel declined.',
+      toastError: 'Failed to decline booking.',
+      noteLabel: 'Reason (optional)',
+      notePlaceholder: 'Why did the hotel decline?',
+    },
     // landr-hgd4 — general approve / reject directly from the detail sheet.
     // Mirrors the generalApprovals page strings so the operator sees the same
     // wording when acting from either surface.
