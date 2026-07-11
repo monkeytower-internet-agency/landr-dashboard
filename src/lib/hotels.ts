@@ -13,6 +13,7 @@
 //                   address for small hotels.
 import { z } from 'zod'
 import { api } from '@/lib/api-client'
+import { isValidPhoneFormat } from '@/lib/phone'
 
 export type Hotel = {
   id: string
@@ -66,7 +67,16 @@ export const hotelFormSchema = z.object({
       message: 'Enter a valid email address.',
     }),
   address: z.string().trim().min(1, 'Address is required.'),
-  phone: z.string().trim().min(1, 'Phone is required.'),
+  // landr-1url: nudge toward international format (no new dependency) — a
+  // non-empty phone must also look internationally-formatted (leading '+' +
+  // country code). Separators (spaces, dashes) are tolerated.
+  phone: z
+    .string()
+    .trim()
+    .min(1, 'Phone is required.')
+    .refine((v) => v === '' || isValidPhoneFormat(v), {
+      message: 'Include your country code, e.g. +34 600 000 000.',
+    }),
   maps_link: z
     .string()
     .trim()

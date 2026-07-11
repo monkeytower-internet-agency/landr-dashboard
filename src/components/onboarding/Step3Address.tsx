@@ -11,6 +11,7 @@ import {
   type OperatorPatch,
   type OperatorSettings,
 } from '@/lib/operatorSettings'
+import { isValidPhoneFormat, PHONE_HTML_PATTERN } from '@/lib/phone'
 import { t } from '@/lib/strings'
 import { StepShell } from './StepShell'
 
@@ -23,7 +24,12 @@ type Props = {
 
 export function Step3Address({ operator, operatorId, onAdvance, onBack }: Props) {
   const qc = useQueryClient()
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm<OperatorPatch>({
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { isSubmitting, errors },
+  } = useForm<OperatorPatch>({
     resolver: zodResolver(OperatorPatchSchema),
     defaultValues: {
       phone: operator.phone ?? '',
@@ -44,16 +50,46 @@ export function Step3Address({ operator, operatorId, onAdvance, onBack }: Props)
       toast.error(t.onboarding.saveError, { description: err.message }),
   })
 
+  // landr-1url: lightweight international-format nudge (no new dependency).
+  // OperatorPatchSchema is shared with CompanySettings.tsx and others, so we
+  // deliberately do NOT tighten it there — this step layers an extra, scoped
+  // phone-format check on top instead. Phone stays optional (blank passes);
+  // a filled value must look internationally-formatted (leading '+' +
+  // country code).
+  function onValid(v: OperatorPatch) {
+    const phone = v.phone ?? ''
+    if (phone.trim() && !isValidPhoneFormat(phone)) {
+      setError('phone', { type: 'manual', message: t.onboarding.step3.phoneError })
+      return
+    }
+    mutation.mutate(v)
+  }
+
   return (
     <StepShell heading={t.onboarding.step3.heading} body={t.onboarding.step3.body}>
       <form
-        onSubmit={handleSubmit((v) => mutation.mutate(v))}
+        onSubmit={handleSubmit(onValid)}
         className="space-y-4"
         aria-label={t.onboarding.step3.heading}
       >
         <div className="grid gap-1.5">
           <Label htmlFor="onb-phone">{t.settings.fieldPhone}</Label>
-          <Input id="onb-phone" type="tel" {...register('phone')} disabled={isSubmitting} />
+          <Input
+            id="onb-phone"
+            type="tel"
+            placeholder="+34 600 123 456"
+            pattern={PHONE_HTML_PATTERN}
+            {...register('phone')}
+            disabled={isSubmitting}
+          />
+          <p className="text-xs text-muted-foreground">
+            {t.onboarding.step3.phoneHint}
+          </p>
+          {errors.phone && (
+            <p role="alert" className="text-destructive text-xs">
+              {errors.phone.message}
+            </p>
+          )}
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="onb-street">{t.settings.fieldStreet}</Label>
