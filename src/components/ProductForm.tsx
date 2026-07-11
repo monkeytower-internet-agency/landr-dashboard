@@ -781,10 +781,6 @@ export function ProductForm({
               ['is_publicly_listed', t.products.flagPubliclyListed],
               ['needs_provider', t.products.flagNeedsProvider],
               ['needs_pickup', t.products.flagNeedsPickup],
-              [
-                'revenue_flows_through_operator',
-                t.products.flagRevenueThroughOperator,
-              ],
             ] as const
           ).map(([name, label]) => (
             <FormField
@@ -839,6 +835,36 @@ export function ProductForm({
             )}
           />
         </fieldset>
+
+        {/* landr-4er5 — revenue_flows_through_operator checkbox with explanatory
+            hint. Visible for all product kinds; drives whether the booking line
+            item counts toward the guest's Booking total (collected through the
+            operator account) or is shown separately as "pay at check-in". */}
+        <FormField
+          control={form.control}
+          name="revenue_flows_through_operator"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-start gap-3 space-y-0 rounded-md border p-3">
+              <FormControl>
+                <Checkbox
+                  checked={!!field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  ref={field.ref}
+                />
+              </FormControl>
+              <div className="flex flex-col gap-1">
+                <FormLabel className="cursor-pointer text-sm font-normal">
+                  {t.products.flagRevenueThroughOperator}
+                </FormLabel>
+                <FormDescription>
+                  {t.products.flagRevenueThroughOperatorHint}
+                </FormDescription>
+              </div>
+            </FormItem>
+          )}
+        />
 
         {/* landr-u34k — Add-ons management section. Only meaningful for
             existing products (the link rows reference parent_product_id,
