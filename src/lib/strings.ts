@@ -2159,6 +2159,8 @@ export const t = {
     flagNeedsProvider: 'Needs a provider',
     flagNeedsPickup: 'Needs pickup',
     flagRevenueThroughOperator: 'Revenue flows through operator',
+    flagRevenueThroughOperatorHint:
+      'On: this product\'s price counts toward the guest\'s Booking total, collected through your operator account at checkout. Off: the guest pays you directly (e.g. at check-in) — the widget shows this amount separately and excludes it from the Booking total.',
     // landr-u34k — is_addon_only checkbox + section copy. The flag hides
     // the product from the main list and restricts purchase to add-on
     // flows; the section manages product_addons rows for the current
