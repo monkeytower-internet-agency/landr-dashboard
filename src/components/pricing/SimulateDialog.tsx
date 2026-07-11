@@ -49,7 +49,10 @@ type Props = {
   onOpenChange: (open: boolean) => void
   schemeId: string
   operatorId: string
-  operatorSlug: string
+  /** landr-wl7h — the operator's opaque widget_token, NOT the slug. The
+   * public estimate endpoint's {token} path segment resolves against
+   * widget_token; passing the slug 404s every time. */
+  widgetToken: string
   /** Display-only; piped into the dialog header so the operator can confirm scope. */
   schemeName: string
 }
@@ -59,7 +62,7 @@ export function SimulateDialog({
   onOpenChange,
   schemeId,
   operatorId,
-  operatorSlug,
+  widgetToken,
   schemeName,
 }: Props) {
   return (
@@ -76,7 +79,7 @@ export function SimulateDialog({
           <SimulateDialogBody
             schemeId={schemeId}
             operatorId={operatorId}
-            operatorSlug={operatorSlug}
+            widgetToken={widgetToken}
           />
         ) : null}
       </DialogContent>
@@ -87,10 +90,10 @@ export function SimulateDialog({
 type BodyProps = {
   schemeId: string
   operatorId: string
-  operatorSlug: string
+  widgetToken: string
 }
 
-function SimulateDialogBody({ schemeId, operatorId, operatorSlug }: BodyProps) {
+function SimulateDialogBody({ schemeId, operatorId, widgetToken }: BodyProps) {
   // Default start date = today. Default 1 day, 1 participant — minimal
   // valid request the operator can immediately fire to see a baseline.
   const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
@@ -142,7 +145,7 @@ function SimulateDialogBody({ schemeId, operatorId, operatorSlug }: BodyProps) {
   const simulateMutation = useMutation({
     mutationFn: async () => {
       const days = consecutiveDays(startDate, dayCount)
-      return simulateEstimate(operatorSlug, productId, {
+      return simulateEstimate(widgetToken, productId, {
         selected_days: days,
         participants_count: participants,
       })

@@ -53,16 +53,24 @@ vi.mock('sonner', () => ({
   Toaster: () => null,
 }))
 
-// landr-5gk7 — the editor now reads currentOperator.slug via useOperator
-// so the Simulate button knows which public-API slug to call. We're not
-// exercising the simulator here, but we still need to satisfy the hook
-// contract (it throws if OperatorProvider isn't mounted). A bare-bones
-// mock keeps this test file focused on the reorder + render concerns it
-// was originally written for.
+// landr-5gk7 / landr-wl7h — the editor reads currentOperator.widget_token
+// via useOperator so the Simulate button knows which public-API token to
+// call. slug and widget_token are DELIBERATELY set to different values
+// here (landr-wl7h regression guard below relies on that distinction —
+// see 'passes widget_token, not slug, to SimulateDialog'). We're not
+// exercising the simulator here otherwise, but we still need to satisfy
+// the hook contract (it throws if OperatorProvider isn't mounted). A
+// bare-bones mock keeps this test file focused on the reorder + render
+// concerns it was originally written for.
 vi.mock('@/lib/operator', () => ({
   useOperator: () => ({
     operators: [],
-    currentOperator: { id: 'op-1', slug: 'op-slug', name: 'Op' },
+    currentOperator: {
+      id: 'op-1',
+      slug: 'op-slug',
+      widget_token: 'op-widget-token',
+      name: 'Op',
+    },
     currentOperatorId: 'op-1',
     loading: false,
     switchOperator: () => {},
@@ -72,9 +80,18 @@ vi.mock('@/lib/operator', () => ({
 
 // landr-5gk7 — stub the simulator dialog so this test file doesn't pull
 // in the products/api-client transitive deps that the dialog uses. The
-// dialog has its own dedicated test (SimulateDialog.test.tsx).
+// dialog has its own dedicated test (SimulateDialog.test.tsx). We still
+// record the props it's mounted with (landr-wl7h) so this file can assert
+// the editor threads widget_token — not slug — through to it, without
+// having to drive the real dialog's internals.
+const { simulateDialogPropsMock } = vi.hoisted(() => ({
+  simulateDialogPropsMock: vi.fn(),
+}))
 vi.mock('./SimulateDialog', () => ({
-  SimulateDialog: () => null,
+  SimulateDialog: (props: Record<string, unknown>) => {
+    simulateDialogPropsMock(props)
+    return null
+  },
 }))
 
 import { PricingSchemeEditorSheet } from './PricingSchemeEditorSheet'
@@ -153,6 +170,7 @@ beforeEach(() => {
   pricingMock.patchRule.mockImplementation((_op, id, body) =>
     Promise.resolve({ id, ...body }),
   )
+  simulateDialogPropsMock.mockReset()
 })
 
 afterEach(() => {
@@ -445,5 +463,30 @@ describe('PricingSchemeEditorSheet — unsaved-edit dirty guard (landr-0ulh / la
     expect(onClose).toHaveBeenCalledTimes(1)
 
     confirmSpy.mockRestore()
+  })
+
+  // landr-wl7h regression guard — SimulateDialog sent the operator's slug
+  // where the public estimate endpoint's {token} path segment actually
+  // expects widget_token (two different opaque values, never equal by
+  // design). That 404'd with "unknown widget token" on every environment
+  // for every operator. Assert the sheet threads currentOperator's
+  // widget_token — NOT slug — through as the `widgetToken` prop.
+  it('landr-wl7h: passes currentOperator.widget_token, not slug, to SimulateDialog', async () => {
+    render(
+      <PricingSchemeEditorSheet
+        schemeId="sch-1"
+        operatorId="op-1"
+        onClose={() => {}}
+      />,
+    )
+    await screen.findAllByText('Percentage discount')
+
+    await waitFor(() => expect(simulateDialogPropsMock).toHaveBeenCalled())
+    const lastCall = simulateDialogPropsMock.mock.calls.at(-1)?.[0] as {
+      widgetToken?: string
+    }
+    expect(lastCall.widgetToken).toBe('op-widget-token')
+    expect(lastCall.widgetToken).not.toBe('op-slug')
+    expect(lastCall).not.toHaveProperty('operatorSlug')
   })
 })

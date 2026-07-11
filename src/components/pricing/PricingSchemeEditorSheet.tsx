@@ -225,12 +225,13 @@ function SchemeEditor({ scheme, operatorId, onRefetch, onDirtyChange }: EditorPr
   }, [isDirty, onDirtyChange])
   const [newRuleKind, setNewRuleKind] = useState<RuleKind>('per_day_base')
   const [simulateOpen, setSimulateOpen] = useState(false)
-  // landr-5gk7 — the simulator dialog hits the public estimate endpoint,
-  // which is slug-scoped. The editor sheet is rendered inside the operator
-  // shell so currentOperator is always populated here; we guard the
-  // 'Simulate' button on its presence rather than throwing.
+  // landr-5gk7 / landr-wl7h — the simulator dialog hits the public estimate
+  // endpoint, which is keyed on the operator's widget_token (NOT the slug —
+  // those are two different opaque values). The editor sheet is rendered
+  // inside the operator shell so currentOperator is always populated here;
+  // we guard the 'Simulate' button on its presence rather than throwing.
   const { currentOperator } = useOperator()
-  const operatorSlug = currentOperator?.slug ?? null
+  const widgetToken = currentOperator?.widget_token ?? null
   const [nextSortOrder, setNextSortOrder] = useState(
     scheme.rules.length > 0
       ? Math.max(...scheme.rules.map((r) => r.sort_order)) + 10
@@ -380,16 +381,16 @@ function SchemeEditor({ scheme, operatorId, onRefetch, onDirtyChange }: EditorPr
             {scheme.active ? 'Active' : 'Inactive'}
           </Button>
           {/* landr-5gk7 — opens the pricing-rule simulator dialog. Disabled
-              when we don't yet know the operator slug (rare race during
-              initial load) so we never fire a public-API call with an
-              undefined slug. */}
+              when we don't yet know the operator's widget_token (rare race
+              during initial load) so we never fire a public-API call with
+              an undefined token. */}
           <Button
             type="button"
             size="sm"
             variant="outline"
             className="h-7 px-2 text-xs"
             onClick={() => setSimulateOpen(true)}
-            disabled={!operatorSlug}
+            disabled={!widgetToken}
           >
             Simulate
           </Button>
@@ -452,13 +453,13 @@ function SchemeEditor({ scheme, operatorId, onRefetch, onDirtyChange }: EditorPr
         {/* landr-5gk7 — pricing-rule simulator. Mounted alongside the
             editor so operators can preview their changes without leaving
             the sheet. */}
-        {operatorSlug ? (
+        {widgetToken ? (
           <SimulateDialog
             open={simulateOpen}
             onOpenChange={setSimulateOpen}
             schemeId={scheme.id}
             operatorId={operatorId}
-            operatorSlug={operatorSlug}
+            widgetToken={widgetToken}
             schemeName={scheme.name}
           />
         ) : null}
