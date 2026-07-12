@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -26,8 +26,8 @@ import {
 import { TimezonePicker } from '@/components/ui/timezone-picker'
 import { HotelPlacesSearch } from '@/components/hotels/HotelPlacesSearch'
 import {
+  buildHotelFormSchema,
   createHotel,
-  hotelFormSchema,
   updateHotel,
   type Hotel,
   type HotelFormValues,
@@ -74,6 +74,19 @@ type BodyProps = {
 function HotelFormSheetBody({ operatorId, editTarget, onClose }: BodyProps) {
   const queryClient = useQueryClient()
   const [autofillBanner, setAutofillBanner] = useState<'filled' | null>(null)
+
+  // landr-rhf8: grandfather legacy phone values — format is only enforced
+  // when the phone actually changes this session (vs. the stored record)
+  // or on create. HotelFormSheetBody remounts (via `key=`) whenever
+  // editTarget changes, so this only needs to be correct once per mount.
+  const hotelFormSchema = useMemo(
+    () =>
+      buildHotelFormSchema({
+        isCreate: !editTarget,
+        originalPhone: editTarget?.phone ?? '',
+      }),
+    [editTarget],
+  )
 
   const form = useForm<HotelFormValues>({
     resolver: zodResolver(hotelFormSchema),

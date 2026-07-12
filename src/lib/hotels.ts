@@ -54,48 +54,76 @@ const timeShape = () =>
       message: 'Use HH:MM format.',
     })
 
+export type HotelFormSchemaOptions = {
+  /** True when creating a new hotel — there's no stored value to grandfather
+   *  in, so format is always enforced. */
+  isCreate: boolean
+  /** The hotel's currently-stored phone (the form's defaultValues.phone).
+   *  Used to detect whether the operator actually touched the phone field
+   *  this session. */
+  originalPhone: string
+}
+
 // email + address + phone are REQUIRED; maps_link, website, contact_email,
 // checkin_time, checkout_time, timezone are optional (allow ''/null).
 // The email regex mirrors the API's HotelIn validator exactly so the form
 // rejects the same shapes the server would 422 on.
-export const hotelFormSchema = z.object({
-  name: z.string().trim().min(1, 'Name is required.'),
-  email: z
-    .string()
-    .trim()
-    .refine((v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), {
-      message: 'Enter a valid email address.',
-    }),
-  address: z.string().trim().min(1, 'Address is required.'),
-  // landr-1url: nudge toward international format (no new dependency) — a
-  // non-empty phone must also look internationally-formatted (leading '+' +
-  // country code). Separators (spaces, dashes) are tolerated.
-  phone: z
-    .string()
-    .trim()
-    .min(1, 'Phone is required.')
-    .refine((v) => v === '' || isValidPhoneFormat(v), {
-      message: 'Include your country code, e.g. +34 600 000 000.',
-    }),
-  maps_link: z
-    .string()
-    .trim()
-    .refine((v) => v === '' || /^https?:\/\//.test(v), {
-      message: 'Maps link must start with http(s)://',
-    }),
-  website: z
-    .string()
-    .trim()
-    .refine((v) => v === '' || /^https?:\/\//.test(v), {
-      message: 'Website must start with http(s)://',
-    }),
-  contact_email: emailShape('Enter a valid email address.'),
-  checkin_time: timeShape(),
-  checkout_time: timeShape(),
-  timezone: z.string().trim(),
-})
+//
+// landr-rhf8: phone-format enforcement is grandfathered for legacy records.
+// hotels.phone (hotel_details) has zero DB-level format constraint, so
+// pre-existing rows plausibly hold local-format numbers without a leading
+// '+'. landr-1url originally baked isValidPhoneFormat into a bare
+// `.refine()` on the field, which zodResolver evaluates on EVERY submit —
+// a hard gate that blocked edits to unrelated fields (name, address, ...)
+// on any hotel whose stored phone predates the rule. Moved into a
+// superRefine on the object so the format check only fires when the phone
+// value actually changed this session (vs. the form's defaultValues / the
+// stored record) or the hotel is being created; unchanged legacy values
+// pass untouched. Mirrors Step3Address's soft-scoping from the same PR,
+// just expressed inside the shared schema (passed straight to
+// zodResolver) instead of a manual setError in the submit handler.
+export function buildHotelFormSchema({ isCreate, originalPhone }: HotelFormSchemaOptions) {
+  return z
+    .object({
+      name: z.string().trim().min(1, 'Name is required.'),
+      email: z
+        .string()
+        .trim()
+        .refine((v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), {
+          message: 'Enter a valid email address.',
+        }),
+      address: z.string().trim().min(1, 'Address is required.'),
+      phone: z.string().trim().min(1, 'Phone is required.'),
+      maps_link: z
+        .string()
+        .trim()
+        .refine((v) => v === '' || /^https?:\/\//.test(v), {
+          message: 'Maps link must start with http(s)://',
+        }),
+      website: z
+        .string()
+        .trim()
+        .refine((v) => v === '' || /^https?:\/\//.test(v), {
+          message: 'Website must start with http(s)://',
+        }),
+      contact_email: emailShape('Enter a valid email address.'),
+      checkin_time: timeShape(),
+      checkout_time: timeShape(),
+      timezone: z.string().trim(),
+    })
+    .superRefine((values, ctx) => {
+      const phoneChanged = isCreate || values.phone !== originalPhone.trim()
+      if (phoneChanged && !isValidPhoneFormat(values.phone)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['phone'],
+          message: 'Include your country code, e.g. +34 600 000 000.',
+        })
+      }
+    })
+}
 
-export type HotelFormValues = z.infer<typeof hotelFormSchema>
+export type HotelFormValues = z.infer<ReturnType<typeof buildHotelFormSchema>>
 
 export async function fetchHotels(operatorId: string): Promise<Hotel[]> {
   return api<Hotel[]>('GET', `/api/staff/operators/${operatorId}/hotels`)
