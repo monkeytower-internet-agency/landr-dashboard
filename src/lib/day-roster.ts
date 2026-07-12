@@ -72,7 +72,10 @@ const SELECT = `
 /** Display name for a participant contact. Mirrors customerDisplay() /
  *  participantDisplayName(): `${first} ${last}` → email → em-dash. */
 export function participantContactName(
-  contact: RawParticipantRow['contact'],
+  contact:
+    | { first_name: string | null; last_name: string | null; email?: string | null }
+    | null
+    | undefined,
 ): string {
   if (!contact) return '—'
   const name = [contact.first_name, contact.last_name]
@@ -86,7 +89,7 @@ export function participantContactName(
 
 /** True when a participant row counts as flying (not a companion). */
 export function isFlyingParticipant(row: {
-  is_guiding: boolean | null
+  is_guiding?: boolean | null
 }): boolean {
   // Legacy NULL rows pre-date the is_guiding column and are flying by
   // backfill; only an explicit `false` marks a companion.
