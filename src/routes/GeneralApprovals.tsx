@@ -555,8 +555,11 @@ export function GeneralApprovals() {
             >
               {t.generalApprovals.cancel}
             </AlertDialogCancel>
+            {/* landr-wg2y: reject uses 'brand' (orange), not 'destructive'
+                (red) — it's the reject side of the approve/reject decision,
+                not a delete/erase action. */}
             <Button
-              variant={isApprove ? 'default' : 'destructive'}
+              variant={isApprove ? 'default' : 'brand'}
               disabled={mutation.isPending}
               onClick={() => mutation.mutate()}
             >

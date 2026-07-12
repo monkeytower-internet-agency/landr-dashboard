@@ -51,8 +51,10 @@ export function ApprovalRowContextMenu({
           <CheckIcon />
           {t.generalApprovals.rowContextMenu.approve}
         </ContextMenuItem>
+        {/* landr-wg2y: brand (orange), matching the row's inline reject
+            Button — reject side of approve/reject, not a delete/erase. */}
         <ContextMenuItem
-          variant="destructive"
+          variant="brand"
           onSelect={() => onDecide(row, 'reject')}
           data-testid="approvals-row-context-reject"
         >

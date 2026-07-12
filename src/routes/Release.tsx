@@ -1256,9 +1256,12 @@ function ProposalCard({
               <CheckIcon className="size-4" />
               {t.release.approveButton}
             </Button>
+            {/* landr-wg2y: brand (orange) — reject side of the
+                approve/reject decision on a deploy proposal; no data loss
+                and fully reversible (the proposer can resubmit). */}
             <Button
               size="sm"
-              variant="destructive"
+              variant="brand"
               onClick={() => openDialog('reject')}
             >
               <XIcon className="size-4" />
@@ -1341,8 +1344,10 @@ function ProposalCard({
             >
               {t.release.keep}
             </Button>
+            {/* landr-wg2y: reject uses 'brand' (orange), not 'destructive'
+                (red) — see the reject button above. */}
             <Button
-              variant={action === 'reject' ? 'destructive' : 'default'}
+              variant={action === 'reject' ? 'brand' : 'default'}
               onClick={() => mutation.mutate()}
               disabled={
                 mutation.isPending ||

@@ -1168,8 +1168,10 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
       />
 
       {/* landr-b304 — Hotel-declined confirmation. Mirrors the general-reject
-          dialog: optional note, destructive styling, cancels the booking via
-          postHotelApprovalDecision(decision:'reject') on confirm. */}
+          dialog: optional note, brand (orange) styling — this is the reject
+          side of an approve/reject decision, not a delete/erase — cancels
+          the booking via postHotelApprovalDecision(decision:'reject') on
+          confirm. landr-wg2y: kept off the red 'destructive' variant. */}
       <ConfirmActionDialog
         open={showHotelDecline}
         onOpenChange={(next) => {
@@ -1182,7 +1184,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         cancelLabel={t.bookings.hotelDecline.cancel}
         confirmLabel={t.bookings.hotelDecline.confirm}
         confirmingLabel={t.bookings.hotelDecline.working}
-        variant="destructive"
+        variant="brand"
         isPending={hotelDeclineMutation.isPending}
         onConfirm={() => hotelDeclineMutation.mutate()}
         confirmTestId="hotel-decline-confirm"
@@ -1282,7 +1284,11 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         </div>
       </ConfirmActionDialog>
 
-      {/* landr-ng3m — Mark-as-no-show confirmation */}
+      {/* landr-ng3m — Mark-as-no-show confirmation. landr-wg2y: kept on the
+          red 'destructive' variant — this is a terminal stage transition
+          that can immediately charge the customer a real cancellation fee
+          (see markBookingAsNoShow), so it deserves the same danger signal
+          as cancel/delete, not the brand-CTA treatment. */}
       <ConfirmActionDialog
         open={showNoShow}
         onOpenChange={(next) => {
@@ -1358,7 +1364,9 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         </div>
       </ConfirmActionDialog>
 
-      {/* landr-hgd4 — General reject confirmation */}
+      {/* landr-hgd4 — General reject confirmation. landr-wg2y: brand
+          (orange) — the reject side of the approve/reject decision, matches
+          GeneralApprovals' row/bulk reject actions; not a delete/erase. */}
       <ConfirmActionDialog
         open={showGeneralReject}
         onOpenChange={(next) => {
@@ -1371,7 +1379,7 @@ function BookingDetailBody({ row, onClose, onCustomerClick }: BodyProps) {
         cancelLabel={t.bookings.generalApprove.cancel}
         confirmLabel={t.bookings.generalApprove.confirmReject}
         confirmingLabel={t.bookings.generalApprove.rejecting}
-        variant="destructive"
+        variant="brand"
         isPending={generalRejectMutation.isPending}
         onConfirm={() => generalRejectMutation.mutate()}
         confirmTestId="general-reject-confirm"
