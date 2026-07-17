@@ -78,7 +78,7 @@ import {
 import { groupRows, useGroupCollapse } from '@/lib/views-group-by'
 import type { BookingItem } from '@/lib/views-bookings-data'
 import { customerDisplay } from '@/lib/bookings'
-import { bookingRef } from '@/lib/day-roster'
+import { bookingRef, isFlyingParticipant, participantContactName } from '@/lib/day-roster'
 import { t } from '@/lib/strings'
 import { getCurrencyFormatter } from '@/lib/format-currency'
 
@@ -524,27 +524,12 @@ type PilotBookingGroup = {
   items: PilotTableRow[]
 }
 
-function isPilotParticipant(p: { is_guiding?: boolean | null }): boolean {
-  return p.is_guiding !== false
-}
-
-function pilotContactName(
-  contact:
-    | { first_name: string | null; last_name: string | null }
-    | null
-    | undefined,
-): string {
-  if (!contact) return '—'
-  const name = [contact.first_name, contact.last_name].filter(Boolean).join(' ').trim()
-  return name || '—'
-}
-
 function buildPilotGroups(items: BookingItem[]): PilotBookingGroup[] {
   const order: string[] = []
   const byBooking = new Map<string, PilotBookingGroup>()
   for (const item of items) {
     for (const p of item.participants ?? []) {
-      if (!isPilotParticipant(p)) continue // companion — excluded by default
+      if (!isFlyingParticipant(p)) continue // companion — excluded by default
       let group = byBooking.get(item.id)
       if (!group) {
         group = {
@@ -558,7 +543,7 @@ function buildPilotGroups(items: BookingItem[]): PilotBookingGroup[] {
       group.items.push({
         bookingId: item.id,
         participantId: p.id,
-        name: pilotContactName(p.contact),
+        name: participantContactName(p.contact),
         phone: p.contact?.phone ?? null,
         pickupLocationName: p.pickup_location?.name ?? null,
       })
