@@ -13,13 +13,26 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        // brand: reject/cancel actions use the logo orange (bookings hue
-        // "vivid" token, #F5821F) with dark text (orange is light → white
-        // fails contrast). References the shared --color-hue-bookings-vivid
-        // token (not a raw hex) so it stays in sync with the rest of the
-        // bookings hue family. Form-error red is unaffected — that uses the
-        // --destructive *token* (aria-invalid), not this button variant.
+        // landr-wg2y: 'destructive' was repurposed to brand-orange (below),
+        // which stripped the danger signal from 26+ genuine delete/erase/
+        // revoke call sites. Restored to the theme's --destructive red token
+        // (same one FormErrorAlert/aria-invalid already use) so real
+        // data-loss actions read as dangerous again in both light and dark.
         destructive:
+          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
+        // brand: the logo orange (bookings hue "vivid" token, #F5821F) with
+        // dark text (orange is light → white fails contrast). References the
+        // shared --color-hue-bookings-vivid token (not a raw hex) so it stays
+        // in sync with the rest of the bookings hue family. For CTAs that
+        // aren't actually destructive but want the brand accent — e.g. the
+        // reject side of an approve/reject decision (GeneralApprovals,
+        // Release proposals) — where orange reads as "this is a normal
+        // business decision", not a scary warning. Actions with real
+        // financial/data consequences (delete, revoke, cancel, no-show +
+        // fee) stay on 'destructive' even when framed as a "reject". Form-
+        // error red is unaffected — that uses the --destructive *token*
+        // (aria-invalid), not this button variant.
+        brand:
           "bg-hue-bookings-vivid text-black hover:bg-hue-bookings-vivid/90 focus-visible:ring-hue-bookings-vivid/40",
         outline:
           // landr-z7t: outline button gets compound shadow-s so it lifts off

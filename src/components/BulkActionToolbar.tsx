@@ -154,10 +154,12 @@ export function BulkActionToolbar({
         ) : null}
 
         {actions.includes('reject') ? (
+          // landr-wg2y: brand (orange) — reject side of GeneralApprovals'
+          // approve/reject decision, not a delete/erase action.
           <Button
             type="button"
             size="sm"
-            variant="destructive"
+            variant="brand"
             onClick={() => setConfirmReject(true)}
             disabled={busy}
             data-testid={`${testIdPrefix}-reject`}
@@ -287,7 +289,7 @@ export function BulkActionToolbar({
               {t.bulkActions.cancel}
             </AlertDialogCancel>
             <Button
-              variant="destructive"
+              variant="brand"
               disabled={busy}
               onClick={async () => {
                 await handle(onReject)

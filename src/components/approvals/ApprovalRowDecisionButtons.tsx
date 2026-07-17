@@ -29,9 +29,11 @@ export function ApprovalRowDecisionButtons({
       >
         {t.generalApprovals.actionApprove}
       </Button>
+      {/* landr-wg2y: brand (orange) — reject side of the approve/reject
+          decision, not a delete/erase action. */}
       <Button
         size="sm"
-        variant="destructive"
+        variant="brand"
         onClick={() => onDecide(row, 'reject')}
         aria-label={`${t.generalApprovals.actionReject} booking ${row.id}`}
       >

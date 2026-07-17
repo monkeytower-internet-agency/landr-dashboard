@@ -21,7 +21,7 @@ type Props = {
   confirmLabel: string
   /** Label shown while isPending is true. Defaults to confirmLabel. */
   confirmingLabel?: string
-  variant?: 'default' | 'destructive'
+  variant?: 'default' | 'destructive' | 'brand'
   isPending: boolean
   /** Whether the Confirm button should be disabled (in addition to isPending). */
   confirmDisabled?: boolean
