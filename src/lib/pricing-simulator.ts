@@ -2,10 +2,16 @@
  * Pricing rule simulator (landr-5gk7).
  *
  * Thin typed wrapper around the public estimate endpoint
- *   POST /api/public/operators/{slug}/products/{product_id}/estimate
- * which is the same endpoint the storefront booking widget calls. We
- * reuse it from Settings → Pricing so operators can preview how rules
- * fire on a dummy booking before they ever go live.
+ *   POST /api/public/operators/{token}/products/{product_id}/estimate
+ * which is the same endpoint the storefront booking widget calls. The
+ * `{token}` path segment is the operator's opaque `widget_token` — NOT
+ * the slug; the backend resolves it via `_resolve_operator_by_token()`
+ * (app/routers/public_operators.py), which looks up `widget_token`
+ * specifically (landr-wl7h — this docstring previously said `{slug}`,
+ * which was the root cause of a standing "unknown widget token" 404 on
+ * every simulate call since the feature shipped). We reuse it from
+ * Settings → Pricing so operators can preview how rules fire on a dummy
+ * booking before they ever go live.
  *
  * Why the public endpoint? The server-side compute is the canonical
  * pricing engine (see landr-xbqh in app/routers/public_operators.py) —
@@ -14,6 +20,29 @@
  * listed + active; the dialog filters the picker accordingly.
  */
 import { apiBase } from '@/lib/api-client'
+
+/**
+ * landr-y3oj.3 codegen note: these types are deliberately NOT sourced from
+ * the generated `components['schemas']['EstimateRequest'|'EstimateResponse'|
+ * 'EstimateLineItem'|'EstimateAppliedRule']` (src/types/api.gen.ts), same
+ * conclusion as the booking widget's src/api/types.ts (see its matching
+ * comments):
+ *   - `EstimateResponse`/`EstimateLineItem` (Python) have
+ *     `model_config = {"extra": "allow"}`, so openapi-typescript adds a
+ *     `& { [key: string]: unknown }` catch-all and marks fields with
+ *     Field(default_factory=...) defaults optional even though the router
+ *     always serializes them.
+ *   - `paid_to`/`kind` are typed `str` in Python (not `Literal[...]`), so
+ *     the generated schema can't narrow them the way `SimulateLineItem`
+ *     does.
+ *   - `EstimateAppliedRule` (Python) is a strict superset — it also
+ *     carries rule_id/before/after/skipped/skipped_reason — while
+ *     `SimulateAppliedRule` below only declares the fields the simulator
+ *     UI reads; already flagged as a divergence in landr-y3oj.1's handoff.
+ * Adopting the generated types as-is would lose the literal-union +
+ * required-field guarantees for no behavioural gain. Codegen gaps on the
+ * API model side, not something to paper over here.
+ */
 
 /** Body sent to POST .../estimate. Mirrors EstimateRequest server-side. */
 export type SimulateEstimateRequest = {
@@ -63,17 +92,21 @@ export type SimulateEstimateResponse = {
  * signed in). The dashboard simulator is a read-only preview so the
  * lack of staff-scoped auth is fine.
  *
+ * `widgetToken` must be the operator's `widget_token` (operators table),
+ * NOT the slug — the two are different opaque values and the backend
+ * only matches on widget_token (landr-wl7h).
+ *
  * Throws an Error carrying the FastAPI `detail` payload when the
  * server responds non-2xx (e.g. 404 for non-publicly-listed products,
  * 400 for unknown add-ons). UI surfaces the message inline.
  */
 export async function simulateEstimate(
-  operatorSlug: string,
+  widgetToken: string,
   productId: string,
   body: SimulateEstimateRequest,
 ): Promise<SimulateEstimateResponse> {
   const url =
-    `${apiBase()}/api/public/operators/${encodeURIComponent(operatorSlug)}` +
+    `${apiBase()}/api/public/operators/${encodeURIComponent(widgetToken)}` +
     `/products/${encodeURIComponent(productId)}/estimate`
   const res = await fetch(url, {
     method: 'POST',
@@ -107,6 +140,15 @@ export async function simulateEstimate(
  * Returns an empty array when count <= 0 or startISO is malformed.
  * Exported (not just used internally) so the dialog tests can drive
  * the same date computation without re-implementing it.
+ *
+ * landr-y3oj.3: this is now byte-for-byte the same algorithm as
+ * landr-mobile's consecutiveDays() (src/features/pricing/lib/pricing-model.ts)
+ * — aligned during the contracts-adoption pass after an audit found the two
+ * repos had independently-drifted implementations. They still can't be a
+ * single shared module — the sub-repos are bare gitlinks with no
+ * workspace/publishing mechanism (see the landr-y3oj epic) — codegen would
+ * need to ship shared TS *snippets* (not just types) for that; until then,
+ * keep both copies manually in sync and keep their unit tests identical.
  */
 export function consecutiveDays(startISO: string, count: number): string[] {
   if (count <= 0) return []
@@ -128,10 +170,10 @@ export function consecutiveDays(startISO: string, count: number): string[] {
 /**
  * Human-readable label for a rule_kind. Mirrors RULE_KIND_LABELS in
  * src/lib/pricingSchemes.ts but adds the engine-internal kinds that
- * the editor doesn't expose (manual_override, voucher_*). We don't
- * import the editor's map directly so future kinds added on the
- * engine side surface gracefully (fall back to the raw kind string)
- * without requiring a coupled change in the editor enum.
+ * the editor doesn't expose (voucher_*, applied after the rule pipeline
+ * — see pricing.py). We don't import the editor's map directly so future
+ * kinds added on the engine side surface gracefully (fall back to the
+ * raw kind string) without requiring a coupled change in the editor enum.
  */
 export function ruleKindLabel(kind: string): string {
   const map: Record<string, string> = {
@@ -142,6 +184,7 @@ export function ruleKindLabel(kind: string): string {
     percentage_discount: 'Percentage discount',
     flat_discount: 'Flat discount',
     fixed_total: 'Fixed total',
+    time_of_day_surcharge: 'Time-of-day surcharge',
     manual_override: 'Manual override',
     voucher_percentage: 'Voucher (percentage)',
     voucher_flat: 'Voucher (flat)',

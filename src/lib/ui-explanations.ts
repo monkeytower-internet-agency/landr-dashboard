@@ -77,6 +77,10 @@ export const EXPLANATIONS: Record<ExplanationConcept, Record<string, string>> =
         'Flat per-night or per-booking discount subtracted from the base price.',
       fixed_total:
         'Fixed total price for the whole booking — overrides per-night and per-participant pricing.',
+      time_of_day_surcharge:
+        'Adds a per-day surcharge when the product runs within a configured time-of-day window (e.g. evening slots).',
+      manual_override:
+        'Manually overrides the computed price with a fixed total, with an optional reason logged for audit — halts all later rules and the voucher path.',
     },
   }
 

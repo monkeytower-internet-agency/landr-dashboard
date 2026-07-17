@@ -17,7 +17,12 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 import { supabase } from '@/lib/supabase'
-import { groupFeaturesByCategory, setPackageFeatureConfig, type Feature } from '@/lib/tiers'
+import {
+  groupFeaturesByCategory,
+  setOperatorFeatureConfig,
+  setPackageFeatureConfig,
+  type Feature,
+} from '@/lib/tiers'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -233,6 +238,67 @@ describe('setPackageFeatureConfig (landr-cpcd)', () => {
         featureId: 'feat-1',
         config: {},
         enabled: true,
+      }),
+    ).rejects.toThrow('RLS denied')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// setOperatorFeatureConfig — bd landr-c53m.15
+//
+// Real fix, replacing the landr-7hac interim workaround: operator_features.
+// enabled is now NULLABLE with no DEFAULT (landr-api migration
+// 20260703072000_operator_features_enabled_nullable), so this config-only
+// upsert can go back to what it always should have been — a TRUE partial
+// write that never touches `enabled`:
+//   - a params-only edit on a feature with NO existing override now inserts
+//     enabled=NULL (inherit), not a materialized value — so the feature
+//     stays correctly decoupled from any override and keeps tracking future
+//     tier-default changes.
+//   - a params-only edit on a feature WITH an existing override leaves its
+//     enabled column untouched (PostgREST upsert's DO UPDATE SET only
+//     touches payload columns), so an explicit forced-on/forced-off state
+//     survives a param tweak unchanged.
+// ---------------------------------------------------------------------------
+
+describe('setOperatorFeatureConfig (landr-c53m.15)', () => {
+  beforeEach(() => {
+    mockUpsert.mockReset()
+    mockUpsert.mockResolvedValue({ error: null })
+    vi.mocked(supabase.from).mockReturnValue({ upsert: mockUpsert } as unknown as ReturnType<typeof supabase.from>)
+  })
+
+  it('never includes `enabled` in the upsert payload — a params-only write must not touch it', async () => {
+    await setOperatorFeatureConfig({
+      operatorId: 'op-1',
+      featureId: 'feat-1',
+      config: { max_products: 50 },
+      enabledByUserId: 'user-1',
+    })
+
+    expect(supabase.from).toHaveBeenCalledWith('operator_features')
+    const [payload] = mockUpsert.mock.calls[0]!
+    expect(payload).not.toHaveProperty('enabled')
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operator_id: 'op-1',
+        feature_id: 'feat-1',
+        config: { max_products: 50 },
+        enabled_by_user_id: 'user-1',
+      }),
+      expect.objectContaining({ onConflict: 'operator_id,feature_id' }),
+    )
+  })
+
+  it('throws when supabase returns an error', async () => {
+    mockUpsert.mockResolvedValue({ error: { message: 'RLS denied' } })
+
+    await expect(
+      setOperatorFeatureConfig({
+        operatorId: 'op-1',
+        featureId: 'feat-1',
+        config: {},
+        enabledByUserId: 'user-1',
       }),
     ).rejects.toThrow('RLS denied')
   })

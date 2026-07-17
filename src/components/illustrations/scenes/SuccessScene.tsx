@@ -4,8 +4,11 @@
  * explosion, sparkle stars everywhere. Sunny alpine backdrop.
  */
 
+import { useId } from 'react'
+
 export function SuccessScene({ className }: { className?: string }) {
   const outline = "#2B1A0F";
+  const uid = useId();
 
   return (
     <svg
@@ -16,17 +19,17 @@ export function SuccessScene({ className }: { className?: string }) {
       aria-hidden="true"
     >
       <defs>
-        <linearGradient id="ss-sky" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`${uid}-sky`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--comic-success-sky, #7FA8E8)" />
           <stop offset="100%" stopColor="var(--comic-gold, #FFE9B8)" />
         </linearGradient>
-        <linearGradient id="ss-trophy" x1="0" y1="0" x2="1" y2="0">
+        <linearGradient id={`${uid}-trophy`} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="#E8A000" />
           <stop offset="50%" stopColor="#FFD700" />
           <stop offset="100%" stopColor="#E8A000" />
         </linearGradient>
       </defs>
-      <rect width="240" height="200" rx="16" fill="url(#ss-sky)" />
+      <rect width="240" height="200" rx="16" fill={`url(#${uid}-sky)`} />
 
       {/* ground */}
       <path d="M0 168 Q60 158 120 165 Q180 172 240 162 L240 200 L0 200 Z"
@@ -52,25 +55,25 @@ export function SuccessScene({ className }: { className?: string }) {
       {/* trophy cup */}
       {/* base */}
       <rect x="98" y="153" width="44" height="8" rx="4"
-        fill="url(#ss-trophy)" stroke={outline} strokeWidth="2.5" />
+        fill={`url(#${uid}-trophy)`} stroke={outline} strokeWidth="2.5" />
       <rect x="88" y="158" width="64" height="10" rx="5"
-        fill="url(#ss-trophy)" stroke={outline} strokeWidth="2.5" />
+        fill={`url(#${uid}-trophy)`} stroke={outline} strokeWidth="2.5" />
       {/* stem */}
       <rect x="112" y="138" width="16" height="20" rx="4"
-        fill="url(#ss-trophy)" stroke={outline} strokeWidth="2.5" />
+        fill={`url(#${uid}-trophy)`} stroke={outline} strokeWidth="2.5" />
       {/* cup body */}
       <path d="M72 72 Q68 115 88 135 Q100 145 120 145 Q140 145 152 135 Q172 115 168 72 Z"
-        fill="url(#ss-trophy)" stroke={outline} strokeWidth="2.5" strokeLinejoin="round" />
+        fill={`url(#${uid}-trophy)`} stroke={outline} strokeWidth="2.5" strokeLinejoin="round" />
       {/* cup inner shadow */}
       <path d="M80 80 Q78 110 92 130 Q104 140 120 140"
         fill="none" stroke="#C87A00" strokeWidth="6" opacity="0.35" strokeLinecap="round" />
       {/* handles */}
       <path d="M72 80 Q52 80 52 100 Q52 120 72 118"
-        fill="none" stroke="url(#ss-trophy)" strokeWidth="12" strokeLinecap="round" />
+        fill="none" stroke={`url(#${uid}-trophy)`} strokeWidth="12" strokeLinecap="round" />
       <path d="M72 80 Q52 80 52 100 Q52 120 72 118"
         fill="none" stroke={outline} strokeWidth="2.5" strokeLinecap="round" />
       <path d="M168 80 Q188 80 188 100 Q188 120 168 118"
-        fill="none" stroke="url(#ss-trophy)" strokeWidth="12" strokeLinecap="round" />
+        fill="none" stroke={`url(#${uid}-trophy)`} strokeWidth="12" strokeLinecap="round" />
       <path d="M168 80 Q188 80 188 100 Q188 120 168 118"
         fill="none" stroke={outline} strokeWidth="2.5" strokeLinecap="round" />
       {/* paraglider wing inside cup */}

@@ -221,7 +221,13 @@ export async function fetchOperators(): Promise<OperatorSummary[]> {
 export type OperatorFeature = {
   operator_id: string
   feature_id: string
-  enabled: boolean
+  // NULL = no explicit override (inherits the operator's tier default, then
+  // the registry default) — landr-api migration
+  // 20260703072000_operator_features_enabled_nullable (bd landr-c53m.15)
+  // dropped NOT NULL + DEFAULT so a params-only write can genuinely omit
+  // this column. true/false = an explicit staff forced-on/forced-off
+  // override.
+  enabled: boolean | null
   note: string | null
   config: Record<string, unknown> | null
 }
@@ -289,6 +295,25 @@ export async function clearOperatorFeature(args: {
 /**
  * Upsert the config blob for an operator_features row. Creates the row if it
  * does not exist yet (e.g. staff sets params before forcing the toggle).
+ *
+ * bd landr-c53m.15 (real fix, replacing the landr-7hac interim workaround):
+ * this is a TRUE partial upsert — `enabled` is deliberately OMITTED from the
+ * payload, never touched by a params-only edit. That is safe now because
+ * landr-api migration 20260703072000_operator_features_enabled_nullable
+ * dropped NOT NULL + DEFAULT on operator_features.enabled:
+ *   - existing row (an override already exists): the upsert's DO UPDATE SET
+ *     only touches the columns present in the payload, so the stored
+ *     `enabled` (true/false/NULL) is left exactly as it was.
+ *   - no existing row (first-time params-only write, e.g. staff sets a
+ *     param before ever forcing the toggle): the omitted column now
+ *     inserts as NULL instead of materializing the old `false` DEFAULT —
+ *     the resolvers' `COALESCE(ofe.enabled, pf.enabled, f.default_enabled,
+ *     false)` already treats NULL as "no override, inherit the tier/
+ *     registry default", so the feature correctly stays decoupled from any
+ *     override and keeps tracking future tier-default changes.
+ *
+ * `enabled` is written ONLY by setOperatorFeature (the explicit force-on /
+ * force-off action) — never by this config-only path.
  */
 export async function setOperatorFeatureConfig(args: {
   operatorId: string

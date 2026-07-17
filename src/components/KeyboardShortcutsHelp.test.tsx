@@ -83,7 +83,7 @@ describe("KeyboardShortcutsHelp — '?' hot-key", () => {
   it('closes on Escape', async () => {
     const user = userEvent.setup()
     renderHelp()
-    await user.click(screen.getByText('open help'))
+    await user.click(screen.getByRole('button', { name: 'open help' }))
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     await user.keyboard('{Escape}')
     await act(async () => {
@@ -120,7 +120,7 @@ describe('KeyboardShortcutsHelp — sheet contents', () => {
   it('renders the documented shortcuts grouped by category', async () => {
     const user = userEvent.setup()
     renderHelp()
-    await user.click(screen.getByText('open help'))
+    await user.click(screen.getByRole('button', { name: 'open help' }))
     const dialog = await screen.findByRole('dialog')
 
     // The three group headings must be present.

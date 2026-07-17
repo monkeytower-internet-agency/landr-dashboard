@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { t } from '@/lib/strings'
 import type { ProductsSort } from '@/lib/products-sort'
+import type { Enums, Tables } from '@/types/database.gen'
 
 // Mirrors public.product_kind + public.service_time_shape after the
 // landr-glx refactor that replaced the single product_duration_kind enum.
@@ -21,19 +22,15 @@ import type { ProductsSort } from '@/lib/products-sort'
 // from migration 20260520100100_products_hotel_room_columns.sql:
 //   (product_kind='hotel_room') = (hotel_location_id IS NOT NULL)
 //   product_kind='service' OR hotel_offering='none'
-export type ProductKind =
-  | 'service'
-  | 'subscription'
-  | 'digital_good'
-  | 'physical_good'
-  | 'gift_card'
-  | 'hotel_room'
+//
+// landr-52ik.5 — both are native Postgres enums; derived from the generated
+// schema (database.gen.ts) so drift between the DB and the dashboard is
+// caught by tsc instead of rotting silently. Single source of truth — other
+// modules (e.g. lib/bookings.ts) re-export from here rather than
+// re-declaring.
+export type ProductKind = Enums<'product_kind'>
 
-export type ServiceTimeShape =
-  | 'single_date'
-  | 'days_range'
-  | 'fixed_window'
-  | 'time_slot'
+export type ServiceTimeShape = Enums<'service_time_shape'>
 
 // landr-ssrx — drives whether the booking widget renders the accommodation
 // step for a (service) product: none = hide, optional = show with skip,
@@ -70,12 +67,30 @@ export type ProductGroupRef = {
 
 // A product row, projected with the joins we need for the dashboard
 // (pricing scheme name + product group name shown in the list).
+//
+// landr-y3oj.3 — scalar field types below are indexed off the generated
+// `Tables<'products'>` (database.gen.ts) — `Tables<'products'>['id']`
+// etc. — instead of re-declared literals, so a migration that
+// renames/retypes/drops a column is caught by tsc, while keeping the
+// per-field domain comments a flat `Pick<>` can't carry. Three fields stay
+// fully hand-typed because the generated schema is provably WIDER there
+// (not a case of "don't force it" — these are genuine, narrower-is-correct
+// overrides, not gaps to paper over):
+//   - name_localized / short_description_localized: jsonb columns type as
+//     the fully-recursive `Json` in the generated Row (Postgres jsonb
+//     carries no static value-type info); this codebase's localized-jsonb
+//     convention is always Record<locale, string>.
+//   - hotel_offering: `text` + a CHECK constraint in Postgres, not a native
+//     enum, so codegen can only emit `string`; `HotelOffering` is this
+//     app's own narrower convention (kept in sync manually with the CHECK).
+// pricing_scheme / product_group / hotel_location are PostgREST embeds
+// (joins), not part of the base table Row, so they stay hand-declared.
 export type ProductRow = {
-  id: string
-  operator_id: string
-  product_group_id: string | null
-  slug: string
-  name: string
+  id: Tables<'products'>['id']
+  operator_id: Tables<'products'>['operator_id']
+  product_group_id: Tables<'products'>['product_group_id']
+  slug: Tables<'products'>['slug']
+  name: Tables<'products'>['name']
   // landr-14s4 — per-locale overrides ({ locale: text }) for name +
   // short_description. The widget renders exact locale → base-language →
   // base column (pickLocalized); an absent key inherits the base field.
@@ -83,40 +98,44 @@ export type ProductRow = {
   // column exists but no public RPC returns it) — see ProductForm + the
   // follow-up bead. We deliberately don't surface description_localized here.
   name_localized: Record<string, string> | null
-  short_description: string | null
+  short_description: Tables<'products'>['short_description']
   short_description_localized: Record<string, string> | null
-  description: string | null
+  description: Tables<'products'>['description']
   product_kind: ProductKind
   service_time_shape: ServiceTimeShape | null
-  is_contiguous: boolean
-  duration_minutes: number | null
-  fixed_start_date: string | null
-  fixed_end_date: string | null
-  default_pricing_scheme_id: string | null
-  needs_provider: boolean
-  needs_pickup: boolean
-  revenue_flows_through_operator: boolean
-  is_publicly_listed: boolean
-  active: boolean
-  sort_order: number
+  is_contiguous: Tables<'products'>['is_contiguous']
+  duration_minutes: Tables<'products'>['duration_minutes']
+  fixed_start_date: Tables<'products'>['fixed_start_date']
+  fixed_end_date: Tables<'products'>['fixed_end_date']
+  default_pricing_scheme_id: Tables<'products'>['default_pricing_scheme_id']
+  needs_provider: Tables<'products'>['needs_provider']
+  needs_pickup: Tables<'products'>['needs_pickup']
+  revenue_flows_through_operator: Tables<'products'>['revenue_flows_through_operator']
+  is_publicly_listed: Tables<'products'>['is_publicly_listed']
+  active: Tables<'products'>['active']
+  sort_order: Tables<'products'>['sort_order']
   // landr-ssrx — hotel-room columns. hotel_location_id is non-null iff
   // product_kind='hotel_room'. hotel_offering is 'none' for any non-service
   // kind (forced by DB CHECK); only kind='service' rows can carry
   // 'optional' or 'mandatory'.
-  hotel_location_id: string | null
+  hotel_location_id: Tables<'products'>['hotel_location_id']
   hotel_offering: HotelOffering
   // landr-u34k — when true, the product is hidden from the main product
   // list and is only purchasable as an add-on of another product (via
   // product_addons.addon_product_id). Distinct from is_publicly_listed;
   // a row can be addon_only AND publicly_listed for the storefront widget.
-  is_addon_only: boolean
+  is_addon_only: Tables<'products'>['is_addon_only']
   // landr-fi68 / landr-knm0 — max people accommodated by one unit of this
   // product. Meaningful today for kind='hotel_room' (room sleeps N); NULL
   // elsewhere by convention. DB CHECK enforces NULL OR >= 1.
-  capacity_per_unit: number | null
-  deleted_at: string | null
-  created_at: string
-  updated_at: string
+  capacity_per_unit: Tables<'products'>['capacity_per_unit']
+  // landr-c53m.4 — whether a hotel_room product's rate includes breakfast.
+  // Only meaningful for kind='hotel_room'; branches booking-confirmation
+  // email content (landr-api booking_emails.py).
+  includes_breakfast: Tables<'products'>['includes_breakfast']
+  deleted_at: Tables<'products'>['deleted_at']
+  created_at: Tables<'products'>['created_at']
+  updated_at: Tables<'products'>['updated_at']
   pricing_scheme: { id: string; name: string; currency: string } | null
   product_group: { id: string; name: string; slug: string } | null
   // landr-ssrx — joined hotel name for the list-grouping header on
@@ -151,6 +170,7 @@ const SELECT = `
   hotel_offering,
   is_addon_only,
   capacity_per_unit,
+  includes_breakfast,
   deleted_at,
   created_at,
   updated_at,
@@ -349,6 +369,8 @@ export type ProductWritePayload = {
   // landr-fi68 / landr-knm0 — max people per unit (rooms today). NULL when
   // the operator hasn't set a value or the kind doesn't carry the semantic.
   capacity_per_unit: number | null
+  // landr-c53m.4 — see ProductRow comment. Only meaningful on kind='hotel_room'.
+  includes_breakfast: boolean
 }
 
 // Recognise both the FastAPI api()-wrapper error code and the raw Postgres

@@ -75,5 +75,5 @@
   <path d="M65 85 L72 78" stroke="#F7B32B" stroke-width="2" stroke-linecap="round"/>
   <path d="M60 92 L64 83" stroke="#F7B32B" stroke-width="2" stroke-linecap="round"/>
   <path d="M72 78 L78 72" stroke="#F7B32B" stroke-width="2" stroke-linecap="round"/>
-  <polygon points="38,-70 40.6,-62.5 47.5,-62.5 42.2,-57 44.3,-49.5 38,-53.7 31.7,-49.5 33.8,-57 28.5,-62.5 35.4,-62.5" fill="#F7B32B" stroke="#2B1A0F" stroke-width="1.5"/>
+  <polygon points="38,70 40,75.3 45.6,75.5 41.2,79 42.7,84.5 38,81.4 33.3,84.5 34.8,79 30.4,75.5 36,75.3" fill="#F7B32B" stroke="#2B1A0F" stroke-width="1.5"/>
 </svg>

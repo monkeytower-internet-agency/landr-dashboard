@@ -8,13 +8,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useOperator } from '@/lib/operator'
+import { displayName, useOperator } from '@/lib/operator'
 import { useEntitlements } from '@/lib/entitlements'
 import { t } from '@/lib/strings'
-
-function displayName(name: string | null, slug: string): string {
-  return name && name.trim().length > 0 ? name : slug
-}
 
 // landr-2soj — STAFF-ONLY "View as operator" picker. Renders the all-operators
 // list (from the SEPARATE staffOperators query in OperatorProvider — NOT the
@@ -83,7 +79,9 @@ export function OperatorSwitcher() {
     const only = operators[0]
     return (
       <span
-        className="text-foreground max-w-[8rem] truncate text-sm font-medium sm:max-w-[16rem]"
+        // landr-fd5m.1 — tightened from 8rem to 6rem below sm so the
+        // never-fold floor (this label + staff chrome) fits at 360px.
+        className="text-foreground max-w-[6rem] truncate text-sm font-medium sm:max-w-[16rem]"
         aria-label={t.operator.switcherLabel}
       >
         {displayName(only.name, only.slug)}
@@ -105,7 +103,9 @@ export function OperatorSwitcher() {
           // landr-gu14 — cap the trigger width on phone so a long operator
           // name can't push the page title clean off the topbar. Desktop
           // keeps the original auto-width behaviour.
-          className="max-w-[8rem] justify-between gap-2 sm:max-w-none"
+          // landr-fd5m.1 — tightened from 8rem to 6rem: the staff-chrome
+          // never-fold floor needs the extra ~2rem to fit at 360px.
+          className="max-w-[6rem] justify-between gap-2 sm:max-w-none"
         >
           <span className="truncate">{label}</span>
           <ChevronsUpDown className="size-4 opacity-60" />

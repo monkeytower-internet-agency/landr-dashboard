@@ -6,7 +6,7 @@ Sister repos: `landr-api` (FastAPI backend), `landr-booking-widget` (public book
 
 ## Stack
 
-- Vite 8 + React 19 + TypeScript (strict)
+- Vite 8 + React 19 + TypeScript (strict-mode ratchet — see "TypeScript strict ratchet" below)
 - Tailwind CSS v4 (via `@tailwindcss/vite`) + shadcn/ui (`new-york`, neutral)
 - React Router v7
 - Supabase JS client (RLS-enforced; auth wiring lands in `landr-m05.2`)
@@ -35,8 +35,38 @@ Dev Supabase: Studio at `https://supabase.dev.landr.de` · Kong API at `https://
 | `npm run lint`     | ESLint flat config                     |
 | `npm test`         | Vitest (jsdom + Testing Library)       |
 | `npm run preview`  | Serve the built `dist/` locally        |
+| `npm run gen:types`| Regenerate `src/types/database.gen.ts` from the local Supabase stack (landr-api/supabase is the schema source of truth) |
+| `npm run gen:api-types` (landr-y3oj.2) | Regenerate `src/types/api.gen.ts` from `contracts/openapi.json` (a committed copy of landr-api's `openapi.json`). See landr-api README "Contracts codegen" for the full cross-repo regen loop + CI drift check. |
+| `npm run typecheck:strict` (landr-0ji4.2) | Strict-mode ratchet — see below |
+| `npm run typecheck:strict:update` (landr-0ji4.2) | Shrink the strict-ratchet baseline after fixing errors |
 
 `src/components/ui/**` and `src/hooks/use-mobile.ts` are shadcn-managed and ignored by ESLint.
+
+## TypeScript strict ratchet (landr-0ji4.2)
+
+`tsconfig.app.json` does not set `"strict": true` — flipping it repo-wide in
+one PR isn't realistic for a 100+ route app, and doing so would immediately
+break the normal build (`npm run typecheck` / `tsc -b`, which CI also
+requires to stay green). Instead there's a ratchet:
+
+- `scripts/strict-ratchet.mjs` runs the same project through
+  `tsc -p tsconfig.app.json --strict --noEmit` (a one-off, separate from the
+  real build) and counts the resulting errors, excluding generated files
+  (`src/types/*.gen.ts`, landr-y3oj.2) so unrelated codegen regen can't move
+  the count.
+- The count is compared against the checked-in `strict-baseline.json`
+  (`{ "maxErrors": N }`). CI (`npm run typecheck:strict`) **fails only if the
+  count goes up** — it prints the new errors and the delta.
+- Baseline today: **0** for both `landr-dashboard` and `landr-booking-widget`
+  — the existing code already happens to be strict-clean; the ratchet's job
+  is to keep it that way while `tsconfig.app.json` itself stays relaxed as a
+  safety net for future code that hasn't been strict-checked yet.
+
+**Shrink-on-touch rule:** if you're already editing a file and strict mode
+now reports fewer (or zero) errors for it, run
+`npm run typecheck:strict:update` in the same PR to lower the baseline — do
+not do a dedicated cleanup PR just to shrink it, and never raise the
+baseline by hand to make CI pass; fix the new errors instead.
 
 ## Environment
 

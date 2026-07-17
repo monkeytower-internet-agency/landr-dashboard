@@ -41,6 +41,7 @@ describe('productFormSchema', () => {
     hotel_offering: 'none',
     is_addon_only: false,
     capacity_per_unit: '',
+    includes_breakfast: false,
   }
 
   it('accepts a valid service product', () => {
@@ -216,6 +217,7 @@ describe('buildSubmitPayload', () => {
     hotel_offering: 'none',
     is_addon_only: false,
     capacity_per_unit: '',
+    includes_breakfast: false,
   }
 
   it('collapses hotel_location_id to null for non-hotel_room kinds', () => {
@@ -262,6 +264,56 @@ describe('buildSubmitPayload', () => {
       is_contiguous: true,
     })
     expect(payload.is_contiguous).toBe(true)
+  })
+
+  // landr-c53m.4 review fix — the 20260602110000 backfill set
+  // includes_breakfast by name regex WITHOUT filtering on product_kind, so
+  // non-hotel_room rows with includes_breakfast=true exist in prod. The
+  // checkbox only renders for hotel_room, so an unconditional
+  // "non-hotel_room -> false" collapse would silently rewrite those rows on
+  // ANY unrelated save. These tests pin the fix: the collapse must only
+  // fire on a genuine in-session kind switch AWAY from hotel_room.
+  describe('includes_breakfast (landr-c53m.4)', () => {
+    it('preserves includes_breakfast=true for an already-non-hotel row saved untouched', () => {
+      // Loaded as 'service' with includes_breakfast=true (pre-existing data
+      // inconsistency); kind and checkbox were never touched this session.
+      const payload = buildSubmitPayload(
+        { ...baseValues, product_kind: 'service', includes_breakfast: false },
+        { product_kind: 'service', includes_breakfast: true },
+      )
+      expect(payload.includes_breakfast).toBe(true)
+    })
+
+    it('preserves includes_breakfast=true for a hotel_room row with an unrelated edit', () => {
+      const payload = buildSubmitPayload(
+        {
+          ...baseValues,
+          product_kind: 'hotel_room',
+          service_time_shape: '',
+          hotel_location_id: 'some-uuid',
+          capacity_per_unit: '2',
+          includes_breakfast: true,
+        },
+        { product_kind: 'hotel_room', includes_breakfast: true },
+      )
+      expect(payload.includes_breakfast).toBe(true)
+    })
+
+    it('collapses includes_breakfast to false on a genuine in-session kind switch away from hotel_room', () => {
+      const payload = buildSubmitPayload(
+        { ...baseValues, product_kind: 'service', includes_breakfast: true },
+        { product_kind: 'hotel_room', includes_breakfast: true },
+      )
+      expect(payload.includes_breakfast).toBe(false)
+    })
+
+    it('defaults includes_breakfast to false for a fresh non-hotel create (no original product)', () => {
+      const payload = buildSubmitPayload({
+        ...baseValues,
+        product_kind: 'service',
+      })
+      expect(payload.includes_breakfast).toBe(false)
+    })
   })
 })
 

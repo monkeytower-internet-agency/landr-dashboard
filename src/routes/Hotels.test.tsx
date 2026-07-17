@@ -347,7 +347,10 @@ describe('Hotels route', () => {
       'not-an-email',
     )
     await user.type(within(dialog).getByLabelText(/^Address$/i), 'Some street')
-    await user.type(within(dialog).getByLabelText(/^Phone$/i), '+34 600')
+    // landr-1url: phone now also needs an international-format shape (leading
+    // '+' + country code) — use a fully-formed dummy so this test's failure
+    // is still purely about the intentionally-invalid email above it.
+    await user.type(within(dialog).getByLabelText(/^Phone$/i), '+34 600 000 001')
     await user.click(
       within(dialog).getByRole('button', { name: /^Add hotel$/i }),
     )
@@ -371,7 +374,8 @@ describe('Hotels route', () => {
       'reception@hotel-sol.example',
     )
     await user.type(within(dialog).getByLabelText(/^Address$/i), 'Calle 12')
-    await user.type(within(dialog).getByLabelText(/^Phone$/i), '+34 600')
+    // landr-1url: phone now also needs an international-format shape.
+    await user.type(within(dialog).getByLabelText(/^Phone$/i), '+34 600 000 001')
     // maps link left blank
     await user.click(
       within(dialog).getByRole('button', { name: /^Add hotel$/i }),
@@ -525,7 +529,8 @@ describe('Hotels route', () => {
       'reception@hotel-sol.example',
     )
     await user.type(within(dialog).getByLabelText(/^Address$/i), 'Calle 12')
-    await user.type(within(dialog).getByLabelText(/^Phone$/i), '+34 600')
+    // landr-1url: phone now also needs an international-format shape.
+    await user.type(within(dialog).getByLabelText(/^Phone$/i), '+34 600 000 001')
     await user.type(
       within(dialog).getByLabelText(/general contact email/i),
       'not-an-email',

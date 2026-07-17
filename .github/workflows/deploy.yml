@@ -17,6 +17,16 @@ permissions:
 # - LANDR_DEPLOY_TOKEN: Shared secret for deploy-close endpoint
 #   (POST /api/internal/deploy/mark_tickets_shipped). Same value as the one
 #   set in landr-api and landr-mobile. See landr-yzoi for secret setup.
+# - VITE_SENTRY_DSN (landr-52ik.1, optional): Sentry error monitoring DSN.
+#   MUST be a GitHub Actions secret (repo secrets), NOT a Cloudflare Pages
+#   dashboard env var — this pipeline builds the static Vite bundle in GH
+#   Actions and only uploads the `dist/` output via `wrangler pages deploy`,
+#   so a CF-dashboard-configured env var would never reach the build (those
+#   only apply to CF Pages Functions, which this app doesn't use). One DSN
+#   shared across dev/staging/prod; src/lib/sentry.ts tags the Sentry
+#   `environment` from VITE_DEPLOY_TIER so the three tiers stay
+#   distinguishable in one Sentry project. Unset ⇒ Sentry stays a no-op
+#   (see src/lib/sentry.ts).
 
 jobs:
   build-and-deploy:
@@ -39,6 +49,23 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+
+      # landr-y3oj.2 — contracts drift: regenerate src/types/api.gen.ts from
+      # the committed contracts/openapi.json (a synced copy of landr-api's
+      # openapi.json) and fail if it doesn't match what's checked in. Fast
+      # (no DB/network) — see landr-api README "Contracts codegen" section.
+      - name: Verify generated API contracts are current
+        run: |
+          npm run gen:api-types
+          git diff --exit-code -- src/types/api.gen.ts contracts/openapi.json
+
+      # landr-0ji4.2 — TypeScript strict-mode ratchet: tsconfig.app.json
+      # deliberately stays non-strict (see npm run typecheck above), but this
+      # runs the same project with --strict and fails only if the error
+      # count exceeds the checked-in strict-baseline.json. See README
+      # "TypeScript strict ratchet" section for the shrink-on-touch rule.
+      - name: TypeScript strict ratchet
+        run: npm run typecheck:strict
 
       - name: Pick project + API base per branch
         id: env
@@ -73,6 +100,18 @@ jobs:
           VITE_API_BASE_URL: ${{ steps.env.outputs.api_base }}
           # landr-7dya.19 — tier badge: 'dev' | 'staging' | 'prod'
           VITE_DEPLOY_TIER: ${{ steps.env.outputs.deploy_tier }}
+          # landr-52ik.1 — Sentry release tag (src/lib/sentry.ts). Mirrors
+          # the GIT_SHA convention on the landr-api Cloud Run deploy so a
+          # single push shows up as the same release across both Sentry
+          # projects. VITE_SENTRY_DSN itself is NOT set here — it's a
+          # Cloudflare Pages build env var, human-provisioned, so the
+          # no-DSN default keeps Sentry a no-op until that's done.
+          VITE_COMMIT_SHA: ${{ github.sha }}
+          # landr-52ik.1 — optional; unset until the Sentry project is
+          # provisioned (see the requirements comment at the top of this
+          # file). Empty string when the secret doesn't exist yet — that's
+          # fine, src/lib/sentry.ts treats blank the same as unset (no-op).
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
         # Write a .env so Vite picks the values up via its dotenv loader.
         # Setting process.env alone is unreliable in CI (Vite client-side
         # import.meta.env is populated from .env files at build time).
@@ -82,6 +121,8 @@ jobs:
           VITE_SUPABASE_PUB_KEY=${VITE_SUPABASE_PUB_KEY}
           VITE_API_BASE_URL=${VITE_API_BASE_URL}
           VITE_DEPLOY_TIER=${VITE_DEPLOY_TIER}
+          VITE_COMMIT_SHA=${VITE_COMMIT_SHA}
+          VITE_SENTRY_DSN=${VITE_SENTRY_DSN}
           EOF
           npm run build
 

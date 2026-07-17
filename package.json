@@ -9,7 +9,12 @@
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "preview": "vite preview"
+    "test:e2e": "playwright test",
+    "preview": "vite preview",
+    "gen:types": "bash scripts/gen-types.sh",
+    "gen:api-types": "bash scripts/gen-api-types.sh",
+    "typecheck:strict": "node scripts/strict-ratchet.mjs",
+    "typecheck:strict:update": "node scripts/strict-ratchet.mjs --update"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -26,6 +31,7 @@
     "@fullcalendar/react": "^6.1.20",
     "@fullcalendar/timegrid": "^6.1.20",
     "@hookform/resolvers": "^5.2.2",
+    "@sentry/react": "^10.63.0",
     "@supabase/supabase-js": "^2.105.4",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/react-query": "^5.100.10",
@@ -54,6 +60,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -66,9 +73,15 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
+    "openapi-typescript": "^7.13.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",
     "vitest": "^4.1.6"
+  },
+  "overrides": {
+    "openapi-typescript": {
+      "typescript": "$typescript"
+    }
   }
 }

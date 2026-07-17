@@ -43,10 +43,25 @@ function tierToEmbedEnv(): EmbedEnv {
   return 'development'
 }
 
-export function WidgetButton() {
+type WidgetButtonProps = {
+  /**
+   * landr-fd5m.2 — optional controlled open state. When the topbar folds the
+   * widget action into the ⋯ menu, the button's wrapper is `hidden` but stays
+   * MOUNTED; the shell lifts the modal's open state so the folded ⋯ entry can
+   * still open it. Uncontrolled (both omitted) preserves the original
+   * self-managed behaviour for every other caller.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}
+
+export function WidgetButton({ open: openProp, onOpenChange }: WidgetButtonProps = {}) {
   const { currentOperatorId } = useOperator()
   const { isEnabled, isLoading: entitlementsLoading } = useEntitlements()
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const isControlled = openProp !== undefined
+  const open = isControlled ? openProp : internalOpen
+  const setOpen = onOpenChange ?? setInternalOpen
 
   const tokenQuery = useQuery<string | null>({
     queryKey: ['operator-widget-token', currentOperatorId],

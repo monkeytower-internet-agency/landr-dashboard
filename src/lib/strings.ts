@@ -295,6 +295,16 @@ export const t = {
     release: 'Release',
     // landr-a4pl.2 — /invoicing: Holded invoice transfer status + Sync-now.
     invoicing: 'Invoicing',
+    // AppSidebar hue-section group headers (rendered above a cluster of
+    // primary nav items — see the "Hue sections" render block).
+    sections: {
+      bookings: 'Bookings',
+      people: 'People',
+      finance: 'Finance',
+      comms: 'Comms',
+      admin: 'Admin',
+      account: 'Account',
+    },
   },
   // landr-aref — /audit route strings (audit_log viewer).
   audit: {
@@ -451,6 +461,9 @@ export const t = {
       webhooks: 'Webhooks',
       // landr-atwy — per-operator opt-in for the post-booking account-link prompt.
       accountLink: 'Account link prompt',
+      // landr-c53m.14 — per-operator toggle for declarations enforcement
+      // at booking-submit time.
+      declarations: 'Declarations',
       // landr-wwhn.16 — personal notification preferences (bell/email/push
       // + per-ticket overrides). Personal scope, not operator scope.
       notifications: 'Notifications',
@@ -536,6 +549,9 @@ export const t = {
       // landr-atwy — post-booking account-link prompt opt-in.
       accountLink:
         'Show (or hide) the post-booking prompt inviting customers to track their trip in the LANDR app.',
+      // landr-c53m.14 — declarations enforcement at booking-submit time.
+      declarations:
+        'Require customers to accept declarations before booking.',
       // landr-wwhn.16 — personal notification preferences.
       notifications:
         'Choose how you hear about ticket activity — bell, email, or mobile push.',
@@ -641,6 +657,7 @@ export const t = {
     setupButton: 'Set up',
     setupSubmitting: 'Setting up…',
     setupSuccess: 'Sending domain set up — we’re verifying it now. ✨',
+    setupVerified: 'Sending domain set up and verified. ✅',
     setupError: 'Could not set up sending domain',
     domainRequired: 'Enter the domain you want to send from.',
     domainInvalid: 'That doesn’t look like a domain. Use something like example.com.',
@@ -668,6 +685,9 @@ export const t = {
     recheckButton: 'Re-check',
     verifying: 'Verifying…',
     verifyError: 'Verification failed',
+    verifySuccess: 'Domain verified — you can now send email. ✅',
+    verifyPending:
+      'Still verifying — DNS can take a few minutes to propagate. We’ll keep checking automatically.',
 
     // --- Configured: status + active From ---
     statusVerified: 'Verified',
@@ -1370,6 +1390,12 @@ export const t = {
       sendOfferTitle: 'Send offer',
       sendOfferSuccess: (email: string) => `Offer sent to ${email}.`,
       sendOfferFailed: 'Could not send the offer.',
+      // landr-c53m.1 fix-forward — operator-defaults fetch failure banner.
+      operatorLoadError:
+        'Could not load this operator’s tax rate and group discount threshold. Retry, or enter both values yourself before saving.',
+      operatorRetry: 'Retry',
+      thresholdZeroHint:
+        'A threshold of 0 means the group discount applies to any booking once a discount % is set.',
     },
     detail: {
       sectionStatus: 'Status',
@@ -1433,6 +1459,21 @@ export const t = {
       working: 'Unblocking…',
       toastSuccess: 'Booking unblocked.',
       toastError: 'Failed to unblock booking.',
+    },
+    // landr-b304 — "Hotel declined" counterpart to hotelUnblock. Wired to the
+    // same postHotelApprovalDecision RPC wrapper with decision='reject',
+    // which hard-cancels the booking (mirrors generalApprove.reject* wording).
+    hotelDecline: {
+      label: 'Hotel declined',
+      description:
+        'This will cancel the booking and notify the customer. You can add an optional note for the record.',
+      cancel: 'Keep waiting',
+      confirm: 'Decline & cancel booking',
+      working: 'Declining…',
+      toastSuccess: 'Booking cancelled — hotel declined.',
+      toastError: 'Failed to decline booking.',
+      noteLabel: 'Reason (optional)',
+      notePlaceholder: 'Why did the hotel decline?',
     },
     // landr-hgd4 — general approve / reject directly from the detail sheet.
     // Mirrors the generalApprovals page strings so the operator sees the same
@@ -2133,6 +2174,8 @@ export const t = {
     flagNeedsProvider: 'Needs a provider',
     flagNeedsPickup: 'Needs pickup',
     flagRevenueThroughOperator: 'Revenue flows through operator',
+    flagRevenueThroughOperatorHint:
+      'On: this product\'s price counts toward the guest\'s Booking total, collected through your operator account at checkout. Off: the guest pays you directly (e.g. at check-in) — the widget shows this amount separately and excludes it from the Booking total.',
     // landr-u34k — is_addon_only checkbox + section copy. The flag hides
     // the product from the main list and restricts purchase to add-on
     // flows; the section manages product_addons rows for the current
@@ -2186,6 +2229,10 @@ export const t = {
     fieldRoomCapacityHint:
       'How many guests fit in one of these rooms. Defaults follow the room name (single → 1, double/twin → 2, triple → 3, family → 4).',
     errorRoomCapacityRequired: 'Room capacity must be at least 1.',
+    // landr-c53m.4 — includes_breakfast checkbox on hotel_room products.
+    fieldIncludesBreakfast: 'Includes breakfast',
+    fieldIncludesBreakfastHint:
+      'On: the room rate includes breakfast, and the booking confirmation email mentions it. Off: no breakfast copy is added.',
     fieldHotelOffering: 'Includes accommodation',
     fieldHotelOfferingHint:
       'When the booking widget should add a hotel step on top of this service.',
@@ -2889,6 +2936,19 @@ export const t = {
     toastSaved: 'Account-link settings saved.',
     toastError: 'Failed to save account-link settings.',
   },
+  // landr-c53m.14 — Settings → Declarations enforcement
+  declarationsSettings: {
+    cardTitle: 'Declarations enforcement',
+    cardDescription:
+      'When enabled, customers must accept declarations before completing a booking. OFF by default.',
+    enableLabel: 'Require declarations acceptance before booking',
+    enableHint:
+      'Customers must explicitly accept your declarations (e.g. liability, medical, or safety statements) before a booking is accepted. Applies to bookings that don’t use a custom booking form with its own declaration fields.',
+    save: 'Save',
+    saving: 'Saving…',
+    toastSaved: 'Declarations settings saved.',
+    toastError: 'Failed to save declarations settings.',
+  },
   // landr-znzz.7 — Settings → Weather
   weatherSettings: {
     cardTitle: 'Conditions forecast hint',
@@ -3015,6 +3075,8 @@ export const t = {
       'Public / website contact address — separate from the booking email.',
     fieldAddress: 'Address',
     fieldPhone: 'Phone',
+    // landr-1url: lightweight international-format nudge (no new dependency).
+    fieldPhoneHint: 'Include your country code.',
     fieldMapsLink: 'Google Maps link (optional)',
     fieldWebsite: 'Website (optional)',
     fieldCheckinTime: 'Check-in time (optional)',
@@ -3419,6 +3481,13 @@ export const t = {
     fieldLabel: 'Label',
     fieldCode: 'Code',
     codeHint: 'Auto-generated from the label. Used internally; not editable later.',
+    // landr-m63x — mobile-parity toggles (previously typed but unsurfaced).
+    fieldReceivesMainService: 'Receives main service',
+    receivesMainServiceHint:
+      'This role performs the core service being booked (e.g. the tandem passenger on a tandem flight). Turn off for incidental participants who just come along.',
+    fieldRequiresPickupLocation: 'Requires pickup location',
+    requiresPickupLocationHint:
+      'Ask for a pickup point when booking this role (e.g. shuttle collection). Turn off for participants arriving by their own means.',
     create: 'Add',
     creating: 'Adding…',
     edit: 'Edit',
@@ -3556,12 +3625,19 @@ export const t = {
     fieldMaxUses: 'Max uses',
     fieldValidFrom: 'Valid from',
     fieldValidUntil: 'Valid until',
+    // landr-c53m.5 — product/campaign scope pickers (landr-u3jr added the
+    // API fields). Distinct from `fieldScope` above (booking/subscription/
+    // any) — that's the redemption context, these are FK references.
+    fieldProductScope: 'Limit to product',
+    fieldCampaignScope: 'Attribute to campaign',
     fieldDescription: 'Description',
     fieldActive: 'Active (customers can redeem this code)',
 
     maxUsesHint: 'Leave blank for unlimited.',
     placeholderCode: 'e.g. SUMMER25',
     placeholderUnlimited: 'Unlimited',
+    placeholderAllProducts: 'All products',
+    placeholderNoCampaign: 'No campaign',
     placeholderDescription: 'Internal note (optional)',
 
     create: 'Create',
@@ -3856,7 +3932,8 @@ export const t = {
     selectorKindLabel: 'Template',
     selectorLocaleLabel: 'Language',
     // landr-x5o5.7: shown instead of the locale switcher for hotel-facing kinds.
-    // Reads hotel_email_locale (falls back to default_locale / 'es' when null).
+    // Reads hotel_email_locale (falls back to default_locale, then the
+    // neutral 'en' default — landr-c53m.7).
     hotelLocalePinNote: (locale: string): string =>
       `Hotel emails are always sent in ${locale.toUpperCase()}. Hotel language is set in operator settings.`,
 
@@ -3923,6 +4000,13 @@ export const t = {
   onboarding: {
     title: 'Welcome to LANDR',
     progress: (current: number, total: number) => `Step ${current} of ${total}`,
+    // Energetic resume copy — shown when the user isn't on step 1 (Onboarding.tsx
+    // resumeLabel). `pct` is the caller-computed completion percentage.
+    resume: (current: number, total: number, pct: number) => {
+      if (pct >= 80) return `Step ${current} of ${total} — almost there! 🚀`
+      if (pct >= 50) return `Step ${current} of ${total} — you're on a roll! ⚡`
+      return `Step ${current} of ${total}`
+    },
     next: 'Next',
     back: 'Back',
     skip: 'Skip for now',
@@ -3944,6 +4028,9 @@ export const t = {
     step3: {
       heading: 'Address & contact',
       body: 'Used on invoices, customer emails, and the booking widget.',
+      // landr-1url: lightweight international-format nudge (no new dependency).
+      phoneHint: 'Include your country code',
+      phoneError: 'Include your country code, e.g. +34 600 123 456.',
     },
     step4: {
       heading: 'Pickup locations',
@@ -4266,6 +4353,15 @@ export const t = {
       groupNullLabel: '— Empty —',
       groupCollapse: (label: string): string => `Collapse ${label}`,
       groupExpand: (label: string): string => `Expand ${label}`,
+      // landr-myb0 — pilot-row mode (one row per flying participant,
+      // grouped by booking). Fixed 3-column layout; headers aren't derived
+      // from the field registry since 'name' has no single system field.
+      pilotMode: {
+        nameHeader: 'Name',
+        phoneHeader: 'Phone',
+        pickupHeader: 'Pickup location',
+        empty: 'No pilots match this view.',
+      },
     },
   },
   // landr-p600 — Dashboard home revamp. Daily-ops view with today's
@@ -4460,5 +4556,15 @@ export const t = {
       `Couldn't start a staff booking session: ${msg}`,
     // Completion toast after the widget posts landr:booking-created.
     createdToast: 'Booking created! Opening it now…',
+  },
+  // landr-6s44 — operator-wide "set up branded email sending" nudge banner.
+  // Kept in its own top-level key (distinct from emailSenderSettings above)
+  // to minimise merge conflicts with other in-flight strings.ts edits.
+  emailSenderNudge: {
+    title: "Branded email sending isn't set up",
+    body:
+      'Your booking emails send from the Landr fallback address until your own sending domain is verified.',
+    cta: 'Set it up',
+    dismiss: 'Dismiss',
   },
 } as const

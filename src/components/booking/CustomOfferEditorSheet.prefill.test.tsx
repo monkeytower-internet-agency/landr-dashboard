@@ -15,7 +15,7 @@ import {
   waitFor,
 } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactElement } from 'react'
 
 const { toastSuccessMock, toastErrorMock } = vi.hoisted(() => ({
@@ -38,6 +38,15 @@ vi.mock('@/lib/customOffer', () => ({
 }))
 vi.mock('@/lib/bookings', () => ({
   invalidateBookingCaches: vi.fn(),
+}))
+
+// landr-c53m.1 — this operator's Custom Offer defaults; these tests don't
+// assert on threshold/tax so any resolved value is fine.
+const { fetchOperatorMock } = vi.hoisted(() => ({
+  fetchOperatorMock: vi.fn(),
+}))
+vi.mock('@/lib/operatorSettings', () => ({
+  fetchOperator: fetchOperatorMock,
 }))
 
 import { CustomOfferEditorSheet } from './CustomOfferEditorSheet'
@@ -89,6 +98,14 @@ function participantSeededOffer(): CustomOffer {
     ],
   }
 }
+
+beforeEach(() => {
+  fetchOperatorMock.mockResolvedValue({
+    id: 'op-1',
+    default_tax_rate: 0.07,
+    group_discount_threshold: 6,
+  })
+})
 
 afterEach(() => {
   vi.clearAllMocks()

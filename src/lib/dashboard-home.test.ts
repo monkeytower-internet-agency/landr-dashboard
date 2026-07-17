@@ -440,6 +440,65 @@ describe('todaysCapacity', () => {
     expect(rows.map((r) => r.productId)).toEqual(['p-a', 'p-b', 'p-c'])
   })
 
+  it('landr-c53m.9 — splits a multi-product booking evenly instead of multiplying', () => {
+    // One booking, 2 products, 4 participants — must contribute 4 total
+    // across both products (2 each), not 4 to each (8 total).
+    const booking = makeBooking({
+      id: 'multi',
+      items: [
+        {
+          id: 'item-p-1',
+          date_range_start: TODAY,
+          date_range_end: TODAY,
+          selected_days: null,
+          products: {
+            id: 'p-1',
+            name: 'Tandem',
+            product_kind: 'service',
+            service_time_shape: 'single_date',
+          },
+        },
+        {
+          id: 'item-p-2',
+          date_range_start: TODAY,
+          date_range_end: TODAY,
+          selected_days: null,
+          products: {
+            id: 'p-2',
+            name: 'Buggy',
+            product_kind: 'service',
+            service_time_shape: 'single_date',
+          },
+        },
+      ],
+      participants: Array.from({ length: 4 }, (_, i) => ({
+        id: `pt-${i}`,
+        pickup_location: null,
+      })),
+    })
+    const products = [
+      { id: 'p-1', name: 'Tandem', capacity_per_unit: 10 },
+      { id: 'p-2', name: 'Buggy', capacity_per_unit: 10 },
+    ]
+    const rows = todaysCapacity([booking], products, now)
+    const byId = Object.fromEntries(rows.map((r) => [r.productId, r.booked]))
+    expect(byId['p-1']).toBe(2)
+    expect(byId['p-2']).toBe(2)
+    expect(byId['p-1'] + byId['p-2']).toBe(4)
+  })
+
+  it('keeps single-product attribution identical to before', () => {
+    const bookings = [
+      bookingForProduct({ id: 'b1', productId: 'p-1', participantCount: 4 }),
+    ]
+    const rows = todaysCapacity(
+      bookings,
+      [{ id: 'p-1', name: 'Tandem', capacity_per_unit: 10 }],
+      now,
+    )
+    expect(rows[0].booked).toBe(4)
+  })
+
   it('rounds percent and tolerates over-100%', () => {
     const bookings = [
       bookingForProduct({ id: 'b1', productId: 'p-1', participantCount: 5 }),

@@ -8,6 +8,9 @@
  *    reflected in the send payload's body_html
  *  - the send payload carries the editor's getHTML() + getText()
  *  - the "Edit HTML source" escape hatch still edits raw HTML
+ *  - landr-7hac: the escape hatch and the WYSIWYG are mutually exclusive —
+ *    body_text stays live-synced with raw HTML edits, and the WYSIWYG is
+ *    re-seeded (not silently discarding the raw edit) once the hatch closes
  */
 import { render as rtlRender, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -89,6 +92,15 @@ describe('ResendDialog (WYSIWYG)', () => {
   it('send payload carries the editor html + text', async () => {
     const user = userEvent.setup()
     renderDialog()
+
+    // The resend payload only carries fields that changed from `source`
+    // (see ResendDialog's diff-only payload build), so an untouched submit
+    // would omit body_html/body_text entirely and this assertion would pass
+    // vacuously. Make a deliberate edit in the WYSIWYG so both are forced
+    // into the payload, then assert their content unconditionally.
+    await user.click(screen.getByTestId('rte-editor'))
+    await user.type(screen.getByTestId('rte-editor'), 'extra')
+
     await user.click(screen.getByTestId('resend-submit'))
 
     await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
@@ -99,13 +111,15 @@ describe('ResendDialog (WYSIWYG)', () => {
     ]
     expect(opId).toBe('op-1')
     expect(emailId).toBe('e-1')
-    // Editor normalises to its schema; the body still round-trips as HTML+text.
-    if ('body_html' in payload) {
-      expect(payload.body_html).toContain('Hello world')
-    }
-    if ('body_text' in payload) {
-      expect(payload.body_text).toContain('Hello world')
-    }
+    // Editor normalises to its schema; the edited body round-trips as
+    // HTML+text. The caret position a bare click lands on inside a
+    // contenteditable is not deterministic under jsdom, so the typed text
+    // may land before or after the original content — assert both
+    // fragments are present rather than depending on their order.
+    expect(payload.body_html).toContain('Hello world')
+    expect(payload.body_html).toContain('extra')
+    expect(payload.body_text).toContain('Hello world')
+    expect(payload.body_text).toContain('extra')
   })
 
   it('ordered-list toggle applies formatting reflected in the payload html', async () => {
@@ -186,5 +200,158 @@ describe('ResendDialog (WYSIWYG)', () => {
       Record<string, unknown>,
     ]
     expect(payload.body_html).toBe('<p>raw edited</p>')
+  })
+
+  it('re-derives body_text from raw HTML as it is edited in the escape hatch (landr-7hac)', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    const htmlBox = await screen.findByTestId('resend-body-html')
+    await user.clear(htmlBox)
+    await user.type(htmlBox, '<p>brand new text</p>')
+
+    await user.click(screen.getByTestId('resend-submit'))
+    await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
+    const [, , payload] = resendEmailMock.mock.calls[0] as [
+      string,
+      string,
+      Record<string, unknown>,
+    ]
+    expect(payload.body_html).toBe('<p>brand new text</p>')
+    // body_text must reflect the NEW html, not the stale original body_text.
+    expect(payload.body_text).toBe('brand new text')
+    expect(payload.body_text).not.toBe(source.body_text)
+  })
+
+  it('locks the WYSIWYG (non-editable) while the HTML-source escape hatch is open (landr-7hac)', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    expect(screen.getByTestId('rte-editor')).toHaveAttribute('contenteditable', 'true')
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    await waitFor(() =>
+      expect(screen.getByTestId('rte-editor')).toHaveAttribute('contenteditable', 'false'),
+    )
+
+    // Re-enabled once the escape hatch closes again.
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    await waitFor(() =>
+      expect(screen.getByTestId('rte-editor')).toHaveAttribute('contenteditable', 'true'),
+    )
+  })
+
+  it('does not silently discard a raw-HTML edit when the WYSIWYG is touched afterwards (landr-7hac)', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    // Edit raw HTML via the escape hatch.
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    const htmlBox = await screen.findByTestId('resend-body-html')
+    await user.clear(htmlBox)
+    await user.type(htmlBox, '<p>edited via source</p>')
+
+    // Close the escape hatch — the WYSIWYG must be re-seeded from the edit,
+    // not silently reverted to the original body loaded at mount.
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('rte-editor')).getByText('edited via source'),
+      ).toBeInTheDocument(),
+    )
+
+    // Touching the WYSIWYG now (bold toggle) must NOT drop the raw edit.
+    await user.click(screen.getByTestId('rte-bold'))
+
+    await user.click(screen.getByTestId('resend-submit'))
+    await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
+    const [, , payload] = resendEmailMock.mock.calls[0] as [
+      string,
+      string,
+      Record<string, unknown>,
+    ]
+    expect(payload.body_html).toContain('edited via source')
+    expect(payload.body_text).toContain('edited via source')
+  })
+
+  it('clicking a toolbar button while the escape hatch is OPEN does not mutate bodyHtml (landr-7hac CRITICAL 1)', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    const htmlBox = await screen.findByTestId('resend-body-html')
+
+    expect(screen.getByTestId('rte-bold')).toBeDisabled()
+
+    // Attempt to bold while locked — must be a no-op on the document/state.
+    await user.click(screen.getByTestId('rte-bold'))
+
+    expect((htmlBox as HTMLTextAreaElement).value).toBe(source.body_html)
+
+    await user.click(screen.getByTestId('resend-submit'))
+    await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
+    const [, , payload] = resendEmailMock.mock.calls[0] as [
+      string,
+      string,
+      Record<string, unknown>,
+    ]
+    // Unchanged from source → resend payload omits body_html entirely.
+    expect('body_html' in payload).toBe(false)
+  })
+
+  it('re-enables the toolbar once the escape hatch closes', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    await waitFor(() => expect(screen.getByTestId('rte-bold')).toBeDisabled())
+
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    await waitFor(() => expect(screen.getByTestId('rte-bold')).not.toBeDisabled())
+  })
+
+  it('preserves non-schema markup (a table) verbatim after the hatch closes (landr-7hac CRITICAL 2)', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    const htmlBox = await screen.findByTestId('resend-body-html')
+    const tableHtml =
+      '<table><tbody><tr><td>Cell</td></tr></tbody></table>'
+    await user.clear(htmlBox)
+    await user.type(htmlBox, tableHtml)
+
+    // Close the escape hatch — TipTap's restricted schema has no <table>, so
+    // re-seeding the WYSIWYG must NOT emit onChange (emitUpdate: false) or
+    // bodyHtml would be clobbered with the schema-stripped approximation.
+    await user.click(screen.getByTestId('resend-html-toggle'))
+
+    await user.click(screen.getByTestId('resend-submit'))
+    await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
+    const [, , payload] = resendEmailMock.mock.calls[0] as [
+      string,
+      string,
+      Record<string, unknown>,
+    ]
+    expect(payload.body_html).toBe(tableHtml)
+  })
+
+  it('derives one line per paragraph when re-deriving body_text from raw HTML (landr-7hac MEDIUM 3)', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByTestId('resend-html-toggle'))
+    const htmlBox = await screen.findByTestId('resend-body-html')
+    await user.clear(htmlBox)
+    await user.type(htmlBox, '<p>First paragraph</p><p>Second paragraph</p>')
+
+    await user.click(screen.getByTestId('resend-submit'))
+    await waitFor(() => expect(resendEmailMock).toHaveBeenCalled())
+    const [, , payload] = resendEmailMock.mock.calls[0] as [
+      string,
+      string,
+      Record<string, unknown>,
+    ]
+    expect(payload.body_text).toBe('First paragraph\nSecond paragraph')
   })
 })

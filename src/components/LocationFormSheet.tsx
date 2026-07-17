@@ -96,6 +96,9 @@ function LocationFormSheetBody({
     },
   })
 
+  // react-hook-form's watch() returns functions that cannot be memoized
+  // safely; React Compiler skips memoization here by design.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const watchedParentId = form.watch('parent_id')
 
   // Site-level locations only (no parent) are eligible as parents for sub-points.

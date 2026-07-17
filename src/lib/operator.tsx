@@ -23,6 +23,16 @@ export type SubscriptionPackageRef = {
 export type Operator = {
   id: string
   slug: string
+  // landr-wl7h — opaque public token (operators.widget_token), NOT the
+  // slug. This is what the public estimate endpoint's {token} path segment
+  // actually resolves against (see _resolve_operator_by_token in
+  // app/routers/public_operators.py). It's semi-public — already embedded
+  // in the live booking-widget snippet, so shipping it in the staff
+  // dashboard's operator payload adds no new exposure. NOT NULL in the DB
+  // but kept optional here for the same stale-cache + test-fixture reason
+  // as work_hours_start etc. below — consumers that need it (the pricing
+  // simulator) guard on truthiness before use.
+  widget_token?: string
   name: string | null
   onboarded_at: string | null
   // landr-f1s — calendar display prefs. The columns are NOT NULL in the DB
@@ -75,8 +85,21 @@ export const DEFAULT_FIRST_DAY_OF_WEEK = 1
 export type StaffOperatorRef = {
   id: string
   slug: string
+  // landr-wl7h — carried through so the "view as operator" fallback
+  // Operator built below (see enterViewAs / the currentOperator memo) has
+  // a real widget_token too, not just id/slug/name — otherwise the
+  // pricing simulator would break specifically in view-as mode. Optional
+  // for the same stale-cache + test-fixture reason as Operator.widget_token.
+  widget_token?: string
   name: string | null
   onboarded_at: string | null
+}
+
+// landr-7dya.17 — shared name-or-slug fallback, previously duplicated in
+// OperatorSwitcher.tsx and ViewAsOperatorPicker.tsx. Single source here.
+// eslint-disable-next-line react-refresh/only-export-components
+export function displayName(name: string | null, slug: string): string {
+  return name && name.trim().length > 0 ? name : slug
 }
 
 type OperatorContextValue = {
@@ -210,7 +233,7 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase
         .from('operator_memberships')
         .select(
-          'operator_id, operators!inner ( id, slug, name, onboarded_at, ' +
+          'operator_id, operators!inner ( id, slug, widget_token, name, onboarded_at, ' +
             'work_hours_start, work_hours_end, time_format_24h, ' +
             'first_day_of_week, ' +
             'show_premium_teasers, ' +
@@ -261,7 +284,7 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
       // memo below).
       const { data, error } = await supabase
         .from('operators')
-        .select('id, slug, name, onboarded_at')
+        .select('id, slug, widget_token, name, onboarded_at')
         .order('slug', { ascending: true })
       if (cancelled) return
       if (error || !data) {
@@ -378,6 +401,10 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
       currentOperator = {
         id: viewAsOperator.id,
         slug: viewAsOperator.slug,
+        // landr-wl7h — carry the real widget_token too so features that key
+        // on it (e.g. the pricing simulator) keep working in view-as mode
+        // instead of silently getting an undefined token.
+        widget_token: viewAsOperator.widget_token,
         name: viewAsOperator.name,
         // landr-y7lw — carry the real onboarded_at from the staff ref (the
         // staff list is now onboarded-only, so this is always set). Previously

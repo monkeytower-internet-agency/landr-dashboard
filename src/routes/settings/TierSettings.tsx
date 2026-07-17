@@ -744,7 +744,7 @@ function OperatorOverridePanel({
   const overrideByFeature = useMemo(() => {
     const m = new Map<
       string,
-      { enabled: boolean; note: string | null; config: Record<string, unknown> | null }
+      { enabled: boolean | null; note: string | null; config: Record<string, unknown> | null }
     >()
     for (const row of overridesQuery.data ?? [])
       m.set(row.feature_id, {
@@ -801,7 +801,10 @@ function OperatorOverridePanel({
   })
 
   const setConfigMutation = useMutation({
-    mutationFn: (args: { featureId: string; config: Record<string, unknown> }) =>
+    mutationFn: (args: {
+      featureId: string
+      config: Record<string, unknown>
+    }) =>
       setOperatorFeatureConfig({
         operatorId,
         featureId: args.featureId,
@@ -994,6 +997,12 @@ function OperatorOverridePanel({
                           schema={feature.value_schema}
                           currentConfig={override?.config ?? null}
                           onSave={(cfg) =>
+                            // bd landr-c53m.15: config-only save — `enabled`
+                            // is deliberately NOT sent here (see
+                            // setOperatorFeatureConfig), so an existing
+                            // override's on/off state is left untouched and
+                            // a brand-new row inherits (NULL) rather than
+                            // materializing a forced value.
                             setConfigMutation.mutate({
                               featureId: feature.id,
                               config: cfg,

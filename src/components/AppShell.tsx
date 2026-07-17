@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   SidebarInset,
   SidebarProvider,
@@ -13,6 +13,7 @@ import { ErrorHistoryBell } from '@/components/ErrorHistoryBell'
 import { NotificationsBell } from '@/components/NotificationsBell'
 import { OnboardingBanner } from '@/components/OnboardingBanner'
 import { ConfigHealthBanners } from '@/components/ConfigHealthBanners'
+import { EmailSenderNudgeBanner } from '@/components/EmailSenderNudgeBanner'
 import { OperatorSwitcher } from '@/components/OperatorSwitcher'
 import { UserMenu } from '@/components/UserMenu'
 import { ViewAsBanner } from '@/components/ViewAsBanner'
@@ -31,6 +32,8 @@ import { SidebarModeProvider } from '@/lib/sidebar-mode-context'
 import { useSidebarModeContext } from '@/lib/sidebar-mode-context-shared'
 import { openFor } from '@/lib/sidebar-mode'
 import { useEntitlements } from '@/lib/entitlements'
+import { useTopbarOverflow } from '@/hooks/use-topbar-overflow'
+import { cn } from '@/lib/utils'
 
 // landr-fzcg — inner shell that bridges the mode state into the shadcn
 // SidebarProvider's controlled `open` prop. Lives inside SidebarModeProvider
@@ -47,6 +50,18 @@ function AppShellInner({ children }: { children: ReactNode }) {
   // effectiveIsStaff so it mirrors view-as behaviour consistently (the same
   // flag AppModeSwitcher / feature-gating uses).
   const { effectiveIsStaff } = useEntitlements()
+
+  // landr-fd5m.2 — measured priority-overflow. The hook watches the header
+  // width, measures each right-cluster wrapper, and returns the set of
+  // lowest-priority items that must fold into the ⋯ menu to avoid clipping.
+  // Fail-safe: unmeasured/zero widths (jsdom, first paint) fold nothing.
+  const { headerRef, titleRef, registerItem, folded } = useTopbarOverflow()
+
+  // landr-fd5m.2 — widget-modal open state is LIFTED here so the ⋯ menu can
+  // open the staff booking widget while the WidgetButton's own trigger is
+  // folded (hidden but still mounted). Its StaffWidgetModal is a Radix Dialog
+  // portaled to <body>, so it renders fine from the hidden wrapper.
+  const [widgetOpen, setWidgetOpen] = useState(false)
 
   return (
     <SidebarProvider open={open} onOpenChange={() => { /* mode-driven */ }}>
@@ -72,7 +87,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
             rounded-screen corners while preserving the design gutter. The bar
             height grows by the top inset (h-14 min) so the content row stays
             vertically centred below the notch. */}
-        <header className="bg-background pt-safe px-safe-3 sm:px-safe-4 sticky top-0 z-10 flex min-h-14 items-center gap-2 border-b sm:gap-3">
+        <header ref={headerRef} className="bg-background pt-safe px-safe-3 sm:px-safe-4 sticky top-0 z-10 flex min-h-14 items-center gap-2 border-b sm:gap-3">
           {/* landr-gu14 — mobile-only sidebar opener. The shadcn Sidebar
               renders as a slide-in Sheet on viewports below md (768px);
               without this trigger the operator has no way to reach the
@@ -87,7 +102,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
               scope so it reads as the outermost level of context. */}
           <AppModeSwitcher />
           <OperatorSwitcher />
-          <div className="min-w-0 flex-1">
+          <div ref={titleRef} className="min-w-0 flex-1">
             <PageTitleDisplay />
           </div>
           {/* landr-92mt — the action cluster must NEVER shrink or clip: the
@@ -97,13 +112,24 @@ function AppShellInner({ children }: { children: ReactNode }) {
               there's room). shrink-0 forces the flex-1 title to absorb all
               the shrinking instead, so every action stays on-screen. */}
           <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+            {/* landr-fd5m.1 — each right-cluster item below is wrapped in a
+                data-testid="topbar-item-<id>" measuring span. Pure markup in
+                this slice; slice .2 (use-topbar-overflow) attaches refs to
+                these wrappers to measure + priority-fold them. No fold
+                behavior changes here. */}
             {/* landr-hisw — deploy tier badge as env-switcher dropdown
                 (DEV/STAGING/PROD pill; shows on prod too so you can jump
                 back; nothing when VITE_DEPLOY_TIER is unset). Clicking the
                 chip opens a menu to jump to the same path on another tier's
                 dashboard. showProd ensures the chip is visible on prod;
                 switcher enables the dropdown behavior. */}
-            <TierBadge switcher showProd isStaff={effectiveIsStaff} />
+            <span
+              ref={registerItem('tier')}
+              className={cn('flex items-center', folded.has('tier') && 'hidden')}
+              data-testid="topbar-item-tier"
+            >
+              <TierBadge switcher showProd isStaff={effectiveIsStaff} />
+            </span>
             {/* landr-xen4 → landr-aoak.3 — "new booking (staff)" topbar
                 action. Opens a modal embedding the booking widget in an
                 iframe in STAFF mode (book on a customer's behalf; force-book
@@ -112,30 +138,76 @@ function AppShellInner({ children }: { children: ReactNode }) {
                 the staff-init postMessage targetOrigin, and the completion
                 origin-check all derive from the same env-matched widget host,
                 so the wrong-env/token CORS incident cannot recur. */}
-            <WidgetButton />
-            {/* landr-3qkr.7 — overflow menu: below md, ThemeToggle + ReportFab
-                collapse into this single ellipsis trigger to reclaim ~64px in
-                the topbar right-cluster on 360px phones. ErrorHistoryBell stays
-                in-line (icon-only, 32px) because it runs its own Radix
-                DropdownMenu and cannot be nested inside another. */}
-            <TopbarMoreMenu />
+            <span
+              ref={registerItem('widget')}
+              className={cn('flex items-center', folded.has('widget') && 'hidden')}
+              data-testid="topbar-item-widget"
+            >
+              <WidgetButton open={widgetOpen} onOpenChange={setWidgetOpen} />
+            </span>
+            {/* landr-fd5m.2 — measured overflow menu. Renders the ⋯ trigger
+                (a fixed size-9 / 36px ghost icon button — see the hook's
+                MORE_TRIGGER_FALLBACK) only while at least one item is folded,
+                surfacing exactly the folded items. Rendered directly (no
+                wrapper span) so that when NOTHING folds it returns null and
+                adds no flex gap — keeping the desktop cluster pixel-identical.
+                ErrorHistoryBell/NotificationsBell stay in-line (each runs its
+                own Radix DropdownMenu; nesting is unreliable). The widget entry
+                opens the lifted modal state. */}
+            <TopbarMoreMenu
+              folded={folded}
+              onOpenWidget={() => setWidgetOpen(true)}
+            />
             {/* landr-wwhn.12 — persistent report/suggest button. Lives in
                 the topbar right-cluster so it's reachable from every
                 protected route without eating FAB real estate.
-                landr-3qkr.7 — hidden below md; surfaced via TopbarMoreMenu. */}
-            <ReportFab className="hidden min-[384px]:flex" />
+                landr-fd5m.2 — folding is now the wrapper's job (measured), so
+                the static `hidden min-[384px]:flex` is gone; the ReportFab
+                renders unconditionally and the wrapper hides it when folded. */}
+            <span
+              ref={registerItem('report')}
+              className={cn('flex items-center', folded.has('report') && 'hidden')}
+              data-testid="topbar-item-report"
+            >
+              <ReportFab />
+            </span>
             {/* landr-40x0 — recent-errors history. Badge shows capture count;
                 dropdown lists errors with Copy + Report per row. Sits between
                 the feedback button and the notifications bell so error-capture
                 reads as part of the feedback-and-comms cluster. */}
-            <ErrorHistoryBell />
+            <span
+              ref={registerItem('errorbell')}
+              className="flex items-center"
+              data-testid="topbar-item-errorbell"
+            >
+              <ErrorHistoryBell />
+            </span>
             {/* landr-8whx — bell sits next to the theme toggle so the
                 topbar reads left→right as: scope (operator) · title ·
                 quick-actions (feedback · errors · notifications · theme · account). */}
-            <NotificationsBell />
-            {/* landr-3qkr.7 — hidden below md; surfaced via TopbarMoreMenu. */}
-            <ThemeToggle className="hidden min-[384px]:flex" />
-            <UserMenu />
+            <span
+              ref={registerItem('notifbell')}
+              className="flex items-center"
+              data-testid="topbar-item-notifbell"
+            >
+              <NotificationsBell />
+            </span>
+            {/* landr-fd5m.2 — folding is the wrapper's job now; ThemeToggle
+                renders unconditionally and the wrapper hides it when folded. */}
+            <span
+              ref={registerItem('theme')}
+              className={cn('flex items-center', folded.has('theme') && 'hidden')}
+              data-testid="topbar-item-theme"
+            >
+              <ThemeToggle />
+            </span>
+            <span
+              ref={registerItem('usermenu')}
+              className="flex items-center"
+              data-testid="topbar-item-usermenu"
+            >
+              <UserMenu />
+            </span>
           </div>
         </header>
         {/* landr-2soj — staff view-as banner. Sits directly under the topbar,
@@ -148,6 +220,14 @@ function AppShellInner({ children }: { children: ReactNode }) {
             warnings). Dismissible for the session; reappears on reload
             while unresolved. Renders nothing when there are no issues. */}
         <ConfigHealthBanners />
+        {/* landr-6s44 — "set up branded email sending" nudge. Sits below the
+            config-health stack so operator-facing warnings (config-health)
+            take visual precedence over this softer setup nudge. Driven by
+            the dedicated @/lib/email-sender status client (shared React
+            Query cache with the Settings → Email sending page), not the
+            generic config-health check. Renders nothing while loading, on
+            fetch error, or once the sending domain is verified. */}
+        <EmailSenderNudgeBanner />
         {/* min-w-0 mirrors the inset constraint so route content respects
             the available width; per-table overflow-x-auto (shadcn Table) then
             handles its own horizontal scroll inside the card.

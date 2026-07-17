@@ -198,6 +198,22 @@ export const OperatorSettingsSchema = z.object({
     })
     .nullable()
     .optional(),
+  // landr-c53m.1 — per-operator Custom Offer defaults. Previously the staff
+  // Custom Offer composer (CustomOfferEditorSheet) hardcoded Para42's
+  // contract terms (IGIC 7% tax, >6-pax group-discount threshold) as its
+  // initial state, so any OTHER operator's staff silently saw Para42's
+  // numbers. default_tax_rate is a fractional rate (e.g. 0.07 = 7%) —
+  // PostgREST projects the numeric(5,4) column as a JSON number.
+  // group_discount_threshold is the paying-participant-count the discount
+  // applies above. Both default to 0 for a new operator (mirrors the DB
+  // column default); Para42's row is seeded with its real values.
+  default_tax_rate: z.number().min(0).max(1).nullable().optional(),
+  group_discount_threshold: z.number().int().min(0).nullable().optional(),
+  // landr-c53m.14 — whether the booking-submit gate requires the customer
+  // to accept declarations before booking. OFF by default (landr-c53m.2);
+  // enabled here now flips the same DB column the API already enforces
+  // (previously only settable via a manual SQL UPDATE).
+  require_declarations: z.boolean().nullable().optional(),
 })
 
 export type OperatorSettings = z.infer<typeof OperatorSettingsSchema>

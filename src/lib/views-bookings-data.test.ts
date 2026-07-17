@@ -336,6 +336,92 @@ describe('matchesViewFilters', () => {
   })
 })
 
+// landr-myb0 — pickup_location_id is sourced from row.participants[], NOT a
+// booking-level column (see the extractor's comment in
+// views-bookings-data.ts). These tests guard the "Today's pickups" template
+// chip (`pickup_location_id is_not_null`) actually filtering instead of the
+// pre-landr-myb0 no-op (unknown field → matches everything).
+describe('matchesViewFilters — pickup_location_id (landr-myb0)', () => {
+  it('is_not_null matches when ANY participant has a pickup location', () => {
+    const r = row({
+      participants: [
+        { id: 'p1', pickup_location: null },
+        { id: 'p2', pickup_location: { id: 'loc-1', name: 'Fonda Central' } },
+      ],
+    })
+    expect(
+      matchesViewFilters(r, [
+        { field: 'pickup_location_id', op: 'is_not_null', values: [] },
+      ]),
+    ).toBe(true)
+  })
+
+  it('is_not_null does NOT match when no participant has a pickup location', () => {
+    const r = row({ participants: [{ id: 'p1', pickup_location: null }] })
+    expect(
+      matchesViewFilters(r, [
+        { field: 'pickup_location_id', op: 'is_not_null', values: [] },
+      ]),
+    ).toBe(false)
+  })
+
+  it('is_not_null does NOT match when participants are absent entirely', () => {
+    expect(
+      matchesViewFilters(row({ participants: undefined }), [
+        { field: 'pickup_location_id', op: 'is_not_null', values: [] },
+      ]),
+    ).toBe(false)
+  })
+
+  it('eq matches a specific pickup location id', () => {
+    const r = row({
+      participants: [
+        { id: 'p1', pickup_location: { id: 'loc-1', name: 'Fonda Central' } },
+      ],
+    })
+    expect(
+      matchesViewFilters(r, [
+        { field: 'pickup_location_id', op: 'eq', values: ['loc-1'] },
+      ]),
+    ).toBe(true)
+    expect(
+      matchesViewFilters(r, [
+        { field: 'pickup_location_id', op: 'eq', values: ['loc-2'] },
+      ]),
+    ).toBe(false)
+  })
+})
+
+describe('matchesViewFilters — phone (landr-myb0)', () => {
+  it('eq matches the primary booker phone', () => {
+    const r = row({
+      customer: {
+        id: 'c',
+        first_name: 'A',
+        last_name: 'B',
+        email: null,
+        phone: '+34600000000',
+      },
+    })
+    expect(
+      matchesViewFilters(r, [
+        { field: 'phone', op: 'eq', values: ['+34600000000'] },
+      ]),
+    ).toBe(true)
+    expect(
+      matchesViewFilters(r, [
+        { field: 'phone', op: 'eq', values: ['+34600000001'] },
+      ]),
+    ).toBe(false)
+  })
+
+  it('is_null matches when the customer has no phone', () => {
+    expect(
+      matchesViewFilters(row(), [{ field: 'phone', op: 'is_null', values: [] }]),
+    ).toBe(true)
+  })
+})
+
 describe('applyViewSort', () => {
   it('sorts by booking_total asc / desc and leaves input untouched', () => {
     const rows = [row({ id: 'a', gross_total: 30 }), row({ id: 'b', gross_total: 10 }), row({ id: 'c', gross_total: 20 })]

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   getCoreRowModel,
   getFilteredRowModel,
@@ -102,12 +102,17 @@ export function LocationsTable({ rows, roleTypes, onEdit, onDelete }: Props) {
     return m
   }, [rows])
 
-  const roleTypeOf = (row: Location) =>
-    roleTypeMap.get(
-      (row as Location & { role_type_id?: string }).role_type_id ?? '',
-    )
-  const parentOf = (row: Location) =>
-    row.parent_id ? parentMap.get(row.parent_id) : null
+  const roleTypeOf = useCallback(
+    (row: Location) =>
+      roleTypeMap.get(
+        (row as Location & { role_type_id?: string }).role_type_id ?? '',
+      ),
+    [roleTypeMap],
+  )
+  const parentOf = useCallback(
+    (row: Location) => (row.parent_id ? parentMap.get(row.parent_id) : null),
+    [parentMap],
+  )
 
   const columns = useMemo<ColumnDef<Location>[]>(
     () => [
@@ -179,9 +184,12 @@ export function LocationsTable({ rows, roleTypes, onEdit, onDelete }: Props) {
         ),
       },
     ],
-    [roleTypeMap, parentMap, onEdit, onDelete],
+    [roleTypeOf, parentOf, onEdit, onDelete],
   )
 
+  // TanStack Table's useReactTable() returns functions that cannot be
+  // memoized safely; React Compiler skips memoization here by design.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: rows,
     columns,

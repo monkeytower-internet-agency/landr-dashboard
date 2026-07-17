@@ -150,6 +150,7 @@ export function FormEditor() {
 
 function FormEditorBody({ formId }: { formId: string }) {
   const qc = useQueryClient()
+  const { currentOperatorId } = useOperator()
   const queryKey = ['form-fields', formId] as const
 
   const fieldsQuery = useQuery<FormField[]>({
@@ -161,7 +162,7 @@ function FormEditorBody({ formId }: { formId: string }) {
   // Optimistic position override for drag-and-drop.
   const [orderOverride, setOrderOverride] = useState<string[] | null>(null)
 
-  const fields = fieldsQuery.data ?? []
+  const fields = useMemo(() => fieldsQuery.data ?? [], [fieldsQuery.data])
   const serverOrder = fields.map((f) => f.id)
   const displayIds = orderOverride ?? serverOrder
   const fieldById = useMemo(() => new Map(fields.map((f) => [f.id, f])), [fields])
@@ -191,7 +192,9 @@ function FormEditorBody({ formId }: { formId: string }) {
   const reorderMutation = useMutation({
     mutationFn: async (changes: { id: string; position: number }[]) => {
       await Promise.all(
-        changes.map((c) => patchFormField(c.id, { position: c.position })),
+        changes.map((c) =>
+          patchFormField(c.id, { position: c.position }, currentOperatorId!),
+        ),
       )
     },
     onSuccess: () => {
@@ -200,7 +203,14 @@ function FormEditorBody({ formId }: { formId: string }) {
       toast.success(t.formEditor.toastReordered)
     },
     onError: (err: Error) => {
+      // The reorder fires one PATCH per field in parallel (Promise.all), so a
+      // partial failure can leave some fields already persisted at their new
+      // position server-side. Reverting only the local override would fall
+      // back to the STALE pre-mutation cache, misrepresenting the true
+      // (partially-applied) DB state — invalidate to refetch and show what
+      // actually landed.
       setOrderOverride(null)
+      invalidate()
       toast.error(t.formEditor.toastReorderError, { description: err.message })
     },
   })
@@ -367,6 +377,7 @@ type RowProps = {
 function SortableFieldRow({ field, formId: _formId, isSelected, onSelect, onDeleted }: RowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: field.id })
+  const { currentOperatorId } = useOperator()
 
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -377,7 +388,7 @@ function SortableFieldRow({ field, formId: _formId, isSelected, onSelect, onDele
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteFormField(field.id),
+    mutationFn: () => deleteFormField(field.id, currentOperatorId!),
     onSuccess: () => {
       onDeleted()
       toast.success(t.formEditor.toastDeleted)
@@ -630,6 +641,7 @@ type InspectorProps = {
 }
 
 function FieldInspector({ field, precedingFields, onSaved }: InspectorProps) {
+  const { currentOperatorId } = useOperator()
   // Local drafts — we auto-save on blur / change for booleans + selects.
   const [label, setLabel] = useState(field.label)
   const [labelLocalized, setLabelLocalized] = useState(
@@ -665,7 +677,7 @@ function FieldInspector({ field, precedingFields, onSaved }: InspectorProps) {
     if (busy) return
     setBusy(true)
     try {
-      await patchFormField(field.id, patch)
+      await patchFormField(field.id, patch, currentOperatorId!)
       toast.success(t.formEditor.toastSaved)
       onSaved()
     } catch (err) {

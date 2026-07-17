@@ -1,8 +1,10 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { useRef, useState } from 'react'
 
 import { ProductForm, type ProductFormSubmitValue } from './ProductForm'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
 import type { Operator } from '@/lib/operator'
 import type { ProductKind, ProductRow } from '@/lib/products'
 
@@ -775,6 +777,340 @@ describe('ProductForm — room capacity (landr-knm0)', () => {
   })
 })
 
+// landr-c53m.4 — includes_breakfast checkbox visible only for hotel_room.
+// It has no seeded default in the form and drives booking-email branching
+// (landr-api booking_emails.py), not any DB CHECK, so there's no
+// validation-error case to mirror from capacity_per_unit.
+describe('ProductForm — includes breakfast (landr-c53m.4)', () => {
+  const hotelLocations = [{ id: 'hotel-1', name: 'Hotel Sol' }]
+
+  it('does NOT render the includes-breakfast checkbox for kind=service', () => {
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={() => {}}
+      />,
+    )
+    expect(
+      screen.queryByLabelText(/includes breakfast/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('renders the includes-breakfast checkbox when switching to kind=hotel_room, unchecked by default', async () => {
+    const user = userEvent.setup()
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={() => {}}
+      />,
+    )
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'hotel_room')
+    const breakfast = screen.getByLabelText(
+      /includes breakfast/i,
+    ) as HTMLInputElement
+    expect(breakfast).toBeInTheDocument()
+    expect(breakfast.checked).toBe(false)
+  })
+
+  it('submits includes_breakfast=true when checked on a hotel_room product', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    render(
+      <ProductForm
+        product={null}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+    await user.type(screen.getByLabelText(/^name$/i), 'Double Room')
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'hotel_room')
+    await user.selectOptions(screen.getByLabelText(/^hotel$/i), 'hotel-1')
+    await user.click(screen.getByLabelText(/includes breakfast/i))
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      product_kind: 'hotel_room',
+      includes_breakfast: true,
+    })
+  })
+
+  it('loads includes_breakfast=true from an existing hotel_room product', () => {
+    const product: ProductRow = {
+      id: 'p-room',
+      operator_id: 'op-1',
+      product_group_id: null,
+      slug: 'double-room',
+      name: 'Double Room',
+      name_localized: null,
+      short_description: null,
+      short_description_localized: null,
+      description: null,
+      product_kind: 'hotel_room',
+      service_time_shape: null,
+      is_contiguous: false,
+      duration_minutes: null,
+      fixed_start_date: null,
+      fixed_end_date: null,
+      default_pricing_scheme_id: null,
+      needs_provider: false,
+      needs_pickup: false,
+      revenue_flows_through_operator: false,
+      is_publicly_listed: true,
+      active: true,
+      sort_order: 0,
+      hotel_location_id: 'hotel-1',
+      hotel_offering: 'none',
+      is_addon_only: false,
+      capacity_per_unit: 2,
+      includes_breakfast: true,
+      deleted_at: null,
+      created_at: '2026-05-20T10:00:00Z',
+      updated_at: '2026-05-20T10:00:00Z',
+      pricing_scheme: null,
+      product_group: null,
+      hotel_location: null,
+    }
+    render(
+      <ProductForm
+        product={product}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={() => {}}
+      />,
+    )
+    const breakfast = screen.getByLabelText(
+      /includes breakfast/i,
+    ) as HTMLInputElement
+    expect(breakfast.checked).toBe(true)
+  })
+
+  it('collapses includes_breakfast to false when kind switches away from hotel_room', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    const product: ProductRow = {
+      id: 'p-room',
+      operator_id: 'op-1',
+      product_group_id: null,
+      slug: 'double-room',
+      name: 'Double Room',
+      name_localized: null,
+      short_description: null,
+      short_description_localized: null,
+      description: null,
+      product_kind: 'hotel_room',
+      service_time_shape: null,
+      is_contiguous: false,
+      duration_minutes: null,
+      fixed_start_date: null,
+      fixed_end_date: null,
+      default_pricing_scheme_id: null,
+      needs_provider: false,
+      needs_pickup: false,
+      revenue_flows_through_operator: false,
+      is_publicly_listed: true,
+      active: true,
+      sort_order: 0,
+      hotel_location_id: 'hotel-1',
+      hotel_offering: 'none',
+      is_addon_only: false,
+      capacity_per_unit: 2,
+      includes_breakfast: true,
+      deleted_at: null,
+      created_at: '2026-05-20T10:00:00Z',
+      updated_at: '2026-05-20T10:00:00Z',
+      pricing_scheme: null,
+      product_group: null,
+      hotel_location: null,
+    }
+    render(
+      <ProductForm
+        product={product}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+    const kind = screen.getByLabelText(/product kind/i) as HTMLSelectElement
+    await user.selectOptions(kind, 'service')
+    expect(
+      screen.queryByLabelText(/includes breakfast/i),
+    ).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      product_kind: 'service',
+      includes_breakfast: false,
+    })
+  })
+
+  // landr-c53m.4 review fix — CRITICAL: the 20260602110000 backfill set
+  // includes_breakfast by name regex WITHOUT filtering on product_kind, so
+  // non-hotel_room rows with includes_breakfast=true exist/can exist. The
+  // checkbox isn't rendered for those rows, so the submit-time collapse must
+  // NOT fire just because the CURRENT kind is non-hotel — only on a genuine
+  // in-session switch away from hotel_room. Otherwise saving ANY unrelated
+  // edit on such a row silently flips the flag to false.
+  it('preserves includes_breakfast=true on an already-non-hotel_room product saved without touching kind or checkbox', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    const product: ProductRow = {
+      id: 'p-service-inconsistent',
+      operator_id: 'op-1',
+      product_group_id: null,
+      slug: 'guided-hike',
+      name: 'Guided Hike',
+      name_localized: null,
+      short_description: null,
+      short_description_localized: null,
+      description: null,
+      product_kind: 'service',
+      service_time_shape: 'days_range',
+      is_contiguous: false,
+      duration_minutes: null,
+      fixed_start_date: null,
+      fixed_end_date: null,
+      default_pricing_scheme_id: null,
+      needs_provider: false,
+      needs_pickup: false,
+      revenue_flows_through_operator: true,
+      is_publicly_listed: true,
+      active: true,
+      sort_order: 0,
+      hotel_location_id: null,
+      hotel_offering: 'none',
+      is_addon_only: false,
+      capacity_per_unit: null,
+      // landr-c53m.4 review finding — pre-existing data inconsistency: a
+      // non-hotel_room row with includes_breakfast=true (possible because
+      // the DB has no CHECK on this column and the original backfill didn't
+      // filter by kind).
+      includes_breakfast: true,
+      deleted_at: null,
+      created_at: '2026-05-20T10:00:00Z',
+      updated_at: '2026-05-20T10:00:00Z',
+      pricing_scheme: null,
+      product_group: null,
+      hotel_location: null,
+    }
+    render(
+      <ProductForm
+        product={product}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+    // The checkbox must not render for kind=service — this row's flag is
+    // "unknown state" from the UI's point of view.
+    expect(
+      screen.queryByLabelText(/includes breakfast/i),
+    ).not.toBeInTheDocument()
+
+    // Edit something unrelated, never touch kind or the (absent) checkbox.
+    await user.type(screen.getByLabelText(/^name$/i), ' (updated)')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      product_kind: 'service',
+      includes_breakfast: true,
+    })
+  })
+
+  it('preserves includes_breakfast=true on a hotel_room product after an unrelated edit', async () => {
+    const user = userEvent.setup()
+    const submitted: ProductFormSubmitValue[] = []
+    const product: ProductRow = {
+      id: 'p-room-2',
+      operator_id: 'op-1',
+      product_group_id: null,
+      slug: 'suite',
+      name: 'Suite',
+      name_localized: null,
+      short_description: null,
+      short_description_localized: null,
+      description: null,
+      product_kind: 'hotel_room',
+      service_time_shape: null,
+      is_contiguous: false,
+      duration_minutes: null,
+      fixed_start_date: null,
+      fixed_end_date: null,
+      default_pricing_scheme_id: null,
+      needs_provider: false,
+      needs_pickup: false,
+      revenue_flows_through_operator: false,
+      is_publicly_listed: true,
+      active: true,
+      sort_order: 0,
+      hotel_location_id: 'hotel-1',
+      hotel_offering: 'none',
+      is_addon_only: false,
+      capacity_per_unit: 2,
+      includes_breakfast: true,
+      deleted_at: null,
+      created_at: '2026-05-20T10:00:00Z',
+      updated_at: '2026-05-20T10:00:00Z',
+      pricing_scheme: null,
+      product_group: null,
+      hotel_location: null,
+    }
+    render(
+      <ProductForm
+        product={product}
+        pricingSchemes={[]}
+        productGroups={[]}
+        allowedKinds={['service', 'hotel_room']}
+        hotelLocations={hotelLocations}
+        onSubmit={(v) => {
+          submitted.push(v)
+        }}
+      />,
+    )
+    const breakfast = screen.getByLabelText(
+      /includes breakfast/i,
+    ) as HTMLInputElement
+    expect(breakfast.checked).toBe(true)
+
+    // Edit an unrelated field, never touch kind or the checkbox.
+    await user.type(screen.getByLabelText(/^name$/i), ' (renovated)')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]).toMatchObject({
+      product_kind: 'hotel_room',
+      includes_breakfast: true,
+    })
+  })
+})
+
 // landr-u34k — is_addon_only checkbox + Add-ons section gating. The
 // section is hidden when allProducts is omitted (covers the default test
 // setup above + the wizard/legacy callers that don't pass it). When passed
@@ -808,6 +1144,7 @@ describe('ProductForm — addon-only flag + add-ons section (landr-u34k)', () =>
       hotel_offering: 'none',
       is_addon_only: false,
       capacity_per_unit: null,
+      includes_breakfast: false,
       deleted_at: null,
       created_at: '2026-05-20T10:00:00Z',
       updated_at: '2026-05-20T10:00:00Z',
@@ -977,6 +1314,7 @@ describe('ProductForm — localized fields (landr-14s4)', () => {
       hotel_offering: 'none',
       is_addon_only: false,
       capacity_per_unit: null,
+      includes_breakfast: false,
       deleted_at: null,
       created_at: '2026-06-01T00:00:00Z',
       updated_at: '2026-06-01T00:00:00Z',
@@ -1044,5 +1382,134 @@ describe('ProductForm — localized fields (landr-14s4)', () => {
     // name + short_description each contribute one DE tab → exactly two.
     // The long description renders a MarkdownEditor with no locale strip.
     expect(screen.getAllByTestId('locale-tab-de')).toHaveLength(2)
+  })
+})
+
+// landr-lnbq — regression test for the confirm-before-discard dirty-guard
+// PR #335 added: ProductForm lifts its react-hook-form isDirty flag up via
+// onDirtyChange; panel wrappers (e.g. onboarding Step5Products) store it in
+// a ref and gate the Sheet's onInteractOutside/onEscapeKeyDown (direct
+// preventDefault, no confirm) + the Sheet's onOpenChange (window.confirm)
+// against it, so an operator can't lose in-progress edits to a stray
+// outside-click/Esc/X-close. This harness reproduces the exact wiring
+// Step5Products.tsx uses around ProductForm, so the assertions exercise the
+// real onDirtyChange contract + real Radix dismiss plumbing rather than
+// re-testing the harness's own logic.
+describe('ProductForm — unsaved-edit dirty guard (landr-0ulh / landr-lnbq)', () => {
+  function GuardedPanel({
+    onDirtyChange,
+    onClose,
+  }: {
+    onDirtyChange: (dirty: boolean) => void
+    onClose: () => void
+  }) {
+    const [open, setOpen] = useState(true)
+    const dirtyRef = useRef(false)
+    return (
+      <Sheet
+        open={open}
+        onOpenChange={(o) => {
+          if (!o && dirtyRef.current && !window.confirm('discard?')) return
+          if (!o) onClose()
+          setOpen(o)
+        }}
+      >
+        <SheetContent
+          onInteractOutside={(e) => {
+            if (dirtyRef.current) e.preventDefault()
+          }}
+          onEscapeKeyDown={(e) => {
+            if (dirtyRef.current) e.preventDefault()
+          }}
+        >
+          <ProductForm
+            product={null}
+            pricingSchemes={[]}
+            productGroups={[]}
+            allowedKinds={['service']}
+            onSubmit={() => {}}
+            onDirtyChange={(d) => {
+              dirtyRef.current = d
+              onDirtyChange(d)
+            }}
+          />
+        </SheetContent>
+      </Sheet>
+    )
+  }
+
+  async function clickOutside() {
+    // The pointerdown-outside listener registers on a 0ms setTimeout inside
+    // Radix's DismissableLayer — flush a macrotask before dispatching or the
+    // event has no listener to reach yet.
+    await new Promise((r) => setTimeout(r, 0))
+    const overlay = document.querySelector(
+      '[data-slot="sheet-overlay"]',
+    ) as HTMLElement
+    fireEvent.pointerDown(overlay)
+  }
+
+  it('fires onDirtyChange(true) when a field is edited, and blocks outside-click close', async () => {
+    const user = userEvent.setup()
+    const onDirtyChange = vi.fn()
+    const onClose = vi.fn()
+    render(<GuardedPanel onDirtyChange={onDirtyChange} onClose={onClose} />)
+
+    await user.type(screen.getByLabelText(/^name$/i), 'Guided Hike')
+    expect(onDirtyChange).toHaveBeenCalledWith(true)
+
+    await clickOutside()
+    expect(onClose).not.toHaveBeenCalled()
+    // The panel — and the operator's unsaved name text — are still there.
+    expect(screen.getByDisplayValue('Guided Hike')).toBeInTheDocument()
+  })
+
+  it('blocks Esc close while dirty', async () => {
+    const user = userEvent.setup()
+    const onDirtyChange = vi.fn()
+    const onClose = vi.fn()
+    render(<GuardedPanel onDirtyChange={onDirtyChange} onClose={onClose} />)
+
+    await user.type(screen.getByLabelText(/^name$/i), 'Guided Hike')
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByDisplayValue('Guided Hike')).toBeInTheDocument()
+  })
+
+  // Sanity/negative control — proves the assertions above are exercising the
+  // dirty guard itself (not a jsdom/Radix quirk that always blocks dismiss):
+  // an untouched, pristine form must let the same interactions close it.
+  it('SANITY: allows outside-click close on a pristine (non-dirty) form', async () => {
+    const onDirtyChange = vi.fn()
+    const onClose = vi.fn()
+    render(<GuardedPanel onDirtyChange={onDirtyChange} onClose={onClose} />)
+
+    await clickOutside()
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(screen.queryByLabelText(/^name$/i)).not.toBeInTheDocument()
+  })
+
+  it('X-button close is gated by window.confirm while dirty: cancel keeps the panel open, confirm discards', async () => {
+    const user = userEvent.setup()
+    const onDirtyChange = vi.fn()
+    const onClose = vi.fn()
+    const confirmSpy = vi.spyOn(window, 'confirm')
+    render(<GuardedPanel onDirtyChange={onDirtyChange} onClose={onClose} />)
+
+    await user.type(screen.getByLabelText(/^name$/i), 'Guided Hike')
+
+    // Cancel the confirm — the panel must stay open with the edit intact.
+    confirmSpy.mockReturnValueOnce(false)
+    await user.click(screen.getByRole('button', { name: /close/i }))
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByDisplayValue('Guided Hike')).toBeInTheDocument()
+
+    // Confirm the discard — now the panel is allowed to close.
+    confirmSpy.mockReturnValueOnce(true)
+    await user.click(screen.getByRole('button', { name: /close/i }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+
+    confirmSpy.mockRestore()
   })
 })

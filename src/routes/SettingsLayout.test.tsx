@@ -302,9 +302,11 @@ describe('SettingsLayout', () => {
     // landr-atwy — Account link prompt opt-in joined Settings → 25 sections.
     // landr-71kz.5 — Forms library joined Settings after Embed code → 26 sections.
     // Email log moved OUT to a standalone /email-log admin route → 25 sections.
+    // landr-c53m.14 — Declarations enforcement toggle joined Settings after
+    // Account link prompt → 26 sections.
     const nav = screen.getByRole('navigation', { name: /settings sections/i })
     const links = nav.querySelectorAll('a')
-    expect(links).toHaveLength(25)
+    expect(links).toHaveLength(26)
     expect(nav).toHaveTextContent(/calendar & display/i)
     expect(nav).toHaveTextContent(/display preferences/i)
     // landr-ylvp — section renamed Branding → Brand.
@@ -454,8 +456,10 @@ describe('SettingsLayout', () => {
     // existing "renders the Settings sub-sidebar" test comment chain first.
     // landr-cyoi — Hotels joined Settings → 24 links.
     // landr-atwy — Account link prompt joined Settings → 25 links.
-    // landr-71kz.5 — Forms library joined Settings → 26 links.
-    expect(nav.querySelectorAll('a')).toHaveLength(25)
+    // landr-71kz.5 — Forms library joined Settings → 26 links (then Email
+    // log moved OUT to a standalone route → net 25 links).
+    // landr-c53m.14 — Declarations enforcement toggle joined Settings → 26 links.
+    expect(nav.querySelectorAll('a')).toHaveLength(26)
     // The <ul> must have the overflow-x-auto class (applied on mobile, stripped
     // on md+). We assert the class is present in the rendered markup so a
     // future refactor of the chip-strip doesn't silently remove mobile scroll.

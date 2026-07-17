@@ -194,3 +194,86 @@ describe('HotelFormSheet — config-health invalidation (landr-v526)', () => {
     })
   })
 })
+
+describe('HotelFormSheet — phone-format grandfathering (landr-rhf8)', () => {
+  const LEGACY_PHONE_HOTEL = {
+    ...MINIMAL_HOTEL,
+    id: 'hotel-legacy',
+    phone: '934 600 000', // local-format, predates the landr-1url format check
+  } as hotelsLib.Hotel
+
+  beforeEach(() => {
+    // No global mock-reset config in this repo (see vitest.config.ts) —
+    // clear call history explicitly so `not.toHaveBeenCalled()` below isn't
+    // polluted by calls made in the earlier describe block above.
+    vi.clearAllMocks()
+    vi.mocked(hotelsLib.createHotel).mockResolvedValue(MINIMAL_HOTEL as hotelsLib.Hotel)
+    vi.mocked(hotelsLib.updateHotel).mockResolvedValue(LEGACY_PHONE_HOTEL)
+  })
+
+  it('saves an unrelated edit on a hotel with a legacy-format phone left untouched', async () => {
+    const client = makeClient()
+    renderSheet(client, { editTarget: LEGACY_PHONE_HOTEL })
+
+    const user = userEvent.setup()
+    // Edit the website field only — phone stays at its legacy stored value.
+    await user.type(screen.getByLabelText(/website/i), 'https://legacy-hotel.example')
+
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => {
+      expect(hotelsLib.updateHotel).toHaveBeenCalled()
+    })
+    // No validation error should have blocked the submit. (The always-on
+    // phone hint also contains "country code" text, so scope the query to
+    // the FormMessage/error slot, not the FormDescription hint.)
+    expect(
+      screen.queryByText(/include your country code/i, {
+        selector: '[data-slot="form-message"]',
+      }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('blocks the submit when the legacy phone is touched and left in an invalid format', async () => {
+    const client = makeClient()
+    renderSheet(client, { editTarget: LEGACY_PHONE_HOTEL })
+
+    const user = userEvent.setup()
+    const phoneInput = screen.getByDisplayValue('934 600 000')
+    await user.clear(phoneInput)
+    await user.type(phoneInput, '934 600 111')
+
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/include your country code/i, {
+          selector: '[data-slot="form-message"]',
+        }),
+      ).toBeInTheDocument()
+    })
+    expect(hotelsLib.updateHotel).not.toHaveBeenCalled()
+  })
+
+  it('blocks creating a new hotel with a legacy-format phone', async () => {
+    const client = makeClient()
+    renderSheet(client)
+
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Name'), 'New Hotel')
+    await user.type(screen.getByLabelText('Booking-confirmation email'), 'new@hotel.example')
+    await user.type(screen.getByLabelText('Address'), 'Calle Test 3')
+    await user.type(screen.getByLabelText('Phone'), '934 600 000')
+
+    await user.click(screen.getByRole('button', { name: /add hotel/i }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/include your country code/i, {
+          selector: '[data-slot="form-message"]',
+        }),
+      ).toBeInTheDocument()
+    })
+    expect(hotelsLib.createHotel).not.toHaveBeenCalled()
+  })
+})

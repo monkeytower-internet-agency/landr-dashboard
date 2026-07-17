@@ -89,6 +89,7 @@ function makeProduct(overrides: Partial<ProductRow> = {}): ProductRow {
     hotel_offering: 'none',
     is_addon_only: false,
     capacity_per_unit: null,
+    includes_breakfast: false,
     deleted_at: null,
     created_at: '2026-05-01T00:00:00Z',
     updated_at: '2026-05-01T00:00:00Z',
@@ -104,7 +105,10 @@ const baseProps = {
   onOpenChange: () => {},
   schemeId: 'sch-1',
   operatorId: 'op-1',
-  operatorSlug: 'para42',
+  // landr-wl7h — deliberately NOT a valid slug shape, to make it obvious
+  // in assertions below that this value (not a slug) is what must reach
+  // simulateEstimate's URL-building.
+  widgetToken: 'CNe5RCiMijUjgJrftAwKA',
   schemeName: 'Standard paragliding',
 }
 
@@ -228,7 +232,7 @@ describe('SimulateDialog', () => {
       expect(simulatorMock.simulateEstimate).toHaveBeenCalledTimes(1),
     )
     expect(simulatorMock.simulateEstimate).toHaveBeenCalledWith(
-      'para42',
+      'CNe5RCiMijUjgJrftAwKA',
       'p-eligible',
       {
         selected_days: ['2026-06-10', '2026-06-11', '2026-06-12'],

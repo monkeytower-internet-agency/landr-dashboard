@@ -1,8 +1,10 @@
 import {
+  fireEvent,
   render as rtlRender,
   screen,
   waitFor,
 } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactElement, ReactNode } from 'react'
@@ -51,16 +53,24 @@ vi.mock('sonner', () => ({
   Toaster: () => null,
 }))
 
-// landr-5gk7 — the editor now reads currentOperator.slug via useOperator
-// so the Simulate button knows which public-API slug to call. We're not
-// exercising the simulator here, but we still need to satisfy the hook
-// contract (it throws if OperatorProvider isn't mounted). A bare-bones
-// mock keeps this test file focused on the reorder + render concerns it
-// was originally written for.
+// landr-5gk7 / landr-wl7h — the editor reads currentOperator.widget_token
+// via useOperator so the Simulate button knows which public-API token to
+// call. slug and widget_token are DELIBERATELY set to different values
+// here (landr-wl7h regression guard below relies on that distinction —
+// see 'passes widget_token, not slug, to SimulateDialog'). We're not
+// exercising the simulator here otherwise, but we still need to satisfy
+// the hook contract (it throws if OperatorProvider isn't mounted). A
+// bare-bones mock keeps this test file focused on the reorder + render
+// concerns it was originally written for.
 vi.mock('@/lib/operator', () => ({
   useOperator: () => ({
     operators: [],
-    currentOperator: { id: 'op-1', slug: 'op-slug', name: 'Op' },
+    currentOperator: {
+      id: 'op-1',
+      slug: 'op-slug',
+      widget_token: 'op-widget-token',
+      name: 'Op',
+    },
     currentOperatorId: 'op-1',
     loading: false,
     switchOperator: () => {},
@@ -70,9 +80,18 @@ vi.mock('@/lib/operator', () => ({
 
 // landr-5gk7 — stub the simulator dialog so this test file doesn't pull
 // in the products/api-client transitive deps that the dialog uses. The
-// dialog has its own dedicated test (SimulateDialog.test.tsx).
+// dialog has its own dedicated test (SimulateDialog.test.tsx). We still
+// record the props it's mounted with (landr-wl7h) so this file can assert
+// the editor threads widget_token — not slug — through to it, without
+// having to drive the real dialog's internals.
+const { simulateDialogPropsMock } = vi.hoisted(() => ({
+  simulateDialogPropsMock: vi.fn(),
+}))
 vi.mock('./SimulateDialog', () => ({
-  SimulateDialog: () => null,
+  SimulateDialog: (props: Record<string, unknown>) => {
+    simulateDialogPropsMock(props)
+    return null
+  },
 }))
 
 import { PricingSchemeEditorSheet } from './PricingSchemeEditorSheet'
@@ -151,6 +170,7 @@ beforeEach(() => {
   pricingMock.patchRule.mockImplementation((_op, id, body) =>
     Promise.resolve({ id, ...body }),
   )
+  simulateDialogPropsMock.mockReset()
 })
 
 afterEach(() => {
@@ -259,5 +279,214 @@ describe('PricingSchemeEditorSheet — drag-and-drop reorder', () => {
       // Sanity: mock recorded one call.
       expect(pricingMock.patchRule).toHaveBeenCalledTimes(1)
     })
+  })
+})
+
+describe('PricingSchemeEditorSheet — Add rule zero-on-create guard (landr-d2uy / landr-c53m.10)', () => {
+  // manual_override, fixed_total, and per_day_base all share an evaluator
+  // shape that returns a fresh absolute value (not additive) when params
+  // are empty — manual_override additionally REPLACES gross_total AND
+  // halts the rest of the pipeline (see
+  // app/services/pricing.py::_eval_manual_override + compute_price's
+  // `if kind == "manual_override": halted = True; break`). Adding any of
+  // these live with default params (as the plain Add button used to)
+  // instantly zeroes every price computed through the scheme until an
+  // amount is typed in. New rules of these kinds must be created inactive.
+
+  it.each(['manual_override', 'fixed_total', 'per_day_base'] as const)(
+    'creates %s rules inactive',
+    async (kind) => {
+      pricingMock.createRule.mockResolvedValue({ id: 'rule-new' })
+      render(
+        <PricingSchemeEditorSheet
+          schemeId="sch-1"
+          operatorId="op-1"
+          onClose={() => {}}
+        />,
+      )
+      await screen.findAllByText('Percentage discount')
+
+      fireEvent.change(screen.getByLabelText(/rule type/i), {
+        target: { value: kind },
+      })
+      fireEvent.click(screen.getByRole('button', { name: /^add$/i }))
+
+      await waitFor(() => expect(pricingMock.createRule).toHaveBeenCalledTimes(1))
+      const [, , body] = pricingMock.createRule.mock.calls[0]
+      expect(body).toMatchObject({ rule_kind: kind, active: false })
+    },
+  )
+
+  it('does not force active:false for ordinary rule kinds (e.g. percentage_discount)', async () => {
+    pricingMock.createRule.mockResolvedValue({ id: 'rule-new' })
+    render(
+      <PricingSchemeEditorSheet
+        schemeId="sch-1"
+        operatorId="op-1"
+        onClose={() => {}}
+      />,
+    )
+    await screen.findAllByText('Percentage discount')
+
+    fireEvent.change(screen.getByLabelText(/rule type/i), {
+      target: { value: 'percentage_discount' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^add$/i }))
+
+    await waitFor(() => expect(pricingMock.createRule).toHaveBeenCalledTimes(1))
+    const [, , body] = pricingMock.createRule.mock.calls[0]
+    expect(body).not.toHaveProperty('active')
+  })
+})
+
+// landr-lnbq — regression test for the confirm-before-discard dirty-guard PR
+// #335 added: unsaved name/notes edits are tracked via a local `isDirty`
+// derived from nameVal/notesVal vs. the loaded scheme, mirrored into a ref,
+// and read by the Sheet's onInteractOutside/onEscapeKeyDown handlers (direct
+// preventDefault — no confirm) plus the Sheet's onOpenChange (window.confirm)
+// so a stray outside-click/Esc/X-close can't discard an in-progress name or
+// notes edit.
+describe('PricingSchemeEditorSheet — unsaved-edit dirty guard (landr-0ulh / landr-lnbq)', () => {
+  beforeEach(() => {
+    // The X-button-close tests below blur the name input (which fires
+    // saveName → patchMutation) on the way to clicking Close; give the
+    // mutation a benign resolved value so it doesn't reject.
+    pricingMock.patchPricingScheme.mockResolvedValue(makeScheme())
+  })
+
+  async function clickOutside() {
+    // Radix's DismissableLayer registers its outside-pointerdown listener on
+    // a 0ms setTimeout — flush a macrotask before dispatching or there's no
+    // listener yet to reach.
+    await new Promise((r) => setTimeout(r, 0))
+    const overlay = document.querySelector(
+      '[data-slot="sheet-overlay"]',
+    ) as HTMLElement
+    fireEvent.pointerDown(overlay)
+  }
+
+  it('dirtying the name field blocks outside-click close (no confirm shown)', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    const confirmSpy = vi.spyOn(window, 'confirm')
+    render(
+      <PricingSchemeEditorSheet
+        schemeId="sch-1"
+        operatorId="op-1"
+        onClose={onClose}
+      />,
+    )
+    await screen.findAllByText('Percentage discount')
+
+    const nameInput = screen.getByLabelText(/scheme name/i)
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Renamed scheme')
+
+    await clickOutside()
+
+    expect(onClose).not.toHaveBeenCalled()
+    // onInteractOutside preventDefault()s directly — Radix never calls
+    // onOpenChange, so window.confirm is never even invoked here.
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.getByDisplayValue('Renamed scheme')).toBeInTheDocument()
+
+    confirmSpy.mockRestore()
+  })
+
+  it('dirtying the notes field blocks Esc close', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    render(
+      <PricingSchemeEditorSheet
+        schemeId="sch-1"
+        operatorId="op-1"
+        onClose={onClose}
+      />,
+    )
+    await screen.findAllByText('Percentage discount')
+
+    const notesInput = screen.getByPlaceholderText(/optional notes/i)
+    await user.type(notesInput, 'Seasonal pricing — review in spring')
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(
+      screen.getByDisplayValue('Seasonal pricing — review in spring'),
+    ).toBeInTheDocument()
+  })
+
+  // Sanity/negative control — proves the two guards above are exercising the
+  // real dirty-tracking + Radix dismiss plumbing, not some jsdom quirk that
+  // always blocks dismissal: an untouched scheme must let the very same
+  // interactions close the sheet (via onClose, since schemeId/open is
+  // externally controlled by the parent in real usage).
+  it('SANITY: allows outside-click close when name/notes are untouched (pristine)', async () => {
+    const onClose = vi.fn()
+    render(
+      <PricingSchemeEditorSheet
+        schemeId="sch-1"
+        operatorId="op-1"
+        onClose={onClose}
+      />,
+    )
+    await screen.findAllByText('Percentage discount')
+
+    await clickOutside()
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('X-button close on a dirty name is gated by window.confirm: cancel keeps it open, confirm discards', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    const confirmSpy = vi.spyOn(window, 'confirm')
+    render(
+      <PricingSchemeEditorSheet
+        schemeId="sch-1"
+        operatorId="op-1"
+        onClose={onClose}
+      />,
+    )
+    await screen.findAllByText('Percentage discount')
+
+    const nameInput = screen.getByLabelText(/scheme name/i)
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Renamed scheme')
+
+    confirmSpy.mockReturnValueOnce(false)
+    await user.click(screen.getByRole('button', { name: /close/i }))
+    expect(onClose).not.toHaveBeenCalled()
+
+    confirmSpy.mockReturnValueOnce(true)
+    await user.click(screen.getByRole('button', { name: /close/i }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+
+    confirmSpy.mockRestore()
+  })
+
+  // landr-wl7h regression guard — SimulateDialog sent the operator's slug
+  // where the public estimate endpoint's {token} path segment actually
+  // expects widget_token (two different opaque values, never equal by
+  // design). That 404'd with "unknown widget token" on every environment
+  // for every operator. Assert the sheet threads currentOperator's
+  // widget_token — NOT slug — through as the `widgetToken` prop.
+  it('landr-wl7h: passes currentOperator.widget_token, not slug, to SimulateDialog', async () => {
+    render(
+      <PricingSchemeEditorSheet
+        schemeId="sch-1"
+        operatorId="op-1"
+        onClose={() => {}}
+      />,
+    )
+    await screen.findAllByText('Percentage discount')
+
+    await waitFor(() => expect(simulateDialogPropsMock).toHaveBeenCalled())
+    const lastCall = simulateDialogPropsMock.mock.calls.at(-1)?.[0] as {
+      widgetToken?: string
+    }
+    expect(lastCall.widgetToken).toBe('op-widget-token')
+    expect(lastCall.widgetToken).not.toBe('op-slug')
+    expect(lastCall).not.toHaveProperty('operatorSlug')
   })
 })

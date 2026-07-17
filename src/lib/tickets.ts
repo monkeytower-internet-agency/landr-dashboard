@@ -162,6 +162,14 @@ export const PRIORITY_TOOLTIP: Record<TicketPriority, string> = {
   p2: 'Normal priority — fix when possible',
 }
 
+// landr-7dya.17 — canonical priority badge tone (bg/text classes), previously
+// duplicated in CardVisuals.tsx and TicketDetailSheet.tsx. Single source here.
+export const PRIORITY_TONE: Record<TicketPriority, string> = {
+  p0: 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300',
+  p1: 'bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300',
+  p2: 'bg-muted text-muted-foreground',
+}
+
 // ---- type labels ------------------------------------------------------------
 
 export const TYPE_LABEL: Record<TicketType, string> = {

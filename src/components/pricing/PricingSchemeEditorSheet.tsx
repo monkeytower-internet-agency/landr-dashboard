@@ -65,7 +65,30 @@ const RULE_KIND_OPTIONS: RuleKind[] = [
   'percentage_discount',
   'flat_discount',
   'fixed_total',
+  'time_of_day_surcharge',
+  'manual_override',
 ]
+
+// landr-d2uy / landr-c53m.10 fix-forward — rule kinds whose evaluator
+// returns a fresh absolute value (not additive to the running subtotal)
+// when its params are empty, so adding one live with default params
+// instantly zeroes the price it computes through. manual_override defaults
+// params.amount to 0 AND halts the rest of the pipeline (see
+// app/services/pricing.py::_eval_manual_override /
+// compute_price's `if kind == "manual_override": halted = True; break`),
+// so it also skips every later rule + the voucher. fixed_total and
+// per_day_base share the same zero-on-empty-params evaluator shape and
+// per_day_base additionally sorts last (sort_order = max + 10), so adding
+// either live with default params zeroes every price computed through the
+// scheme until an amount is typed in. Newly added rules of these kinds are
+// created inactive so the operator must configure them, then explicitly
+// flip Active.
+//
+// time_of_day_surcharge was also newly added to this menu but its empty
+// `window` (no "-") makes the evaluator a no-op (returns `running`
+// unchanged) — verified against _eval_time_of_day_surcharge — so it does
+// NOT need this treatment.
+const ZERO_ON_CREATE_KINDS: RuleKind[] = ['fixed_total', 'per_day_base', 'manual_override']
 
 export function PricingSchemeEditorSheet({ schemeId, operatorId, onClose }: Props) {
   const open = schemeId !== null
@@ -202,12 +225,13 @@ function SchemeEditor({ scheme, operatorId, onRefetch, onDirtyChange }: EditorPr
   }, [isDirty, onDirtyChange])
   const [newRuleKind, setNewRuleKind] = useState<RuleKind>('per_day_base')
   const [simulateOpen, setSimulateOpen] = useState(false)
-  // landr-5gk7 — the simulator dialog hits the public estimate endpoint,
-  // which is slug-scoped. The editor sheet is rendered inside the operator
-  // shell so currentOperator is always populated here; we guard the
-  // 'Simulate' button on its presence rather than throwing.
+  // landr-5gk7 / landr-wl7h — the simulator dialog hits the public estimate
+  // endpoint, which is keyed on the operator's widget_token (NOT the slug —
+  // those are two different opaque values). The editor sheet is rendered
+  // inside the operator shell so currentOperator is always populated here;
+  // we guard the 'Simulate' button on its presence rather than throwing.
   const { currentOperator } = useOperator()
-  const operatorSlug = currentOperator?.slug ?? null
+  const widgetToken = currentOperator?.widget_token ?? null
   const [nextSortOrder, setNextSortOrder] = useState(
     scheme.rules.length > 0
       ? Math.max(...scheme.rules.map((r) => r.sort_order)) + 10
@@ -290,11 +314,19 @@ function SchemeEditor({ scheme, operatorId, onRefetch, onDirtyChange }: EditorPr
       createRule(operatorId, scheme.id, {
         rule_kind: newRuleKind,
         sort_order: nextSortOrder,
+        // landr-d2uy fix-forward — never create a zero-on-create kind
+        // (see ZERO_ON_CREATE_KINDS) already active: it would instantly
+        // zero every price computed through this scheme until configured.
+        ...(ZERO_ON_CREATE_KINDS.includes(newRuleKind) ? { active: false } : {}),
       }),
     onSuccess: () => {
       setNextSortOrder((s) => s + 10)
       onRefetch()
-      toast.success('Rule added.')
+      toast.success(
+        ZERO_ON_CREATE_KINDS.includes(newRuleKind)
+          ? 'Rule added as inactive — configure it, then switch it to Active.'
+          : 'Rule added.',
+      )
     },
     onError: (err: Error) => toast.error(`Failed to add rule: ${err.message}`),
   })
@@ -349,16 +381,16 @@ function SchemeEditor({ scheme, operatorId, onRefetch, onDirtyChange }: EditorPr
             {scheme.active ? 'Active' : 'Inactive'}
           </Button>
           {/* landr-5gk7 — opens the pricing-rule simulator dialog. Disabled
-              when we don't yet know the operator slug (rare race during
-              initial load) so we never fire a public-API call with an
-              undefined slug. */}
+              when we don't yet know the operator's widget_token (rare race
+              during initial load) so we never fire a public-API call with
+              an undefined token. */}
           <Button
             type="button"
             size="sm"
             variant="outline"
             className="h-7 px-2 text-xs"
             onClick={() => setSimulateOpen(true)}
-            disabled={!operatorSlug}
+            disabled={!widgetToken}
           >
             Simulate
           </Button>
@@ -421,13 +453,13 @@ function SchemeEditor({ scheme, operatorId, onRefetch, onDirtyChange }: EditorPr
         {/* landr-5gk7 — pricing-rule simulator. Mounted alongside the
             editor so operators can preview their changes without leaving
             the sheet. */}
-        {operatorSlug ? (
+        {widgetToken ? (
           <SimulateDialog
             open={simulateOpen}
             onOpenChange={setSimulateOpen}
             schemeId={scheme.id}
             operatorId={operatorId}
-            operatorSlug={operatorSlug}
+            widgetToken={widgetToken}
             schemeName={scheme.name}
           />
         ) : null}
@@ -460,6 +492,13 @@ function SchemeEditor({ scheme, operatorId, onRefetch, onDirtyChange }: EditorPr
               Add
             </Button>
           </div>
+          {ZERO_ON_CREATE_KINDS.includes(newRuleKind) ? (
+            <p className="text-muted-foreground text-xs">
+              This rule type replaces the price and can zero it until
+              configured — it will be added inactive; set its amount, then
+              switch it to Active.
+            </p>
+          ) : null}
         </div>
       </div>
     </>

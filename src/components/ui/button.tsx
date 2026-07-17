@@ -13,12 +13,14 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        // brand: reject/cancel actions use the logo orange (#F5821F) with dark
-        // text (orange is light → white fails contrast). Form-error red is
-        // unaffected — that uses the --destructive *token* (aria-invalid), not
-        // this button variant.
+        // brand: reject/cancel actions use the logo orange (bookings hue
+        // "vivid" token, #F5821F) with dark text (orange is light → white
+        // fails contrast). References the shared --color-hue-bookings-vivid
+        // token (not a raw hex) so it stays in sync with the rest of the
+        // bookings hue family. Form-error red is unaffected — that uses the
+        // --destructive *token* (aria-invalid), not this button variant.
         destructive:
-          "bg-[#F5821F] text-black hover:bg-[#F5821F]/90 focus-visible:ring-[#F5821F]/40",
+          "bg-hue-bookings-vivid text-black hover:bg-hue-bookings-vivid/90 focus-visible:ring-hue-bookings-vivid/40",
         outline:
           // landr-z7t: outline button gets compound shadow-s so it lifts off
           // the page like other depth surfaces.

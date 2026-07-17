@@ -4,8 +4,11 @@
  * floating out of it, meadow backdrop.
  */
 
+import { useId } from 'react'
+
 export function EmptyContacts({ className }: { className?: string }) {
   const outline = "#2B1A0F";
+  const uid = useId();
 
   return (
     <svg
@@ -16,12 +19,12 @@ export function EmptyContacts({ className }: { className?: string }) {
       aria-hidden="true"
     >
       <defs>
-        <linearGradient id="ec-sky" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`${uid}-sky`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--comic-sky, #B8D4F0)" />
           <stop offset="100%" stopColor="var(--comic-sky2, #FFE9B8)" />
         </linearGradient>
       </defs>
-      <rect width="240" height="200" rx="16" fill="url(#ec-sky)" />
+      <rect width="240" height="200" rx="16" fill={`url(#${uid}-sky)`} />
       {/* ground */}
       <ellipse cx="120" cy="185" rx="100" ry="20" fill="var(--comic-ground, #5DA53C)" />
       <ellipse cx="120" cy="190" rx="90" ry="16" fill="var(--comic-ground-dark, #2E6B3E)" />

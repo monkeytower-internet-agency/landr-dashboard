@@ -119,6 +119,9 @@ export type BookingActionsParams = {
   setCancelReason: (v: string) => void
   cancelReason: string
   setShowUnblock: (v: boolean) => void
+  setShowHotelDecline: (v: boolean) => void
+  setHotelDeclineNote: (v: string) => void
+  hotelDeclineNote: string
   setShowNoShow: (v: boolean) => void
   setChargeCancellationFee: (v: boolean) => void
   chargeCancellationFee: boolean
@@ -150,6 +153,9 @@ export function useBookingActions({
   setCancelReason,
   cancelReason,
   setShowUnblock,
+  setShowHotelDecline,
+  setHotelDeclineNote,
+  hotelDeclineNote,
   setShowNoShow,
   setChargeCancellationFee,
   chargeCancellationFee,
@@ -175,7 +181,14 @@ export function useBookingActions({
   // ---------------------------------------------------------------------------
 
   const code = stageCode(row)
-  const canUnblock = code === 'awaiting_hotel_approval'
+  // landr-b304 — both stage codes route through transition_booking_approval's
+  // branch=secondary (see 20260514071000_transition_booking_approval.sql):
+  // awaiting_hotel_approval is the Para42 historical-exception code,
+  // awaiting_secondary_approval is the generic canonical replacement. Gate
+  // both the unblock (approve) and decline (reject) buttons on either code
+  // so operators on either stage naming see both actions.
+  const canUnblock =
+    code === 'awaiting_hotel_approval' || code === 'awaiting_secondary_approval'
   const canGeneralApprove = code === 'awaiting_general_approval'
   const canNoShow = canMarkAsNoShow(row)
   const canMarkPaid = canMarkAsPaid(row)
@@ -309,6 +322,36 @@ export function useBookingActions({
     },
     onError: (err: Error) => {
       toast.error(t.bookings.hotelUnblock.toastError, {
+        description: err.message,
+      })
+    },
+  })
+
+  // landr-b304 — hotel-declined mutation. Sibling to unblockMutation; calls
+  // the same postHotelApprovalDecision wrapper (branch=secondary) with
+  // decision='reject', which hard-cancels the booking via
+  // transition_booking_approval into the operator's cancelled stage and
+  // writes a distinct approval_transition audit row
+  // (app.approval_branch='secondary', app.approval_decision='rejected').
+  // Mirrors generalRejectMutation: optional note, closes the sheet on
+  // success since the booking leaves the open-booking set.
+  const hotelDeclineMutation = useMutation({
+    mutationFn: async () => {
+      await postHotelApprovalDecision({
+        bookingId: row.id,
+        decision: 'reject',
+        notes: hotelDeclineNote.trim() || undefined,
+      })
+    },
+    onSuccess: () => {
+      toast.success(t.bookings.hotelDecline.toastSuccess)
+      setShowHotelDecline(false)
+      setHotelDeclineNote('')
+      invalidateAll()
+      onClose()
+    },
+    onError: (err: Error) => {
+      toast.error(t.bookings.hotelDecline.toastError, {
         description: err.message,
       })
     },
@@ -540,6 +583,7 @@ export function useBookingActions({
     saveMutation.isPending ||
     cancelMutation.isPending ||
     unblockMutation.isPending ||
+    hotelDeclineMutation.isPending ||
     generalApproveMutation.isPending ||
     generalRejectMutation.isPending ||
     noShowMutation.isPending ||
@@ -559,6 +603,7 @@ export function useBookingActions({
     saveMutation,
     cancelMutation,
     unblockMutation,
+    hotelDeclineMutation,
     generalApproveMutation,
     generalRejectMutation,
     noShowMutation,

@@ -172,14 +172,25 @@ export function ProductFlowTab({ productId, operatorId }: Props) {
   // Optimistic display order (ids). null = follow server order.
   const [orderOverride, setOrderOverride] = useState<string[] | null>(null)
   const serverIds = modules.map((m) => m.id)
+  const serverKey = serverIds.join(',')
 
-  // Drop override once server confirms the new order.
-  if (
-    orderOverride !== null &&
-    orderOverride.length === serverIds.length &&
-    orderOverride.every((id, i) => serverIds[i] === id)
-  ) {
-    queueMicrotask(() => setOrderOverride(null))
+  // Drop the override once the server confirms the new order. This uses
+  // React's documented "adjusting state when a value changes during
+  // rendering" pattern (not a `useEffect`, which would call setState
+  // asynchronously after commit and trigger an extra render pass): we track
+  // the last serverKey we reacted to and, when it changes, synchronously
+  // clear the override if it now matches — guarded so it only runs once per
+  // actual server-order change, not on every render.
+  const [checkedServerKey, setCheckedServerKey] = useState(serverKey)
+  if (serverKey !== checkedServerKey) {
+    setCheckedServerKey(serverKey)
+    if (
+      orderOverride !== null &&
+      orderOverride.length === serverIds.length &&
+      orderOverride.every((id, i) => serverIds[i] === id)
+    ) {
+      setOrderOverride(null)
+    }
   }
 
   const displayIds = orderOverride ?? serverIds
@@ -258,7 +269,7 @@ export function ProductFlowTab({ productId, operatorId }: Props) {
   // ── Delete module ───────────────────────────────────────────────────────
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteFlowModule(id),
+    mutationFn: (id: string) => deleteFlowModule(id, operatorId),
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: modulesKey })
       const previous = qc.getQueryData<FlowModule[]>(modulesKey)

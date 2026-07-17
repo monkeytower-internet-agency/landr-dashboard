@@ -12,7 +12,7 @@ import {
   waitFor,
 } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactElement } from 'react'
 
 const { toastSuccessMock, toastErrorMock } = vi.hoisted(() => ({
@@ -41,6 +41,17 @@ vi.mock('@/lib/bookings', () => ({
   invalidateBookingCaches: vi.fn(),
 }))
 
+// landr-c53m.1 — this operator's Custom Offer defaults (formerly the
+// Para42-hardcoded 6 / 7% initial state). Mocked to those same values so
+// the existing assertions below (discount threshold 6, tax 7%) still
+// describe this operator's OWN configured contract, not a hardcoded default.
+const { fetchOperatorMock } = vi.hoisted(() => ({
+  fetchOperatorMock: vi.fn(),
+}))
+vi.mock('@/lib/operatorSettings', () => ({
+  fetchOperator: fetchOperatorMock,
+}))
+
 import { CustomOfferEditorSheet } from './CustomOfferEditorSheet'
 import type { CustomOffer } from '@/lib/customOffer'
 
@@ -67,6 +78,17 @@ function emptyOffer(): CustomOffer {
     lines: [],
   }
 }
+
+beforeEach(() => {
+  // landr-c53m.1 — this operator's configured Custom Offer defaults.
+  // Individual tests below rely on tax defaulting to 7% (para42-style
+  // contract terms), same as before this operator-config plumbing existed.
+  fetchOperatorMock.mockResolvedValue({
+    id: 'op-1',
+    default_tax_rate: 0.07,
+    group_discount_threshold: 6,
+  })
+})
 
 afterEach(() => {
   vi.clearAllMocks()
@@ -133,6 +155,129 @@ describe('CustomOfferEditorSheet', () => {
     expect(free[0].unit_price).toBe('0.00')
     const paying = body.lines.filter((l: { is_free: boolean }) => !l.is_free)
     expect(paying.every((l: { unit_price: string }) => l.unit_price === '100.00')).toBe(true)
+  })
+
+  // landr-c53m.1 — the composer must seed from THIS operator's config, not
+  // a hardcoded Para42 (6 / 7%) literal.
+  it('seeds threshold + tax from the operator config, not a hardcoded Para42 default', async () => {
+    fetchOperatorMock.mockResolvedValue({
+      id: 'op-2',
+      default_tax_rate: 0.19,
+      group_discount_threshold: 3,
+    })
+    fetchMock.mockResolvedValue({ ...emptyOffer(), group_threshold: null })
+    putMock.mockResolvedValue({ ...emptyOffer(), custom_offer_applied: true })
+
+    render(
+      <CustomOfferEditorSheet bookingId="b-1" operatorId="op-2" onClose={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('custom-offer-threshold')).toHaveValue(3)
+    })
+    expect(screen.getByTestId('custom-offer-tax')).toHaveValue(19)
+
+    fireEvent.click(screen.getByTestId('custom-offer-save'))
+    await waitFor(() => expect(putMock).toHaveBeenCalledTimes(1))
+    const [, , body] = putMock.mock.calls[0]
+    expect(body.group_threshold).toBe(3)
+    expect(body.tax_rate).toBe('0.1900')
+  })
+
+  // landr-c53m.1 fix-forward — CRITICAL wrong-money fix: a failed operator
+  // fetch must never let staff silently save a real 0%-tax, threshold-0
+  // offer. Save stays disabled + a banner/retry is shown until the fetch
+  // succeeds (via Retry) or the user explicitly enters BOTH values.
+  it('operator fetch error disables save + shows banner; retry re-enables it once resolved', async () => {
+    fetchOperatorMock.mockRejectedValueOnce(new Error('network down'))
+    fetchOperatorMock.mockResolvedValue({
+      id: 'op-1',
+      default_tax_rate: 0.07,
+      group_discount_threshold: 6,
+    })
+    fetchMock.mockResolvedValue(emptyOffer())
+
+    render(
+      <CustomOfferEditorSheet bookingId="b-1" operatorId="op-1" onClose={() => {}} />,
+    )
+
+    // Banner appears, save is disabled — the seeded tax/threshold values
+    // are 0 (the neutral operator-fetch-failure fallback) but must not be
+    // saveable without the user's explicit sign-off.
+    await waitFor(() =>
+      expect(screen.getByTestId('custom-offer-operator-error')).toBeInTheDocument(),
+    )
+    expect(screen.getByTestId('custom-offer-save')).toBeDisabled()
+
+    // Retry succeeds -> banner disappears, seeded operator values appear,
+    // and save re-enables.
+    fireEvent.click(screen.getByTestId('custom-offer-operator-retry'))
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId('custom-offer-operator-error'),
+      ).not.toBeInTheDocument(),
+    )
+    await waitFor(() => expect(screen.getByTestId('custom-offer-save')).toBeEnabled())
+    expect(screen.getByTestId('custom-offer-threshold')).toHaveValue(6)
+    expect(screen.getByTestId('custom-offer-tax')).toHaveValue(7)
+  })
+
+  it('operator fetch error + explicit user-entered tax + threshold allows save with those values', async () => {
+    fetchOperatorMock.mockRejectedValue(new Error('network down'))
+    fetchMock.mockResolvedValue(emptyOffer())
+    putMock.mockResolvedValue({ ...emptyOffer(), custom_offer_applied: true })
+
+    render(
+      <CustomOfferEditorSheet bookingId="b-1" operatorId="op-1" onClose={() => {}} />,
+    )
+
+    await waitFor(() =>
+      expect(screen.getByTestId('custom-offer-operator-error')).toBeInTheDocument(),
+    )
+    expect(screen.getByTestId('custom-offer-save')).toBeDisabled()
+
+    // Save remains disabled until BOTH values are explicitly entered.
+    fireEvent.change(screen.getByTestId('custom-offer-tax'), { target: { value: '19' } })
+    expect(screen.getByTestId('custom-offer-save')).toBeDisabled()
+    fireEvent.change(screen.getByTestId('custom-offer-threshold'), { target: { value: '3' } })
+    await waitFor(() => expect(screen.getByTestId('custom-offer-save')).toBeEnabled())
+
+    fireEvent.click(screen.getByTestId('custom-offer-save'))
+    await waitFor(() => expect(putMock).toHaveBeenCalledTimes(1))
+    const [, , body] = putMock.mock.calls[0]
+    expect(body.tax_rate).toBe('0.1900')
+    expect(body.group_threshold).toBe(3)
+  })
+
+  // landr-c53m.1 fix-forward — the happy path (fetch OK) is unchanged: the
+  // operator's real config seeds the form (para42-style 7%/6, matching the
+  // earlier hardcoded literal), and explicit user edits still win over it.
+  it('fetch OK: seeds operator config unchanged, and explicit user edits still win', async () => {
+    fetchMock.mockResolvedValue(emptyOffer())
+    putMock.mockResolvedValue({ ...emptyOffer(), custom_offer_applied: true })
+
+    render(
+      <CustomOfferEditorSheet bookingId="b-1" operatorId="op-1" onClose={() => {}} />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('custom-offer-threshold')).toHaveValue(6)
+    })
+    expect(screen.getByTestId('custom-offer-tax')).toHaveValue(7)
+    expect(screen.getByTestId('custom-offer-save')).toBeEnabled()
+    expect(
+      screen.queryByTestId('custom-offer-operator-error'),
+    ).not.toBeInTheDocument()
+
+    // Explicit user edit overrides the seeded operator default.
+    fireEvent.change(screen.getByTestId('custom-offer-tax'), { target: { value: '21' } })
+    fireEvent.change(screen.getByTestId('custom-offer-threshold'), { target: { value: '4' } })
+
+    fireEvent.click(screen.getByTestId('custom-offer-save'))
+    await waitFor(() => expect(putMock).toHaveBeenCalledTimes(1))
+    const [, , body] = putMock.mock.calls[0]
+    expect(body.tax_rate).toBe('0.2100')
+    expect(body.group_threshold).toBe(4)
   })
 
   it('no discount when paying count does not exceed the threshold', async () => {

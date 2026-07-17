@@ -24,7 +24,14 @@
 
 import { AlertCircle, BotIcon, Eye, MessageSquare, Paperclip } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { AssignableUser, TicketMoscow, TicketPriority } from '@/lib/tickets'
+import {
+  MOSCOW_LABEL,
+  PRIORITY_LABEL,
+  PRIORITY_TONE,
+  type AssignableUser,
+  type TicketMoscow,
+  type TicketPriority,
+} from '@/lib/tickets'
 
 // ---- OriginChip -------------------------------------------------------------
 
@@ -109,13 +116,6 @@ const MOSCOW_SHORT: Record<TicketMoscow, string> = {
   wont: 'W',
 }
 
-const MOSCOW_FULL: Record<TicketMoscow, string> = {
-  must: 'Must have',
-  should: 'Should have',
-  could: 'Could have',
-  wont: "Won't have",
-}
-
 const MOSCOW_TONE: Record<TicketMoscow, string> = {
   must: 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300',
   should: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
@@ -127,18 +127,6 @@ const PRIORITY_SHORT: Record<TicketPriority, string> = {
   p0: 'P0',
   p1: 'P1',
   p2: 'P2',
-}
-
-const PRIORITY_FULL: Record<TicketPriority, string> = {
-  p0: 'Critical',
-  p1: 'High',
-  p2: 'Normal',
-}
-
-const PRIORITY_TONE: Record<TicketPriority, string> = {
-  p0: 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300',
-  p1: 'bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300',
-  p2: 'bg-muted text-muted-foreground',
 }
 
 /**
@@ -170,7 +158,7 @@ export function CardStatusIcons({
           'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium',
           PRIORITY_TONE[priority] ?? PRIORITY_TONE.p2,
         )}
-        title={PRIORITY_FULL[priority]}
+        title={PRIORITY_LABEL[priority]}
         data-testid="card-status-priority"
       >
         {PRIORITY_SHORT[priority]}
@@ -183,7 +171,7 @@ export function CardStatusIcons({
             'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium',
             MOSCOW_TONE[moscow],
           )}
-          title={MOSCOW_FULL[moscow]}
+          title={MOSCOW_LABEL[moscow]}
           data-testid="card-status-moscow"
         >
           {MOSCOW_SHORT[moscow]}

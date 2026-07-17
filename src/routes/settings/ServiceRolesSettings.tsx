@@ -21,6 +21,8 @@ import { ChevronDownIcon, ChevronUpIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   createServiceRole,
   deleteServiceRole,
@@ -245,6 +247,12 @@ function ServiceRoleRow({ role, roles, index, operatorId }: RowProps) {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
   const [label, setLabel] = useState(role.label)
+  const [receivesMainService, setReceivesMainService] = useState(
+    role.receives_main_service,
+  )
+  const [requiresPickupLocation, setRequiresPickupLocation] = useState(
+    role.requires_pickup_location,
+  )
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const invalidate = () =>
@@ -304,7 +312,22 @@ function ServiceRoleRow({ role, roles, index, operatorId }: RowProps) {
     reorderMutation.isPending
 
   if (editing) {
-    const dirty = label.trim() !== role.label
+    // Only send fields that actually changed — mirrors the minimal-PATCH
+    // convention used elsewhere on this screen (active toggle, reorder).
+    const buildPatch = (): Parameters<typeof updateServiceRole>[2] => {
+      const patch: Parameters<typeof updateServiceRole>[2] = {}
+      const trimmed = label.trim()
+      if (trimmed !== role.label) patch.label = trimmed
+      if (receivesMainService !== role.receives_main_service) {
+        patch.receives_main_service = receivesMainService
+      }
+      if (requiresPickupLocation !== role.requires_pickup_location) {
+        patch.requires_pickup_location = requiresPickupLocation
+      }
+      return patch
+    }
+    const dirty = Object.keys(buildPatch()).length > 0
+
     return (
       <li
         className="flex flex-wrap items-end gap-3 p-3"
@@ -327,12 +350,57 @@ function ServiceRoleRow({ role, roles, index, operatorId }: RowProps) {
             data-testid={`service-role-row-${role.id}-label`}
           />
         </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <Switch
+              id={`sr-${role.id}-receives-main-service`}
+              size="sm"
+              checked={receivesMainService}
+              onClick={() => setReceivesMainService((v) => !v)}
+              disabled={patchMutation.isPending}
+              data-testid={`service-role-row-${role.id}-receives-main-service`}
+            />
+            <Label
+              htmlFor={`sr-${role.id}-receives-main-service`}
+              className="cursor-pointer text-sm font-normal"
+            >
+              {t.serviceRolesSettings.fieldReceivesMainService}
+            </Label>
+          </div>
+          <p className="text-muted-foreground max-w-xs text-xs">
+            {t.serviceRolesSettings.receivesMainServiceHint}
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <Switch
+              id={`sr-${role.id}-requires-pickup-location`}
+              size="sm"
+              checked={requiresPickupLocation}
+              onClick={() => setRequiresPickupLocation((v) => !v)}
+              disabled={patchMutation.isPending}
+              data-testid={`service-role-row-${role.id}-requires-pickup-location`}
+            />
+            <Label
+              htmlFor={`sr-${role.id}-requires-pickup-location`}
+              className="cursor-pointer text-sm font-normal"
+            >
+              {t.serviceRolesSettings.fieldRequiresPickupLocation}
+            </Label>
+          </div>
+          <p className="text-muted-foreground max-w-xs text-xs">
+            {t.serviceRolesSettings.requiresPickupLocationHint}
+          </p>
+        </div>
+
         <div className="flex items-center gap-2">
           <Button
             type="button"
             size="sm"
             disabled={!dirty || patchMutation.isPending}
-            onClick={() => patchMutation.mutate({ label: label.trim() })}
+            onClick={() => patchMutation.mutate(buildPatch())}
             data-testid={`service-role-row-${role.id}-save`}
           >
             {patchMutation.isPending
@@ -346,6 +414,8 @@ function ServiceRoleRow({ role, roles, index, operatorId }: RowProps) {
             disabled={patchMutation.isPending}
             onClick={() => {
               setLabel(role.label)
+              setReceivesMainService(role.receives_main_service)
+              setRequiresPickupLocation(role.requires_pickup_location)
               setEditing(false)
             }}
           >
@@ -409,6 +479,8 @@ function ServiceRoleRow({ role, roles, index, operatorId }: RowProps) {
           disabled={busy}
           onClick={() => {
             setLabel(role.label)
+            setReceivesMainService(role.receives_main_service)
+            setRequiresPickupLocation(role.requires_pickup_location)
             setEditing(true)
           }}
           data-testid={`service-role-row-${role.id}-edit`}

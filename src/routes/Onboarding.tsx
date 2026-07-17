@@ -65,9 +65,7 @@ function clearStoredStep(operatorId: string) {
 /** Energetic resume copy — shown when the user isn't on step 1. */
 function resumeLabel(step: number, total: number): string {
   const pct = Math.round(((step - 1) / (total - 1)) * 100)
-  if (pct >= 80) return `Step ${step} of ${total} — almost there! 🚀`
-  if (pct >= 50) return `Step ${step} of ${total} — you're on a roll! ⚡`
-  return `Step ${step} of ${total}`
+  return t.onboarding.resume(step, total, pct)
 }
 
 export function Onboarding() {
@@ -211,18 +209,16 @@ function OnboardingInner({
     return <Navigate to="/" replace />
   }
 
-  // Mascot pose: wave on step 1 and 9 (done), celebrate on the last step,
-  // thinking on mid steps, empty-ish never — keep it encouraging.
+  // Mascot pose: wave on step 1, celebrate on the last step (9, "done"),
+  // thinking on every step in between — keep it encouraging.
   const mascotPose =
     step === 1
       ? 'wave'
       : step === TOTAL_STEPS
         ? 'celebrate'
-        : step >= 7
-          ? 'celebrate'
-          : step >= 4
-            ? 'thinking'
-            : 'wave'
+        : step >= 4
+          ? 'thinking'
+          : 'wave'
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-6">

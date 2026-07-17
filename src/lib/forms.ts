@@ -113,8 +113,11 @@ export function nameToFormKey(name: string): string {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
+    // Slice BEFORE stripping leading/trailing underscores — otherwise the
+    // 64-char cut can land right after a run of underscores that wasn't at
+    // the end of the original string, re-introducing a trailing `_`.
     .slice(0, 64)
+    .replace(/^_+|_+$/g, '')
 }
 
 // ── form_fields ─────────────────────────────────────────────────────────────
@@ -274,15 +277,19 @@ export async function createFormField(
   return data as unknown as FormField
 }
 
-/** Patch a form field (never key/field_type). Bumps form version server-side. */
+/** Patch a form field (never key/field_type). Bumps form version server-side.
+ *  Scoped by operator_id in addition to id — belt-and-suspenders parity with
+ *  patchForm, so this never relies solely on RLS. */
 export async function patchFormField(
   fieldId: string,
   patch: FormFieldPatch,
+  operatorId: string,
 ): Promise<FormField> {
   const { data, error } = await supabase
     .from('form_fields')
     .update(patch)
     .eq('id', fieldId)
+    .eq('operator_id', operatorId)
     .select(FIELD_SELECT)
     .single()
 
@@ -290,12 +297,18 @@ export async function patchFormField(
   return data as unknown as FormField
 }
 
-/** Delete a form field. Bumps form version server-side. */
-export async function deleteFormField(fieldId: string): Promise<void> {
+/** Delete a form field. Bumps form version server-side.
+ *  Scoped by operator_id in addition to id — belt-and-suspenders parity with
+ *  patchForm, so this never relies solely on RLS. */
+export async function deleteFormField(
+  fieldId: string,
+  operatorId: string,
+): Promise<void> {
   const { error } = await supabase
     .from('form_fields')
     .delete()
     .eq('id', fieldId)
+    .eq('operator_id', operatorId)
 
   if (error) throw new Error(error.message)
 }
